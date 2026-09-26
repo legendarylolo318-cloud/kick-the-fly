@@ -70,7 +70,23 @@ def groups(br) -> dict[str, np.ndarray]:
         mn_hind=np.flatnonzero(motor & (sub == "hl")), head_gust=head_gust,
         dn=np.flatnonzero(sc == "descending_neuron"), sensory=np.flatnonzero(np.char.find(sc, "sensory") >= 0),
         vpn=np.flatnonzero(sc == "visual_projection"),
+        pip10=T("pIP10"), ps1=np.flatnonzero(motor & (t == "ps1 MN")),
+        song_wm=np.flatnonzero(motor & (sub == "wm")),
+        dng28=T("DNg28"),
+        co2_orn=np.flatnonzero((t == "ORN_V") & (np.char.find(sc, "sensory") >= 0)),
+        co2_pn=np.flatnonzero(np.isin(t, ("V_ilPN", "V_l2PN"))),
+        trn_vp2=np.flatnonzero((t == "TRN_VP2") & (np.char.find(sc, "sensory") >= 0)),
+        vp2_pn=np.flatnonzero(np.isin(t, ("VP2_adPN", "VP2_l2PN", "VP2+_adPN", "VP1m+VP2_lvPN1", "VP1m+VP2_lvPN2"))),
+        trn_vp3=np.flatnonzero(np.isin(t, ("TRN_VP3a", "TRN_VP3b")) & (np.char.find(sc, "sensory") >= 0)),
+        vp3_pn=np.flatnonzero(np.isin(t, ("VP3+_l2PN", "VP3+_vPN", "VP1l+VP3_ilPN", "VP3+VP1l_ivPN", "VP5+VP3_l2PN"))),
     )
+    inst = np.array([("" if x is None else str(x)) for x in getattr(br, "instance", np.full(br.n, ""))])
+    t4a_l = np.flatnonzero((t == "T4a") & np.char.endswith(inst, "_L"))
+    t5a_l = np.flatnonzero((t == "T5a") & np.char.endswith(inst, "_L"))
+    t4b_r = np.flatnonzero((t == "T4b") & np.char.endswith(inst, "_R"))
+    t5b_r = np.flatnonzero((t == "T5b") & np.char.endswith(inst, "_R"))
+    g["optomotor_right"] = np.concatenate([t4a_l, t5a_l, t4b_r, t5b_r])
+    g["dna_steer_r"] = np.flatnonzero(np.isin(t, ("DNa01", "DNa02")) & np.char.endswith(inst, "_R"))
     g["mn_legs"] = np.concatenate([g["mn_front"], g["mn_mid"], g["mn_hind"]])
     W = abs(br.sim.W_csr)
 

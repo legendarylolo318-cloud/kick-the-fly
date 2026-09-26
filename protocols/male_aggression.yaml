@@ -1,0 +1,13 @@
+# Male-male aggression assay: activation of Fruitless/Tachykinin neurons
+# (AVLP727m / TK-FruM and the pC1 male cluster) associated with fighting and lunging.
+name: male_aggression
+seed: 1000
+flies: 5
+warmup_s: 2
+duration_s: 4
+stimuli:
+  - {at_s: 2.0, for_s: 2.0, target: "type:AVLP727m", mode: drive, amp: 0.5}
+recordings:
+  - {name: aggression_cluster, neurons: "prefix:pC1"}
+  - {name: tk_frum, neurons: "type:AVLP727m"}
+  - {name: descending, neurons: "superclass:descending_neuron"}

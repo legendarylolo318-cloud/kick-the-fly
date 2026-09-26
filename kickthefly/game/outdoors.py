@@ -17,6 +17,13 @@ What comes from the connectome and what is a game rule:
          the sugar tool does (and fermented fruit exactly as the alcohol tool does), and heals the fly.
          GAME RULE: the trees, the fruit, how much each fruit holds, regrowth, and the fly flying to a fruit, landing
          and feeding. The fly does not forage through its own circuitry: the game steers it to the fruit.
+  motion CONNECTOME: directional visual neurons T4/T5 (T4a/T5a progressive front-to-back, T4b/T5b regressive
+         back-to-front) and steering descending neurons DNa01/DNa02.
+         GAME RULE: Reichardt elementary motion detector (EMD) stage converting rotational yaw velocity into
+         directional T4/T5 input drive.
+  day/night CONNECTOME: photoreceptors R1-R8, circadian clock neurons (l-LNv, s-LNv, LNd, DN1), and dorsal fan-shaped
+         body (dFB) sleep neurons (FB6, FB7).
+         GAME RULE: orbital 24-hr day/night elevation cycle and thresholded dFB sleep state readout.
   space  GAME RULE: the ground, the sky, the rocks, grass and trees, and where the fly counts as lost.
 """
 from __future__ import annotations
@@ -95,6 +102,55 @@ def sun_light(yaw: float, az_deg: float, el_deg: float) -> tuple[float, float]:
     side = (-math.sin(yaw), math.cos(yaw))
     sideness = (math.cos(az) * side[0] + math.sin(az) * side[1]) * math.cos(el)
     return total * (1 - 0.35 * sideness), total * (1 + 0.35 * sideness)
+
+
+# --- optomotor: Reichardt / EMD motion detection ------------------------------------------------------------------
+def emd_motion_drive(yaw_rate: float, gain: float = 1.0) -> dict[str, float]:
+    """Reichardt/EMD motion detection stage feeding directional visual neurons T4/T5.
+    GAME RULE transduction.
+    yaw_rate: angular velocity of the visual field in rad/s (positive = visual world rotating right / clockwise).
+    Returns activation drive [0, 1] for progressive (T4a/T5a) and regressive (T4b/T5b) visual channels for left and right eyes.
+    """
+    resp = float(np.tanh(yaw_rate * gain))
+    # Rightward visual motion: right eye sees progressive motion (front-to-back), left eye sees regressive motion (back-to-front)
+    # Leftward visual motion: left eye sees progressive motion, right eye sees regressive motion
+    return {
+        "prog_r": max(0.0, resp),
+        "regr_l": max(0.0, resp),
+        "prog_l": max(0.0, -resp),
+        "regr_r": max(0.0, -resp),
+    }
+
+
+# --- circadian cycle and sleep state ------------------------------------------------------------------------------
+def diurnal_cycle(time_seconds: float, day_length_s: float = 600.0) -> tuple[float, float]:
+    """Computes (azimuth_deg, elevation_deg) along an orbital 24-hr day/night cycle.
+    GAME RULE: 360-degree diurnal sun path.
+    Elevation > 0 is day (peak +60 deg at noon), < 0 is night (nadir -30 deg at midnight).
+    """
+    phase = (time_seconds % day_length_s) / day_length_s * 2 * math.pi
+    az_deg = (math.degrees(phase) + 180.0) % 360.0
+    el_deg = 45.0 * math.sin(phase - math.pi / 2) + 15.0
+    return az_deg, el_deg
+
+
+def circadian_clock_drive(el_deg: float) -> dict[str, float]:
+    """Day/night drive to circadian clock neurons and photoreceptors.
+    Daylight (el_deg > 0) drives morning clock neurons (l-LNv, s-LNv); darkness allows dorsal/evening activity.
+    """
+    day_fraction = float(np.clip(el_deg / 60.0, 0.0, 1.0)) if el_deg > 0 else 0.0
+    return {
+        "light_level": day_fraction,
+        "morning_cells": day_fraction,
+        "evening_cells": 1.0 - day_fraction,
+    }
+
+
+def dfb_sleep_state(dfb_level: float, threshold: float = 2.0) -> bool:
+    """Evaluates whether elevated dorsal fan-shaped body (FB6/FB7) activity puts the fly into quiet sleep.
+    GAME RULE readout.
+    """
+    return bool(dfb_level > threshold)
 
 
 # --- scenery ------------------------------------------------------------------------------------------------------

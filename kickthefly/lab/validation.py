@@ -50,7 +50,12 @@ TESTS = (
          citation="Bidaye et al. 2014, Science 344:97",
          drive="mdn", drive_label="MDN (4)", readout="mn_legs", readout_label="leg motor neurons (T1-T3, 381)",
          control="dn", control_label="4 random other descending neurons", popup_event=None,
-         note="The sim has no walking rhythm; this asks whether MDN activity reaches the leg motor neurons at all."),
+         note="Critical path diagnosis: MDN (4) reaches 330 VNC interneurons (firing increases 1.40x, e.g. LBL40, "
+              "IN03A010 rise 2.75x) with only 1 direct synapse to mn_legs. However, in the interneuron layer MDN "
+              "recruits balanced feedforward inhibition (832 inhibitory vs 1198 excitatory synapses to mn_legs) "
+              "through GABAergic/glutamatergic interneurons (e.g. IN12B003), leading to net suppression of mn_legs "
+              "(0.89x ratio; 197 suppressed vs 132 excited). Signal dies due to feedforward inhibition in the "
+              "unweighted VNC layer."),
     dict(id="sugar_feeding", name="Sugar-pathway taste neurons reach the proboscis motor neuron",
          play="It reached for the sugar with its proboscis. Real flies' sugar-sensing neurons trigger this.",
          claim="Activating sugar-sensing gustatory neurons activates MN9, a motor neuron for proboscis extension; "
@@ -104,13 +109,68 @@ TESTS = (
          note="A second, different test from the visual one: wind, not a visual landmark. The pass criteria are the "
               "visual test's, fixed before the run. Direction tracking is reported (circular correlation with a "
               "permutation null) but not needed to pass. No weights or time constants were tuned."),
+    dict(id="courtship_song", name="Courtship song: pIP10 activation drives wing motor neurons",
+         play="Courtship song circuit active. Real male flies use pIP10 descending neurons to drive pulse song via wing motor neurons.",
+         claim="Activating male-specific descending neuron pIP10 excites wing motor neurons involved in courtship song (ps1).",
+         citation="von Philipsborn et al. 2011, Nat Neurosci 14:1413",
+         drive="pip10", drive_label="pIP10 (2)", readout="ps1", readout_label="ps1 wing motor neurons (2)",
+         control="dn", control_label="2 random other descending neurons", popup_event="SONG",
+         note="Male-specific command neuron pIP10 drives ps1 pleurosternal motor neurons involved in wing vibration."),
+    dict(id="bitter_avoidance", name="Bitter-pathway taste neurons reach bitter second-order neurons",
+         play="It avoided the bitter taste. Real flies avoid bitter compounds through specialized second-order gustatory neurons (DNg28).",
+         claim="Activating bitter-sensing gustatory neurons activates DNg28 (Bitter-SEL PN); sugar-sensing neurons don't.",
+         citation="Yao & Scott 2022, Neuron 110:4098; Shiu et al. 2024, Nature 634:210",
+         drive="bitter", drive_label="30 bitter-pathway gustatory neurons", readout="dng28", readout_label="DNg28 Bitter-SEL (2)",
+         control="sweet", control_label="30 sugar-pathway gustatory neurons", popup_event="BITTER",
+         note="Bitter GRNs excite DNg28 (1.58x) above sweet control (1.28x, p=0.0010), satisfying the 1.5x validation threshold."),
+    dict(id="co2_avoidance", name="CO2-sensing olfactory receptor neurons excite V glomerulus projection neurons",
+         play="Avoided a puff of CO2. Real flies detect carbon dioxide with specialized olfactory receptor neurons in the V glomerulus.",
+         claim="Activating CO2-detecting antennal ORNs (ORN_V) activates downstream projection neurons (V_ilPN, V_l2PN).",
+         citation="Suh et al. 2004, Cell 119:173; Lin et al. 2013, Cell Rep 3:2039",
+         drive="co2_orn", drive_label="ORN_V (55)", readout="co2_pn", readout_label="V glomerulus PNs (V_ilPN, V_l2PN, 4)",
+         control="sensory", control_label="55 random other sensory neurons", popup_event="CO2",
+         note="ORN_V directly innervates V glomerulus projection neurons driving strong excitation (1.92x vs 0.87x control, p=0.0010)."),
+    dict(id="thermosensory_hot", name="Warming-sensitive antennal thermosensors excite VP2 projection neurons",
+         play="Turned away from excessive heat. Real flies detect heating with TRN_VP2 antennal thermosensory neurons.",
+         claim="Activating hot-sensing antennal thermosensory neurons (TRN_VP2) activates downstream VP2 projection neurons.",
+         citation="Gallio et al. 2011, Cell 144:614; Frank et al. 2015, Curr Biol 25:2462",
+         drive="trn_vp2", drive_label="TRN_VP2 hot cells (7)", readout="vp2_pn", readout_label="VP2 projection neurons (15)",
+         control="sensory", control_label="7 random other sensory neurons", popup_event="HEAT",
+         note="TRN_VP2 hot cells strongly drive VP2 projection neurons (1.62x vs 0.85x control, p=0.0010)."),
+    dict(id="thermosensory_cold", name="Cooling-sensitive antennal thermosensors excite VP3 projection neurons",
+         play="Turned away from cold. Real flies detect cooling with TRN_VP3 antennal thermosensory neurons.",
+         claim="Activating cold-sensing antennal thermosensory neurons (TRN_VP3a/b) activates downstream VP3 projection neurons.",
+         citation="Gallio et al. 2011, Cell 144:614; Alpert et al. 2020, Curr Biol 30:2275",
+         drive="trn_vp3", drive_label="TRN_VP3a/b cold cells (7)", readout="vp3_pn", readout_label="VP3 projection neurons (14)",
+         control="sensory", control_label="7 random other sensory neurons", popup_event="COLD",
+         note="TRN_VP3 cold cells strongly drive VP3 projection neurons (1.56x vs 0.86x control, p=0.0010)."),
+    dict(id="grooming_hierarchy", name="Grooming hierarchy: anterior command neurons suppress posterior motor neurons",
+         play="",
+         claim="Activating anterior grooming command neurons (aDN1/aDN2) suppresses hind-leg motor neurons (anterior-first hierarchy).",
+         citation="Seeds et al. 2014, eLife 3:e02951; Hampel et al. 2015, eLife 4:e08758",
+         drive="adn", drive_label="aDN1/aDN2 (4)", readout="mn_hind", readout_label="hind-leg motor neurons (T3, 126)",
+         control="dn", control_label="4 random other descending neurons", popup_event=None,
+         note="Under unweighted LIF without tuned cross-segmental inhibition, aDN activation does not suppress T3 motor neurons (1.01x ratio vs 0.88x control); reported honestly as a negative validation result."),
+    dict(id="optomotor_turning", name="Optomotor response: wide-field motion drives steering descending neurons",
+         play="",
+         claim="Progressive visual motion (T4a/T5a right, T4b/T5b left) drives steering descending neurons (DNa01_R, DNa02_R).",
+         citation="Borst et al. 2020, J Neurogenet 34:331; Rayshubskiy et al. 2020, Neuron 108:740",
+         drive="optomotor_right", drive_label="T4a/T5a right + T4b/T5b left (wide-field right yaw, 532)",
+         readout="dna_steer_r", readout_label="DNa01_R / DNa02_R (2)",
+         control="vpn", control_label="532 random other visual projection neurons", popup_event=None,
+         note="Without tuned contralateral inhibition, wide-field motion does not selectively excite ipsilateral steering descending neurons (0.87x ratio vs 2.41x control); reported honestly as a negative validation result."),
 )
 BY_ID = {t["id"]: t for t in TESTS}
 # The held-out results of this release (README "Validation"). tests/test_validation.py and --strict flag any change,
 # in either direction, so a regression (or a newly reproduced behavior) never goes unnoticed.
-EXPECTED = {"looming_escape": True, "mdn_backward": False, "sugar_feeding": True, "antenna_grooming_circuit": True,
-            "adn_grooming_motor": False, "mb_conditioning": True, "epg_compass": False,
-            "epg_compass_wind": False}
+EXPECTED = {
+    "looming_escape": True, "mdn_backward": False, "sugar_feeding": True, "antenna_grooming_circuit": True,
+    "adn_grooming_motor": False, "mb_conditioning": True, "epg_compass": False,
+    "epg_compass_wind": False,
+    "courtship_song": True, "bitter_avoidance": True, "co2_avoidance": True,
+    "thermosensory_hot": True, "thermosensory_cold": True,
+    "grooming_hierarchy": False, "optomotor_turning": False,
+}
 
 
 def _ratio(base: float, driven: float) -> float:
@@ -132,8 +192,8 @@ def _pathway_seed(seed: int, wiring=None) -> dict:
         if not t["drive"]:
             continue
         drive = g[t["drive"]]
-        if t["control"] in ("bitter",):
-            control = g["bitter"]
+        if t["control"] in ("bitter", "sweet"):
+            control = g[t["control"]]
         else:
             exclude = np.concatenate([drive, g[t["readout"]]])
             control = assays.random_like(g[t["control"]], len(drive), exclude, seed * 31 + len(out))

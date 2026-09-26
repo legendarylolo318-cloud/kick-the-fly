@@ -180,15 +180,39 @@ proboscis comes out (drawn by the game). Sugar-pathway neurons -> MN9 is validat
 
 Real vs rule (REACTION_SOURCE): reactions triggered by live descending-neuron firing
 are tagged REAL; ones the game decides (eating, the lamp, memory-driven avoidance,
-silk, death, duel hits, flying to fruit, getting lost, recall) are tagged RULE. The movement itself is always game physics.
+silk, death, duel hits, flying to fruit, getting lost, recall, aggression lunge) are tagged RULE. The movement itself is always game physics.
+
+Courtship song (SONG): male-specific descending neuron pIP10 excites ps1 pleurosternal wing motor
+neurons (von Philipsborn et al. 2011). Validated (x1.68 vs x0.81 control, p=0.0010). Game rule: synthesized
+pulse-song buzz audio (220 Hz oscillation, 35 ms IPI) played when song readout crosses threshold.
+
+Male-male aggression (LUNGE): with multiple flies (N > 1), aggression-associated Fruitless/Tachykinin neurons
+(AVLP727m, annotated Asahina 2014: TK-FruM, and the pC1 male cluster) drive a lunge/fight reaction toward
+another fly. Contact with the other fly comes only through existing looming and touch inputs (CONNECTOME);
+the lunge motor response is tagged GAME RULE.
+
+Optomotor response: Reichardt/EMD motion detection stage (GAME RULE transduction) feeding directional T4/T5
+visual neurons (T4a/T5a progressive, T4b/T5b regressive). Steering via descending neurons DNa01/DNa02 fails
+validation under unweighted LIF (x0.87 vs x2.41 control; p=1.0000) due to lack of tuned contralateral inhibition;
+reported honestly as a negative validation result.
+
+Thermotaxis arena ("thermo"): floor temperature gradient (GAME RULE) driving real hot-sensing TRN_VP2 and
+cold-sensing TRN_VP3 antennal neurons (CONNECTOME). Validated: TRN_VP2 excites VP2 PNs (x1.62 vs x0.85 control,
+PASS); TRN_VP3 excites VP3 PNs (x1.56 vs x0.86 control, PASS).
+
+Day/night cycle and sleep: sun elevation cycle in outdoor worlds (GAME RULE) drives real photoreceptors R1-R8
+and circadian clock neurons (l-LNv, s-LNv, LNd, DN1). Elevated dorsal fan-shaped body (FB6/FB7) activity triggers
+a quiet sleep state readout (GAME RULE).
 
 Validation (validation.py): which published results this sim reproduces, on held-out
-seeds with pass criteria fixed beforehand. Pass: looming -> giant fiber, sugar -> MN9,
-antennal touch -> aDN, T-maze conditioning. Fail: MDN -> backward walking (MDN doesn't
-reach the leg motor neurons), aDN -> front-leg motor neurons, and no E-PG
-head-direction bump forms, neither from a driven wedge nor (2.7) from the open field's
-steady wind (contrast 1.81x vs 3.0x needed, 101 ms vs 500 ms). Real-science cards in
-Play mode come only from passing tests; the BACK UP reaction (MDN) is a game rule.
+seeds with pass criteria fixed beforehand.
+Pass: looming -> giant fiber, sugar -> MN9, antennal touch -> aDN, T-maze conditioning,
+courtship song (pIP10 -> ps1), bitter avoidance (Bitter GRN -> DNg28), CO2 avoidance (ORN_V -> V PNs),
+hot antennal thermosensors (TRN_VP2 -> VP2 PNs), cold antennal thermosensors (TRN_VP3 -> VP3 PNs).
+Fail: MDN -> backward walking (MDN recruits feedforward inhibition in the unweighted VNC layer),
+aDN -> front-leg motor neurons, grooming hierarchy (aDN -> mn_hind), optomotor turning (T4/T5 -> DNa01/02),
+and no E-PG head-direction bump forms, neither from a driven wedge nor (2.7) from the open field's steady wind.
+Real-science cards in Play mode come only from passing tests; the BACK UP reaction (MDN) is a game rule.
 
 Assays and challenges (assays.py, challenges.py): T-maze conditioning (the choice at
 the fork and each odor's glomeruli are game rules), looming escape (uses the game's
@@ -264,6 +288,15 @@ from kickthefly.core.simclock import SimClock
 from kickthefly.core.crash import log
 from kickthefly.core.version import __version__
 
+if "brain.arena" in config.BY_KEY and "thermo" not in config.BY_KEY["brain.arena"].options:
+    _opt = list(config.BY_KEY["brain.arena"].options)
+    _lab = list(config.BY_KEY["brain.arena"].labels)
+    _idx = _opt.index("escaperoom") if "escaperoom" in _opt else len(_opt)
+    _opt.insert(_idx, "thermo")
+    _lab.insert(_idx, "Thermotaxis")
+    object.__setattr__(config.BY_KEY["brain.arena"], "options", tuple(_opt))
+    object.__setattr__(config.BY_KEY["brain.arena"], "labels", tuple(_lab))
+
 W, H = 1280, 760
 PLAY_W = 890                 # left part is the arena, right part the brain panel
 FLOOR = 640
@@ -325,7 +358,7 @@ POPS = (  # population name, superclasses
 # DNg02 (29 wing-power DNs) rests at ~7 spikes/s; over 30 s of play its level never passed 1.64x (p99.9 1.60), so 1.58x
 # takes off now and then.
 # DNp01, the giant fiber: over 60 s calm its level never passed 2.64x; driving the looming detectors took it to 7-12x.
-THRESH = {"groom": 4.0, "jump": 3.0, "run": 2.4, "kick": 2.0, "walk": 3.0, "back": 3.8, "turn": 2.1, "fly": 1.58, "escape": 4.0, "fire": 3.0}
+THRESH = {"groom": 4.0, "jump": 3.0, "run": 2.4, "kick": 2.0, "walk": 3.0, "back": 3.8, "turn": 2.1, "fly": 1.58, "escape": 4.0, "fire": 3.0, "song": 1.5, "aggression": 2.0, "sleep": 2.0}
 PAIN_WEIGHTS = np.array([0.55, 0.25, 0.55, 0.20, 0.30])   # touch, thermal, chemical, DN alarm, body relay; cap 100
 PAIN_LEVELS = (  # name, share of a region's neurons a light touch recruits, how hard the rest of the body's sensors join
     ("normal", 0.3, 0.0), ("more", 0.6, 0.5), ("max", 1.0, 1.0),
@@ -427,6 +460,10 @@ class Brain:
         # DNg62 and DNge078, "Hampel 2015: aDN1/aDN2") and the proboscis motor neuron MN9
         add_detail("groom", is_dn & np.isin(types, ("DNg62", "DNge078")))
         add_detail("proboscis", np.isin(types, ("MN9",)))
+        add_detail("song", (sc == "vnc_motor") & (types == "ps1 MN"))
+        add_detail("aggression", np.isin(types, ("AVLP727m",)) | (np.char.startswith(types, "pC1") & (sc == "cb_intrinsic")))
+        add_detail("sleep", np.char.startswith(types, "FB6") | np.char.startswith(types, "FB7"))
+        add_detail("co2", np.isin(types, ("V_ilPN", "V_l2PN")))
         # the rest of the body's sensory neurons (campaniform sensilla, hair plates, chordotonal organs, unnamed SN*):
         # only counted and driven when the pain setting asks for more neurons
         body_extra = add_detail("body_extra", np.isin(sc, ("vnc_sensory", "vnc_sensory_tbc", "sensory_ascending",
@@ -1031,7 +1068,7 @@ for wtip in WING:
     LINKS += [(THX, wtip, 0.9, False), (ABD, wtip, 0.6, True), (HEAD, wtip, 0.3, True)]
 LINK_LEN = [float(np.hypot(*(REST[a] - REST[b]))) for a, b, _, _ in LINKS]
 MAX_HEALTH = 100.0
-ARENAS = ("room", "fan", "flypaper", "pool", "lamp", "escaperoom", "field", "orchard")
+ARENAS = ("room", "fan", "flypaper", "pool", "lamp", "thermo", "escaperoom", "field", "orchard")
 OUTDOOR_ARENAS = ("field", "orchard")            # 3D only: large open worlds (kickthefly/game/outdoors.py)
 WATER_Y = FLOOR - 140                 # pool surface
 PAPER_X = (230.0, 660.0)              # flypaper strip on the floor
@@ -1647,16 +1684,17 @@ assert tuple(t[0] for t in TOOLS) == TOOL_NAMES
 REACTION_SOURCE = {
     "DODGE": "real", "FLY AWAY": "real", "TAKE OFF": "real", "RUN": "real", "KICK": "real", "BACK UP": "real",
     "WALK": "real", "TURN": "real", "SHOOT": "real", "GROOM": "real", "PROBOSCIS": "real",
+    "SONG": "real", "CO2": "real", "HEAT": "real", "COLD": "real", "BITTER": "real",
     "EATING": "rule", "TO LIGHT": "rule", "AVOID": "rule", "APPROACH": "rule", "FLEE": "rule", "WRAPPED": "rule",
     "BROKE FREE": "rule", "DIED": "rule", "HIT YOU": "rule", "YOU DIED": "rule", "AUTOPILOT": "rule",
     "PHOTO MODE": "rule", "ALCOHOL": "rule", "INEBRIATED": "rule", "STUMBLE": "rule", "SIP": "rule", "DRINKING": "rule",
-    "TO FRUIT": "rule", "LOST": "rule", "RECALL": "rule",
+    "TO FRUIT": "rule", "LOST": "rule", "RECALL": "rule", "LUNGE": "rule", "FIGHT": "rule",
 }
 POPUP_SOURCE = {"DODGE!": "real", "YIKES!": "real", "NOPE!": "rule", "RUN AWAY!": "rule", "YUM!": "rule",
                 "SWEET!": "rule", "NOM NOM": "rule", "K.O.!": "rule", "BROKE FREE!": "rule", "FLY WINS!": "rule",
                 "GOTCHA!": "rule", "PEW PEW!": "rule", "TAKE THAT!": "rule", "AUTOPILOT": "rule", "SPECTATOR": "rule",
                 "PHOTO MODE": "rule", "*HIC*": "rule", "SIP...": "rule", "GLUG!": "rule", "STUMBLE!": "rule",
-                "ALL GONE": "rule"}
+                "ALL GONE": "rule", "♪ BUZZ ♪": "rule", "LUNGE!": "rule", "BITTER!": "real"}
 SOURCE_TIP = {"real": "REAL: triggered by the connectome sim's own neurons firing above a threshold.",
               "rule": "RULE: a game rule, not something the connectome sim produced."}
 
@@ -1836,6 +1874,17 @@ class Sound:
         c2 = np.sin(2 * np.pi * 1100 * t2) * np.exp(-t2 * 80) + noise(0.06) * np.exp(-t2 * 100) * 0.5
         pause = np.zeros(int(R * 0.02))
         fx["shutter"] = self._snd(np.concatenate([c1, pause, c2]), 0.6)
+
+        # Drosophila courtship pulse song buzz (GAME RULE audio): 220 Hz oscillation with 35 ms IPI
+        tt_song = t(0.42)
+        song_wave = np.zeros_like(tt_song)
+        n_pulses = int(0.42 / 0.035)
+        for pi in range(n_pulses):
+            p_start = pi * 0.035
+            p_mask = (tt_song >= p_start) & (tt_song < p_start + 0.012)
+            tau = tt_song[p_mask] - p_start
+            song_wave[p_mask] = np.sin(2 * np.pi * 220 * tau) * np.sin(np.pi * tau / 0.012)
+        fx["pulse_song"] = self._snd(song_wave * 0.6, 0.4)
 
         # Extracellular biphasic action potential clicks (~1.5 to 15 ms) for brain stethoscope sonification
         t_spk = t(0.002)
@@ -3396,6 +3445,27 @@ class Game:
         else:
             slot.mn9_bout = []
             slot.mn9_calm = getattr(slot, "mn9_calm", mn9) + (mn9 - getattr(slot, "mn9_calm", mn9)) * 0.02
+        song_lvl = br.level("song")
+        if song_lvl > THRESH["song"] and now >= getattr(slot, "song_ready", 0.0):
+            slot.song_ready = now + 1.8
+            self.note(f"SONG     pIP10 -> ps1 x{song_lvl:.1f}")
+            self.on_reaction("SONG", slot)
+            self.sound.play("pulse_song")
+            head_offset = np.array([0.0, 0.4, 0.0]) if len(fly.p[HEAD]) == 3 else np.array([0.0, -60.0])
+            self.popup(fly.p[HEAD] + head_offset, "♪ BUZZ ♪", (255, 180, 220))
+        co2_lvl = br.level("co2")
+        if co2_lvl > 2.0 and now >= getattr(slot, "co2_ready", 0.0):
+            slot.co2_ready = now + 3.0
+            self.note(f"CO2      V glomerulus x{co2_lvl:.1f}")
+            self.on_reaction("CO2", slot)
+        heat_lvl = br.level("heat")
+        if heat_lvl > 2.0 and now >= getattr(slot, "heat_ready", 0.0):
+            slot.heat_ready = now + 3.0
+            self.on_reaction("HEAT", slot)
+        cold_lvl = br.level("cold")
+        if cold_lvl > 2.0 and now >= getattr(slot, "cold_ready", 0.0):
+            slot.cold_ready = now + 3.0
+            self.on_reaction("COLD", slot)
 
     def _memory_behavior(self, slot: "FlySlot", now: float, free: bool, can_fly: bool) -> None:
         fly = slot.fly
@@ -3532,6 +3602,20 @@ class Game:
                     record_score("escaperoom_speedrun", run_time, "low")
                     self.sound.play("yum")
                     self.note(f"ESCAPEROOM CLEAR {run_time:.2f}s ({self.escaperoom_code})")
+        elif arena == "thermo":
+            x_pos = float(fly.p[THX, 0])
+            cold_str = float(np.clip((445.0 - x_pos) / 365.0, 0.0, 1.0))
+            hot_str = float(np.clip((x_pos - 445.0) / 365.0, 0.0, 1.0))
+            if not fly.dead and self.frame % 3 == 0:
+                if cold_str > 0.05:
+                    br.poke("cold", None, cold_str)
+                if hot_str > 0.05:
+                    br.poke("heat", None, hot_str)
+            if fly.p[THX, 1] > FLOOR - 30 and not fly.dead:
+                if hot_str > 0.85:
+                    self.damage(slot, 0.02, "extreme heat")
+                elif cold_str > 0.85:
+                    self.damage(slot, 0.02, "extreme cold")
         if arena != "pool":
             fly.wet = max(0.0, fly.wet - 1 / 60)
         elif not (fly.p[:, 1] > WATER_Y).any():
@@ -3612,6 +3696,27 @@ class Game:
             pygame.draw.circle(surf, (255, 245, 220), (int(gx), int(gy)), 14)
             pygame.draw.circle(surf, (255, 255, 255), (int(gx), int(gy)), int(10 * sparkle))
             self._text(surf, "★ SUGAR GOAL ★", (int(gx), FLOOR + 10), (255, 220, 100), self.f_small, "midtop")
+        elif arena == "thermo":
+            bar_y = FLOOR - 6
+            bar_h = 10
+            n_segs = 40
+            seg_w = PLAY_W / n_segs
+            for s in range(n_segs):
+                frac = s / (n_segs - 1)
+                if frac < 0.5:
+                    t_val = frac / 0.5
+                    r = int(50 * (1 - t_val) + 40 * t_val)
+                    g = int(120 * (1 - t_val) + 180 * t_val)
+                    b = int(230 * (1 - t_val) + 110 * t_val)
+                else:
+                    t_val = (frac - 0.5) / 0.5
+                    r = int(40 * (1 - t_val) + 230 * t_val)
+                    g = int(180 * (1 - t_val) + 60 * t_val)
+                    b = int(110 * (1 - t_val) + 40 * t_val)
+                pygame.draw.rect(surf, (r, g, b), (int(s * seg_w), bar_y, int(seg_w) + 1, bar_h))
+            self._text(surf, "COLD (15°C)", (100, FLOOR + 10), (70, 150, 240), self.f_small, "midtop")
+            self._text(surf, "COMFORT (24°C)", (int(PLAY_W / 2), FLOOR + 10), (80, 200, 140), self.f_small, "midtop")
+            self._text(surf, "HOT (35°C)", (PLAY_W - 100, FLOOR + 10), (240, 90, 60), self.f_small, "midtop")
 
     def _draw_arena_front(self, surf, now: float) -> None:
         if ARENAS[self.arena_i] != "pool":
@@ -4837,6 +4942,26 @@ class Game:
                     fly.facing = new
                     self.note(f"TURN {'R' if new > 0 else 'L'}   DNa01/02 R-L {turn:+.1f}")
 
+            # Multi-fly male aggression (Task 2): Fruitless/TK neurons drive lunge toward nearby fly (GAME RULE)
+            if len(self.flies) > 1 and br.level("aggression") > THRESH["aggression"] and now >= getattr(slot, "lunge_ready", 0.0) and free:
+                nearest, best_d = None, float("inf")
+                for other in self.flies:
+                    if other is slot or other.fly.dead:
+                        continue
+                    d_other = float(np.hypot(*(other.fly.p[THX] - fly.p[THX])))
+                    if d_other < best_d:
+                        nearest, best_d = other, d_other
+                if nearest is not None and best_d < 180.0:
+                    slot.lunge_ready = now + 1.8
+                    vec = (nearest.fly.p[THX] - fly.p[THX]) / max(best_d, 1.0)
+                    fly.facing = 1 if vec[0] > 0 else -1
+                    fly.impulse(THX, vec * 6.0 + np.array([0.0, -2.5]))
+                    self.note(f"LUNGE    FruM/TK x{br.level('aggression'):.1f}")
+                    self.on_reaction("LUNGE", slot)
+                    head_offset = np.array([0.0, 0.4, 0.0]) if len(fly.p[HEAD]) == 3 else np.array([0.0, -60.0])
+                    self.popup(fly.p[HEAD] + head_offset, "LUNGE!", (255, 120, 80))
+                    self.sound.play("whack")
+
         self._update_focus()
         self._training_tick(now)
         self._sound_update(now)
@@ -4872,6 +4997,8 @@ class Game:
                             slot.brain.poke("body", None, 0.5 * s)
                             slot.brain.poke("legs", None, 0.3 * s)
                             fly.hurt = max(fly.hurt, 0.3)
+                    if sa.brain.level("aggression") > THRESH["aggression"] or sb.brain.level("aggression") > THRESH["aggression"]:
+                        self.note("FIGHT    aggression collision")
 
     def _die(self, slot: "FlySlot", now: float) -> None:
         fly = slot.fly

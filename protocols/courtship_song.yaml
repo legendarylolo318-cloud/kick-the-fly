@@ -1,0 +1,13 @@
+# Courtship song assay: male-specific command neuron pIP10 activation
+# driving ps1 pleurosternal wing motor neurons involved in wing vibration (von Philipsborn et al. 2011).
+name: courtship_song
+seed: 1000
+flies: 5
+warmup_s: 2
+duration_s: 4
+stimuli:
+  - {at_s: 2.0, for_s: 2.0, target: pip10, mode: drive, amp: 0.5}
+recordings:
+  - {name: ps1_motor, neurons: ps1}
+  - {name: song_wm, neurons: song_wm}
+  - {name: descending, neurons: "superclass:descending_neuron"}

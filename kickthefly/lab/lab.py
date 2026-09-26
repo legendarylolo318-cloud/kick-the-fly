@@ -38,6 +38,9 @@ PARAMS = (
     ("thresh.turn", "Turn: DNa01/02 R-L above", "rule", 2.1, 0.5, 8.0, 0.1, "{:.1f}", "Steering difference threshold."),
     ("thresh.fly", "Take off: DNg02 above", "rule", 1.58, 1.1, 4.0, 0.02, "{:.2f}x", "Wing-power threshold."),
     ("thresh.fire", "Shoot: DNp35 above", "rule", 3.0, 1.2, 8.0, 0.1, "{:.1f}x", "Duel trigger threshold."),
+    ("thresh.song", "Song: ps1 wing MNs above", "rule", 1.5, 1.0, 5.0, 0.1, "{:.1f}x", "Courtship song wing motor threshold."),
+    ("thresh.aggression", "Aggression: FruM/TK above", "rule", 2.0, 1.0, 5.0, 0.1, "{:.1f}x", "Male aggression lunge threshold."),
+    ("thresh.sleep", "Sleep: dFB above", "rule", 2.0, 1.0, 5.0, 0.1, "{:.1f}x", "dFB sleep state readout threshold."),
     ("loom_min", "Looming: ignored below (rad/s)", "rule", 1.5, 0.0, 6.0, 0.1, "{:.1f}",
      "Angular expansion speed below which approaching objects don't drive LPLC2/LC4 at all."),
     ("loom_full", "Looming: full drive span (rad/s)", "rule", 8.0, 1.0, 20.0, 0.5, "{:.1f}",
@@ -319,6 +322,36 @@ ASSUMPTIONS = (
      "Real neurons are not deterministic at all; the point of bit-exactness is reproducibility of this model, not "
      "biological fidelity. The backend that ran is recorded with every result.",
      "kickthefly/sim/connectome/backends.py · tests/test_backends.py"),
+
+    ("Synthesized courtship pulse-song buzz audio",
+     "GAME RULE",
+     "When wing motor readout (ps1 MN) exceeds threshold, a synthesized pulse-song waveform is played (220 Hz oscillation, 35 ms inter-pulse interval).",
+     "Real male Drosophila courtship song is produced through thoracic resonance, wing vibration mechanics, and dynamic auditory feedback. Here, the audio waveform is procedurally generated upon neural threshold crossing.",
+     "kickthefly/game/kick_the_fly.py:Sound · validation: courtship_song"),
+
+    ("Multi-fly aggression lunge from Fruitless/TK neurons",
+     "GAME RULE",
+     "For N > 1 flies, elevated activity in aggression-associated FruM/TK neurons (AVLP727m / pC1) drives a lunge reaction toward the nearest fly upon looming or physical contact.",
+     "Male-male aggression involves complex social cues, cuticular pheromones, and coordinated motor programs. Here, inter-fly interaction is mediated strictly through existing looming and touch inputs, triggering a scripted lunge reaction.",
+     "kickthefly/game/kick_the_fly.py:Game._movement · protocol: male_aggression.yaml"),
+
+    ("Reichardt elementary motion detector (EMD) stage feeding T4/T5",
+     "GAME RULE",
+     "Visual rotational motion is converted into progressive/regressive signals driving directional T4/T5 visual neurons using a Reichardt elementary motion detector filter.",
+     "Real Drosophila motion detection involves non-spiking lamina and medulla circuits (L1-L3, Mi1, Tm3) feeding T4 and T5 dendrites with asymmetric spatio-temporal filtering. Here, an algorithmic Reichardt detector bypasses medulla biophysics to drive T4/T5 directly.",
+     "kickthefly/game/outdoors.py:emd_motion_drive · validation: optomotor_turning"),
+
+    ("Thermotaxis arena temperature gradient transduction",
+     "GAME RULE",
+     "The 'thermo' arena maps horizontal arena coordinates (x) to a floor temperature gradient, injecting current into real TRN_VP3 cold sensors on the left (<380) and real TRN_VP2 hot sensors on the right (>510).",
+     "Real flies sense ambient and surface temperature via thermosensitive ion channels (TRPA1, Gr28b, B chivalric) in antennal and chordotonal organs with dynamic thermal adaptation. Here, a linear spatial temperature gradient drives antennal sensory rows directly.",
+     "kickthefly/game/kick_the_fly.py:Game._environment_one · validation: thermosensory_hot, thermosensory_cold"),
+
+    ("Circadian day/night cycle and dFB sleep readout",
+     "GAME RULE",
+     "The sun's elevation follows an orbital day/night cycle driving photoreceptors (R1-R8) and circadian clock neurons (l-LNv, s-LNv, LNd, DN1). Elevated dorsal fan-shaped body (FB6/FB7) activity triggers a quiet sleep state readout.",
+     "Drosophila circadian rhythms and sleep homeostat involve molecular transcriptional clock loops (per/tim/clk/cyc), slow neuropeptide PDF release, and sleep-promoting dFB switches. The sim simulates LIF point dynamics with a scripted light elevation cycle and dFB rate threshold.",
+     "kickthefly/game/outdoors.py:diurnal_cycle · kickthefly/game/kick_the_fly.py:Brain"),
 )
 
 
