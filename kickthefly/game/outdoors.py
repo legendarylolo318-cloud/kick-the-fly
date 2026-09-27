@@ -17,13 +17,16 @@ What comes from the connectome and what is a game rule:
          the sugar tool does (and fermented fruit exactly as the alcohol tool does), and heals the fly.
          GAME RULE: the trees, the fruit, how much each fruit holds, regrowth, and the fly flying to a fruit, landing
          and feeding. The fly does not forage through its own circuitry: the game steers it to the fruit.
-  motion CONNECTOME: directional visual neurons T4/T5 (T4a/T5a progressive front-to-back, T4b/T5b regressive
-         back-to-front) and steering descending neurons DNa01/DNa02.
-         GAME RULE: Reichardt elementary motion detector (EMD) stage converting rotational yaw velocity into
-         directional T4/T5 input drive.
-  day/night CONNECTOME: photoreceptors R1-R8, circadian clock neurons (l-LNv, s-LNv, LNd, DN1), and dorsal fan-shaped
-         body (dFB) sleep neurons (FB6, FB7).
-         GAME RULE: orbital 24-hr day/night elevation cycle and thresholded dFB sleep state readout.
+  motion CONNECTOME: the direction-selective T4/T5 neurons (T4a/T5a front-to-back, T4b/T5b back-to-front) and
+         everything after them, down to the steering DNs DNa01/DNa02 (validated: optomotor_turning).
+         GAME RULE: emd_motion_drive, the stage that turns a yaw rotation into T4/T5 current. Used by the Lab
+         (validation, protocols); the game loop doesn't feed it the fly's view.
+  day/night CONNECTOME: the photoreceptors R1-R8 and the morning clock neurons l-LNv/s-LNv that daylight drives, and
+         everything downstream of them, including the dorsal fan-shaped body (FB6/FB7) the SLEEP readout watches.
+         GAME RULE: the cycle itself (outdoor.day_s, off by default; noon +60 deg, midnight -30 deg), light reaching
+         the LNvs directly (real ones see it through the H-B eyelet and CRY), the scene darkening, and the dFB
+         threshold that means sleep. In testing a whole day never moved dFB past ~1.5x, so the fly doesn't sleep on
+         its own.
   space  GAME RULE: the ground, the sky, the rocks, grass and trees, and where the fly counts as lost.
 """
 from __future__ import annotations
@@ -135,15 +138,29 @@ def diurnal_cycle(time_seconds: float, day_length_s: float = 600.0) -> tuple[flo
 
 
 def circadian_clock_drive(el_deg: float) -> dict[str, float]:
-    """Day/night drive to circadian clock neurons and photoreceptors.
-    Daylight (el_deg > 0) drives morning clock neurons (l-LNv, s-LNv); darkness allows dorsal/evening activity.
-    """
+    """Day/night drive to the clock neurons (GAME RULE). Daylight (el_deg > 0) drives the morning cells l-LNv and s-LNv
+    directly, full at 60 deg; the game uses only "morning_cells". "evening_cells" is the complement, kept for Lab
+    scripts; nothing in the game drives the evening cells (LNd, DN1), since darkness doesn't excite them in flies."""
     day_fraction = float(np.clip(el_deg / 60.0, 0.0, 1.0)) if el_deg > 0 else 0.0
     return {
         "light_level": day_fraction,
         "morning_cells": day_fraction,
         "evening_cells": 1.0 - day_fraction,
     }
+
+
+def sun_now(params: dict, t: float, day_s: float = 0.0) -> tuple[float, float]:
+    """(azimuth, elevation) in degrees: the Lab's fixed sun, or the day/night cycle at game time t (GAME RULE) when
+    the Lab's outdoor.day_s, or failing that day_s (Settings > Brain > Day/night cycle), is above 0."""
+    day = float(params.get("outdoor.day_s", 0.0)) or float(day_s)
+    if day > 0:
+        return diurnal_cycle(t, day)
+    return float(params.get("outdoor.sun_az", 135.0)), float(params.get("outdoor.sun_el", 45.0))
+
+
+def dusk(el_deg: float) -> float:
+    """How much daylight the scene has, 0 (night, sun 10 deg below the horizon) to 1 (sun 15 deg up or higher)."""
+    return float(np.clip((el_deg + 10.0) / 25.0, 0.0, 1.0))
 
 
 def dfb_sleep_state(dfb_level: float, threshold: float = 2.0) -> bool:

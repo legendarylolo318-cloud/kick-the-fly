@@ -132,11 +132,25 @@ SETTINGS: tuple[Setting, ...] = (
     S("brain.autopilot_hide_hud", "Brain", "Autopilot hide HUD", "bool", True,
       "Hide HUD in spectator mode for demo or screensaver use.", tag=GAME_RULE),
     S("brain.arena", "Brain", "Arena", "choice", "room",
-      "Where the fly lives. Room is the default. Open field and Orchard are large outdoor 3D worlds (the 2D game "
-      "stays indoors). The sensory neurons each arena drives are real; the places themselves are game rules. "
-      "Hotkey E cycles them.",
-      options=("room", "fan", "flypaper", "pool", "lamp", "escaperoom", "field", "orchard"),
-      labels=("Room", "Fan", "Flypaper", "Pool", "Lamp", "Escape room", "Open field", "Orchard"), tag=GAME_RULE),
+      "Where the fly lives. Room is the default. Thermo has a floor running from cold (left) to hot (right) that "
+      "drives its real cold- and hot-sensing antennal neurons. Open field and Orchard are large outdoor 3D worlds "
+      "(the 2D game stays indoors). The sensory neurons each arena drives are real; the places themselves are game "
+      "rules. Hotkey E cycles them.",
+      options=("room", "fan", "flypaper", "pool", "lamp", "thermo", "escaperoom", "field", "orchard"),
+      labels=("Room", "Fan", "Flypaper", "Pool", "Lamp", "Thermo", "Escape room", "Open field", "Orchard"),
+      tag=GAME_RULE),
+    S("brain.song_buzz", "Brain", "Courtship song buzz", "bool", True,
+      "Plays a synthesized pulse-song buzz when its ps1 wing motor neurons fire (SONG). The neurons are real "
+      "(pIP10 -> ps1 is validated); the sound is the game's.", tag=GAME_RULE),
+    S("brain.lunge", "Brain", "Aggression lunges", "bool", True,
+      "With two or more flies, a fly whose aggression neurons (AVLP727m, pC1/P1) fire strongly lunges at the "
+      "nearest one. The firing is real; the lunge is scripted. They rarely fire that hard unless P1 is stimulated in "
+      "brain surgery.",
+      tag=GAME_RULE),
+    S("brain.day_night", "Brain", "Day/night cycle", "choice", 0,
+      "Outdoors, the sun circles once a day and night falls. Daylight drives the real photoreceptors and morning "
+      "clock neurons (l-LNv, s-LNv); the cycle and that link are game rules. Lab > Parameters can set any day length.",
+      options=(0, 300, 600, 1200), labels=("Off", "5 min day", "10 min day", "20 min day"), only="3d", tag=GAME_RULE),
     S("brain.mirror_weights", "Brain", "Mirror-average weights", "bool", False,
       "Average left and right synaptic weights to enforce bilateral symmetry. Clearly a data modification game rule.",
       tag=GAME_RULE),
