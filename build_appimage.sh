@@ -20,7 +20,16 @@ if [ ! -d .venv-build ]; then
     "$PY" -m venv .venv-build
     .venv-build/bin/pip install --upgrade pip
 fi
-.venv-build/bin/pip install numpy scipy pygame pyinstaller pillow moderngl pyyaml
+# PYGAME=pygame-ce builds with pygame-ce instead (same `import pygame`). pygame 2.6.1's cp314 wheel ships without its
+# mixer, so on Python 3.14 the game would run silently: use pygame-ce there. The check below refuses such a build.
+PYGAME=${PYGAME:-pygame}
+if [ "$PYGAME" != pygame ]; then .venv-build/bin/pip uninstall -y pygame >/dev/null 2>&1 || true; fi
+if [ "$PYGAME" != pygame-ce ]; then .venv-build/bin/pip uninstall -y pygame-ce >/dev/null 2>&1 || true; fi
+.venv-build/bin/pip install numpy scipy "$PYGAME" pyinstaller pillow moderngl pyyaml
+if ! .venv-build/bin/python -c "import pygame.mixer" 2>/dev/null; then
+    echo "error: this pygame has no mixer, so the AppImage would have no sound. Rebuild with PYGAME=pygame-ce." >&2
+    exit 1
+fi
 
 .venv-build/bin/python tools/make_icon.py build/icon.png
 
