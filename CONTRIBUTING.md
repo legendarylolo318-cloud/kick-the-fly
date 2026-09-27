@@ -29,7 +29,7 @@ tests/                     pytest suite; `-m "not validation"` skips the slow va
 protocols/                 bundled YAML example protocols
 docs/                      the Lab, validation, performance and Python API docs, the example notebook, and the
                            screenshots and demo GIF used by the README (tools/make_screenshots.py makes them)
-packaging/                 Linux desktop/appdata files, the AUR package and the Flatpak manifest (local builds)
+packaging/                 Linux desktop/appdata files and icon, and the Flatpak manifest (local builds)
 tools/                     dev and one-off scripts (benchmarks, profiler, screenshots, icon) — not imported by the game
 data/                      **not in git**: the connectome download, graph.pkl and kick_brain.npz
 ```
