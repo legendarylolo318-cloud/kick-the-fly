@@ -192,46 +192,57 @@ TESTS = (
               "Yu 2010: pMP4\" (assays.P1_TYPES). Added in 2.9 alongside pIP10, with the same criteria. Consistent "
               "but too weak. P1 sends pIP10 1,503 synapses and ps1 none, so it is one step further from the motor "
               "neurons than pIP10."),
-    dict(id="or67d_to_da1pn", name="cVA-sensing ORNs (Or67d) excite the DA1 projection neurons",
+    dict(id="or67d_to_da1pn", name="cVA-sensing ORNs (DA1, Or67d) excite the DA1 projection neurons",
          play="",
-         claim="Activating the cVA-sensing antennal ORNs (ORN_DA1 / Or67d) excites the DA1 glomerulus projection neurons.",
-         citation="Kurtovic et al. 2007, Nature 446:542; Datta et al. 2008, Nature 452:338; Schlief & Wilson 2007, Nat Neurosci 10:623",
-         drive="or67d_orn", drive_label="ORN_DA1 / Or67d (204)", readout="da1_pn",
+         claim="Activating the DA1 olfactory receptor neurons, the Or67d cVA sensors, excites the DA1 projection neurons.",
+         citation="Kurtovic et al. 2007, Nature 446:542; Datta et al. 2008, Nature 452:473",
+         drive="or67d_orn", drive_label="ORN_DA1 (204)", readout="da1_pn",
          readout_label="DA1 PNs (DA1_lPN, DA1_vPN, M_lvPNm43, M_lvPNm45, 26)",
          control="orn_not_da1", control_label="204 random other olfactory receptor neurons", popup_event=None,
-         note="A one-synapse activation test (Or67d ORN -> DA1 PN), not cVA behavior."),
+         note="One-synapse activation (ORN -> PN), not cVA behavior. MaleCNS v1.0 doesn't annotate ORN_DA1's receptor; "
+              "that DA1 ORNs express Or67d is from Kurtovic et al. 2007."),
     dict(id="da1pn_to_lh_asp", name="DA1 projection neurons excite lateral horn and aSP targets",
          play="",
-         claim="Activating the DA1 projection neurons excites downstream lateral horn and aSP neurons (LHAV4a4, LHAV4c1, LH008m).",
-         citation="Kohl et al. 2013, Cell 155:1610; Ruta et al. 2010, Cell 143:533; Cachero et al. 2010, Curr Biol 20:1589",
+         claim="Activating the DA1 projection neurons excites their lateral horn and aSP targets (LHAV4a4, LHAV4c1, LH008m).",
+         citation="Ruta et al. 2010, Nature 468:686; Cachero et al. 2010, Curr Biol 20:1589; Kohl et al. 2013, Cell 155:1610",
          drive="da1_pn", drive_label="DA1 PNs (26)", readout="da1_lh_asp",
-         readout_label="LH / aSP targets (LHAV4a4, LHAV4c1, LH008m, 18)",
+         readout_label="LH / aSP targets (LHAV4a4, LHAV4c1, LH008m, 34)",
          control="alpn", control_label="26 random other antennal lobe projection neurons", popup_event=None,
-         note="Tests the DA1 PN -> Lateral Horn / aSP stage of the cVA pheromone processing pathway."),
+         note="The second stage of the cVA pathway, as activation. LH008m carries the synonyms Cachero 2010: aSP-f, "
+              "Yu 2010: aSP5 and Ruta 2010: DC1 in MaleCNS v1.0."),
     dict(id="foreleg_grn_to_p1", name="Foreleg pheromone GRNs excite the male P1 cluster",
          play="",
-         claim="Activating female-pheromone-sensing foreleg gustatory receptor neurons (putative ppk23/ppk25: LgLG5, LgLG6, LgLG7, LgLG8) excites the male P1 courtship cluster.",
-         citation="Kallman et al. 2015, Neuron 88:1033; Cheong et al. 2024, bioRxiv; Starostina et al. 2012, PLOS ONE 7:e39942",
-         drive="foreleg_pheromone_grn", drive_label="Foreleg putative ppk23/ppk25 GRNs (64)", readout="p1",
+         claim="Activating the foreleg gustatory neurons annotated putative ppk23/ppk25 (LgLG5-8) excites the male P1 "
+               "courtship cluster.",
+         citation="Clowney et al. 2015, Neuron 87:1036; Kallman et al. 2015, eLife 4:e11188",
+         drive="foreleg_pheromone_grn", drive_label="LgLG5-8, putative ppk23/ppk25 (64)", readout="p1",
          readout_label="P1 courtship cluster (86)",
          control="sensory", control_label="64 random other sensory neurons", popup_event=None,
-         note="MaleCNS v1.0 annotates LgLG5-8 as putative ppk23/ppk25 on the prothoracic leg nerve (ProLN). Drive ascends via vAB3 and PPN1 to P1."),
-    dict(id="mb_extinction", name="Mushroom body extinction: unreinforced odor exposure reduces learned fear",
+         note="MaleCNS v1.0 annotates LgLG5-8 as gustatory leg-bristle neurons of the prothoracic leg nerve (ProLN), "
+              "receptorType putative_ppk23 or putative_ppk25. In real flies this reaches P1 through the ascending vAB3 "
+              "and PPN1 neurons (AN09B017e/f/g and AN05B102a in MaleCNS). Consistent but too weak."),
+    dict(id="mb_extinction", name="Mushroom body extinction: unreinforced odor exposure reduces learned avoidance",
          play="",
-         claim="Repeated unreinforced exposures to a previously conditioned odor reduce learned fear and lower the T-maze avoidance performance index.",
-         citation="Felsenberg et al. 2018, Nature 555:497",
-         drive="", drive_label="odor-alone exposure (8 cycles) after conditioning", readout="",
-         readout_label="T-maze choice", control="", control_label="unextinguished control (same conditioning, rest periods)",
+         claim="After aversive conditioning, repeated exposure to the trained odor without shock lowers the T-maze "
+               "avoidance of it.",
+         citation="Felsenberg et al. 2018, Cell 175:709",
+         drive="", drive_label="the trained odor alone (8 times) after conditioning", readout="",
+         readout_label="T-maze choice", control="", control_label="the same conditioning, then rest for as long",
          popup_event=None, kind="extinction",
-         note="Extinction plasticity rule (GAME RULE) restores depressed KC->MBON synapses when active KCs fire without punishment dopamine."),
-    dict(id="mb_second_order", name="Mushroom body second-order conditioning: odor A + shock, then odor B + odor A",
+         note="No rule is added for extinction: the existing learning rule (and its reversal term) is all there is, so "
+              "the brain would have to produce it through its own dopamine neurons. In real flies extinction is a "
+              "parallel opposing memory formed through reward dopamine neurons, with the original memory kept "
+              "(Felsenberg et al. 2018)."),
+    dict(id="mb_second_order", name="Mushroom body second-order conditioning: odor A + shock, then odor B with odor A",
          play="",
-         claim="Pairing odor A with shock, then pairing odor B with odor A alone produces learned avoidance of odor B in the T-maze; unpaired controls do not.",
-         citation="Tabone & de Belle 2011, Biol Lett 7:847; Felsenberg et al. 2017, Nature 544:240",
-         drive="", drive_label="odor B + odor A (6 cycles) following odor A + shock", readout="",
-         readout_label="T-maze choices (odor B vs odor C)", control="", control_label="unpaired odor B and odor A",
-         popup_event=None, kind="second_order",
-         note="Conditioned fear of odor A activates PPL1 dopamine reinforcement (GAME RULE, modeling multi-synaptic MBON-to-DAN feedback), conferring learned avoidance to odor B."),
+         claim="After odor A is paired with shock, pairing odor B with odor A, without shock, makes flies avoid odor B; "
+               "explicitly unpaired presentations don't.",
+         citation="Tabone & de Belle 2011, Learn Mem 18:250",
+         drive="", drive_label="odor B, then odor B with odor A (6 times, no shock), after odor A + shock",
+         readout="", readout_label="T-maze choice, odor B vs a novel odor C", control="",
+         control_label="the same, but odor A and odor B apart", popup_event=None, kind="second_order",
+         note="No rule is added: odor B can only gain fear if odor A's learned MBON output drives the dopamine "
+              "neurons through the connectome while odor B's Kenyon cells are active."),
 )
 BY_ID = {t["id"]: t for t in TESTS}
 # The held-out results of this release (docs/validation.md). tests/test_validation.py and --strict flag any change,
@@ -242,7 +253,7 @@ EXPECTED = {
     "courtship_song": True, "bitter_grn_to_dng28": True, "co2_orn_to_pn": True, "hot_trn_to_vp2pn": True,
     "cold_trn_to_vp3pn": True, "grooming_hierarchy": False, "optomotor_turning": True, "p1_courtship_song": False,
     "or67d_to_da1pn": True, "da1pn_to_lh_asp": True, "foreleg_grn_to_p1": False, "mb_extinction": False,
-    "mb_second_order": True,
+    "mb_second_order": False,
 }
 
 

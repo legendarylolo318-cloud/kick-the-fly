@@ -535,12 +535,13 @@ def extinction_fly(seed: int, cs_plus: str = "odor_a", cycles: int = 6, ext_cycl
 
 def second_order_fly(seed: int, paired: bool = True, cycles: int = 6, test_trials: int = 20,
                      decision_noise: float = 0.08, brain=None, wiring=None) -> dict:
-    """Second-order olfactory conditioning (Tabone & de Belle 2011; Felsenberg et al. 2017):
-    Phase 1: CS1 (odor_a) + shock conditioning.
-    Phase 2: CS2 (odor_b) paired with CS1 (odor_a) without shock. In the paired condition,
-    the conditioned fear of odor_a triggers PPL1 punishment reinforcement during compound presentation.
-    In the unpaired condition, odor_b and odor_a are presented explicitly unpaired.
-    Test: T-maze choice between odor_b (CS2) and naive odor_c."""
+    """Second-order olfactory conditioning (Tabone & de Belle 2011), the standard design:
+    Phase 1: CS1 (odor_a) + shock, the same for both groups.
+    Phase 2, no shock for either group. Paired: CS2 (odor_b), then CS2 and CS1 together. Unpaired: CS1 alone and
+    CS2 alone, apart, with the same odor exposure.
+    Test: T-maze choice between CS2 (odor_b) and a novel odor (odor_c).
+    No rule is added for it: CS2 can only gain fear if CS1's learned MBON output drives the dopamine neurons through
+    the connectome while CS2's Kenyon cells are active."""
     br = brain or simcore.new_brain(seed=seed, wiring=wiring)
     if ("scent", "odor_c") not in br.sense:
         orn = br.sense[("smell", None)]
@@ -562,20 +563,17 @@ def second_order_fly(seed: int, paired: bool = True, cycles: int = 6, test_trial
 
     fear_a, _ = br.memory.memory_of("odor_a")
 
-    # Phase 2: second-order pairing of odor_b with odor_a
+    # Phase 2: no shock in either group
     for _ in range(cycles):
         if paired:
             present(br, ["odor_b"], 240)
-            # Compound presentation: conditioned fear of odor_a drives punishment dopamine
-            present(br, ["odor_b", "odor_a"], 200, shock=True)
-            rest(br, 60)
-            rest(br, 200)
-        else:
-            # Unpaired: odor_b alone, then shock/odor_a in rest
-            present(br, ["odor_b"], 240)
+            present(br, ["odor_b", "odor_a"], 200)        # CS2 overlapping CS1
             rest(br, 260)
-            present(br, ["odor_a"], 200, shock=True)
-            rest(br, 200)
+        else:
+            present(br, ["odor_a"], 200)                  # CS1 alone
+            rest(br, 260)
+            present(br, ["odor_b"], 440)                  # CS2 alone, as long as in the paired group
+            rest(br, 260)
 
     fear_b, _ = br.memory.memory_of("odor_b")
     fear_c, _ = br.memory.memory_of("odor_c")
@@ -602,11 +600,12 @@ def second_order_fly(seed: int, paired: bool = True, cycles: int = 6, test_trial
 
 
 # --- odor plume tracking (Task 3) ---------------------------------------------------------------------------------
-def plume_tracking_fly(seed: int, duration_s: float = 25.0, wind_speed: float = 2.0,
-                       source_pos=(0.0, 10.0), start_pos=(0.0, -5.0), brain=None) -> dict:
-    """Plume tracking in open field (GAME RULE navigation + real ORN activation):
-    Intermittent filaments carried by ambient wind drive the real ORNs (ORN_DM1).
-    Fly navigates by surging upwind upon odor contact and crosswind casting during blanks."""
+def plume_tracking_fly(seed: int, duration_s: float = 25.0, source_pos=(0.0, 10.0), start_pos=(0.0, -5.0),
+                       brain=None) -> dict:
+    """Plume tracking, headless (Python API only; the open field has no plume). GAME RULE, all of it: a Gaussian plume
+    downwind of the source, on and off in time, and the navigation (surge upwind in odor, cast crosswind without),
+    computed from the geometry. The fly's ORN_DM1 are driven while it is in odor, but their firing doesn't steer it:
+    this measures the rule, not the brain."""
     br = brain or simcore.new_brain(seed=seed)
     orn_dm1 = np.where(br.types == "ORN_DM1")[0]
     rng = np.random.default_rng(seed * 10007 + 3)
@@ -659,17 +658,17 @@ def plume_tracking_fly(seed: int, duration_s: float = 25.0, wind_speed: float = 
                 final_dist=float(np.linalg.norm(pos - source)))
 
 
-def plume_tracking_assay(seeds=tuple(range(1000, 1020)), duration_s: float = 25.0, wind_speed: float = 2.0) -> dict:
-    """Run plume tracking assay across seeds and compute success rate and tracking metrics with 95% CI."""
+def plume_tracking_assay(seeds=tuple(range(1000, 1020)), duration_s: float = 25.0) -> dict:
+    """plume_tracking_fly over seeds: success rate, time and path length with 95% CIs (a game rule's performance)."""
     from kickthefly.lab import labstats
 
-    flies = [plume_tracking_fly(s, duration_s=duration_s, wind_speed=wind_speed) for s in seeds]
+    flies = [plume_tracking_fly(s, duration_s=duration_s) for s in seeds]
     successes = [1.0 if f["reached"] else 0.0 for f in flies]
     success_ci = labstats.mean_ci(successes)
     times = [f["time_s"] for f in flies if f["reached"]]
     time_ci = labstats.mean_ci(times)
     paths = [f["path_m"] for f in flies if f["reached"]]
     path_ci = labstats.mean_ci(paths)
-    return dict(n_seeds=len(seeds), duration_s=duration_s, wind_speed=wind_speed,
+    return dict(n_seeds=len(seeds), duration_s=duration_s,
                 success_ci=success_ci, time_ci=time_ci, path_ci=path_ci, flies=flies)
 

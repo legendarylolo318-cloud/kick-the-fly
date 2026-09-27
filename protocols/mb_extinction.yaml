@@ -1,7 +1,6 @@
-# Mushroom body extinction: unreinforced odor presentations trigger KC->MBON depotentiation
-# reducing conditioned fear (Felsenberg et al. 2018).
-# Validation: mb_extinction (measured extinguished PI 0.90 +- 0.09 vs unextinguished 1.00, p = 0.0078;
-# fails pre-fixed <= 0.65 threshold; reported honestly).
+# Mushroom body neurons while the Kenyon cells are driven: a recording of KC, MBON and PPL1 activity, not the extinction
+# experiment itself. That is assays.extinction_fly (validation: mb_extinction), which conditions, re-exposes the odor
+# without shock and runs the T-maze.
 name: mb_extinction
 seed: 1000
 flies: 5

@@ -1,6 +1,6 @@
-# Mushroom body second-order conditioning: CS1 (odor A) + shock training, followed by CS2 (odor B) + CS1 pairing
-# without shock, transferring conditioned avoidance to CS2 via fear-driven PPL1 reinforcement.
-# Validation: mb_second_order (PASS, PI 1.00 +- 0.00 vs unpaired -0.10, p < 0.001).
+# Mushroom body neurons while the Kenyon cells are driven: a recording of KC, MBON and PPL1 activity, not the
+# second-order experiment itself. That is assays.second_order_fly (validation: mb_second_order): odor A + shock, then
+# odor B with odor A and no shock, then the T-maze.
 name: mb_second_order
 seed: 1000
 flies: 5
