@@ -206,10 +206,11 @@ def test_headless_backend_and_dtype_reach_worker_processes(monkeypatch):
     assert (args.dtype, args.backend) == ("float64", "numba")
 
 
-@pytest.mark.parametrize("name", TORCH_GPU)
+@pytest.mark.parametrize("name", [b for b in ("torch-cpu", *TORCH_GPU) if b in AVAIL])
 def test_batched_multi_fly_plasticity_identical(name):
     """Assert that a trained fly's KC->MBON plastic weights after N conditioning pairings
-    are 100% identical between unbatched and batched multi-fly GPU execution."""
+    are 100% identical between unbatched and batched multi-fly execution. Memory only learns after
+    SETTLE_UPDATES resting updates, so the fly rests first; the test also checks that learning happened."""
     from kickthefly.core import memory
     g, W, _ = simcore.pack()
 
@@ -217,32 +218,28 @@ def test_batched_multi_fly_plasticity_identical(name):
         sim1 = LIFSim(None, LIFParams(backend=name), W_in=W.copy(), seed=42)
         sim2 = LIFSim(None, LIFParams(backend=name), W_in=W.copy(), seed=99)
         mem1 = memory.Memory(g, sim1, load=False)
-        odor_pattern = np.zeros(g.n, np.float32)
-        odor_pattern[mem1.kc[:50]] = 5.0
-        shock_drive = np.zeros(g.n, np.float32)
-        shock_drive[mem1.dan[:20]] = 8.0
+        paired = np.zeros(g.n, np.float32)          # odor (KCs) and shock (DANs) together
+        paired[mem1.kc[:50]] = 5.0
+        paired[mem1.dan[:20]] = 8.0
 
-        for trial in range(6):
-            # Odor presentation (5 steps)
-            for _ in range(5):
+        def advance(drive):
+            for _ in range(memory.UPDATE_STEPS):
                 if batched:
-                    backends.TorchBackend.step_batch([sim1, sim2], [odor_pattern, None])
+                    backends.TorchBackend.step_batch([sim1, sim2], [drive, None])
                 else:
-                    sim1.step(odor_pattern)
+                    sim1.step(drive)
                     sim2.step(None)
-            # Shock (dopamine activation, 5 steps)
-            for _ in range(5):
-                if batched:
-                    backends.TorchBackend.step_batch([sim1, sim2], [shock_drive, None])
-                else:
-                    sim1.step(shock_drive)
-                    sim2.step(None)
-            mem1.step(sim1.activity.rates(), calm=False, steps=(trial + 1) * 10)
-        return mem1.w.copy(), sim1.spikes.copy()
 
-    w_unbatched, sp_unbatched = run_conditioning(False)
-    w_batched, sp_batched = run_conditioning(True)
+        drives = [None] * memory.SETTLE_UPDATES + [paired] * 6
+        for u, drive in enumerate(drives, 1):
+            advance(drive)
+            mem1.step(sim1.activity.rates(), calm=drive is None, steps=u * memory.UPDATE_STEPS)
+        return mem1.w.copy(), mem1.w0.copy(), sim1.spikes.copy()
 
+    w_unbatched, w0, sp_unbatched = run_conditioning(False)
+    w_batched, _, sp_batched = run_conditioning(True)
+
+    assert (w_unbatched != w0).any(), "conditioning never changed a weight: the test compares nothing"
     assert np.array_equal(w_unbatched, w_batched), "KC->MBON weights differ between batched and unbatched!"
     assert np.array_equal(sp_unbatched, sp_batched), "Spikes differ between batched and unbatched!"
 
