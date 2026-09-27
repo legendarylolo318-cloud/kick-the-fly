@@ -259,3 +259,49 @@ def test_fused_lif_kernel_toggle(name):
     assert sim.spikes.dtype == bool
 
 
+
+
+@pytest.mark.skipif("gl" not in AVAIL, reason="no OpenGL 4.3 compute here")
+@pytest.mark.parametrize("mode", ["scatter", "runs"])
+def test_gl_plastic_weights_bit_exact_after_conditioning(mode, monkeypatch):
+    """Issue #2: gl uploads only the KC -> MBON synapses learning changed, and they must land exactly.
+
+    Ten odor + shock pairings on a gl brain, with every input to the learning rule recorded. gl's spikes aren't
+    NumPy's (see the statistical test above), so the NumPy side replays those same inputs into a Memory on a
+    NumPy-backed sim; the plasticity is then identical by construction and any difference is the upload's. Every
+    KC -> MBON weight read back from the GPU must equal NumPy's bit for bit, and the rest of the buffer must still
+    be the connectome."""
+    from kickthefly.core import memory
+    from kickthefly.lab import assays
+
+    monkeypatch.setattr(backends.GLBackend, "PLASTIC_UPLOAD", mode)
+    br = simcore.new_brain(seed=11, backend="gl", warmup=0)
+    assert br.sim.backend.name == "gl"
+    calls = []
+    step = br.memory.step
+
+    def spy(rates, calm, steps):
+        calls.append((rates.copy(), calm, steps))
+        return step(rates, calm, steps)
+
+    br.memory.step = spy                                      # before the warm-up: it runs the learning rule too
+    br.warmup(600)
+    assays.rest(br, 500)
+    for _ in range(10):
+        assays.present(br, ["odor_a"], 240, shock=True)
+        assays.rest(br, 160)
+    gl_mem = br.memory
+    assert (gl_mem.w < gl_mem.w0 * 0.9).any(), "no learning happened, so nothing was tested"
+    st = br.sim.backend.upload_stats
+    assert st["part_n"] > 0 and st["full_n"] == 0            # learning never re-uploaded the whole matrix
+
+    g, W, _ = simcore.pack()
+    ref_sim = LIFSim(None, LIFParams(backend="cpu"), W_in=W, seed=11)
+    ref = memory.Memory(g, ref_sim, load=False)
+    for rates, calm, steps in calls:
+        ref.step(rates, calm, steps)
+    assert np.array_equal(ref.w, gl_mem.w)
+
+    on_gpu = br.sim.backend.read_weights()
+    assert np.array_equal(on_gpu[gl_mem.csr_pos], ref_sim.W_csr.data[ref.csr_pos].astype(np.float32))
+    assert np.array_equal(on_gpu, br.sim.W_csr.data.astype(np.float32))    # nothing else in the buffer moved

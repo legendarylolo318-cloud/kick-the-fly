@@ -168,7 +168,7 @@ def restore_brain(brain, meta: dict, z, prefix: str) -> None:
             mem.templates = {n: t.copy() for n, t in zip(mm["names"], z[prefix + "mem_templates"])}
             mem.updates, mem.calm_ready = int(mm["updates"]), bool(mm["calm_ready"])
             mem.naive_mbon, mem.enabled = dict(mm["naive_mbon"]), bool(mm["enabled"])
-            mem._write_back()
+            mem._write_back(full=True)
             mem.dirty = True
 
 

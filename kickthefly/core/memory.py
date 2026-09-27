@@ -163,11 +163,22 @@ class Memory:
             self._write_back()
             self.dirty = self.dirty or changed
 
-    def _write_back(self) -> None:
-        self.sim.W_csr.data[self.csr_pos] = self.w
-        self.sim.W_csc.data[self.csc_pos] = self.w
+    def _write_back(self, full: bool = False) -> None:
+        """Copy the plastic weights into the simulator. Only the synapses whose value changed are written and handed
+        to the backend (a GPU backend then uploads just those, not the 41 MB matrix: issue #2); full=True writes all
+        of them and has the backend re-upload everything (loading or wiping memory)."""
+        W = self.sim.W_csr
+        if full:
+            dirty = np.arange(len(self.w))
+        else:
+            dirty = np.flatnonzero(W.data[self.csr_pos] != self.w)
+            if not len(dirty):
+                return
+        w = self.w[dirty]
+        W.data[self.csr_pos[dirty]] = w
+        self.sim.W_csc.data[self.csc_pos[dirty]] = w
         if hasattr(self.sim, "backend") and hasattr(self.sim.backend, "on_weights_changed"):
-            self.sim.backend.on_weights_changed()
+            self.sim.backend.on_weights_changed(None if full else self.csr_pos[dirty])
 
     def pattern(self, kc_rates: np.ndarray) -> np.ndarray:
         """KC eligibility in 0..1: firing above calm past the resting noise, sparsified to the most active KCs."""
@@ -244,7 +255,7 @@ class Memory:
             if self.log_path.exists():
                 data = json.loads(self.log_path.read_text())
                 self.log, self.naive_mbon = data.get("trials", {}), data.get("naive_mbon", {})
-            self._write_back()
+            self._write_back(full=True)
         except Exception:
             self.w = self.w0.copy()                      # unreadable file: start fresh
 
@@ -252,5 +263,5 @@ class Memory:
         with self.lock:
             self.w = self.w0.copy()
             self.templates, self.log, self.naive_mbon = {}, {}, {}
-            self._write_back()
+            self._write_back(full=True)
         self.save()

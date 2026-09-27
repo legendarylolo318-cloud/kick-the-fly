@@ -39,8 +39,9 @@ class SimBackend:
         """Initialize backend-specific data structures or device allocations."""
         pass
 
-    def on_weights_changed(self) -> None:
-        """Notify backend that W_csr/W_csc matrix weights have been modified."""
+    def on_weights_changed(self, positions: np.ndarray | None = None) -> None:
+        """Notify backend that W_csr/W_csc matrix weights have been modified. positions: the W_csr.data indices that
+        changed, sorted (the mushroom body's learning passes these), or None when anything may have changed."""
         pass
 
     def sync_to_host(self) -> None:
@@ -306,7 +307,7 @@ class TorchBackend(SimBackend):
             torch.from_numpy(np.ascontiguousarray(csr.data, dtype=np.float32)), size=(self.n, self.n),
             device=self.tdev, check_invariants=False)
 
-    def on_weights_changed(self) -> None:
+    def on_weights_changed(self, positions: np.ndarray | None = None) -> None:
         if self.W_torch is not None:
             self._upload_weights()
 
@@ -692,11 +693,37 @@ void main() {
 """
 
 
+_SCATTER_COMPUTE_SHADER = """
+#version 430
+layout(local_size_x = 64) in;
+layout(std430, binding = 2) buffer BValues { float values[]; };
+layout(std430, binding = 9) readonly buffer BScatter { uvec2 items[]; };   // (W_csr.data index, float bits)
+uniform uint count;
+
+void main() {
+    uint i = gl_GlobalInvocationID.x;
+    if (i >= count) return;
+    uvec2 it = items[i];
+    values[it.x] = uintBitsToFloat(it.y);
+}
+"""
+
+
 class GLBackend(SimBackend):
     """ModernGL compute shader backend: vendor-neutral GPU acceleration using OpenGL 4.3+ compute shaders and SSBOs.
     Runs on AMD, NVIDIA, and Intel GPUs across Linux and Windows without requiring PyTorch."""
 
     name = "gl"
+    # How learning's changed synapses reach the GPU (issue #2). The weight SSBO is W_csr.data in order, so a plastic
+    # KC -> MBON synapse at W_csr.data[i] lives at byte offset 4 * i (memory.Memory.csr_pos maps all 41,495 of them).
+    #   "scatter"  one upload of (index, value) pairs and a compute shader that writes them into place (default)
+    #   "runs"     merge the sorted indices into runs less than RUN_GAP entries apart (the gap is re-sent from the
+    #              host copy, the source of truth) and write each with buffer.write(offset=...); 130 runs cover all
+    #              41,495 plastic synapses
+    # tools/bench_gl_plastic.py, RX 9070 XT, 10 shock pairings (median 8,500 changed synapses per update): full
+    # re-upload 41.1 MB and 2.10 ms per update, runs 88 KB and 0.151 ms, scatter 68 KB and 0.032 ms.
+    PLASTIC_UPLOAD = "scatter"
+    RUN_GAP = 16
 
     def __init__(self, sim: Any) -> None:
         super().__init__(sim)
@@ -716,6 +743,10 @@ class GLBackend(SimBackend):
         self._noise_id = None
         self._thread_id = None
         self._fallback: SimBackend | None = None
+        self.cs_scatter = None
+        self.buf_scatter = None
+        # what weight uploads cost: full re-uploads and partial (learning) ones, bytes and seconds (benchmarks, tests)
+        self.upload_stats = dict(full_n=0, full_bytes=0, full_s=0.0, part_n=0, part_bytes=0, part_s=0.0)
 
     def setup(self) -> None:
         if not _moderngl_available:
@@ -764,6 +795,8 @@ class GLBackend(SimBackend):
 
         self.cs_spmv = self.ctx.compute_shader(_SPMV_COMPUTE_SHADER)
         self.cs_lif = self.ctx.compute_shader(_LIF_COMPUTE_SHADER)
+        self.cs_scatter = self.ctx.compute_shader(_SCATTER_COMPUTE_SHADER)
+        self.buf_scatter = None
 
         self.buf_rowptr.bind_to_storage_buffer(0)
         self.buf_colind.bind_to_storage_buffer(1)
@@ -812,13 +845,69 @@ class GLBackend(SimBackend):
         self.cs_lif["v_thresh"] = float(p.v_thresh)
         self.cs_lif["refr_steps"] = int(p.refractory_steps)
 
-    def on_weights_changed(self) -> None:
+    def on_weights_changed(self, positions: np.ndarray | None = None) -> None:
         if self._fallback is not None:
-            return self._fallback.on_weights_changed()
+            return self._fallback.on_weights_changed(positions)
         self._ensure_thread()
         with self.ctx:
-            if self.buf_values is not None:
-                self.buf_values.write(self.sim.W_csr.data.astype(np.float32).tobytes())
+            if self.buf_values is None:
+                return
+            t0 = time.perf_counter()
+            data = self.sim.W_csr.data
+            if positions is None:                    # anything may have changed: the whole 41 MB buffer
+                raw = np.ascontiguousarray(data, dtype=np.float32)
+                self.buf_values.write(raw)
+                kind, nbytes = "full", raw.nbytes
+            elif len(positions) == 0:
+                return
+            elif self.PLASTIC_UPLOAD == "scatter":
+                nbytes = self._scatter(np.asarray(positions, np.int64), data)
+                kind = "part"
+            else:
+                nbytes = self._write_runs(np.asarray(positions, np.int64), data)
+                kind = "part"
+            st = self.upload_stats
+            st[f"{kind}_n"] += 1
+            st[f"{kind}_bytes"] += int(nbytes)
+            st[f"{kind}_s"] += time.perf_counter() - t0
+
+    def _write_runs(self, pos: np.ndarray, data: np.ndarray) -> int:
+        """Changed entries as a few contiguous writes (see PLASTIC_UPLOAD). pos must be sorted."""
+        brk = np.flatnonzero(np.diff(pos) > self.RUN_GAP)
+        starts = np.concatenate(([pos[0]], pos[brk + 1]))
+        ends = np.concatenate((pos[brk], [pos[-1]])) + 1
+        total = 0
+        for a, b in zip(starts.tolist(), ends.tolist()):
+            chunk = np.ascontiguousarray(data[a:b], dtype=np.float32)
+            self.buf_values.write(chunk, offset=a * 4)
+            total += chunk.nbytes
+        return total
+
+    def _scatter(self, pos: np.ndarray, data: np.ndarray) -> int:
+        """Changed entries as (index, value) pairs, written into place by a compute shader."""
+        items = np.empty((len(pos), 2), np.uint32)
+        items[:, 0] = pos
+        items[:, 1] = np.ascontiguousarray(data[pos], dtype=np.float32).view(np.uint32)
+        if self.buf_scatter is None or self.buf_scatter.size < items.nbytes:
+            if self.buf_scatter is not None:
+                self.buf_scatter.release()
+            self.buf_scatter = self.ctx.buffer(reserve=max(items.nbytes, 64 * 1024))
+            self.buf_scatter.bind_to_storage_buffer(9)
+        self.buf_scatter.write(items)
+        self.cs_scatter["count"] = len(pos)
+        self.cs_scatter.run((len(pos) + 63) // 64)
+        self.ctx.memory_barrier(moderngl.SHADER_STORAGE_BARRIER_BIT)
+        return items.nbytes
+
+    def read_weights(self) -> np.ndarray:
+        """The weights as they are on the GPU, for tests: a copy of the whole W_csr.data buffer."""
+        if self._fallback is not None:
+            return np.ascontiguousarray(self.sim.W_csr.data, dtype=np.float32).copy()
+        self._ensure_thread()
+        with self.ctx:
+            self.ctx.memory_barrier(moderngl.BUFFER_UPDATE_BARRIER_BIT)
+            self.ctx.finish()
+            return np.frombuffer(self.buf_values.read(), dtype=np.float32).copy()
 
     def sync_to_host(self) -> None:
         if self._fallback is not None:
