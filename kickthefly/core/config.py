@@ -159,8 +159,9 @@ SETTINGS: tuple[Setting, ...] = (
       "the numbers slightly; validation hasn't been run in it.", options=("float32", "float64"), labels=("float32 (Fast)", "float64 (Double)"),
       tag=CONNECTOME),
     S("brain.backend", "Brain", "Compute backend", "choice", "auto",
-      "What runs the brain simulation. Auto picks a GPU, then OpenGL compute, then Numba, then NumPy. OpenGL "
-      "needs 4.3+; Numba and PyTorch are optional (from source only); anything missing falls back to NumPy. "
+      "What runs the brain simulation. Auto picks a PyTorch GPU, then Numba, then NumPy. OpenGL compute (4.3+) "
+      "runs only when you pick it: it works on any vendor's GPU but is slower than NumPy here and doesn't scale to "
+      "many flies. Numba and PyTorch are optional (from source only); anything missing falls back to NumPy. "
       "Applies to every fly right away.",
       options=("auto", "cpu", "numba", "gl", "torch-cpu", "torch-cuda", "torch-rocm"),
       labels=("Auto", "CPU (NumPy)", "Numba (JIT)", "OpenGL Compute", "PyTorch (CPU)", "PyTorch (CUDA)",

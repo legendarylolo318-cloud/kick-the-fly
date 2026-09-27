@@ -36,9 +36,11 @@ shapes are only drawn: the simulation is point neurons either way. Neurons firin
 above their calm rate glow. B toggles the big view.
 
 Compute backends (sim/connectome/backends.py): the same LIF step runs on NumPy
-(cpu, the reference), Numba (numba), or PyTorch (torch-cpu, torch-cuda, torch-rocm);
-auto picks a GPU, then Numba, then NumPy, and a missing library falls back to NumPy
-with a logged reason. numba and torch-cpu are bit-exact with cpu (same float32
+(cpu, the reference), Numba (numba), PyTorch (torch-cpu, torch-cuda, torch-rocm) or
+OpenGL 4.3 compute shaders (gl, any vendor's GPU); auto picks a PyTorch GPU, then
+Numba, then NumPy (gl only when asked for: slower than NumPy here), and a missing
+library falls back to NumPy with a logged reason. On gl, learning uploads only the
+synapses it changed. numba and torch-cpu are bit-exact with cpu (same float32
 operations in the same order; tested over 1000 steps in float32 and float64), so
 validation, assays and save states give identical spikes on any of them. GPU sparse
 kernels may add a neuron's inputs in another order, so torch-cuda/torch-rocm are only
@@ -382,7 +384,7 @@ def get_max_flies(backend: str | None = None) -> int:
 
     NumPy (cpu) and torch-cpu: 16; brains share Python's GIL.
     Numba: one per core, between 16 and 32 (releases GIL).
-    GPU backends (torch-cuda, torch-rocm, gl): 32 (or up to 64 with batched SpMM in VRAM).
+    GPU backends (torch-cuda, torch-rocm, gl): 32, or 64 with KICK_THE_FLY_EXPANDED_SWARM=1 (batched SpMM in VRAM).
     Every spawn also needs free memory (BRAIN_MB each), checked when you press N."""
     if backend is None or backend == "auto":
         from kickthefly.sim.connectome.backends import detect_available_backends
