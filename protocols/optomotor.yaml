@@ -1,0 +1,14 @@
+# Optomotor: the T4/T5 subtypes a rightward wide-field rotation drives (T4a/T5a_R front-to-back on the right eye,
+# T4b/T5b_L back-to-front on the left), recording the steering neurons on both sides. amp 0.5 is what the EMD stage
+# (a game rule, assays.emd_stage) gives at full motion. Validation: optomotor_turning.
+name: optomotor
+seed: 1000
+flies: 5
+warmup_s: 2
+duration_s: 4
+stimuli:
+  - {at_s: 2.0, for_s: 2.0, target: optomotor_right, mode: drive, amp: 0.5}
+recordings:
+  - {name: dna_steer_r, neurons: dna_steer_r}
+  - {name: dna_steer_l, neurons: dna_steer_l}
+  - {name: t4t5_right_yaw, neurons: optomotor_right}

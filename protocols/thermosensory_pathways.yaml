@@ -1,0 +1,15 @@
+# Hot and cold antennal neurons onto their projection neurons (Gallio et al. 2011): TRN_VP2 -> VP2 PNs, then
+# TRN_VP3a/b -> VP3 PNs. One-synapse activation, not thermotaxis. Validation: hot_trn_to_vp2pn, cold_trn_to_vp3pn.
+name: thermosensory_pathways
+seed: 1000
+flies: 5
+warmup_s: 2
+duration_s: 5
+stimuli:
+  - {at_s: 1.5, for_s: 1.5, target: trn_vp2, mode: drive, amp: 0.5}
+  - {at_s: 3.5, for_s: 1.5, target: trn_vp3, mode: drive, amp: 0.5}
+recordings:
+  - {name: vp2_pn_hot, neurons: vp2_pn}
+  - {name: vp3_pn_cold, neurons: vp3_pn}
+  - {name: hot_sensors, neurons: trn_vp2}
+  - {name: cold_sensors, neurons: trn_vp3}

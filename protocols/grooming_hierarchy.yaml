@@ -1,0 +1,15 @@
+# Grooming hierarchy (Seeds et al. 2014): the abdomen's mechanosensory neurons alone, then head bristles and abdomen
+# together. Anterior-first priority would show as front-leg motor neurons winning and the hind-leg response shrinking
+# when the head is added. It doesn't in this sim (validation: grooming_hierarchy, FAIL).
+name: grooming_hierarchy
+seed: 1000
+flies: 5
+warmup_s: 2
+duration_s: 6
+stimuli:
+  - {at_s: 1.0, for_s: 1.5, target: groom_posterior, mode: drive, amp: 0.5}
+  - {at_s: 4.0, for_s: 1.5, target: groom_posterior, mode: drive, amp: 0.5}
+  - {at_s: 4.0, for_s: 1.5, target: groom_anterior, mode: drive, amp: 0.5}
+recordings:
+  - {name: mn_front, neurons: mn_front}
+  - {name: mn_hind, neurons: mn_hind}

@@ -50,7 +50,10 @@ TESTS = (
          citation="Bidaye et al. 2014, Science 344:97",
          drive="mdn", drive_label="MDN (4)", readout="mn_legs", readout_label="leg motor neurons (T1-T3, 381)",
          control="dn", control_label="4 random other descending neurons", popup_event=None,
-         note="The sim has no walking rhythm; this asks whether MDN activity reaches the leg motor neurons at all."),
+         note="The sim has no walking rhythm; this asks whether MDN activity reaches the leg motor neurons at all. "
+              "MDN makes 12 synapses onto them directly; the 369 neurons it sends at least 5 synapses to (mostly VNC "
+              "interneurons) send them 27,560 excitatory and 24,186 inhibitory synapses. That near balance of "
+              "excitation and inhibition in the VNC interneuron layer is where the drive cancels out in this model."),
     dict(id="sugar_feeding", name="Sugar-pathway taste neurons reach the proboscis motor neuron",
          play="It reached for the sugar with its proboscis. Real flies' sugar-sensing neurons trigger this.",
          claim="Activating sugar-sensing gustatory neurons activates MN9, a motor neuron for proboscis extension; "
@@ -91,8 +94,8 @@ TESTS = (
          citation="Seelig & Jayaraman 2015, Nature 521:186; Green et al. 2017, Nature 546:101",
          drive="", drive_label="localized wedge stimulation", readout="epg", readout_label="EPG (46)",
          control="", control_label="none", popup_event=None,
-         note="Under raw unweighted LIF dynamics without tuned E/I balance, bump contrast and persistence fail; "
-              "reported honestly as a negative validation result."),
+         note="With the connectome's signed synapse counts and no ring weights tuned, bump contrast and persistence "
+              "fail; reported as a negative result."),
     dict(id="epg_compass_wind", name="E-PG compass forms a bump from steady directional wind (open field)",
          play="",
          claim="Wind direction is a head-direction cue: steady directional wind anchors a persistent E-PG bump "
@@ -104,13 +107,101 @@ TESTS = (
          note="A second, different test from the visual one: wind, not a visual landmark. The pass criteria are the "
               "visual test's, fixed before the run. Direction tracking is reported (circular correlation with a "
               "permutation null) but not needed to pass. No weights or time constants were tuned."),
+    dict(id="courtship_song", name="pIP10 activation drives the ps1 wing motor neurons (courtship song)",
+         play="Its ps1 wing motor neurons fired, the ones the pIP10 command neuron drives in courtship song. "
+              "Real males sing through this same pathway.",
+         claim="Activating the male-specific descending neuron pIP10 excites the ps1 wing motor neurons used in pulse "
+               "song.",
+         citation="von Philipsborn et al. 2011, Neuron 69:509",
+         drive="pip10", drive_label="pIP10 (2)", readout="ps1", readout_label="ps1 wing motor neurons (2)",
+         control="dn", control_label="2 random other descending neurons", popup_event="SONG",
+         note="pIP10 has no direct synapses onto ps1: the drive goes through VNC interneurons. A pathway test on the "
+              "motor neurons; the sim has no wing, so there is no song to hear. The buzz the game plays is a game rule."),
+    dict(id="bitter_grn_to_dng28", name="Bitter-pathway taste neurons excite the bitter SEL neuron DNg28",
+         play="",
+         claim="Activating bitter-sensing gustatory neurons excites DNg28 (\"Yao & Scott 2022: Bitter-SEL\"); "
+               "sugar-sensing neurons don't.",
+         citation="Shiu et al. 2024, Nature 634:210 (Bitter-SEL: Yao & Scott 2022)",
+         drive="bitter", drive_label="30 bitter-pathway gustatory neurons", readout="dng28",
+         readout_label="DNg28 Bitter-SEL (4)",
+         control="sweet", control_label="30 sugar-pathway gustatory neurons", popup_event=None,
+         note="A short-pathway activation test (GRN -> second-order neuron), not bitter avoidance: nothing in the sim "
+              "turns DNg28 into a behavior. Caveat: the bitter and sugar sets are chosen by their wiring to DNg28 and "
+              "the sugar SEL PNs (assays.py), so this partly restates how they were picked."),
+    dict(id="co2_orn_to_pn", name="CO2-sensing ORNs excite the V glomerulus projection neurons",
+         play="",
+         claim="Activating the CO2-sensing antennal ORNs (ORN_V) excites the V glomerulus projection neurons "
+               "(V_ilPN, V_l2PN).",
+         citation="Suh et al. 2004, Nature 431:854; Lin et al. 2013, Cell Rep 3:2039",
+         drive="co2_orn", drive_label="ORN_V (55)", readout="co2_pn", readout_label="V glomerulus PNs (V_ilPN, V_l2PN, 4)",
+         control="sensory", control_label="55 random other sensory neurons", popup_event=None,
+         note="A one-synapse activation test (ORN -> PN), not CO2 avoidance: the sim has no CO2 stimulus and no "
+              "avoidance behavior."),
+    dict(id="hot_trn_to_vp2pn", name="Hot-sensing antennal neurons excite the VP2 projection neurons",
+         play="",
+         claim="Activating the hot-sensing antennal thermosensory neurons (TRN_VP2) excites the VP2 projection "
+               "neurons.",
+         citation="Gallio et al. 2011, Cell 144:614; Frank et al. 2015, Nature 519:358",
+         drive="trn_vp2", drive_label="TRN_VP2 hot cells (7)", readout="vp2_pn", readout_label="VP2 projection neurons (15)",
+         control="sensory", control_label="7 random other sensory neurons", popup_event=None,
+         note="A one-synapse activation test (TRN -> PN), not heat avoidance or thermotaxis. In the thermo arena the "
+              "fly doesn't move toward comfort through its own circuitry."),
+    dict(id="cold_trn_to_vp3pn", name="Cold-sensing antennal neurons excite the VP3 projection neurons",
+         play="",
+         claim="Activating the cold-sensing antennal thermosensory neurons (TRN_VP3a/b) excites the VP3 projection "
+               "neurons.",
+         citation="Gallio et al. 2011, Cell 144:614; Frank et al. 2015, Nature 519:358",
+         drive="trn_vp3", drive_label="TRN_VP3a/b cold cells (7)", readout="vp3_pn", readout_label="VP3 projection neurons (14)",
+         control="sensory", control_label="7 random other sensory neurons", popup_event=None,
+         note="A one-synapse activation test (TRN -> PN), not cold avoidance or thermotaxis."),
+    dict(id="grooming_hierarchy", name="Grooming hierarchy: head stimulation wins over, and suppresses, abdomen grooming",
+         play="",
+         claim="With head and abdomen stimulated together, flies groom anterior first: the head (front-leg) program "
+               "runs and the posterior (hind-leg) program is suppressed.",
+         citation="Seeds et al. 2014, eLife 3:e02951",
+         drive="groom_anterior", drive_label="head bristle neurons (BM_*, not taste) + abdominal mechanosensory neurons",
+         readout="mn_front", readout_label="front-leg (T1, 135) vs hind-leg (T3, 130) motor neurons",
+         control="groom_posterior", control_label="abdominal mechanosensory neurons alone", popup_event=None,
+         kind="hierarchy",
+         note="Redesigned in 2.9 to match Seeds et al. (simultaneous stimulation), criteria fixed before the run. "
+              "Front-leg motor neurons stand in for head grooming and hind-leg ones for abdomen grooming. Neither "
+              "half of the hierarchy shows: head bristles barely move the front-leg motor neurons, and adding them "
+              "doesn't suppress the abdomen's drive to the hind legs."),
+    dict(id="optomotor_turning", name="Optomotor: rightward wide-field motion excites the right steering neurons",
+         play="",
+         claim="Wide-field rotation to the right (front-to-back on the right eye, T4a/T5a_R; back-to-front on the left, "
+               "T4b/T5b_L) excites the right steering descending neurons DNa01_R/DNa02_R.",
+         citation="Maisak et al. 2013, Nature 500:212; Rayshubskiy et al. 2020, bioRxiv 2020.04.04.024703",
+         drive="optomotor_right", drive_label="T4a/T5a_R + T4b/T5b_L through the EMD stage, yaw +3 rad/s",
+         readout="dna_steer_r", readout_label="DNa01_R + DNa02_R (2)",
+         control="ol_intrinsic_not_t45", control_label="as many random optic-lobe intrinsic neurons (no T4/T5)",
+         popup_event=None, stage="emd", extra_readouts=("dna_steer_l",),
+         note="The EMD stage (motion -> T4/T5 current) is a game rule; everything after T4/T5 is the connectome. "
+              "DNa01_L/DNa02_L are reported too (the pass criterion is the right side only): they barely move, so "
+              "the response is lateralized. Gemini's first version failed because it drove the mirror-image set "
+              "(T4a/T5a_L + T4b/T5b_R, a leftward rotation) and compared it with visual projection neurons, which "
+              "reach the DNs directly."),
+    dict(id="p1_courtship_song", name="P1 activation drives the ps1 wing motor neurons (courtship song)",
+         play="",
+         claim="Activating the male P1 cluster excites the ps1 wing motor neurons used in pulse song.",
+         citation="von Philipsborn et al. 2011, Neuron 69:509; Kimura et al. 2008, Neuron 59:759",
+         drive="p1", drive_label="P1 (pMP-e/pMP4 pC1 types, 86)", readout="ps1",
+         readout_label="ps1 wing motor neurons (2)",
+         control="cb_intrinsic", control_label="86 random other central-brain intrinsic neurons", popup_event=None,
+         note="MaleCNS v1.0 has no \"P1\" label; P1 is the pC1 types carrying the synonym \"Cachero 2010: pMP-e; "
+              "Yu 2010: pMP4\" (assays.P1_TYPES). Added in 2.9 alongside pIP10, with the same criteria. Consistent "
+              "but too weak. P1 sends pIP10 1,503 synapses and ps1 none, so it is one step further from the motor "
+              "neurons than pIP10."),
 )
 BY_ID = {t["id"]: t for t in TESTS}
 # The held-out results of this release (README "Validation"). tests/test_validation.py and --strict flag any change,
 # in either direction, so a regression (or a newly reproduced behavior) never goes unnoticed.
-EXPECTED = {"looming_escape": True, "mdn_backward": False, "sugar_feeding": True, "antenna_grooming_circuit": True,
-            "adn_grooming_motor": False, "mb_conditioning": True, "epg_compass": False,
-            "epg_compass_wind": False}
+EXPECTED = {
+    "looming_escape": True, "mdn_backward": False, "sugar_feeding": True, "antenna_grooming_circuit": True,
+    "adn_grooming_motor": False, "mb_conditioning": True, "epg_compass": False, "epg_compass_wind": False,
+    "courtship_song": True, "bitter_grn_to_dng28": True, "co2_orn_to_pn": True, "hot_trn_to_vp2pn": True,
+    "cold_trn_to_vp3pn": True, "grooming_hierarchy": False, "optomotor_turning": True, "p1_courtship_song": False,
+}
 
 
 def _ratio(base: float, driven: float) -> float:
@@ -131,20 +222,45 @@ def _pathway_seed(seed: int, wiring=None) -> dict:
     for t in TESTS:
         if not t["drive"]:
             continue
+        if t.get("kind") == "hierarchy":
+            out[t["id"]] = _hierarchy_seed(br, g, meta, snap)
+            continue
         drive = g[t["drive"]]
-        if t["control"] in ("bitter",):
-            control = g["bitter"]
+        if t["control"] in ("bitter", "sweet"):
+            control = g[t["control"]]
         else:
-            exclude = np.concatenate([drive, g[t["readout"]]])
+            exclude = np.concatenate([drive, g[t["readout"]], *(g[x] for x in t.get("extra_readouts", ()))])
             control = assays.random_like(g[t["control"]], len(drive), exclude, seed * 31 + len(out))
+        if t.get("stage") == "emd":                # the optomotor transduction (a game rule) in front of T4/T5
+            drive = assays.emd_stage(g, assays.OPTOMOTOR_YAW)
+        readouts = {"readout": g[t["readout"]], **{x: g[x] for x in t.get("extra_readouts", ())}}
         res = {}
         for label, rows in (("drive", drive), ("control", control)):
             savestate.restore_brain(br, meta, snap, "s_")
-            r = assays.pathway_response(br, rows, {"readout": g[t["readout"]]}, pre=PRE, stim=STIM)["readout"]
+            rr = assays.pathway_response(br, rows, readouts, pre=PRE, stim=STIM)
+            r = rr["readout"]
             res[label] = dict(base_hz=r[0], driven_hz=r[1], ratio=_ratio(*r))
+            for x in t.get("extra_readouts", ()):
+                res[label][x] = dict(base_hz=rr[x][0], driven_hz=rr[x][1], ratio=_ratio(*rr[x]))
         out[t["id"]] = res
     out["_backend"] = (br.sim.backend.name, br.sim.backend.device)     # what really ran, after any fallback
     return out
+
+
+def _hierarchy_seed(br, g, meta, snap) -> dict:
+    """Seeds et al. 2014: head alone, abdomen alone and both together, from the same snapshot; front- and hind-leg
+    motor neurons read out each time."""
+    from kickthefly.lab import assays
+    from kickthefly.core import savestate
+
+    readouts = {"front": g["mn_front"], "hind": g["mn_hind"]}
+    ant, post = g["groom_anterior"], g["groom_posterior"]
+    res = {}
+    for label, rows in (("anterior", ant), ("posterior", post), ("both", np.concatenate([ant, post]))):
+        savestate.restore_brain(br, meta, snap, "s_")
+        rr = assays.pathway_response(br, rows, readouts, pre=PRE, stim=STIM)
+        res[label] = {k: dict(base_hz=v[0], driven_hz=v[1], ratio=_ratio(*v)) for k, v in rr.items()}
+    return res
 
 
 def _tmaze_seed(args, wiring=None) -> dict:
@@ -243,6 +359,25 @@ def run(seeds=SEEDS, workers: int | None = None, progress=None, include=None, wi
             r["criteria"] = res_epg["criteria"]
             r["passed"] = res_epg["passed"]
             r["finding"] = res_epg["finding"]
+        elif t.get("kind") == "hierarchy":
+            per = [dict(seed=s, **path_res[s][t["id"]]) for s in seeds]
+
+            def col(cond, mn):
+                return [x[cond][mn]["ratio"] for x in per]
+
+            post_hind, both_front, both_hind = col("posterior", "hind"), col("both", "front"), col("both", "hind")
+            p_priority = _wilcoxon_greater(both_front, both_hind)          # anterior program wins
+            p_suppress = _wilcoxon_greater(post_hind, both_hind)           # posterior program suppressed
+            r["measured"] = dict(
+                posterior_hind_mean=float(np.mean(post_hind)), posterior_hind_sd=float(np.std(post_hind, ddof=1)),
+                anterior_front_mean=float(np.mean(col("anterior", "front"))),
+                both_front_mean=float(np.mean(both_front)), both_front_sd=float(np.std(both_front, ddof=1)),
+                both_hind_mean=float(np.mean(both_hind)), both_hind_sd=float(np.std(both_hind, ddof=1)),
+                p_priority=p_priority, p_suppression=p_suppress, n=len(per))
+            r["criteria"] = (f"abdomen alone raises hind-leg MNs >= {RATIO_MIN}x; with both, front-leg MNs > hind-leg "
+                             f"MNs and hind-leg MNs < abdomen alone (each one-sided Wilcoxon p < {P_MAX})")
+            r["passed"] = bool(np.mean(post_hind) >= RATIO_MIN and p_priority < P_MAX and p_suppress < P_MAX)
+            r["per_seed"] = per
         elif t["drive"]:
             per = [dict(seed=s, **path_res[s][t["id"]]) for s in seeds]
             dr = [p["drive"]["ratio"] for p in per]
@@ -254,6 +389,9 @@ def run(seeds=SEEDS, workers: int | None = None, progress=None, include=None, wi
                 readout_base_hz=float(np.mean([x["drive"]["base_hz"] for x in per])),
                 readout_driven_hz=float(np.mean([x["drive"]["driven_hz"] for x in per])),
                 p_value=p, n=len(per))
+            for x in t.get("extra_readouts", ()):
+                r["measured"][f"{x}_drive_ratio_mean"] = float(np.mean([q["drive"][x]["ratio"] for q in per]))
+                r["measured"][f"{x}_control_ratio_mean"] = float(np.mean([q["control"][x]["ratio"] for q in per]))
             r["criteria"] = f"drive ratio >= {RATIO_MIN} and > control (one-sided Wilcoxon p < {P_MAX})"
             r["passed"] = bool(np.mean(dr) >= RATIO_MIN and p < P_MAX)
             r["per_seed"] = per
@@ -297,6 +435,10 @@ def summary(res: dict) -> str:
         if "drive_ratio_mean" in m:
             nums = (f"{t['readout_label']}: x{m['drive_ratio_mean']:.2f} when driving {t['drive_label']} vs "
                     f"x{m['control_ratio_mean']:.2f} for {t['control_label']}, p={m['p_value']:.4f}")
+        elif "p_priority" in m:
+            nums = (f"hind-leg MNs x{m['posterior_hind_mean']:.2f} for abdomen alone; with head too, front-leg "
+                    f"x{m['both_front_mean']:.2f} vs hind-leg x{m['both_hind_mean']:.2f} (priority p={m['p_priority']:.4f},"
+                    f" suppression p={m['p_suppression']:.4f})")
         elif "pi_mean" in m:
             nums = f"PI {m['pi_mean']:.2f} ± {m['pi_sd']:.2f} vs unpaired {m['control_pi_mean']:.2f}, p={m['p_value']:.4f}"
         elif "direction_tracking" in m:
