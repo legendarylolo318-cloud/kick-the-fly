@@ -1,0 +1,15 @@
+# Decoy female courtship: contact from male forelegs activates putative ppk23/ppk25 foreleg GRNs
+# driving ascending vAB3/PPN1 towards the male P1/pC1 courtship cluster and ps1 song motor neurons.
+# Validation: foreleg_grn_to_p1 (measured x1.20 vs x0.92, too weak for >=1.5x pass threshold; reported honestly).
+name: decoy_courtship
+seed: 1000
+flies: 5
+warmup_s: 2
+duration_s: 6
+stimuli:
+  - {at_s: 1.5, for_s: 2.0, target: foreleg_pheromone_grn, mode: drive, amp: 0.6}
+recordings:
+  - {name: foreleg_grn, neurons: foreleg_pheromone_grn}
+  - {name: vab3_ppn1, neurons: vab3_ppn1}
+  - {name: p1, neurons: p1}
+  - {name: ps1, neurons: ps1}

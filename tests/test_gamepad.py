@@ -125,7 +125,7 @@ def test_pad_in_the_3d_game(monkeypatch):
     fake.buttons[3] = 0
     fake.axes[4] = 0.0
     game.pad_tick(1 / 60, game.clock.now)
-    assert not game.pad.wheel_open and game.tool == 6
+    assert not game.pad.wheel_open and game.tool == len(k2.TOOL_NAMES) // 2
     fake.buttons[7] = 1                                       # Start: the pause menu
     game.pad_tick(1 / 60, game.clock.now)
     assert game.menu.open

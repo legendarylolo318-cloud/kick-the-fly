@@ -122,9 +122,8 @@ SETTINGS: tuple[Setting, ...] = (
     S("brain.real_vs_rule", "Brain", "Real vs rule tags", "choice", "auto",
       "Tags reactions on screen as coming from the connectome (REAL) or from a game rule (RULE). Auto: on in Lab, off "
       "in Play.", options=("auto", "on", "off"), labels=("Auto", "On", "Off")),
-    S("brain.science_popups", "Brain", "Real-science popups", "bool", True,
-      "Show a short note the first time the fly does something real flies do too. Only behaviors that pass this "
-      "game's validation tests get one."),
+    S("brain.science_popups", "Brain", "Real-science popups", "bool", False,
+      "Show a short card when the fly does something real flies were shown to do."),
     S("brain.autopilot", "Brain", "Autopilot / spectator", "bool", False,
       "Hands-off mode where only environmental inputs reach the fly. Hotkey Y.", tag=GAME_RULE),
     S("brain.autopilot_orbit", "Brain", "Autopilot brain orbit", "bool", True,
@@ -193,6 +192,10 @@ SETTINGS: tuple[Setting, ...] = (
       "Turns off screen shake, explosion and hit flashes, sparkles, the scanning band and blinking lights."),
     S("access.larger_text", "Accessibility", "Larger text", "bool", False,
       "Bigger text in menus, popups and the HUD."),
+    S("access.language", "Accessibility", "Language", "choice", "auto",
+      "Display language for menus and text. Auto uses your system language, falling back to English.",
+      options=("auto", "en", "de"),
+      labels=("Auto", "English", "Deutsch (Machine-translated)")),
 )
 BY_KEY = {s.key: s for s in SETTINGS}
 
@@ -265,6 +268,9 @@ def _coerce(s: Setting, v):
         v = min(max(v, s.lo), s.hi)
         return int(round(v)) if s.kind == "int" else float(v)
     raise ValueError(s.kind)
+
+
+SCHEMA_VERSION = 2
 
 
 class Config:
@@ -401,6 +407,12 @@ class Config:
                 for a in acts[1:]:
                     cfg.keys[a] = next(d for x, _, d in ACTIONS if x == a)
                     cfg.warnings.append(f"key '{k}' was bound twice; {a} reset to its default")
+        schema = data.get("schema_version", 1)
+        if schema < 2:
+            if cfg.values.get("brain.science_popups") is True:
+                cfg.values["brain.science_popups"] = False
+                cfg.dirty = True
+                cfg.warnings.append("migrated brain.science_popups to off for schema 2")
         for w in cfg.warnings:
             log.warning(w)
         return cfg
@@ -408,7 +420,11 @@ class Config:
     def to_toml(self) -> str:
         from kickthefly.core.version import __version__
 
-        out = [f"# Kick the Fly {__version__} settings. Edit in the game (Esc > Settings) or by hand.", ""]
+        out = [
+            f"# Kick the Fly {__version__} settings. Edit in the game (Esc > Settings) or by hand.",
+            f"schema_version = {SCHEMA_VERSION}",
+            "",
+        ]
         sections: dict[str, list[str]] = {}
         for s in SETTINGS:
             section, name = s.key.split(".")

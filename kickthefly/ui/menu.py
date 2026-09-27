@@ -380,7 +380,7 @@ class Menu:
         if page is None:
             self.screen = "pause"
             page = self._page_pause
-        pw, ph = (440, 560) if self.screen in ("pause", "confirm_quit") else (min(980, W - 40), min(680, H - 30))
+        pw, ph = (440, 620) if self.screen == "pause" else (440, 250) if self.screen == "confirm_quit" else (min(980, W - 40), min(680, H - 30))
         if self.screen == "confirm_quit":
             ph = 250
         rect = pygame.Rect((W - pw) // 2, (H - ph) // 2, pw, ph)
@@ -444,6 +444,7 @@ class Menu:
                   "Save the whole simulation: every neuron's voltage, the learned synapses, surgery, the room and the "
                   "flies."),
                  ("Load State", "load_state", "normal", True, "Go back to a saved moment."),
+                 ("Replay", "replay", "normal", True, "Play back a recorded .ktfreplay session."),
                  (f"Mode: {'Lab' if lab else 'Play'}", "toggle_mode", "normal", True,
                   "Switch between Play (the game) and Lab (research tools). Saved in your settings."),
                  ("Quit", "quit", "danger", True, "Asks first. Training memory is saved.")]

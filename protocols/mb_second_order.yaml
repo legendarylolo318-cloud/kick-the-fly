@@ -1,0 +1,14 @@
+# Mushroom body second-order conditioning: CS1 (odor A) + shock training, followed by CS2 (odor B) + CS1 pairing
+# without shock, transferring conditioned avoidance to CS2 via fear-driven PPL1 reinforcement.
+# Validation: mb_second_order (PASS, PI 1.00 +- 0.00 vs unpaired -0.10, p < 0.001).
+name: mb_second_order
+seed: 1000
+flies: 5
+warmup_s: 2
+duration_s: 6
+stimuli:
+  - {at_s: 1.0, for_s: 1.5, target: "prefix:KC", mode: drive, amp: 0.5}
+recordings:
+  - {name: kc, neurons: "prefix:KC"}
+  - {name: mbon, neurons: "prefix:MBON"}
+  - {name: ppl1, neurons: "prefix:PPL1"}

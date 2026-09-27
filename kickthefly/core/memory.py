@@ -23,13 +23,15 @@ This module does exactly that on the simulator's synapse matrix:
   - Reversal: dopamine in one compartment also restores the same smell's weakened synapses in the opposite
     compartment (Felsenberg et al. 2018 describe opposing memories in separate compartments competing), so being
     hurt by something that used to be rewarding turns liking into fear. Its rate is a game choice.
+  - Extinction: repeated unreinforced odor exposures restore weakened synapses in the absence of reinforcement dopamine
+    (Felsenberg et al. 2018), reducing learned fear toward the connectome baseline.
   - Everything learned is saved to the memory folder (Documents\\Kick the Fly\\memory on Windows,
     ~/.local/share/kickthefly/memory on Linux; see paths.py) and loaded next time, so training carries over
     between flies and sessions until you wipe it.
 
 What is a game rule: pain driving the PPL1 punishment neurons and sugar driving the PAM reward neurons (in real flies
-those links go through sensory pathways this sim doesn't reach reliably), each tool having a smell, and the
-learning rate and forgetting speed.
+those links go through sensory pathways this sim doesn't reach reliably), each tool having a smell, the
+learning rate and forgetting speed, and the extinction recovery rate.
 """
 from __future__ import annotations
 
@@ -45,6 +47,7 @@ KC_SPARSE = 280                 # Kenyon cells counted per pattern (of 4,064), l
 LEARN_RATE = 0.012              # per 50 ms update at full dopamine and eligibility: ~6-10 pairings to full memory
 FLOOR = 0.1                     # a synapse can be weakened to 10% of its connectome weight
 REVERSAL_RATE = 0.03            # opposite dopamine restores a smell's weakened synapses (reversal learning)
+EXTINCTION_RATE = 0.005          # odor-alone exposure restores depressed synapses (extinction, Felsenberg et al. 2018; GAME RULE)
 FORGET_HALF_LIFE_S = 1800.0     # brain-time seconds for a weakened synapse to recover half-way
 DA_MIN_HZ, DA_FULL_HZ = 12.0, 28.0   # measured: calm dopamine flicker peaks at 11 Hz above calm, punishment/reward
                                      # drive the right compartment to ~30 Hz and the other to ~1 Hz
@@ -143,20 +146,30 @@ class Memory:
         self.last_da = da
         w = self.w
         changed = False
-        if self.enabled and elig.any() and da.max() > 0.02:
+        if self.enabled and elig.any():
             e = elig[self.syn_kc]
-            dw = LEARN_RATE * da[self.syn_mbon] * e * w
-            dw = np.minimum(dw, w - FLOOR * self.w0)
-            if dw.max() > 1e-7:
-                w -= dw
-                changed = True
-            # reversal: dopamine in one compartment restores the smell's synapses in the opposite one, so a new
-            # experience (hurt after being rewarded, or the reverse) overturns the old memory instead of cancelling it
-            pun_da = float(da[self.punish_comp].mean()) if self.punish_comp.any() else 0.0
-            rew_da = float(da[~self.punish_comp].mean()) if (~self.punish_comp).any() else 0.0
-            opp = np.where(self.punish_syn, rew_da, pun_da)
-            if opp.max() > 0.02:
-                w += REVERSAL_RATE * opp * e * (self.w0 - w)
+            if da.max() > 0.02:
+                dw = LEARN_RATE * da[self.syn_mbon] * e * w
+                dw = np.minimum(dw, w - FLOOR * self.w0)
+                if dw.max() > 1e-7:
+                    w -= dw
+                    changed = True
+                # reversal: dopamine in one compartment restores the smell's synapses in the opposite one, so a new
+                # experience (hurt after being rewarded, or the reverse) overturns the old memory instead of cancelling it
+                pun_da = float(da[self.punish_comp].mean()) if self.punish_comp.any() else 0.0
+                rew_da = float(da[~self.punish_comp].mean()) if (~self.punish_comp).any() else 0.0
+                opp = np.where(self.punish_syn, rew_da, pun_da)
+                if opp.max() > 0.02:
+                    w += REVERSAL_RATE * opp * e * (self.w0 - w)
+            else:
+                # Extinction (GAME RULE; Felsenberg et al. 2018): repeated odor-alone exposure without reinforcement
+                # dopamine depotentiates / restores depressed synapses of active Kenyon cells toward baseline w0
+                depressed = (self.w0 - w) > 1e-4
+                if depressed.any():
+                    rec = EXTINCTION_RATE * e * (self.w0 - w)
+                    if rec.max() > 1e-7:
+                        w += rec
+                        changed = True
         k = 1 - 0.5 ** (UPDATE_STEPS * 0.005 / FORGET_HALF_LIFE_S)
         w += (self.w0 - w) * k                                               # slow forgetting
         if changed or k > 0:

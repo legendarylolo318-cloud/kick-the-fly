@@ -248,6 +248,41 @@ def run_benchmark(args) -> int:
     return 0
 
 
+def run_headless_replay(args) -> int:
+    """--headless --replay FILE --out DIR: re-exports the recording."""
+    from kickthefly.core import replay, simcore
+    from kickthefly.lab import recorder
+    replay_path = Path(args.replay)
+    if not replay_path.exists():
+        print(f"error: replay file not found: {replay_path}", file=sys.stderr)
+        return 2
+    try:
+        player = replay.ReplayPlayer.load(replay_path)
+    except replay.ReplayError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 2
+
+    out_dir = Path(args.out) if args.out else recorder.exports_dir() / f"replay-{replay_path.stem}"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    br = simcore.new_brain(seed=player.seed)
+    why = replay.check_compatibility(player.meta, replay.pack_signature(br))
+    if why:
+        print(f"error: incompatible replay: {why}", file=sys.stderr)
+        return 2
+
+    rec = recorder.Recorder(br)
+    for step in range(player.total_steps + 1):
+        for ev in player.events_at(step):
+            if ev["type"] == "poke":
+                br.poke(ev["sense"], ev.get("target"), ev.get("val", 0.5))
+        br._step()
+        rec.step(br)
+    rec.export_csv(out_dir / "replay_spikes.csv")
+    print(f"Replay re-exported to {out_dir}")
+    return 0
+
+
 def main(args) -> int:
     prepare()
     from kickthefly.sim.connectome import backends
@@ -258,6 +293,8 @@ def main(args) -> int:
         os.environ["KICK_THE_FLY_SIM_DTYPE"] = args.dtype
     log.info("headless run (simulation backend: %s)", os.environ.get("KICK_THE_FLY_SIM_BACKEND", "auto"))
     try:
+        if getattr(args, "replay", None):
+            return run_headless_replay(args)
         if getattr(args, "benchmark", False):
             return run_benchmark(args)
         if getattr(args, "audit_asymmetry", False):
@@ -278,8 +315,8 @@ def main(args) -> int:
     except FileNotFoundError as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
-    print("nothing to do: use --validate, --protocol FILE, --audit-asymmetry, --benchmark, --threshold-sweep, "
-          "--signflip-test or --critical-path TARGET", file=sys.stderr)
+    print("nothing to do: use --validate, --protocol FILE, --replay FILE, --audit-asymmetry, --benchmark, "
+          "--threshold-sweep, --signflip-test or --critical-path TARGET", file=sys.stderr)
     return 2
 
 

@@ -1,0 +1,15 @@
+# cVA pheromone: male-specific Or67d olfactory receptor neurons drive DA1 projection neurons
+# and downstream lateral horn / anterior superior protocerebrum targets (Datta et al. 2008, Cachero 2010).
+# Validation: or67d_to_da1pn (PASS) and da1pn_to_lh_asp (PASS).
+name: cva_pheromone
+seed: 1000
+flies: 5
+warmup_s: 2
+duration_s: 6
+stimuli:
+  - {at_s: 1.5, for_s: 1.5, target: or67d_orn, mode: drive, amp: 0.5}
+  - {at_s: 4.0, for_s: 1.5, target: da1_pn, mode: drive, amp: 0.5}
+recordings:
+  - {name: da1_pn, neurons: da1_pn}
+  - {name: da1_lh_asp, neurons: da1_lh_asp}
+  - {name: or67d_orn, neurons: or67d_orn}
