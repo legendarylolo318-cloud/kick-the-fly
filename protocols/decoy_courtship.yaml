@@ -1,0 +1,14 @@
+# The decoy female's input, as activation: drive the foreleg GRNs annotated putative ppk23/ppk25 (LgLG5-8) and record
+# the ascending vAB3/PPN1 neurons, P1 and the ps1 song motor neurons. Validation: foreleg_grn_to_p1 (too weak: FAIL).
+name: decoy_courtship
+seed: 1000
+flies: 5
+warmup_s: 2
+duration_s: 6
+stimuli:
+  - {at_s: 1.5, for_s: 2.0, target: foreleg_pheromone_grn, mode: drive, amp: 0.6}
+recordings:
+  - {name: foreleg_grn, neurons: foreleg_pheromone_grn}
+  - {name: vab3_ppn1, neurons: vab3_ppn1}
+  - {name: p1, neurons: p1}
+  - {name: ps1, neurons: ps1}

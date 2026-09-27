@@ -21,7 +21,10 @@ unpaired (p < 0.01). These thresholds were chosen for this release after explora
 papers: a pass means the sim shows the effect in the stated direction and strength, not that its numbers match the
 papers'. With n = 10 the smallest p a one-sided Wilcoxon test can give is 1/1024, shown as p < 0.001.
 
-The grooming hierarchy uses its own criteria, fixed before its run (below). The optomotor test puts a game-rule
+The grooming hierarchy uses its own criteria, fixed before its run (below). The two mushroom body tests added in 2.10
+use the conditioning criteria: extinction passes if the PI after extinction is below 0.5 and below the PI without it
+(p < 0.01); second-order conditioning passes if odor B's PI is at least 0.5, the unpaired control's |PI| at most 0.25,
+and paired above unpaired (p < 0.01). The optomotor test puts a game-rule
 transduction (the EMD stage) in front of T4/T5; everything after T4/T5 is the connectome.
 
 ## Results
@@ -46,6 +49,11 @@ This release, on the NumPy reference backend (n = 10 flies, mean ± SD; Numba an
 | `cold_trn_to_vp3pn`: cold-sensing antennal neurons (TRN_VP3a/b) excite the VP3 projection neurons (Gallio et al. 2011; Frank et al. 2015) | VP3 PNs x1.86 ± 0.08 vs x0.96 ± 0.05 for 7 random sensory neurons, p < 0.001 | **PASS** (activation, not thermotaxis) |
 | Grooming hierarchy: with head and abdomen stimulated together, the head (front-leg) program wins and the abdomen (hind-leg) program is suppressed ([Seeds et al. 2014](https://elifesciences.org/articles/02951)) | abdomen alone: hind-leg motor neurons x1.46 ± 0.03 (1.5x needed); both: front-leg x1.09 ± 0.06 vs hind-leg x1.44 ± 0.02 (priority p = 1.00), hind-leg not lower than abdomen alone (p = 0.07) | **FAIL: no hierarchy** |
 | Optomotor: rightward wide-field rotation (T4a/T5a_R front-to-back, T4b/T5b_L back-to-front) excites the right steering neurons ([Maisak et al. 2013](https://www.nature.com/articles/nature12320); Rayshubskiy et al. 2020) | DNa01_R + DNa02_R x2.72 ± 0.88 vs x0.80 ± 0.32 for as many random optic-lobe intrinsic neurons, p < 0.001; the left pair x1.09 | **PASS** (through a game-rule EMD stage) |
+| `or67d_to_da1pn` (2.10): the DA1 olfactory receptor neurons, the Or67d cVA sensors, excite the DA1 projection neurons ([Kurtovic et al. 2007](https://doi.org/10.1038/nature05672); [Datta et al. 2008](https://doi.org/10.1038/nature06808)) | DA1 PNs x2.58 ± 0.08 vs x0.80 ± 0.06 for 204 random other ORNs, p < 0.001 | **PASS** (activation, not cVA behavior) |
+| `da1pn_to_lh_asp` (2.10): DA1 projection neurons excite their lateral horn / aSP targets LHAV4a4, LHAV4c1 and LH008m (aSP-f) ([Ruta et al. 2010](https://doi.org/10.1038/nature09554); [Cachero et al. 2010](https://doi.org/10.1016/j.cub.2010.07.045); [Kohl et al. 2013](https://doi.org/10.1016/j.cell.2013.11.025)) | LH / aSP targets (34) x2.22 ± 0.19 vs x0.96 ± 0.03 for 26 random other AL projection neurons, p < 0.001 | **PASS** |
+| `foreleg_grn_to_p1` (2.10): foreleg GRNs annotated putative ppk23/ppk25 (LgLG5-8) excite P1 ([Clowney et al. 2015](https://doi.org/10.1016/j.neuron.2015.07.025); [Kallman et al. 2015](https://doi.org/10.7554/eLife.11188)) | P1 (86) x1.20 ± 0.11 vs x0.93 ± 0.06 for 64 random other sensory neurons, p < 0.001 | **FAIL: too weak** (consistent, below 1.5x) |
+| `mb_extinction` (2.10): after aversive conditioning, the trained odor presented alone 8 times lowers avoidance of it ([Felsenberg et al. 2018](https://doi.org/10.1016/j.cell.2018.08.021)) | PI 1.00 ± 0.00 after extinction vs 1.00 ± 0.00 without; fear of CS+ 0.62 vs 0.67, p = 1.0 | **FAIL: no extinction** |
+| `mb_second_order` (2.10): odor A + shock, then odor B with odor A and no shock, makes flies avoid odor B; unpaired doesn't ([Tabone & de Belle 2011](https://doi.org/10.1101/lm.2035411)) | odor B PI 0.00 ± 0.19 paired vs -0.03 ± 0.21 unpaired; fear of odor B 0.036 vs 0.034, p = 0.13 | **FAIL: no second-order learning** |
 
 ## What the failures and passes mean
 
@@ -87,6 +95,17 @@ This release, on the NumPy reference backend (n = 10 flies, mean ± SD; Numba an
   the connectome's real synapses; the test shows they give odor-specific memory. The PI of 1.00 is above real flies'
   typical ~0.8-0.9 and not tuned to match. The approach output neurons' overall firing barely differs between the two
   odors (30.9 vs 31.0 spikes/s), so the choice is read from the learned synapses, not from output-neuron firing.
+- **cVA and the decoy's pheromone input (2.10):** the cVA tool drives the DA1 ORNs, and both stages after them
+  reproduce as activation; nothing in play reads cVA behavior from them (no aggression or courtship rule was added).
+  The decoy female drives LgLG5-8, the foreleg gustatory neurons MaleCNS v1.0 annotates as putative ppk23/ppk25
+  (prothoracic leg nerve); that input reaches P1 consistently but weakly, so the game's COURTSHIP tag, which contact
+  triggers, is a game rule.
+- **Extinction and second-order conditioning (2.10):** both run on the existing learning rule, with no rule added for
+  them, so the brain would have to produce them through its own dopamine neurons, and it doesn't. After extinction the
+  trained odor's learned fear falls only a little (0.62 vs 0.67) and the T-maze choice doesn't change. In second-order
+  conditioning odor B gains no fear: odor A's learned output doesn't drive the punishment dopamine neurons in this
+  sim. In real flies extinction is a parallel opposing memory formed through reward dopamine neurons, with the
+  original memory kept (Felsenberg et al. 2018), and second-order learning needs MBON-to-dopamine-neuron feedback.
 - **E-PG compass, twice:** the first test drives a wedge of EPG neurons directly; the second (2.7) uses the open
   field's steady wind as the cue, through exactly the transduction the arena uses, with the first test's pass
   criteria fixed before the run and no weights or time constants tuned. It reaches the ring only weakly (EPG firing
@@ -99,3 +118,22 @@ from the branch's notes (most of which didn't match a rerun of its own code). Th
 thresholds or time constants changed to make a test pass; the pass criteria are unchanged. New thresholds that turn
 firing into game reactions (song, lunge, sleep, CO2/heat/cold logs) are game rules in Lab > Parameters, set above
 each group's calm maximum on exploration seeds.
+
+## Checked in the 2.10 review
+
+The 2.10 branch's report didn't match its code, and its two mushroom body passes rested on rules or protocol errors;
+each number above is from a rerun on the held-out seeds after the review's fixes:
+
+- `mb_second_order` passed only because phase 2 delivered the shock (odor B + odor A *with* shock is first-order
+  conditioning of odor B), and its unpaired control got extra odor A + shock training. Phase 2 now has no shock in
+  either group, as in Tabone & de Belle 2011, and the test fails.
+- `mb_extinction` rested on an added rule restoring weakened KC -> MBON synapses whenever odor came without dopamine,
+  which also ran during every other assay's odor presentations (the conditioning test's unpaired PI moved from -0.03
+  to -0.04) and erases the original memory, the opposite of what Felsenberg et al. 2018 found. The rule is removed;
+  the test fails without it.
+- The cell types were checked against the MaleCNS v1.0 annotations: ORN_DA1 (204, fru_high; the receptor isn't
+  annotated), DA1_lPN, DA1_vPN, M_lvPNm43/45 (13, 2, 4, 7), LH008m (synonyms aSP-f, aSP5, DC1), LgLG5-8 (13, 16, 21,
+  14; ProLN, receptorType putative_ppk25/23/23/25), AN09B017e/f/g (vAB3), AN05B102a (PPN1), pIP10 (2) and ps1 MN (2).
+  The branch's counts for most of them were wrong; the identities were right.
+- Citations were checked against Crossref; several of the branch's DOIs pointed to unrelated papers.
+- No weights, thresholds or LIF time constants changed; the pass criteria are the ones already in `validation.py`.

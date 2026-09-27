@@ -29,7 +29,9 @@ def results():
                                      "adn_grooming_motor", "mb_conditioning", "epg_compass",
                                      "epg_compass_wind", "courtship_song", "bitter_grn_to_dng28",
                                      "co2_orn_to_pn", "hot_trn_to_vp2pn", "cold_trn_to_vp3pn",
-                                     "grooming_hierarchy", "optomotor_turning", "p1_courtship_song"])
+                                     "grooming_hierarchy", "optomotor_turning", "p1_courtship_song",
+                                     "or67d_to_da1pn", "da1pn_to_lh_asp", "foreleg_grn_to_p1",
+                                     "mb_extinction", "mb_second_order"])
 def test_matches_expected(results, test_id):
     from kickthefly.lab import validation
     t = results[test_id]

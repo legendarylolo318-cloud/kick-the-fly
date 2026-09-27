@@ -1,0 +1,15 @@
+# cVA pathway, as activation: drive the DA1 olfactory receptor neurons (the Or67d cVA sensors), then the DA1
+# projection neurons, and record both and their lateral horn / aSP targets (LHAV4a4, LHAV4c1, LH008m).
+# Validation: or67d_to_da1pn and da1pn_to_lh_asp.
+name: cva_pheromone
+seed: 1000
+flies: 5
+warmup_s: 2
+duration_s: 6
+stimuli:
+  - {at_s: 1.5, for_s: 1.5, target: or67d_orn, mode: drive, amp: 0.5}
+  - {at_s: 4.0, for_s: 1.5, target: da1_pn, mode: drive, amp: 0.5}
+recordings:
+  - {name: da1_pn, neurons: da1_pn}
+  - {name: da1_lh_asp, neurons: da1_lh_asp}
+  - {name: or67d_orn, neurons: or67d_orn}

@@ -1,0 +1,14 @@
+# Mushroom body neurons while the Kenyon cells are driven: a recording of KC, MBON and PPL1 activity, not the extinction
+# experiment itself. That is assays.extinction_fly (validation: mb_extinction), which conditions, re-exposes the odor
+# without shock and runs the T-maze.
+name: mb_extinction
+seed: 1000
+flies: 5
+warmup_s: 2
+duration_s: 6
+stimuli:
+  - {at_s: 1.0, for_s: 1.5, target: "prefix:KC", mode: drive, amp: 0.4}
+recordings:
+  - {name: kc, neurons: "prefix:KC"}
+  - {name: mbon, neurons: "prefix:MBON"}
+  - {name: ppl1, neurons: "prefix:PPL1"}

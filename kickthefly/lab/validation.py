@@ -192,6 +192,57 @@ TESTS = (
               "Yu 2010: pMP4\" (assays.P1_TYPES). Added in 2.9 alongside pIP10, with the same criteria. Consistent "
               "but too weak. P1 sends pIP10 1,503 synapses and ps1 none, so it is one step further from the motor "
               "neurons than pIP10."),
+    dict(id="or67d_to_da1pn", name="cVA-sensing ORNs (DA1, Or67d) excite the DA1 projection neurons",
+         play="",
+         claim="Activating the DA1 olfactory receptor neurons, the Or67d cVA sensors, excites the DA1 projection neurons.",
+         citation="Kurtovic et al. 2007, Nature 446:542; Datta et al. 2008, Nature 452:473",
+         drive="or67d_orn", drive_label="ORN_DA1 (204)", readout="da1_pn",
+         readout_label="DA1 PNs (DA1_lPN, DA1_vPN, M_lvPNm43, M_lvPNm45, 26)",
+         control="orn_not_da1", control_label="204 random other olfactory receptor neurons", popup_event=None,
+         note="One-synapse activation (ORN -> PN), not cVA behavior. MaleCNS v1.0 doesn't annotate ORN_DA1's receptor; "
+              "that DA1 ORNs express Or67d is from Kurtovic et al. 2007."),
+    dict(id="da1pn_to_lh_asp", name="DA1 projection neurons excite lateral horn and aSP targets",
+         play="",
+         claim="Activating the DA1 projection neurons excites their lateral horn and aSP targets (LHAV4a4, LHAV4c1, LH008m).",
+         citation="Ruta et al. 2010, Nature 468:686; Cachero et al. 2010, Curr Biol 20:1589; Kohl et al. 2013, Cell 155:1610",
+         drive="da1_pn", drive_label="DA1 PNs (26)", readout="da1_lh_asp",
+         readout_label="LH / aSP targets (LHAV4a4, LHAV4c1, LH008m, 34)",
+         control="alpn", control_label="26 random other antennal lobe projection neurons", popup_event=None,
+         note="The second stage of the cVA pathway, as activation. LH008m carries the synonyms Cachero 2010: aSP-f, "
+              "Yu 2010: aSP5 and Ruta 2010: DC1 in MaleCNS v1.0."),
+    dict(id="foreleg_grn_to_p1", name="Foreleg pheromone GRNs excite the male P1 cluster",
+         play="",
+         claim="Activating the foreleg gustatory neurons annotated putative ppk23/ppk25 (LgLG5-8) excites the male P1 "
+               "courtship cluster.",
+         citation="Clowney et al. 2015, Neuron 87:1036; Kallman et al. 2015, eLife 4:e11188",
+         drive="foreleg_pheromone_grn", drive_label="LgLG5-8, putative ppk23/ppk25 (64)", readout="p1",
+         readout_label="P1 courtship cluster (86)",
+         control="sensory", control_label="64 random other sensory neurons", popup_event=None,
+         note="MaleCNS v1.0 annotates LgLG5-8 as gustatory leg-bristle neurons of the prothoracic leg nerve (ProLN), "
+              "receptorType putative_ppk23 or putative_ppk25. In real flies this reaches P1 through the ascending vAB3 "
+              "and PPN1 neurons (AN09B017e/f/g and AN05B102a in MaleCNS). Consistent but too weak."),
+    dict(id="mb_extinction", name="Mushroom body extinction: unreinforced odor exposure reduces learned avoidance",
+         play="",
+         claim="After aversive conditioning, repeated exposure to the trained odor without shock lowers the T-maze "
+               "avoidance of it.",
+         citation="Felsenberg et al. 2018, Cell 175:709",
+         drive="", drive_label="the trained odor alone (8 times) after conditioning", readout="",
+         readout_label="T-maze choice", control="", control_label="the same conditioning, then rest for as long",
+         popup_event=None, kind="extinction",
+         note="No rule is added for extinction: the existing learning rule (and its reversal term) is all there is, so "
+              "the brain would have to produce it through its own dopamine neurons. In real flies extinction is a "
+              "parallel opposing memory formed through reward dopamine neurons, with the original memory kept "
+              "(Felsenberg et al. 2018)."),
+    dict(id="mb_second_order", name="Mushroom body second-order conditioning: odor A + shock, then odor B with odor A",
+         play="",
+         claim="After odor A is paired with shock, pairing odor B with odor A, without shock, makes flies avoid odor B; "
+               "explicitly unpaired presentations don't.",
+         citation="Tabone & de Belle 2011, Learn Mem 18:250",
+         drive="", drive_label="odor B, then odor B with odor A (6 times, no shock), after odor A + shock",
+         readout="", readout_label="T-maze choice, odor B vs a novel odor C", control="",
+         control_label="the same, but odor A and odor B apart", popup_event=None, kind="second_order",
+         note="No rule is added: odor B can only gain fear if odor A's learned MBON output drives the dopamine "
+              "neurons through the connectome while odor B's Kenyon cells are active."),
 )
 BY_ID = {t["id"]: t for t in TESTS}
 # The held-out results of this release (docs/validation.md). tests/test_validation.py and --strict flag any change,
@@ -201,6 +252,8 @@ EXPECTED = {
     "adn_grooming_motor": False, "mb_conditioning": True, "epg_compass": False, "epg_compass_wind": False,
     "courtship_song": True, "bitter_grn_to_dng28": True, "co2_orn_to_pn": True, "hot_trn_to_vp2pn": True,
     "cold_trn_to_vp3pn": True, "grooming_hierarchy": False, "optomotor_turning": True, "p1_courtship_song": False,
+    "or67d_to_da1pn": True, "da1pn_to_lh_asp": True, "foreleg_grn_to_p1": False, "mb_extinction": False,
+    "mb_second_order": False,
 }
 
 
@@ -270,6 +323,19 @@ def _tmaze_seed(args, wiring=None) -> dict:
     return assays.tmaze_fly(seed if cs_plus == "odor_a" else seed + 50_000, cs_plus, paired=paired, wiring=wiring)
 
 
+def _extinction_seed(seed: int, wiring=None) -> dict:
+    from kickthefly.lab import assays
+
+    return assays.extinction_fly(seed=seed, wiring=wiring)
+
+
+def _second_order_seed(args, wiring=None) -> dict:
+    from kickthefly.lab import assays
+
+    seed, paired = args
+    return assays.second_order_fly(seed=seed, paired=paired, wiring=wiring)
+
+
 def _wilcoxon_greater(a, b) -> float:
     from scipy import stats
 
@@ -294,11 +360,13 @@ def run(seeds=SEEDS, workers: int | None = None, progress=None, include=None, wi
     t0 = time.time()
     workers = workers or min(4, os.cpu_count() or 1)
     include = set(include or BY_ID)
-    jobs_path = [s for s in seeds] if include - {"mb_conditioning", "epg_compass", "epg_compass_wind"} else []
+    jobs_path = [s for s in seeds] if include - {"mb_conditioning", "mb_extinction", "mb_second_order", "epg_compass", "epg_compass_wind"} else []
     jobs_tmaze = [(s, cs, paired) for s in seeds for paired in (True, False) for cs in ("odor_a", "odor_b")] \
         if "mb_conditioning" in include else []
-    total, done = len(jobs_path) + len(jobs_tmaze), 0
-    path_res, tmaze_res = {}, []
+    jobs_ext = [s for s in seeds] if "mb_extinction" in include else []
+    jobs_soc = [(s, paired) for s in seeds for paired in (True, False)] if "mb_second_order" in include else []
+    total, done = len(jobs_path) + len(jobs_tmaze) + len(jobs_ext) + len(jobs_soc), 0
+    path_res, tmaze_res, ext_res, soc_res = {}, [], {}, {}
 
     def tick(label):
         nonlocal done
@@ -311,13 +379,19 @@ def run(seeds=SEEDS, workers: int | None = None, progress=None, include=None, wi
         with ProcessPoolExecutor(max_workers=workers, mp_context=multiprocessing.get_context("spawn")) as ex:
             futs = {ex.submit(_pathway_seed, s, wiring): ("path", s) for s in jobs_path}
             futs.update({ex.submit(_tmaze_seed, j, wiring): ("tmaze", j) for j in jobs_tmaze})
+            futs.update({ex.submit(_extinction_seed, s, wiring): ("ext", s) for s in jobs_ext})
+            futs.update({ex.submit(_second_order_seed, j, wiring): ("soc", j) for j in jobs_soc})
             from concurrent.futures import as_completed
             for f in as_completed(futs):
                 kind, key = futs[f]
                 if kind == "path":
                     path_res[key] = f.result()
-                else:
+                elif kind == "tmaze":
                     tmaze_res.append((key, f.result()))
+                elif kind == "ext":
+                    ext_res[key] = f.result()
+                elif kind == "soc":
+                    soc_res[key] = f.result()
                 tick(kind)
     else:
         for s in jobs_path:
@@ -326,6 +400,12 @@ def run(seeds=SEEDS, workers: int | None = None, progress=None, include=None, wi
         for j in jobs_tmaze:
             tmaze_res.append((j, _tmaze_seed(j, wiring)))
             tick("tmaze")
+        for s in jobs_ext:
+            ext_res[s] = _extinction_seed(s, wiring)
+            tick("ext")
+        for j in jobs_soc:
+            soc_res[j] = _second_order_seed(j, wiring)
+            tick("soc")
 
     results = []
     for t in TESTS:
@@ -395,6 +475,35 @@ def run(seeds=SEEDS, workers: int | None = None, progress=None, include=None, wi
             r["criteria"] = f"drive ratio >= {RATIO_MIN} and > control (one-sided Wilcoxon p < {P_MAX})"
             r["passed"] = bool(np.mean(dr) >= RATIO_MIN and p < P_MAX)
             r["per_seed"] = per
+        elif t.get("kind") == "extinction":
+            pi_ext = [float(ext_res[s]["pi_ext"]) for s in seeds]
+            pi_unext = [float(ext_res[s]["pi_unext"]) for s in seeds]
+            p = _wilcoxon_greater(pi_unext, pi_ext)
+            fear_e = [float(ext_res[s]["fear_ext"]) for s in seeds]
+            fear_u = [float(ext_res[s]["fear_unext"]) for s in seeds]
+            r["measured"] = dict(
+                extinguished_pi_mean=float(np.mean(pi_ext)), extinguished_pi_sd=float(np.std(pi_ext, ddof=1)),
+                unextinguished_pi_mean=float(np.mean(pi_unext)), unextinguished_pi_sd=float(np.std(pi_unext, ddof=1)),
+                fear_extinguished=float(np.mean(fear_e)), fear_unextinguished=float(np.mean(fear_u)),
+                p_value=p, n=len(seeds))
+            r["criteria"] = f"extinguished PI < {PI_MIN} and unextinguished > extinguished (one-sided Wilcoxon p < {P_MAX})"
+            r["passed"] = bool(np.mean(pi_ext) < PI_MIN and p < P_MAX)
+            r["per_seed"] = [dict(seed=s, pi_ext=a, pi_unext=b) for s, a, b in zip(seeds, pi_ext, pi_unext)]
+        elif t.get("kind") == "second_order":
+            pi_p = [float(soc_res[(s, True)]["pi"]) for s in seeds]
+            pi_u = [float(soc_res[(s, False)]["pi"]) for s in seeds]
+            p = _wilcoxon_greater(pi_p, pi_u)
+            fear_b_p = [float(soc_res[(s, True)]["fear_b"]) for s in seeds]
+            fear_b_u = [float(soc_res[(s, False)]["fear_b"]) for s in seeds]
+            r["measured"] = dict(
+                pi_mean=float(np.mean(pi_p)), pi_sd=float(np.std(pi_p, ddof=1)),
+                control_pi_mean=float(np.mean(pi_u)), control_pi_sd=float(np.std(pi_u, ddof=1)),
+                fear_b_paired=float(np.mean(fear_b_p)), fear_b_unpaired=float(np.mean(fear_b_u)),
+                p_value=p, n=len(seeds))
+            r["criteria"] = (f"PI >= {PI_MIN}, |unpaired PI| <= {CONTROL_PI_MAX}, paired > unpaired "
+                             f"(one-sided Wilcoxon p < {P_MAX})")
+            r["passed"] = bool(np.mean(pi_p) >= PI_MIN and abs(np.mean(pi_u)) <= CONTROL_PI_MAX and p < P_MAX)
+            r["per_seed"] = [dict(seed=s, pi=a, control_pi=b) for s, a, b in zip(seeds, pi_p, pi_u)]
         else:
             by = {}
             for (s, cs, paired), res in tmaze_res:
@@ -439,6 +548,9 @@ def summary(res: dict) -> str:
             nums = (f"hind-leg MNs x{m['posterior_hind_mean']:.2f} for abdomen alone; with head too, front-leg "
                     f"x{m['both_front_mean']:.2f} vs hind-leg x{m['both_hind_mean']:.2f} (priority p={m['p_priority']:.4f},"
                     f" suppression p={m['p_suppression']:.4f})")
+        elif "extinguished_pi_mean" in m:
+            nums = (f"extinguished PI {m['extinguished_pi_mean']:.2f} ± {m['extinguished_pi_sd']:.2f} vs "
+                    f"unextinguished {m['unextinguished_pi_mean']:.2f} ± {m['unextinguished_pi_sd']:.2f}, p={m['p_value']:.4f}")
         elif "pi_mean" in m:
             nums = f"PI {m['pi_mean']:.2f} ± {m['pi_sd']:.2f} vs unpaired {m['control_pi_mean']:.2f}, p={m['p_value']:.4f}"
         elif "direction_tracking" in m:

@@ -1,10 +1,11 @@
-"""Simulation performance benchmark for 1, 8, and 16 flies.
+"""Simulation performance benchmark for 1, 8, 16 (and 32) flies.
 
 Measures paced steps/s (real-time keeping), uncapped throughput, neurons/second,
 synapse updates/second, sim-time vs real-time ratio, memory footprint, and CPU/system info.
 """
 from __future__ import annotations
 
+import gc
 import json
 import os
 import platform
@@ -94,6 +95,14 @@ def measure_steps(brains, seconds: float, speed: float):
     return rates, spikes / max(1, steps)
 
 
+def _batch_stats(brains) -> tuple[int, int] | None:
+    """(dispatches, fly-steps) summed over the gl groups these brains step in, or None on other backends."""
+    groups = {id(g): g for g in (getattr(b.sim.backend, "_group", None) for b in brains) if g is not None}
+    if not groups:
+        return None
+    return sum(g.dispatches for g in groups.values()), sum(g.fly_steps for g in groups.values())
+
+
 def run_benchmark(fly_counts: tuple[int, ...] = (1, 8, 16), seconds: float = 3.0, progress_cb=None,
                   backend: str = "auto") -> dict:
     g, W, _ = brainpack.load(brainpack.find())
@@ -127,7 +136,9 @@ def run_benchmark(fly_counts: tuple[int, ...] = (1, 8, 16), seconds: float = 3.0
         # 2. Uncapped (speed = 1000.0)
         for b in brains:
             b._stop = False
+        batch0 = _batch_stats(brains)
         uncapped_rates, spikes_per_step = measure_steps(brains, seconds, 1000.0)
+        batch1 = _batch_stats(brains)
         mean_uncapped = float(np.mean(uncapped_rates))
         agg_uncapped_steps = float(np.sum(uncapped_rates))
         uncapped_ratio = mean_uncapped / rt_target
@@ -156,7 +167,11 @@ def run_benchmark(fly_counts: tuple[int, ...] = (1, 8, 16), seconds: float = 3.0
             "synapses_per_sec": round(synapses_per_sec, 0),
             "memory_mb": round(mem_mb, 1),
         })
+        if batch0 and batch1 and batch1[0] > batch0[0]:
+            # gl steps a group's flies together (backends._GLGroup): how many went per dispatch, uncapped
+            records[-1]["flies_per_dispatch"] = round((batch1[1] - batch0[1]) / (batch1[0] - batch0[0]), 2)
         del brains
+        gc.collect()                    # the brains' GPU slots go with them, before the next count's flies join
 
     if progress_cb:
         progress_cb(total_runs, total_runs, "complete")
@@ -202,7 +217,8 @@ def format_benchmark_report(res: dict) -> str:
         n_sec = f"{r['neurons_per_sec'] / 1e6:.1f} M/s"
         syn_sec = f"{r.get('synapses_per_sec', 0) / 1e6:.1f} M/s"
         mem = f"{r['memory_mb']:.0f} MB"
-        lines.append(f"{fl:<6} {paced:<17} {rt:<10} {uncap:<14} {lat:<11} {speedup:<9} {n_sec:<16} {syn_sec:<16} {mem:<8}")
+        batch = f"  ({r['flies_per_dispatch']:.1f} flies/dispatch)" if "flies_per_dispatch" in r else ""
+        lines.append(f"{fl:<6} {paced:<17} {rt:<10} {uncap:<14} {lat:<11} {speedup:<9} {n_sec:<16} {syn_sec:<16} {mem:<8}{batch}")
     lines.append("=" * 116)
     lines.append("Note: Real-time pace requires 200 steps/s (1.00x). Values >= 1.00x run in true real-time.")
     lines.append("Neurons/s: neuron updates per wall-clock second, all flies together. Syn-events/s: measured spikes")

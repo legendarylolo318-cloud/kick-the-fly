@@ -386,6 +386,42 @@ ASSUMPTIONS = (
      "Real circadian timing is a molecular clock (per/tim/Clk/cyc) and slow PDF signalling over hours, and sleep "
      "pressure builds up over waking. The sim is point neurons over seconds: it has no clock and no sleep drive.",
      "kickthefly/game/outdoors.py:sun_now · kickthefly/game/kick_the_fly.py:Game._sleep"),
+
+    ("cVA pheromone puff",
+     "GAME RULE",
+     "The puff (its reach, 250 px in 2D and 2.5 m in 3D, and its strength) is a game rule. What it drives is real: the "
+     "204 DA1 olfactory receptor neurons, and from there whatever the connectome does. Nothing ties cVA to aggression "
+     "beyond that wiring.",
+     "cVA is a male pheromone sensed by Or67d neurons (DA1). Real puffs spread and fade; here a puff drives the DA1 "
+     "ORNs in proportion to distance.",
+     "kickthefly/game/kick_the_fly.py:Game.use_tool · kickthefly/lab/validation.py:or67d_to_da1pn"),
+
+    ("Decoy female and the COURTSHIP tag",
+     "GAME RULE",
+     "The decoy's body, the contact distance, and the COURTSHIP tag, which contact triggers without reading any neuron. "
+     "Contact drives the real foreleg GRNs annotated putative ppk23/ppk25 (LgLG5-8); how much of that reaches P1 is "
+     "the connectome's (weak: foreleg_grn_to_p1 fails).",
+     "Real males taste female cuticular pheromones (7,11-HD, 7,11-ND) through foreleg ppk23/ppk25 neurons and court. "
+     "Nothing in play reads P1 to decide courtship.",
+     "kickthefly/game/kick_the_fly.py:Game._decoy · kickthefly/lab/validation.py:foreleg_grn_to_p1"),
+
+    ("Plume tracking (headless assay)",
+     "GAME RULE",
+     "assays.plume_tracking_fly: the plume (Gaussian, downwind of a source, on and off in time) and the navigation "
+     "(surge upwind in odor, cast crosswind without) are computed from the geometry. ORN_DM1 are driven while the fly "
+     "is in odor, but their firing doesn't steer it. The game's open field has no plume.",
+     "Real plume tracking is closed-loop between smell, wind sensing and steering. Whether the connectome's own "
+     "steering neurons would do it wasn't tested.",
+     "kickthefly/lab/assays.py:plume_tracking_fly"),
+
+    ("Mushroom body extinction and second-order conditioning",
+     "SYNAPSE",
+     "No plasticity rule was added for either: they run on the existing learning rule (dopamine x Kenyon cell "
+     "eligibility, with its reversal term), so the brain has to produce them through its own dopamine neurons. Both "
+     "are validation tests (mb_extinction, mb_second_order); see the Validation page for whether it does.",
+     "In real flies extinction forms a parallel opposing memory through reward dopamine neurons (Felsenberg et al. "
+     "2018), and second-order conditioning needs MBON-to-dopamine-neuron feedback.",
+     "kickthefly/lab/assays.py:extinction_fly, second_order_fly · kickthefly/core/memory.py"),
 )
 
 
@@ -964,6 +1000,14 @@ def page_validation(m: ui.Menu, surf, rect, mouse) -> None:
             meas = (f"{t['readout_label']}: x{mm['drive_ratio_mean']:.2f} ± {mm['drive_ratio_sd']:.2f} driving "
                     f"{t['drive_label']}  vs  x{mm['control_ratio_mean']:.2f} ± {mm['control_ratio_sd']:.2f} for "
                     f"{t['control_label']}  ·  {labstats.fmt_p(mm['p_value'])}")
+        elif "extinguished_pi_mean" in mm:
+            meas = (f"PI after extinction {mm['extinguished_pi_mean']:.2f} ± {mm['extinguished_pi_sd']:.2f} vs "
+                    f"{mm['unextinguished_pi_mean']:.2f} ± {mm['unextinguished_pi_sd']:.2f} without  ·  fear of CS+ "
+                    f"{mm['fear_extinguished']:.2f} vs {mm['fear_unextinguished']:.2f}  ·  {labstats.fmt_p(mm['p_value'])}")
+        elif "fear_b_paired" in mm:
+            meas = (f"PI for odor B {mm['pi_mean']:.2f} ± {mm['pi_sd']:.2f} paired vs {mm['control_pi_mean']:.2f} ± "
+                    f"{mm['control_pi_sd']:.2f} unpaired  ·  fear of odor B {mm['fear_b_paired']:.2f} vs "
+                    f"{mm['fear_b_unpaired']:.2f}  ·  {labstats.fmt_p(mm['p_value'])}")
         elif "pi_mean" in mm:
             meas = (f"PI {mm['pi_mean']:.2f} ± {mm['pi_sd']:.2f} vs unpaired {mm['control_pi_mean']:.2f} ± "
                     f"{mm['control_pi_sd']:.2f}  ·  fear CS+ {mm['fear_cs_plus']:.2f} vs CS- {mm['fear_cs_minus']:.2f}  ·  "

@@ -1066,6 +1066,22 @@ class Game3D(k2.Game):
             self.throw_t = now
             self.alcohols3.append(dict(p=self.tool_tip(), v=d * 0.07 + np.array([0, 0.02, 0]), left=1.0, landed=False))
             self.sound.play("drop")
+        elif name == "cva":
+            self.sound.play("pop")
+            self.popup(self.tool_tip(), "cVA PUFF", (255, 180, 100))
+            for slot in self.flies:
+                dist = float(np.linalg.norm(slot.fly.p[HEAD] - self.tool_tip()))
+                if dist < 2.5:
+                    strength = 0.8 * (1.0 - dist / 2.5)
+                    slot.brain.poke("scent", "cva", strength)
+        elif name == "decoy" and now - self.throw_t > 0.3:
+            self.throw_t = now
+            self.sound.play("drop")
+            self.popup(self.tool_tip(), "DECOY FEMALE", (200, 180, 220))
+            if not hasattr(self, "decoys3"):
+                self.decoys3 = []
+            if len(self.decoys3) < 3:
+                self.decoys3.append(dict(p=self.tool_tip(), v=d * 0.07 + np.array([0, 0.02, 0]), landed=False))
 
     def _swat3d(self, now: float) -> None:
         eye, d = self.aim()
@@ -1704,6 +1720,7 @@ class Game3D(k2.Game):
         self._spider3d(now)
         self._sugar3d(now)
         self._alcohol3d(now)
+        self._decoy3d(now)
 
     def _effects_one(self, slot: "k2.FlySlot", now: float) -> None:
         fly = slot.fly
@@ -1881,6 +1898,29 @@ class Game3D(k2.Game):
             if a["left"] <= 0:
                 drop_item(self.alcohols3, a)
                 break
+
+    def _decoy3d(self, now: float) -> None:
+        """Decoy female in 3D (GAME RULE body, contact distance and COURTSHIP tag; contact drives the LgLG5-8 GRNs)."""
+        if not hasattr(self, "decoys3") or not self.decoys3:
+            return
+        for dec in self.decoys3:
+            if not dec["landed"]:
+                dec["v"][1] -= GRAV
+                dec["p"] += dec["v"]
+                if dec["p"][1] <= 0.05:
+                    dec["p"][1], dec["landed"] = 0.05, True
+        for slot in self.flies:
+            fly = slot.fly
+            if fly.dead or fly.wrapped or fly.frozen_at is not None or fly.grabbed is not None:
+                continue
+            dec = min(self.decoys3, key=lambda d: float(np.linalg.norm(d["p"] - fly.p[HEAD])))
+            dist = float(np.linalg.norm(dec["p"] - fly.p[HEAD]))
+            if dist < 0.4:
+                slot.brain.poke("pheromone", "foreleg", 0.6)
+                if now >= getattr(fly, "court_until", 0.0):
+                    fly.court_until = now + 0.5
+                    self.note("COURTSHIP   foreleg contact (rule): drives the putative ppk23/ppk25 GRNs")
+                    self.popup(fly.p[HEAD] + (0, 0.4, 0), "COURTSHIP", (255, 180, 220))
 
     def _die(self, slot: "k2.FlySlot", now: float) -> None:
         fly = slot.fly

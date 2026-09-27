@@ -1,5 +1,34 @@
 # Changelog
 
+## 2.10.0 (2026-09-27)
+
+### Added
+- **cVA pheromone tool** (mouse wheel or toolbar): drives the DA1 olfactory receptor neurons (the Or67d cVA sensors).
+  Validated as activation: DA1 ORNs -> DA1 PNs (x2.58) and DA1 PNs -> lateral horn / aSP targets (x2.22).
+- **Decoy female** (mouse wheel or toolbar): foreleg contact drives LgLG5-8, the foreleg taste neurons annotated
+  putative ppk23/ppk25. Their drive reaches P1 only weakly (validation FAIL); the COURTSHIP tag is a game rule.
+- **Validation:** or67d_to_da1pn and da1pn_to_lh_asp (PASS); foreleg_grn_to_p1, mb_extinction and mb_second_order
+  (FAIL: extinction and second-order conditioning don't emerge from the existing learning rule; none was added).
+- **Replay files (.ktfreplay), headless:** `--headless --protocol FILE --record-replay OUT` and
+  `--headless --replay FILE --out DIR`, with the brain pack's SHA-256 and a spike checksum; exact on NumPy, Numba and
+  torch-cpu.
+- **Language setting** (Settings > Accessibility): the pause menu and Settings labels; German is machine-translated
+  and incomplete.
+- **Plume tracking assay** (Python API, a game rule throughout; the open field has no plume).
+- **CI:** gl backend on llvmpipe, Flatpak build, docs link check and replay determinism (checks.yml); releases wait
+  for them.
+
+### Changed
+- **gl backend: batched multi-fly.** A process's brains step together on one GL context, the connectome read once per
+  step for up to 32 flies, bit-exact with unbatched gl. 1 fly 0.96 ms/step (2.37 in 2.9), 16 flies in real time
+  (0.11x in 2.9), 32 at 0.86x. Its fly cap stays 32 and no longer goes to 64 with KICK_THE_FLY_EXPANDED_SWARM.
+- **Real-science cards are off by default**, in Play and Lab; older configs switch them off once.
+
+### Fixed
+- gl: Lab parameter changes after a brain's first step never reached the GPU; a brain lost its membrane state when it
+  moved from its warm-up thread to its own.
+- The benchmark kept each fly count's brains alive into the next count.
+
 ## 2.9.0 (2026-09-26)
 
 ### Added

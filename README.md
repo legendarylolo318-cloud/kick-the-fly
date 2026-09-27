@@ -110,6 +110,10 @@ backends, the Python API and the Lab's optional NWB export.
 - **Aggression (new in 2.9):** with several flies, stimulate P1 (the male courtship and aggression cluster) in brain surgery and its aggression neurons fire and it lunges at the nearest fly. The neurons are real (AVLP727m, "TK-FruM", and the pC1 cluster); the lunge is a game rule (Settings > Brain > Aggression lunges). Flies bumping into each other don't fire them hard enough on their own.
 - **Brain search and path tracer (new in 2.9):** in the big brain view, search any neuron by type, instance or body ID, then trace the strongest paths (up to 3 synapses) between two neurons and watch live spikes run along them.
 - **Gamepad (new in 2.9, 3D):** sticks walk and look, the right trigger uses the tool, bumpers or a tool wheel (hold Y) pick tools. Rebind everything in Settings > Controls.
+- **cVA pheromone tool (new in 2.10):** puffs the male pheromone cVA, driving the fly's DA1 olfactory receptor neurons (the Or67d cVA sensors, 204). The next two stages are validated as activation: DA1 projection neurons (x2.58) and their lateral horn / aSP targets (x2.22). Nothing in play reads a cVA behavior from them; the puff's reach and strength are game rules.
+- **Decoy female (new in 2.10):** drops a female-shaped decoy (a game rule body; three at most). A fly's forelegs touching it drive LgLG5-8, the foreleg taste neurons MaleCNS v1.0 annotates as putative ppk23/ppk25. That reaches the P1 courtship neurons only weakly (x1.20, fails validation), so the COURTSHIP tag contact triggers is a game rule; SONG is still read from ps1 as before.
+- **Plume tracking assay (new in 2.10, Python API only):** `assays.plume_tracking_fly` models a plume downwind of a source and a fly that surges upwind in odor and casts crosswind without. All of it is a game rule computed from the geometry: the fly's ORN_DM1 are driven in odor but don't steer it. The open field has no plume.
+- **Extinction and second-order conditioning (new in 2.10, validation tests):** both run on the existing learning rule with nothing added, and neither emerges: re-exposing a trained odor without shock doesn't lower avoidance, and odor B paired with a trained odor A (no shock) gains no fear. Both are listed as FAILs.
 
 
 ## Controls
@@ -121,7 +125,7 @@ Every key below can be rebound in Settings > Controls (a key that's already take
 | Esc | close a panel, or open the pause menu: Resume, Challenges (Play) or Lab tools (Lab), Settings, Save State, Load State, Mode, Quit |
 | WASD | walk (Shift sprint, Ctrl or C crouch); walk into the fly to kick it |
 | Mouse | look around; left click uses the tool in your hand |
-| 1-9, 0, -, = or mouse wheel | pick a tool: hand, flick, swatter, bomb, blowtorch, brake cleaner, zapper, freeze spray, spider, sugar, alcohol, laser |
+| 1-9, 0, -, = or mouse wheel (cVA and decoy: wheel or toolbar) | pick a tool: hand, flick, swatter, bomb, blowtorch, brake cleaner, zapper, freeze spray, spider, sugar, alcohol, laser, cVA pheromone, decoy female |
 | Tab | free the mouse to click the brain panel and menus (click the room to look again) |
 | B | big live brain view; click a neuron to inspect it, search neurons, trace paths between two |
 | O | brain surgery |
@@ -140,7 +144,7 @@ Every key below can be rebound in Settings > Controls (a key that's already take
 | V | brain panel: solid, see-through, faint, hidden (hidden gives the room the whole screen) |
 | U | menu size: crisp (sharp whole-pixel scaling, the default) or large |
 | F11 or Alt+Enter | fullscreen; the game fills any screen with no black bars |
-| N | spawn another fly, each with its own independent brain (up to 16 on NumPy; one per CPU core, 16-32, on Numba; 32 on a GPU backend, 64 with `KICK_THE_FLY_EXPANDED_SWARM=1`) |
+| N | spawn another fly, each with its own independent brain (up to 16 on NumPy; one per CPU core, 16-32, on Numba; 32 on `gl`; 32 on PyTorch GPU, 64 with `KICK_THE_FLY_EXPANDED_SWARM=1`) |
 | F | pick which fly the brain panel, surgery and training follow (for 5 s, then back to the nearest) |
 | R | reset to a single fresh fly |
 | Z | pause or resume time |
@@ -150,7 +154,7 @@ Every key below can be rebound in Settings > Controls (a key that's already take
 
 **Gamepad (3D):** left stick walks, right stick looks, right trigger uses the tool (pull it to start looking around), LB / RB pick the previous / next tool, hold Y for the tool wheel (point with the right stick, release to pick), B crouches, left-stick click sprints, Start opens the menu, Back the big brain view. Button names are the pad's own labels (on a Switch Pro: ZR uses, L / R pick tools, + is Start and − is Back). Pads SDL knows (Xbox, PlayStation, Switch Pro and many more) work without setup; every button and stick can still be rebound in Settings > Controls (click a binding, then press the button or push the stick). Keyboard and mouse work as always alongside it. The 2D game has no gamepad support.
 
-Command line: `--2d`, `--fullscreen`, `--backend NAME` (a simulation backend: `auto`, `cpu`, `numba`, `gl`, `torch-cpu`, `torch-cuda`, `torch-rocm`; or, on Linux, the display backend `wayland` or `x11` as before), `--sim-backend NAME` (the simulation backend only, same choices), `--dtype float32|float64`, `--record-video [PATH]`, `--seed N`, `--arena NAME` (room, fan, flypaper, pool, lamp, escaperoom, thermo, field, orchard), `--flies N` (start with N flies), and for headless runs `--headless`, `--validate`, `--protocol FILE`, `--nwb`, `--out PATH`, `--workers N`, `--seeds 1000-1009`, `--strict`, `--threshold-sweep`, `--signflip-test`, `--critical-path TARGET`, `--benchmark`.
+Command line: `--2d`, `--fullscreen`, `--backend NAME` (a simulation backend: `auto`, `cpu`, `numba`, `gl`, `torch-cpu`, `torch-cuda`, `torch-rocm`; or, on Linux, the display backend `wayland` or `x11` as before), `--sim-backend NAME` (the simulation backend only, same choices), `--dtype float32|float64`, `--record-video [PATH]`, `--seed N`, `--arena NAME` (room, fan, flypaper, pool, lamp, escaperoom, thermo, field, orchard), `--flies N` (start with N flies), and for headless runs `--headless`, `--protocol FILE --record-replay OUT` and `--replay FILE --out DIR` (replay files), `--validate`, `--protocol FILE`, `--nwb`, `--out PATH`, `--workers N`, `--seeds 1000-1009`, `--strict`, `--threshold-sweep`, `--signflip-test`, `--critical-path TARGET`, `--benchmark`.
 
 ## Settings
 
@@ -158,9 +162,9 @@ Esc > Settings. Changes apply right away and are saved to `config.toml`; hover a
 
 - **Graphics:** fullscreen, resolution scale (3D drawn smaller and stretched, for weak GPUs), FPS cap, VSync (restart), display backend (Linux only, restart), brain panel style, menu size, UI scale.
 - **Audio:** master, wing buzz and sound effects volume, brain stethoscope (spike sonification clicks, hotkey K), mute.
-- **Brain:** Play/Lab mode, arena, pain neurons, immortal, sim speed, random seed (applies on R), real vs rule tags, real-science popups, courtship song buzz, aggression lunges, day/night cycle (outdoors), compute backend (see [Optional: faster simulation](#optional-faster-simulation-with-numba-pytorch-or-opengl)) and state precision (float32, the default, or float64). Brain settings are tagged **Connectome** (changes how the simulation runs) or **Game rule** (a rule the game adds on top).
+- **Brain:** Play/Lab mode, arena, pain neurons, immortal, sim speed, random seed (applies on R), real vs rule tags, real-science popups (default OFF; see below), courtship song buzz, aggression lunges, day/night cycle (outdoors), compute backend (see [Optional: faster simulation](#optional-faster-simulation-with-numba-pytorch-or-opengl)) and state precision (float32, the default, or float64). Brain settings are tagged **Connectome** (changes how the simulation runs) or **Game rule** (a rule the game adds on top).
 - **Controls:** mouse sensitivity, invert Y, field of view, key bindings, and the gamepad: on/off, look speed, dead zone, invert Y and every button binding.
-- **Accessibility:** colorblind-safe brain view colors (blue/yellow) and a high-contrast palette, reduced flashing (no screen shake, flashes, sparkles, scanning band or blinking), larger text.
+- **Accessibility:** language (English, or German, machine-translated and incomplete; so far the pause menu and the Settings labels are translated, see [docs/translating.md](docs/translating.md)), colorblind-safe brain view colors (blue/yellow) and a high-contrast palette, reduced flashing (no screen shake, flashes, sparkles, scanning band or blinking), larger text.
 
 ## Play: challenges and real-science cards
 
@@ -172,7 +176,7 @@ Esc > Settings. Changes apply right away and are saved to `config.toml`; hover a
 - **Mystery defect (Reverse brain surgery):** one circuit is turned off at random (curated, unambiguous circuits). Test the fly with tools, request hints, and deduce what is missing without neuroscience jargon.
 - **Predict the move (Motor readouts):** test your reflexes predicting motor readouts from real descending neuron spike surges (jump, run, kick, back up, take off) before the fly moves.
 
-In Play mode a short **"Real flies do this too"** card appears the first time the fly does something that passed this game's validation (dodging, reaching for sugar with its proboscis, its antennal grooming neurons firing in the fan's wind, avoiding a smell it learned to fear, its song motor neurons firing). Behaviors that failed validation never get one. Turn the cards off in Settings > Brain.
+In Play mode a short **"Real flies do this too"** card appears the first time the fly does something that passed this game's validation (dodging, reaching for sugar with its proboscis, its antennal grooming neurons firing in the fan's wind, avoiding a smell it learned to fear, its song motor neurons firing). Behaviors that failed validation never get one. **Real-science cards default to OFF** in Play and Lab (enable them in Settings > Brain > Real-science popups; hover text: "Show a short card when the fly does something real flies were shown to do."). Existing configurations migrate to OFF once upon upgrade, preserving any subsequent user choices.
 
 ## Screenshots
 
@@ -284,7 +288,9 @@ Results of this release:
 | antennal touch -> grooming command neurons aDN (x4.87 vs x0.85) | E-PG head-direction bump, from a wedge or from wind |
 | T-maze odor + shock conditioning (PI 1.00 vs -0.03) | P1 -> ps1 wing motor neurons (x1.43, too weak) |
 | song neuron pIP10 -> ps1 wing motor neurons (x1.93 vs x0.94) | grooming hierarchy, head over abdomen (Seeds et al. 2014) |
-| optomotor: rightward motion -> right steering DNs (x2.72 vs x0.80), through a game-rule motion stage | |
+| optomotor: rightward motion -> right steering DNs (x2.72 vs x0.80), through a game-rule motion stage | foreleg pheromone GRNs -> P1 cluster (x1.20, too weak) |
+| cVA: DA1 ORNs (Or67d) -> DA1 projection neurons (x2.58 vs x0.80) | mushroom body extinction (PI 1.00 after vs 1.00 without) |
+| cVA: DA1 PNs -> lateral horn / aSP targets (x2.22 vs x0.96) | second-order conditioning (odor B PI 0.00 vs -0.03 unpaired) |
 | one-synapse activation (not avoidance): bitter -> DNg28, CO2 -> V PNs, hot -> VP2 PNs, cold -> VP3 PNs | |
 
 Only passing behaviors get "Real flies do this too" cards. The full table with SDs, controls, citations and what each
@@ -294,9 +300,11 @@ failure means: **[docs/validation.md](docs/validation.md)**.
 
 A brain keeps real time (200 steps/s) on any backend with one fly. With many flies, Numba scales best on the CPU
 (16 brains in real time on 24 cores) and PyTorch GPU backends run them batched (32 brains at 15x real time in 2.8).
-The OpenGL `gl` backend runs on any vendor's GPU but is slower than NumPy here, so `auto` doesn't pick it; since 2.9
-its learning uploads only the synapses that changed (68 KB instead of 41 MB per update, issue #2). Tables and
-methods: **[docs/performance.md](docs/performance.md)**.
+The OpenGL `gl` backend runs on any vendor's GPU. Since 2.10 it steps a process's flies together (the connectome is
+read once per step for up to 32 of them) and is the fastest backend here for one fly: 16 flies keep real time and 32
+run at 0.86x, where NumPy manages 0.37x. It is held only to a statistical tolerance of NumPy on other drivers, so
+`auto` still doesn't pick it. Its learning uploads only the synapses that changed (68 KB instead of 41 MB per update,
+issue #2). Tables and methods: **[docs/performance.md](docs/performance.md)**.
 
 ## Python API
 
@@ -348,7 +356,7 @@ game uses it by itself (`auto`), or pick one in Settings > Brain > Compute backe
 | `torch-cuda` | PyTorch with CUDA, from the selector on [pytorch.org](https://pytorch.org/get-started/locally/) | NVIDIA GPU |
 | `torch-rocm` | PyTorch with ROCm (Linux), from the same selector | AMD GPU |
 | `torch-cpu` | any PyTorch | PyTorch on the CPU; mainly for checking the torch code path |
-| `gl` | nothing extra (ModernGL is already a requirement); needs OpenGL 4.3 | OpenGL compute shaders on any vendor's GPU (AMD, NVIDIA, Intel). Only when you pick it: it is slower than NumPy on the machines tested and doesn't run many flies in parallel ([numbers](docs/performance.md)) |
+| `gl` | nothing extra (ModernGL is already a requirement); needs OpenGL 4.3 | OpenGL compute shaders on any vendor's GPU (AMD, NVIDIA, Intel), with a process's flies stepped together on one context. Only when you pick it ([numbers](docs/performance.md)) |
 
 `auto` picks a PyTorch GPU, then Numba, then NumPy (never `gl`). A backend that can't start (library missing, no GPU visible to that
 PyTorch build) falls back to NumPy and logs why; the backend that actually ran is what the Lab header, benchmarks,
@@ -401,6 +409,7 @@ Documents and Pictures on Windows come from the Known Folders API, so redirected
 
 - **Pause (Z), slow motion ([ and ]) and single step (.):** the room and every brain slow down together, so spikes and the reactions they cause stay lined up. An on-screen badge shows the state. You can still look and walk around at full speed.
 - **Save State / Load State** (pause menu) saves the whole simulation: every neuron's membrane potential and refractory state, synaptic gain, the random generators, the learned Kenyon cell to MBON weights, surgery, Lab parameters, the arena, every fly's body and timers, sugar piles, the seed and (3D) you. The `.ktfsave` format is versioned and platform independent, so a save made on Linux loads on Windows and the other way round. Saves from a newer version, from the other (2D/3D) game or from a different brain pack are refused with a reason. Things in flight (bombs, sprays, the spider) aren't saved.
+- **Replay files (.ktfreplay, new in 2.10, headless):** `--headless --protocol FILE --record-replay OUT.ktfreplay` records a protocol's first fly: its seed, Lab parameters and surgery, the brain pack's SHA-256, every input at the step it arrived, and a checksum of its spikes. `--headless --replay FILE --out DIR [--backend NAME]` runs it again and says whether the spikes match; on NumPy, Numba and torch-cpu they must (exit 1 if not), on GPU backends it's reported only. A replay from another brain pack is refused. The windowed game doesn't record or play replays yet.
 - **Deterministic runs:** with the same seed and the same inputs a lockstep run (headless, protocols, validation, the tests) replays spike for spike. That holds across the NumPy, Numba and PyTorch-CPU backends too: they're bit-exact with each other (`tests/test_backends.py` compares every spike over 1000 steps in float32 and float64, and the full validation suite gives identical numbers on all three). GPU backends (`torch-cuda`, `torch-rocm`) are not bit-exact: a GPU may add up a neuron's inputs in a different order, the last bit of a float32 sum differs, and because the network is chaotic, individual spikes then diverge within a few hundred steps. Their tolerance is statistical: brain-wide firing within 2% of NumPy's and per-population rates correlated at r > 0.95 over 5 s. Results record the backend they ran on. The live game runs each brain on its own real-time thread, so play itself isn't bit-for-bit repeatable.
 
 ## What is the connectome and what is a game rule
@@ -430,6 +439,9 @@ Documents and Pictures on Windows come from the Known Folders API, so redirected
 - **Optomotor (2.9):** everything after T4/T5: rightward motion excites the right steering neurons DNa01/DNa02 (validated).
 - **Thermo arena and day/night (2.9):** which neurons the temperature and the daylight reach (the hot and cold antennal neurons TRN_VP2/TRN_VP3, the photoreceptors, the morning clock neurons l-LNv/s-LNv) and everything downstream, including the dorsal fan-shaped body the SLEEP readout watches. The hot, cold and CO2 sensory-to-projection-neuron steps are validated as activation only; HEAT, COLD and CO2 in the log read those projection neurons.
 - **Search and path tracer (2.9):** the paths are the connectome's own synapses, ranked by their weights.
+- **cVA (2.10):** the DA1 olfactory receptor neurons the tool drives, and everything after them: the DA1 projection neurons and their lateral horn / aSP targets (LHAV4a4, LHAV4c1, LH008m), validated as activation.
+- **Decoy female (2.10):** the foreleg taste neurons contact drives (LgLG5-8, putative ppk23/ppk25) and whatever they reach (P1 only weakly).
+- **Extinction and second-order conditioning (2.10):** tested on the existing learning rule and the connectome's own dopamine neurons, with no rule added; neither emerges.
 
 **Game rules**
 - Which move each neuron group triggers, and the thresholds (all adjustable in Lab > Parameters).
@@ -477,6 +489,9 @@ Documents and Pictures on Windows come from the Known Folders API, so redirected
 - The day/night cycle, daylight driving the LNv clock neurons directly (real ones see light through the H-B eyelet and CRY), the scene darkening, and the SLEEP threshold on the dorsal fan-shaped body. The sim has no molecular clock or sleep pressure.
 - The HEAT, COLD and CO2 log thresholds (they log, the fly doesn't act on them).
 - Gamepad controls, and the brain view's search box and path drawing (display only).
+- The cVA puff's reach and strength.
+- The decoy female: its body, the contact distance, and the COURTSHIP tag contact triggers (no neuron is read for it).
+- The plume tracking assay, all of it: the plume and the surge/cast navigation (headless, Python API only).
 
 The full mapping is in the docstring at the top of `kickthefly/game/kick_the_fly.py` (the `kick_the_fly.py` shim in the repo root points at it), and per assay in `kickthefly/lab/assays.py`.
 

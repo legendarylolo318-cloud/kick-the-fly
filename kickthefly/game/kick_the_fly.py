@@ -38,8 +38,9 @@ above their calm rate glow. B toggles the big view.
 Compute backends (sim/connectome/backends.py): the same LIF step runs on NumPy
 (cpu, the reference), Numba (numba), PyTorch (torch-cpu, torch-cuda, torch-rocm) or
 OpenGL 4.3 compute shaders (gl, any vendor's GPU); auto picks a PyTorch GPU, then
-Numba, then NumPy (gl only when asked for: slower than NumPy here), and a missing
-library falls back to NumPy with a logged reason. On gl, learning uploads only the
+Numba, then NumPy (gl only when asked for), and a missing library falls back to NumPy
+with a logged reason. On gl, a process's brains step together, up to 32 on one GL context
+with the weights read once per step for all of them, and learning uploads only the
 synapses it changed. numba and torch-cpu are bit-exact with cpu (same float32
 operations in the same order; tested over 1000 steps in float32 and float64), so
 validation, assays and save states give identical spikes on any of them. GPU sparse
@@ -216,10 +217,12 @@ so the fly doesn't sleep on its own; stimulate FB6/FB7 in surgery.
 
 Validation (validation.py): which published results this sim reproduces, on held-out seeds with pass criteria fixed
 beforehand. Pass: looming -> giant fiber, sugar -> MN9, antennal touch -> aDN, T-maze conditioning, pIP10 -> ps1,
-bitter GRNs -> DNg28, CO2 ORNs -> V PNs, TRN_VP2 -> VP2 PNs, TRN_VP3 -> VP3 PNs, optomotor (T4/T5 -> DNa_R).
+bitter GRNs -> DNg28, CO2 ORNs -> V PNs, TRN_VP2 -> VP2 PNs, TRN_VP3 -> VP3 PNs, optomotor (T4/T5 -> DNa_R),
+cVA: DA1 ORNs -> DA1 PNs -> lateral horn / aSP (2.10).
 Fail: MDN -> leg motor neurons (MDN's targets send them nearly balanced excitation and inhibition, 27,560 vs 24,186
 synapses), aDN -> front-leg motor neurons, P1 -> ps1 (too weak), the Seeds et al. 2014 grooming hierarchy, and no
-E-PG head-direction bump forms, neither from a driven wedge nor (2.7) from the open field's steady wind. The
+E-PG head-direction bump forms, neither from a driven wedge nor (2.7) from the open field's steady wind. 2.10 adds three
+fails: foreleg pheromone GRNs -> P1 (too weak), mushroom body extinction and second-order conditioning. The
 pathway tests on CO2, bitter, hot and cold are one- or two-synapse activation, not avoidance behavior.
 Real-science cards in Play mode come only from passing tests; the BACK UP reaction (MDN) is a game rule.
 
@@ -263,12 +266,46 @@ unconstrained property of the recurrent network. Reports before/after firing rat
 Convulsion animations and severity levels are game-level rules; the runaway activity is a
 direct connectome manipulation outcome.
 
+cVA pheromone tool (2.10; mouse wheel or toolbar). CONNECTOME: the puff drives the fly's DA1 olfactory receptor
+neurons (ORN_DA1, 204; the Or67d cVA sensors, Kurtovic et al. 2007), which excite the DA1 projection neurons
+(DA1_lPN, DA1_vPN, M_lvPNm43/45: x2.58 vs x0.80, validated), which excite their lateral horn / aSP targets
+(LHAV4a4, LHAV4c1, LH008m = aSP-f: x2.22 vs x0.96, validated). Nothing reads a cVA behavior from them, and nothing
+ties cVA to aggression beyond the wiring. GAME RULE: the puff's reach (250 px, 2.5 m in 3D) and strength.
+
+Decoy female (2.10; mouse wheel or toolbar). GAME RULE: the decoy's body (it drops to the floor; three at most), the
+contact distance, and COURTSHIP, a RULE tag contact triggers without reading any neuron. CONNECTOME: contact drives
+LgLG5-8, the 64 foreleg gustatory neurons MaleCNS v1.0 annotates as putative ppk23/ppk25 (prothoracic leg nerve).
+Their drive reaches P1 only weakly (x1.20 vs x0.92, FAIL); SONG is still read from ps1 as before.
+
+Plume tracking (2.10; assays.plume_tracking_fly, headless and Python only; the open field has no plume). GAME RULE,
+all of it: the plume and the navigation (surge upwind in odor, cast crosswind without) are computed from the
+geometry. ORN_DM1 are driven while the fly is in odor, but their firing doesn't steer it.
+
+Extinction and second-order conditioning (2.10; assays.extinction_fly, second_order_fly; validation mb_extinction,
+mb_second_order). No rule is added for either: they run on the existing learning rule, so the brain would have to
+make them through its own dopamine neurons. Neither emerges: re-exposing a trained odor without shock leaves the
+T-maze choice unchanged (PI 1.00 vs 1.00), and odor B paired with a trained odor A, without shock, gains no fear
+(PI 0.00 vs -0.03 unpaired). Both FAIL.
+
+Replay files (.ktfreplay, 2.10; core/replay.py). Headless only: `--headless --protocol FILE --record-replay OUT`
+records a protocol's first fly (seed, Lab parameters, surgery, the brain pack's SHA-256, every poke, drive and
+surgery change at its step, and a checksum of the spikes); `--headless --replay FILE --out DIR` runs it again. On
+NumPy, Numba and torch-cpu the spikes must match exactly; on GPU backends a replay is reported, not judged. Another
+brain pack is refused. The windowed game doesn't record or play replays yet.
+
+Localization (2.10; core/i18n.py, data/locales/). JSON catalogs with English fallback; Settings > Accessibility >
+Language. So far the pause menu and the Settings labels go through it; German is machine-translated and incomplete.
+Cell types, gene names and citations are never translated.
+
+Real-science popups (Settings > Brain) are OFF by default in Play and Lab from 2.10; configs from before migrate to
+off once, and turning them on afterwards sticks.
+
 Settings, time and saves: settings live in config.toml (config.py, menu.py). The game
 runs on a virtual clock (simclock.py): pause, 0.1-1x slow motion and single steps
 slow the room and every brain together. Save states (savestate.py) hold every
 neuron's state, the learned synapses, surgery, bodies and the seed.
 
-    .venv\\Scripts\\python.exe kick_the_fly.py
+    .venv/bin/python kick_the_fly.py
     python kick_the_fly.py --headless --validate          (no window)
     python kick_the_fly.py --headless --protocol smoke.yaml
 """
@@ -373,7 +410,7 @@ PAIN_LEVELS = (  # name, share of a region's neurons a light touch recruits, how
     ("normal", 0.3, 0.0), ("more", 0.6, 0.5), ("max", 1.0, 1.0),
 )
 SURGERY_CURRENT = {-1: -0.6, 0: 0.0, 1: 0.12}   # x ext_gain 4: silenced -2.4 per step (beats any touch), stimulated +0.48
-TOOL_NAMES = ("hand", "flick", "swatter", "bomb", "torch", "cleaner", "zapper", "freeze", "spider", "sugar", "alcohol", "laser")
+TOOL_NAMES = ("hand", "flick", "swatter", "bomb", "torch", "cleaner", "zapper", "freeze", "spider", "sugar", "alcohol", "laser", "cva", "decoy")
 STIM_AMP = 0.5              # x ext_gain 4 = 2.0 per step: a driven neuron fires every refractory cycle
 HIST = 1500                  # history samples, one per 20 ms = 30 s
 CALM_STEPS = 400             # 2 s without a touch before the baseline learns again
@@ -384,7 +421,8 @@ def get_max_flies(backend: str | None = None) -> int:
 
     NumPy (cpu) and torch-cpu: 16; brains share Python's GIL.
     Numba: one per core, between 16 and 32 (releases GIL).
-    GPU backends (torch-cuda, torch-rocm, gl): 32, or 64 with KICK_THE_FLY_EXPANDED_SWARM=1 (batched SpMM in VRAM).
+    PyTorch GPU (torch-cuda, torch-rocm): 32, or 64 with KICK_THE_FLY_EXPANDED_SWARM=1 (batched SpMM in VRAM).
+    gl: 32, one batch group (backends._GLGroup: a spike word holds 32 flies); measured 0.86x real time at 32 (2.10).
     Every spawn also needs free memory (BRAIN_MB each), checked when you press N."""
     if backend is None or backend == "auto":
         from kickthefly.sim.connectome.backends import detect_available_backends
@@ -392,7 +430,9 @@ def get_max_flies(backend: str | None = None) -> int:
         # the same chain create_backend's 'auto' walks: gl is not in it, so the cap must not assume it either
         backend = next((b for b in ("torch-cuda", "torch-rocm", "numba") if b in avail), "cpu")
     backend = str(backend).lower()
-    if backend in ("torch-cuda", "torch-rocm", "gl"):
+    if backend == "gl":
+        return 32                    # a 33rd fly would start a second group, streaming the weights twice per step
+    if backend in ("torch-cuda", "torch-rocm"):
         return 64 if os.environ.get("KICK_THE_FLY_EXPANDED_SWARM") else 32
     if backend == "numba":
         return int(min(32, max(16, os.cpu_count() or 16)))
@@ -502,13 +542,20 @@ class Brain:
                 self.sense[("scent", name)] = orn[np.isin(glom, ["DM1", "DM2", "DP1m"])]
             elif name == "laser":
                 self.sense[("scent", name)] = orn[:0]   # pure optical beam: carries no odor
+            elif name == "cva":
+                self.sense[("scent", name)] = orn[np.isin(glom, ["DA1"])]
+            elif name == "decoy":
+                self.sense[("scent", name)] = orn[np.isin(glom, ["DA1", "VA1v"])]
             else:
                 self.sense[("scent", name)] = orn[np.isin(glom, order[k * 5:(k + 1) * 5])]
+        self.sense[("scent", "cva")] = orn[np.isin(glom, ["DA1"])]
+        self.sense[("pheromone", "foreleg")] = np.flatnonzero(np.isin(types, ["LgLG5", "LgLG6", "LgLG7", "LgLG8"]))
         self.sense[("scent", "player")] = orn[np.isin(glom, order[50:])]   # you: the last 3 glomeruli
         from kickthefly.lab import assays
         odor_order = np.random.default_rng(assays.ODOR_GLOMERULI_SEED).permutation(np.unique(glom))
         self.sense[("scent", "odor_a")] = orn[np.isin(glom, odor_order[:6])]      # T-maze odors (game rule: which
         self.sense[("scent", "odor_b")] = orn[np.isin(glom, odor_order[6:12])]    # glomeruli each one activates)
+        self.sense[("scent", "odor_c")] = orn[np.isin(glom, odor_order[12:18])]
         self.types, self.superclass = types, sc
         self.subclass = np.asarray(getattr(g, "subclass", np.full(g.n, ""))).astype(str)
         self.instance = np.array([i or "" for i in g.instance])
@@ -1692,6 +1739,14 @@ def draw_icon(surf, name: str, c, col) -> None:
         aapoly(surf, [(x - 10, y + 8), (x + 2, y - 4), (x + 6, y - 2), (x - 6, y + 10)], col)
         aacircle(surf, (x + 4, y - 3), 3, (80, 200, 255))
         thick_line(surf, (x + 5, y - 4), (x + 14, y - 11), 2, (100, 220, 255))
+    elif name == "cva":
+        aacircle(surf, (x - 4, y), 5, (255, 180, 100))
+        aacircle(surf, (x + 3, y - 2), 6, (255, 160, 80))
+        aacircle(surf, (x, y + 4), 4, (255, 200, 120))
+    elif name == "decoy":
+        aacircle(surf, (x, y - 6), 3, (180, 180, 200))
+        aacircle(surf, (x, y - 1), 4, (140, 140, 160))
+        gfxdraw.aaellipse(surf, int(x), int(y + 6), 5, 8, (120, 120, 140))
     else:
         aacircle(surf, (x - 2, y + 3), 10, col)
         thick_line(surf, (x + 5, y - 5), (x + 10, y - 11), 3, col)
@@ -1705,7 +1760,9 @@ TOOLS = (("hand", "HAND", "drag the fly and throw it"), ("flick", "FLICK", "clic
          ("zapper", "ZAP", "click: electric shock through its body"), ("freeze", "FREEZE", "hold: freezes it solid, then smash the ice"),
          ("spider", "SPIDER", "click: drop a spider that hunts it"), ("sugar", "SUGAR", "click: drop sugar to reward it"),
          ("alcohol", "ALCOHOL", "click: drop alcohol, sweet PAM reward but escalating drunkenness"),
-         ("laser", "LASER", "targeted laser: hold/click to stimulate or silence cell types in real time"))
+         ("laser", "LASER", "targeted laser: hold/click to stimulate or silence cell types in real time"),
+         ("cva", "CVA", "puffs cVA pheromone: activates Or67d/DA1 glomerulus"),
+         ("decoy", "DECOY", "spawns a decoy female target to evoke courtship"))
 assert tuple(t[0] for t in TOOLS) == TOOL_NAMES
 # Real vs rule (the on-screen tags, Settings > Brain): which reactions are triggered by the connectome sim's own neurons
 # and which by a rule the game adds. REAL means live descending-neuron firing crossed a threshold; how the body then
@@ -1718,12 +1775,14 @@ REACTION_SOURCE = {
     "BROKE FREE": "rule", "DIED": "rule", "HIT YOU": "rule", "YOU DIED": "rule", "AUTOPILOT": "rule",
     "PHOTO MODE": "rule", "ALCOHOL": "rule", "INEBRIATED": "rule", "STUMBLE": "rule", "SIP": "rule", "DRINKING": "rule",
     "TO FRUIT": "rule", "LOST": "rule", "RECALL": "rule", "LUNGE": "rule", "FIGHT": "rule", "SLEEP": "rule",
+    "cVA PUFF": "rule", "DECOY FEMALE": "rule", "COURTSHIP": "rule",
 }
 POPUP_SOURCE = {"DODGE!": "real", "YIKES!": "real", "NOPE!": "rule", "RUN AWAY!": "rule", "YUM!": "rule",
                 "SWEET!": "rule", "NOM NOM": "rule", "K.O.!": "rule", "BROKE FREE!": "rule", "FLY WINS!": "rule",
                 "GOTCHA!": "rule", "PEW PEW!": "rule", "TAKE THAT!": "rule", "AUTOPILOT": "rule", "SPECTATOR": "rule",
                 "PHOTO MODE": "rule", "*HIC*": "rule", "SIP...": "rule", "GLUG!": "rule", "STUMBLE!": "rule",
-                "ALL GONE": "rule", "♪ BUZZ ♪": "rule", "LUNGE!": "rule", "ZZZ": "rule"}
+                "ALL GONE": "rule", "♪ BUZZ ♪": "rule", "LUNGE!": "rule", "ZZZ": "rule",
+                "COURTSHIP": "rule", "cVA PUFF": "rule", "DECOY FEMALE": "rule"}
 SOURCE_TIP = {"real": "REAL: triggered by the connectome sim's own neurons firing above a threshold.",
               "rule": "RULE: a game rule, not something the connectome sim produced."}
 
@@ -1750,8 +1809,9 @@ def draw_source_chip(surf, pos, source: str, font, anchor: str = "midtop", alpha
     return r
 
 
+# cVA and the decoy have no key: [ and ] are slow motion (and photo mode's field of view). Wheel or toolbar.
 TOOL_KEYS = (pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5, pygame.K_6, pygame.K_7, pygame.K_8, pygame.K_9, pygame.K_0, pygame.K_MINUS, pygame.K_EQUALS)
-TOOL_KEY_LABELS = ("1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=")      # what the toolbar shows for each
+TOOL_KEY_LABELS = ("1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=", "", "")      # what the toolbar shows for each
 TORCH_KEYS = (("head", None), ("body", None), ("legs", "L"), ("legs", "R"), ("wing", "L"), ("wing", "R"), ("heat", None))
 OUCH = ("BONK!", "OOF!", "SPLAT!", "THWACK!", "BZZT!", "OW!")
 CURSOR_SIZE = {"flick": 12, "swatter": 38, "bomb": 16, "torch": 18, "cleaner": 22, "zapper": 16, "freeze": 22, "spider": 20, "laser": 14}
@@ -2207,6 +2267,9 @@ class Game:
                 pygame.display.toggle_fullscreen()
         elif key == "access.palette":
             self.view.set_palette(c[key])
+        elif key == "access.language":
+            from kickthefly.core import i18n
+            i18n.set_language(c[key])
         elif key == "access.larger_text":
             self.make_fonts()
         elif key == "brain.mirror_weights":
@@ -2323,7 +2386,7 @@ class Game:
         if self.challenge is not None:
             self.challenge.on_reaction(kind, slot)
             return                                    # popups are for normal play only
-        if self.cfg.lab or not self.cfg["brain.science_popups"] or kind in self.science_seen:
+        if not self.cfg["brain.science_popups"] or kind in self.science_seen:
             return
         test = self.science_events.get(kind)
         if test is None:
@@ -4650,6 +4713,21 @@ class Game:
                 self.laser_state = LaserState()
             self.laser_state.trigger_press(now)
             self.torching = True
+        elif name == "cva":
+            self.sound.play("pop")
+            self.popup(pos, "cVA PUFF", (255, 180, 100))
+            for slot in self.flies:
+                dist = float(np.hypot(*(slot.fly.p[HEAD] - pos)))
+                if dist < 250:
+                    strength = 0.8 * (1.0 - dist / 250)
+                    slot.brain.poke("scent", "cva", strength)
+        elif name == "decoy":
+            self.sound.play("drop")
+            self.popup(pos, "DECOY FEMALE", (200, 180, 220))
+            if not hasattr(self, "decoys"):
+                self.decoys = []
+            if len(self.decoys) < 3:
+                self.decoys.append({"p": np.array(pos, float), "v": np.zeros(2), "t": now})
 
     def _spray(self, mouse, now: float, kind: str) -> None:
         """Mist toward the nearest fly, but drenches every fly it passes over. Brake cleaner soaks (dissolves; smell
@@ -4739,6 +4817,7 @@ class Game:
         self._spider(now)
         self._sugar(now)
         self._alcohol(now)
+        self._decoy(now)
 
     def _effects_one(self, slot: "FlySlot", now: float) -> None:
         fly = slot.fly
@@ -4901,6 +4980,28 @@ class Game:
             if a["left"] <= 0:
                 drop_item(self.alcohols, a)
                 break
+
+    def _decoy(self, now: float) -> None:
+        """Decoy female (GAME RULE: the body, the contact distance and the COURTSHIP tag, which contact triggers; no
+        neuron is read for it). CONNECTOME: contact drives the foreleg GRNs annotated putative ppk23/ppk25 (LgLG5-8)."""
+        if not hasattr(self, "decoys") or not self.decoys:
+            return
+        for dec in self.decoys:
+            if dec["p"][1] < FLOOR - 8:
+                dec["p"][1] = min(FLOOR - 8, dec["p"][1] + 2.0)
+        for slot in self.flies:
+            fly = slot.fly
+            if fly.dead or fly.wrapped or fly.frozen_at is not None or fly.grabbed is not None:
+                continue
+            dec = min(self.decoys, key=lambda d: abs(d["p"][0] - fly.p[THX, 0]))
+            dist = float(np.hypot(*(dec["p"] - fly.p[HEAD])))
+            if dist < 45:
+                # Forelegs contact the decoy: drives real putative ppk23/ppk25 foreleg GRNs
+                slot.brain.poke("pheromone", "foreleg", 0.6)
+                if now >= getattr(fly, "court_until", 0.0):
+                    fly.court_until = now + 0.5
+                    self.note("COURTSHIP   foreleg contact (rule): drives the putative ppk23/ppk25 GRNs")
+                    self.popup(fly.p[HEAD] + (0, -50), "COURTSHIP", (255, 180, 220))
 
     def _torch(self, mouse, now: float) -> None:
         """Flame jet from the cursor, aimed at the nearest fly but scorching every fly it passes over. Heat reaches
@@ -5373,6 +5474,11 @@ class Game:
             aapoly(arena, [(x - r, y), (x, y - int(r * 0.8)), (x + r, y), (x, y + int(r * 0.8))], (215, 75, 125))
             aacircle(arena, (int(x), int(y)), r, (235, 90, 140))
             aacircle(arena, (int(x - r * 0.3), int(y - r * 0.2)), max(1, int(r * 0.35)), (255, 180, 210))
+        for d in getattr(self, "decoys", []):
+            x, y = d["p"]
+            aacircle(arena, (int(x), int(y - 8)), 5, (160, 160, 180))
+            aacircle(arena, (int(x), int(y)), 7, (130, 130, 150))
+            gfxdraw.aaellipse(arena, int(x), int(y + 11), 8, 12, (110, 110, 130))
         self._draw_arena_front(arena, now)
         self._clean_frame = arena.copy()
         if self.torching and TOOLS[self.tool][0] == "torch" and self.report is None and mouse[0] < PLAY_W:
@@ -5667,11 +5773,11 @@ class Game:
         if self.cfg["brain.autopilot"] and self.cfg["brain.autopilot_hide_hud"]:
             self.tool_rects = []
             return
-        bw, gap = 72, 5
+        bw, gap = 58, 4
         x0 = (PLAY_W - bw * len(TOOLS) - gap * (len(TOOLS) - 1)) // 2
         self.tool_rects = []
         name, label, hint = TOOLS[self.tool]
-        key = "0" if self.tool == 9 else ("-" if self.tool == 10 else str(self.tool + 1))
+        key = TOOL_KEY_LABELS[self.tool] if self.tool < len(TOOL_KEY_LABELS) else str(self.tool + 1)
         self._text(surf, f"{key}  {label}: {hint}", (PLAY_W // 2, FLOOR + 10), INK, self.f_bold, "midtop")
         for k, (name, label, hint) in enumerate(TOOLS):
             r = pygame.Rect(x0 + k * (bw + gap), FLOOR + 38, bw, 64)
@@ -6286,6 +6392,9 @@ def parse_args(argv: list[str] | None = None):
     ap.add_argument("--strict", action="store_true", help="exit 1 if validation differs from the expected results")
     ap.add_argument("--record-video", dest="record_video", nargs="?", const="default", metavar="PATH",
                     help="start recording a video at launch, to PATH or the screenshots folder (MP4/WebM with ffmpeg, else GIF)")
+    ap.add_argument("--replay", metavar="FILE", help="with --headless: run a .ktfreplay again and compare its spikes")
+    ap.add_argument("--record-replay", dest="record_replay", metavar="FILE",
+                    help="with --protocol: record the protocol's first fly as a .ktfreplay")
     args, unknown = ap.parse_known_args(argv)
     if unknown:
         log.warning("ignoring unknown arguments: %s", " ".join(unknown))
@@ -6306,11 +6415,18 @@ def main(argv: list[str] | None = None) -> int:
         log.info(n)
     if (args.headless or args.validate or args.protocol or getattr(args, "audit_asymmetry", False)
             or getattr(args, "benchmark", False) or getattr(args, "threshold_sweep", False)
-            or getattr(args, "signflip_test", False) or getattr(args, "critical_path", None)):
+            or getattr(args, "signflip_test", False) or getattr(args, "critical_path", None)
+            or getattr(args, "replay", None) or getattr(args, "record_replay", None)):
+        if getattr(args, "replay", None) and not args.headless:
+            print("--replay runs headless (--headless --replay FILE): the windowed game doesn't play replays yet",
+                  file=sys.stderr)
+            return 2
         from kickthefly.lab import headless
 
         return headless.main(args)
     cfg = config.Config.load(p.config_file)
+    from kickthefly.core import i18n
+    i18n.set_language(cfg["access.language"])
     # Disambiguate --backend: if it matches a sim backend, apply to brain.backend; if display backend, use for video
     sim_backend_choice = getattr(args, "sim_backend", None)
     display_backend_choice = None

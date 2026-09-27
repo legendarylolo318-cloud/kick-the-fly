@@ -83,6 +83,16 @@ def groups(br) -> dict[str, np.ndarray]:
         vp2_pn=np.flatnonzero(np.isin(t, ("VP2_adPN", "VP2_l2PN", "VP2+_adPN", "VP1m+VP2_lvPN1", "VP1m+VP2_lvPN2"))),
         trn_vp3=np.flatnonzero(np.isin(t, ("TRN_VP3a", "TRN_VP3b")) & (np.char.find(sc, "sensory") >= 0)),
         vp3_pn=np.flatnonzero(np.isin(t, ("VP3+_l2PN", "VP3+_vPN", "VP1l+VP3_ilPN", "VP3+VP1l_ivPN", "VP5+VP3_l2PN"))),
+        # cVA pheromone circuit (Task 1): Or67d ORNs -> DA1 glomerulus projection neurons -> lateral horn / aSP targets
+        or67d_orn=np.flatnonzero((t == "ORN_DA1") & (np.char.find(sc, "sensory") >= 0)),
+        da1_pn=np.flatnonzero(np.isin(t, ("DA1_lPN", "DA1_vPN", "M_lvPNm43", "M_lvPNm45"))),
+        da1_lh_asp=np.flatnonzero(np.isin(t, ("LHAV4a4", "LHAV4c1", "LH008m"))),
+        # Foreleg sex pheromone circuit (Task 2): putative ppk23/ppk25 foreleg GRNs (LgLG5..8) -> vAB3/PPN1
+        foreleg_pheromone_grn=T("LgLG5", "LgLG6", "LgLG7", "LgLG8"),
+        vab3_ppn1=T("AN09B017e", "AN09B017f", "AN09B017g", "AN05B102a"),
+        orn=np.flatnonzero(np.char.startswith(t, "ORN_") & (np.char.find(sc, "sensory") >= 0)),
+        orn_not_da1=np.flatnonzero(np.char.startswith(t, "ORN_") & (t != "ORN_DA1") & (np.char.find(sc, "sensory") >= 0)),
+        alpn=np.flatnonzero(np.char.endswith(t, "PN") & ~np.isin(t, ("DA1_lPN", "DA1_vPN", "M_lvPNm43", "M_lvPNm45"))),
     )
     # P1: the male-specific fru/dsx cluster of Kimura et al. 2008. MaleCNS v1.0 has no "P1" type or synonym, but P1 is
     # the clone Cachero 2010 calls pMP-e and Yu 2010 pMP4, and exactly these 25 pC1 types (86 neurons) carry that
@@ -437,3 +447,228 @@ def orchard_fly(seed: int, feeds: int | None = None, regrow_s: float | None = No
                 pam_feed_hz=pam_feed, pam_travel_hz=pam_travel, pam_ratio=pam_feed / max(pam_travel, 0.5),
                 mn9_feed_hz=mn9_feed, mn9_travel_hz=mn9_travel, mn9_ratio=mn9_feed / max(mn9_travel, 0.5),
                 timeline=timeline)
+
+
+# --- mushroom body learning extensions (Task 4) -------------------------------------------------------------------
+def extinction_fly(seed: int, cs_plus: str = "odor_a", cycles: int = 6, ext_cycles: int = 8,
+                   test_trials: int = 20, decision_noise: float = 0.08, brain=None, wiring=None) -> dict:
+    """Extinction of learned fear (Felsenberg et al. 2018): train CS+ with shock (cycles),
+    then apply repeated unreinforced CS+ alone exposures (ext_cycles).
+    Runs both the extinction fly and an unextinguished control fly (same conditioned brain snapshot)."""
+    from kickthefly.core import savestate
+
+    br = brain or simcore.new_brain(seed=seed, wiring=wiring)
+    cs_minus = "odor_b" if cs_plus == "odor_a" else "odor_a"
+    rest(br, 500)
+    for odor in (cs_plus, cs_minus):
+        present(br, [odor], 240)
+        rest(br, 160)
+
+    # Conditioning phase: CS+ paired with shock
+    for _ in range(cycles):
+        present(br, [cs_plus], 240)
+        present(br, [cs_plus], 200, shock=True)
+        rest(br, 60)
+        rest(br, 200)
+        present(br, [cs_minus], 440)
+        rest(br, 260)
+    rest(br, 200)
+    fear_cond, _ = br.memory.memory_of(cs_plus)
+
+    # Save conditioned snapshot to run paired extinction vs unextinguished control
+    snap = {}
+    meta = savestate.brain_state(br, "ext_", snap)
+
+    # Branch 1: Extinction (repeated CS+ alone exposures)
+    for _ in range(ext_cycles):
+        present(br, [cs_plus], 440)
+        rest(br, 260)
+    rest(br, 200)
+    fear_ext, _ = br.memory.memory_of(cs_plus)
+
+    # T-maze test choices for extinguished fly
+    rng_ext = np.random.default_rng(seed * 7919 + 23)
+    choices_plus_ext = choices_minus_ext = 0
+    for trial in range(test_trials):
+        first = (cs_plus, cs_minus) if trial % 2 == 0 else (cs_minus, cs_plus)
+        drive = {}
+        for odor in first:
+            present(br, [odor], 60)
+            fear, like = br.memory.memory_of(odor)
+            drive[odor] = like - fear
+            rest(br, 40)
+        pick_plus = drive[cs_plus] + rng_ext.normal(0, decision_noise) > drive[cs_minus] + rng_ext.normal(0, decision_noise)
+        choices_plus_ext += int(pick_plus)
+        choices_minus_ext += int(not pick_plus)
+        rest(br, 60)
+    pi_ext = (choices_minus_ext - choices_plus_ext) / max(1, choices_plus_ext + choices_minus_ext)
+
+    # Branch 2: Unextinguished control (restore conditioned snapshot, equal rest time)
+    savestate.restore_brain(br, meta, snap, "ext_")
+    for _ in range(ext_cycles):
+        rest(br, 700)
+    rest(br, 200)
+    fear_unext, _ = br.memory.memory_of(cs_plus)
+
+    rng_unext = np.random.default_rng(seed * 7919 + 23)
+    choices_plus_unext = choices_minus_unext = 0
+    for trial in range(test_trials):
+        first = (cs_plus, cs_minus) if trial % 2 == 0 else (cs_minus, cs_plus)
+        drive = {}
+        for odor in first:
+            present(br, [odor], 60)
+            fear, like = br.memory.memory_of(odor)
+            drive[odor] = like - fear
+            rest(br, 40)
+        pick_plus = drive[cs_plus] + rng_unext.normal(0, decision_noise) > drive[cs_minus] + rng_unext.normal(0, decision_noise)
+        choices_plus_unext += int(pick_plus)
+        choices_minus_unext += int(not pick_plus)
+        rest(br, 60)
+    pi_unext = (choices_minus_unext - choices_plus_unext) / max(1, choices_plus_unext + choices_minus_unext)
+
+    return dict(seed=seed, cs_plus=cs_plus, cycles=cycles, ext_cycles=ext_cycles,
+                fear_cond=fear_cond, fear_ext=fear_ext, fear_unext=fear_unext,
+                pi_ext=pi_ext, pi_unext=pi_unext,
+                chose_plus_ext=choices_plus_ext, chose_minus_ext=choices_minus_ext,
+                chose_plus_unext=choices_plus_unext, chose_minus_unext=choices_minus_unext)
+
+
+def second_order_fly(seed: int, paired: bool = True, cycles: int = 6, test_trials: int = 20,
+                     decision_noise: float = 0.08, brain=None, wiring=None) -> dict:
+    """Second-order olfactory conditioning (Tabone & de Belle 2011), the standard design:
+    Phase 1: CS1 (odor_a) + shock, the same for both groups.
+    Phase 2, no shock for either group. Paired: CS2 (odor_b), then CS2 and CS1 together. Unpaired: CS1 alone and
+    CS2 alone, apart, with the same odor exposure.
+    Test: T-maze choice between CS2 (odor_b) and a novel odor (odor_c).
+    No rule is added for it: CS2 can only gain fear if CS1's learned MBON output drives the dopamine neurons through
+    the connectome while CS2's Kenyon cells are active."""
+    br = brain or simcore.new_brain(seed=seed, wiring=wiring)
+    if ("scent", "odor_c") not in br.sense:
+        orn = br.sense[("smell", None)]
+        glom = np.array([t.split("_", 1)[1] for t in br.types[orn]])
+        order = np.random.default_rng(ODOR_GLOMERULI_SEED).permutation(np.unique(glom))
+        br.sense[("scent", "odor_c")] = orn[np.isin(glom, order[12:18])]
+
+    rest(br, 500)
+    for odor in ("odor_a", "odor_b", "odor_c"):
+        present(br, [odor], 240)
+        rest(br, 160)
+
+    # Phase 1: train odor_a + shock (6 cycles)
+    for _ in range(cycles):
+        present(br, ["odor_a"], 240)
+        present(br, ["odor_a"], 200, shock=True)
+        rest(br, 60)
+        rest(br, 200)
+
+    fear_a, _ = br.memory.memory_of("odor_a")
+
+    # Phase 2: no shock in either group
+    for _ in range(cycles):
+        if paired:
+            present(br, ["odor_b"], 240)
+            present(br, ["odor_b", "odor_a"], 200)        # CS2 overlapping CS1
+            rest(br, 260)
+        else:
+            present(br, ["odor_a"], 200)                  # CS1 alone
+            rest(br, 260)
+            present(br, ["odor_b"], 440)                  # CS2 alone, as long as in the paired group
+            rest(br, 260)
+
+    fear_b, _ = br.memory.memory_of("odor_b")
+    fear_c, _ = br.memory.memory_of("odor_c")
+
+    # Test choice between odor_b (CS2) and odor_c (control)
+    rng = np.random.default_rng(seed * 7919 + 31)
+    choices_b = choices_c = 0
+    for trial in range(test_trials):
+        first = ("odor_b", "odor_c") if trial % 2 == 0 else ("odor_c", "odor_b")
+        drive = {}
+        for odor in first:
+            present(br, [odor], 60)
+            fear, like = br.memory.memory_of(odor)
+            drive[odor] = like - fear
+            rest(br, 40)
+        pick_b = drive["odor_b"] + rng.normal(0, decision_noise) > drive["odor_c"] + rng.normal(0, decision_noise)
+        choices_b += int(pick_b)
+        choices_c += int(not pick_b)
+        rest(br, 60)
+    pi = (choices_c - choices_b) / max(1, choices_b + choices_c)
+    return dict(seed=seed, paired=paired, cycles=cycles, pi=pi,
+                fear_a=fear_a, fear_b=fear_b, fear_c=fear_c,
+                chose_b=choices_b, chose_c=choices_c)
+
+
+# --- odor plume tracking (Task 3) ---------------------------------------------------------------------------------
+def plume_tracking_fly(seed: int, duration_s: float = 25.0, source_pos=(0.0, 10.0), start_pos=(0.0, -5.0),
+                       brain=None) -> dict:
+    """Plume tracking, headless (Python API only; the open field has no plume). GAME RULE, all of it: a Gaussian plume
+    downwind of the source, on and off in time, and the navigation (surge upwind in odor, cast crosswind without),
+    computed from the geometry. The fly's ORN_DM1 are driven while it is in odor, but their firing doesn't steer it:
+    this measures the rule, not the brain."""
+    br = brain or simcore.new_brain(seed=seed)
+    orn_dm1 = np.where(br.types == "ORN_DM1")[0]
+    rng = np.random.default_rng(seed * 10007 + 3)
+    pos = np.array([start_pos[0] + rng.uniform(-1.5, 1.5), start_pos[1]], dtype=float)
+    source = np.array(source_pos, dtype=float)
+    heading = np.pi / 2.0 + rng.uniform(-0.5, 0.5)
+    dt = 0.05
+    reached = False
+    time_taken = duration_s
+    path_len = 0.0
+
+    steps = int(duration_s / dt)
+    for step in range(steps):
+        t = step * dt
+        dist_to_src = float(np.linalg.norm(pos - source))
+        if dist_to_src < 1.5:
+            reached = True
+            time_taken = t
+            break
+
+        downwind = source[1] - pos[1]
+        crosswind = abs(pos[0] - source[0])
+        sigma = 0.9 + 0.12 * max(downwind, 0.0) ** 0.65
+        filament = (crosswind < 2.2 * sigma) and (np.sin(t * 2.5 * np.pi) > -0.35)
+        c = float(np.exp(-0.5 * (crosswind / sigma) ** 2)) if (downwind > 0 and filament) else 0.0
+
+        # Drive real ORN_DM1 sensory neurons
+        if c > 0.05:
+            simcore.drive(br, orn_dm1, c * 0.5)
+        else:
+            simcore.undrive(br, orn_dm1)
+        br._step()
+
+        # Navigation (GAME RULE): upwind surge vs crosswind cast
+        if c > 0.1:
+            target = np.pi / 2.0 + rng.normal(0, 0.06)
+            speed = 2.0
+        else:
+            target = (0.0 if pos[0] < 0 else np.pi) + rng.normal(0, 0.06)
+            speed = 1.3
+
+        diff = np.arctan2(np.sin(target - heading), np.cos(target - heading))
+        heading += np.clip(diff, -10.0 * dt, 10.0 * dt)
+        step_vec = np.array([np.cos(heading), np.sin(heading)]) * speed * dt
+        pos += step_vec
+        path_len += speed * dt
+
+    simcore.undrive(br, orn_dm1)
+    return dict(seed=seed, reached=reached, time_s=time_taken, path_m=path_len,
+                final_dist=float(np.linalg.norm(pos - source)))
+
+
+def plume_tracking_assay(seeds=tuple(range(1000, 1020)), duration_s: float = 25.0) -> dict:
+    """plume_tracking_fly over seeds: success rate, time and path length with 95% CIs (a game rule's performance)."""
+    from kickthefly.lab import labstats
+
+    flies = [plume_tracking_fly(s, duration_s=duration_s) for s in seeds]
+    successes = [1.0 if f["reached"] else 0.0 for f in flies]
+    success_ci = labstats.mean_ci(successes)
+    times = [f["time_s"] for f in flies if f["reached"]]
+    time_ci = labstats.mean_ci(times)
+    paths = [f["path_m"] for f in flies if f["reached"]]
+    path_ci = labstats.mean_ci(paths)
+    return dict(n_seeds=len(seeds), duration_s=duration_s,
+                success_ci=success_ci, time_ci=time_ci, path_ci=path_ci, flies=flies)
+

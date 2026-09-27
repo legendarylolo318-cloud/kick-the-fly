@@ -1,6 +1,8 @@
 """Simulation backends: each one really runs when asked for, and the CPU-side ones are bit-exact with the NumPy
 reference. GPU backends (torch-cuda, torch-rocm) are compared statistically, because GPU sparse kernels may add a
 neuron's inputs in a different order and a chaotic network then diverges spike by spike (see README: Performance)."""
+import os
+
 import numpy as np
 import pytest
 
@@ -15,6 +17,9 @@ AVAIL = backends.detect_available_backends()
 EXACT = [b for b in ("cpu", "numba", "torch-cpu") if b in AVAIL]
 GPU = [b for b in ("torch-cuda", "torch-rocm", "gl") if b in AVAIL]
 TORCH_GPU = [b for b in ("torch-cuda", "torch-rocm") if b in AVAIL]
+# Mesa's software rasterizer (the CI gl job) steps a brain in ~0.5 s, so there these tests run shorter versions:
+# fewer steps, and conditioning without memory's 5 s settling. On a real GPU they run in full.
+CI_SHORT = bool(os.environ.get("KTF_GL_CI_SHORT"))
 EXPECT_CLASS = {"cpu": backends.CPUBackend, "numba": backends.NumbaBackend, "torch-cpu": backends.TorchBackend,
                 "torch-cuda": backends.TorchBackend, "torch-rocm": backends.TorchBackend, "gl": backends.GLBackend}
 
@@ -159,8 +164,9 @@ def test_cpu_side_backends_are_bit_exact_on_the_dense_path(name, dtype):
 def test_gpu_backends_statistically_match(name):
     """Tolerance: brain-wide firing within 2% of the CPU's, and per-population rates (1000 neuron blocks) correlate
     at r > 0.95 over 1000 steps."""
-    _, ref = _run("cpu", 1000)
-    _, got = _run(name, 1000)
+    steps = 400 if CI_SHORT else 1000
+    _, ref = _run("cpu", steps)
+    _, got = _run(name, steps)
     assert abs(got.sum() - ref.sum()) / ref.sum() < 0.02
     blocks = lambda s: s[:, : s.shape[1] // 1000 * 1000].reshape(s.shape[0], -1, 1000).sum((0, 2))
     assert np.corrcoef(blocks(got), blocks(ref))[0, 1] > 0.95
@@ -305,3 +311,119 @@ def test_gl_plastic_weights_bit_exact_after_conditioning(mode, monkeypatch):
     on_gpu = br.sim.backend.read_weights()
     assert np.array_equal(on_gpu[gl_mem.csr_pos], ref_sim.W_csr.data[ref.csr_pos].astype(np.float32))
     assert np.array_equal(on_gpu, br.sim.W_csr.data.astype(np.float32))    # nothing else in the buffer moved
+
+
+@pytest.mark.skipif("gl" not in AVAIL, reason="no OpenGL 4.3 compute here")
+def test_gl_batched_multi_fly_plastic_weights_bit_exact(monkeypatch):
+    """Batched multi-fly gl: flies stepped together on one context (the weights streamed once per step for all of
+    them) must learn exactly what each learns on a context of its own.
+
+    Two flies, each conditioned on a different odor on a thread of its own, so their KC -> MBON rows diverge and go
+    per-fly. Their learned weights, the weights on the GPU and every spike must match the same two flies run
+    unbatched, bit for bit, and the batched run must really have stepped flies together."""
+    import gc
+    import threading
+    from kickthefly.lab import assays
+
+    gc.collect()                                              # earlier tests' brains give their slots back
+    odors = ("odor_a", "odor_b")
+
+    from kickthefly.core import memory
+
+    def condition(br, odor, raster):
+        if CI_SHORT:                                          # skip memory's settling: learning from the first pairing
+            br.warmup(100)
+            br.memory.updates = max(br.memory.updates, memory.SETTLE_UPDATES)
+            pairings = 1
+        else:
+            br.warmup(400)                                    # on the fly's own thread, like a game brain
+            assays.rest(br, 300)
+            pairings = 6
+        for _ in range(pairings):
+            assays.present(br, [odor], 240, shock=True)
+            assays.rest(br, 100)
+        for _ in range(20 if CI_SHORT else 50):               # the last steps' spikes, compared below
+            raster.append(br.sim.step().copy())
+
+    def run(batched: bool):
+        monkeypatch.setattr(backends.GLBackend, "BATCH", batched)
+        brains = [simcore.new_brain(seed=21 + k, backend="gl", warmup=0) for k in range(2)]
+        rasters = [[], []]
+        threads = [threading.Thread(target=condition, args=(br, odors[k], rasters[k])) for k, br in enumerate(brains)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        for br in brains:
+            assert br.sim.backend.name == "gl", "the gl backend fell back to the CPU"
+        return brains, [np.array(r) for r in rasters]
+
+    solo, solo_spikes = run(False)
+    together, together_spikes = run(True)
+
+    group = together[0].sim.backend._group
+    assert group is together[1].sim.backend._group and group.member_count >= 2
+    assert group.dispatches < group.fly_steps, "the flies were never stepped in the same dispatch"
+    assert solo[0].sim.backend._group is not solo[1].sim.backend._group
+    for a, b in zip(solo, together):
+        assert (a.memory.w < a.memory.w0 * 0.9).any(), "no learning happened, so nothing was tested"
+        assert np.array_equal(a.memory.w, b.memory.w), "KC -> MBON weights differ between batched and unbatched gl"
+        on_gpu = b.sim.backend.read_weights()
+        assert np.array_equal(on_gpu, b.sim.W_csr.data.astype(np.float32))
+        assert np.array_equal(on_gpu, a.sim.backend.read_weights())
+    assert not np.array_equal(together[0].memory.w, together[1].memory.w), "the two flies learned the same thing"
+    for x, y in zip(solo_spikes, together_spikes):
+        assert np.array_equal(x, y), "spikes differ between batched and unbatched gl"
+    for br in solo + together:
+        br.sim.backend.close()
+
+
+@pytest.mark.skipif(not os.environ.get("KTF_REQUIRE_GL"), reason="only where CI promises OpenGL 4.3 compute")
+def test_gl_is_available_where_required():
+    """The CI gl job sets KTF_REQUIRE_GL: there a missing gl must fail, not quietly skip every gl test."""
+    assert "gl" in AVAIL, backends._gl_compute_available()[1]
+
+
+@pytest.mark.validation
+@pytest.mark.skipif("gl" not in AVAIL, reason="no OpenGL 4.3 compute here")
+@pytest.mark.parametrize("test_id", ["looming_escape", "sugar_feeding"])
+def test_gl_reproduces_validated_pathways(test_id):
+    if CI_SHORT and test_id != "looming_escape":
+        pytest.skip("software rendering: the looming pathway only")
+    """A short validation subset on gl: two validated pathways on the first two held-out seeds, with validation.py's
+    drive, readout, control and window. gl must land on the same side of the pass criterion as NumPy (drive ratio >=
+    RATIO_MIN and above the control) and within 20% of NumPy's ratios. The full suite (ten seeds and a Wilcoxon test)
+    is too slow for a software-rendered CI runner; this is the check that gl's spikes still mean the same thing."""
+    from kickthefly.core import savestate
+    from kickthefly.lab import assays, validation
+
+    t = validation.BY_ID[test_id]
+    ratios = {}
+    for name in ("cpu", "gl"):
+        per = []
+        for seed in validation.SEEDS[:1 if CI_SHORT else 2]:
+            br = simcore.new_brain(seed=seed, backend=name, warmup=200 if CI_SHORT else 600)
+            assert br.sim.backend.name == name
+            g = assays.groups(br)
+            drive = g[t["drive"]]
+            if t["control"] in ("bitter", "sweet"):
+                control = g[t["control"]]
+            else:
+                control = assays.random_like(g[t["control"]], len(drive), np.concatenate([drive, g[t["readout"]]]),
+                                             seed * 31)
+            snap: dict = {}
+            meta = savestate.brain_state(br, "s_", snap)
+            res = []
+            for rows in (drive, control):
+                savestate.restore_brain(br, meta, snap, "s_")
+                window = 200 if CI_SHORT else None
+                r = assays.pathway_response(br, rows, {"readout": g[t["readout"]]}, pre=window or validation.PRE,
+                                            stim=window or validation.STIM)["readout"]
+                res.append(validation._ratio(*r))
+            per.append(res)
+            if name == "gl":
+                br.sim.backend.close()
+        ratios[name] = np.mean(per, axis=0)                   # (drive, control)
+    for name, (d, c) in ratios.items():
+        assert d >= validation.RATIO_MIN and d > c, f"{name}: drive x{d:.2f} vs control x{c:.2f}"
+    np.testing.assert_allclose(ratios["gl"], ratios["cpu"], rtol=0.2)

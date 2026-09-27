@@ -1,0 +1,14 @@
+# Mushroom body neurons while the Kenyon cells are driven: a recording of KC, MBON and PPL1 activity, not the
+# second-order experiment itself. That is assays.second_order_fly (validation: mb_second_order): odor A + shock, then
+# odor B with odor A and no shock, then the T-maze.
+name: mb_second_order
+seed: 1000
+flies: 5
+warmup_s: 2
+duration_s: 6
+stimuli:
+  - {at_s: 1.0, for_s: 1.5, target: "prefix:KC", mode: drive, amp: 0.5}
+recordings:
+  - {name: kc, neurons: "prefix:KC"}
+  - {name: mbon, neurons: "prefix:MBON"}
+  - {name: ppl1, neurons: "prefix:PPL1"}

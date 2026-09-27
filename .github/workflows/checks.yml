@@ -1,0 +1,168 @@
+# Checks beyond the test suites, on every pull request into main and every push to main, and again from release.yml
+# before anything is published (workflow_call):
+#   gl            the OpenGL compute backend on Mesa's software rasterizer (llvmpipe), set up inside the runner only
+#   flatpak       the Flatpak manifest in packaging/flatpak/ builds (nothing is published)
+#   links         every link in README.md and docs/ resolves
+#   replay        a recorded .ktfreplay session replays to the same spikes on NumPy and on Numba
+name: checks
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  # a workflow_call from release.yml runs in the caller's group; this keeps the two from cancelling each other
+  group: checks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  brainpack:
+    # the same pack and cache key as tests.yml and release.yml; the artifact has its own name so a release run, which
+    # also uploads "brainpack", doesn't collide with it
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        id: cache
+        with:
+          path: data/kick_brain.npz
+          key: brainpack-v2-${{ hashFiles('kickthefly/sim/connectome/loader.py', 'kickthefly/sim/brainpack.py') }}
+      - uses: actions/setup-python@v5
+        if: steps.cache.outputs.cache-hit != 'true'
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Build the brain pack
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          python -m pip install numpy scipy pyarrow
+          python -m kickthefly.sim.connectome.loader build
+          python -m kickthefly.sim.brainpack build
+          rm -f data/*.feather data/graph.pkl
+      - uses: actions/upload-artifact@v4
+        with:
+          name: brainpack-checks
+          path: data/kick_brain.npz
+          retention-days: 1
+
+  gl:
+    name: gl backend (llvmpipe)
+    needs: brainpack
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    env:
+      # GitHub's runners have no GPU. Mesa's software rasterizer gives them OpenGL 4.5 with compute shaders; these
+      # variables exist only in this job on this runner.
+      LIBGL_ALWAYS_SOFTWARE: "1"
+      GALLIUM_DRIVER: llvmpipe
+      KTF_REQUIRE_GL: "1"               # tests/test_backends.py: gl missing here is a failure, not a skip
+      KTF_GL_CI_SHORT: "1"              # llvmpipe steps a brain in ~0.5 s: the shorter versions of the gl tests
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: {name: brainpack-checks, path: data}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - name: Mesa (llvmpipe) with EGL, and Xvfb for the GLX fallback
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libegl1 libegl-mesa0 libgl1 libgl1-mesa-dri xvfb
+      - run: python -m pip install -r requirements.txt pytest
+      - name: The OpenGL the backend sees
+        run: xvfb-run -a python -c "from kickthefly.sim.connectome import backends as b; print(b._gl_compute_available())"
+      # The issue #2 upload test (10 pairings, ~5,000 steps per mode) runs on real GPUs only; the batched test's
+      # unbatched run uses the same upload path and reads the weights back too.
+      - name: Backend smoke test, GPU tolerance, and batched vs unbatched plastic weights
+        run: >-
+          xvfb-run -a python -m pytest tests/test_backends.py -m "not validation" -v -rs --durations=0
+          -k "gl and not plastic_weights_bit_exact_after_conditioning"
+      - name: Short validation subset on gl (two validated pathways, gl vs NumPy)
+        run: xvfb-run -a python -m pytest tests/test_backends.py -m validation -k reproduces_validated_pathways -v -rs --durations=0
+
+  flatpak:
+    name: flatpak build
+    needs: brainpack
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-24.08
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: {name: brainpack-checks, path: data}     # the manifest bundles data/kick_brain.npz
+      - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          manifest-path: packaging/flatpak/io.github.legendarylolo318_cloud.KickTheFly.yml
+          bundle: KickTheFly.flatpak
+          cache-key: flatpak-builder-${{ hashFiles('packaging/flatpak/**') }}
+          upload-artifact: false                         # build only: nothing leaves the runner
+
+  links:
+    name: docs links
+    runs-on: ubuntu-24.04               # lychee's release binary needs glibc 2.38+; 22.04 has 2.35
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Links inside the repo (files and #anchors)
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: --offline --include-fragments --no-progress README.md 'docs/**/*.md'
+          fail: true
+      - name: Links to the web
+        uses: lycheeverse/lychee-action@v2
+        with:
+          # 403 and 429 count as reachable: publishers behind doi.org refuse or throttle CI robots. A dead link still
+          # fails (404, 410, DNS, timeouts after the retries)
+          args: >-
+            --max-retries 4 --retry-wait-time 10 --timeout 30 --accept '200..=299,403,429' --no-progress
+            README.md 'docs/**/*.md'
+          fail: true
+
+  replay:
+    name: replay determinism
+    needs: brainpack
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: {name: brainpack-checks, path: data}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - run: python -m pip install -r requirements.txt numba
+      - name: Record a protocol run on NumPy (pokes, a held drive, surgery)
+        run: >-
+          python kick_the_fly.py --headless --backend cpu --protocol protocols/replay_check.yaml
+          --record-replay build/replay/check.ktfreplay --out build/replay
+      - name: Replay it on NumPy and on Numba (either exits 1 if its spikes differ from the recording)
+        run: |
+          python kick_the_fly.py --headless --backend cpu --replay build/replay/check.ktfreplay --out build/replay/cpu
+          python kick_the_fly.py --headless --backend numba --replay build/replay/check.ktfreplay --out build/replay/numba
+      - name: Compare the two replays' spikes
+        run: |
+          python - <<'PY'
+          import json, numpy as np
+          runs = {b: (np.load(f"build/replay/{b}/spikes.npz"), json.load(open(f"build/replay/{b}/replay_summary.json")))
+                  for b in ("cpu", "numba")}
+          for b, (_, s) in runs.items():
+              assert s["backend"] == b, f"asked for {b}, ran {s['backend']}"
+              assert s["identical"], f"{b} did not reproduce the recording"
+          a, n = runs["cpu"][0], runs["numba"][0]
+          assert np.array_equal(a["step"], n["step"]) and np.array_equal(a["neuron"], n["neuron"])
+          print(f"{len(a['neuron'])} spikes over {runs['cpu'][1]['steps']} steps: identical on NumPy and Numba")
+          PY

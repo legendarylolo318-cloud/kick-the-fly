@@ -1,0 +1,15 @@
+# Olfactory and wind input, as activation: drive the olfactory receptor neurons, then the JO-C/E wind neurons, and
+# record the right steering neurons. Not plume tracking: that is assays.plume_tracking_fly, whose navigation is a game
+# rule computed from the geometry (the open field has no plume).
+name: plume_tracking
+seed: 1000
+flies: 5
+warmup_s: 2
+duration_s: 6
+stimuli:
+  - {at_s: 1.0, for_s: 1.0, target: orn, mode: drive, amp: 0.5}
+  - {at_s: 3.0, for_s: 1.0, target: wind, mode: drive, amp: 0.4}
+recordings:
+  - {name: orn, neurons: orn}
+  - {name: wind, neurons: wind}
+  - {name: dna_steer_r, neurons: dna_steer_r}
