@@ -18,16 +18,18 @@ kickthefly/
   core/                    simclock, simcore, memory, savestate, paths, platform_env, version, config, crash
   sim/                     brainpack, connectome/ (loader + LIF simulator), neuron and synapse state
   game/                    kick_the_fly (2D game + Brain + brain panel), kick3d, render3d, outdoors (open field,
-                           orchard): physics, tools, arenas
+                           orchard, day/night), gamepad: physics, tools, arenas, input
   ui/                      menu framework and the settings screens
   lab/                     lab, labjobs, labstats, validation, assays, challenges, protocol, recorder, nwbexport,
-                           headless, benchmark, and the Lab-only manipulations (threshold, signflip, criticalpath,
-                           clamp, diffmode, lesions)
+                           headless, benchmark, api (`from kickthefly import Fly`), neurosearch (brain view search and
+                           path tracer), and the Lab-only manipulations (threshold, signflip, criticalpath, clamp,
+                           diffmode, lesions)
   data/                    non-code assets bundled inside the package
 tests/                     pytest suite; `-m "not validation"` skips the slow validation suite
 protocols/                 bundled YAML example protocols
-docs/                      screenshots and the demo GIF used by the README (tools/make_screenshots.py makes them)
-packaging/                 Linux desktop/appdata files and the AUR package
+docs/                      the Lab, validation, performance and Python API docs, the example notebook, and the
+                           screenshots and demo GIF used by the README (tools/make_screenshots.py makes them)
+packaging/                 Linux desktop/appdata files, the AUR package and the Flatpak manifest (local builds)
 tools/                     dev and one-off scripts (benchmarks, profiler, screenshots, icon) — not imported by the game
 data/                      **not in git**: the connectome download, graph.pkl and kick_brain.npz
 ```

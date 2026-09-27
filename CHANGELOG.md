@@ -1,5 +1,33 @@
 # Changelog
 
+## Unreleased (2.9)
+
+### Added
+- **Courtship song, aggression, thermo arena, day/night** (science 2.9). pIP10 -> ps1 wing motor neurons (validated)
+  with a synthesized pulse-song buzz (game rule); an aggression LUNGE read from AVLP727m ("TK-FruM") and the pC1
+  cluster, P1 included, in 2D and 3D; the thermo arena (a cold-to-hot floor driving the real hot and cold antennal
+  neurons) in 2D and 3D; an outdoor day/night cycle that drives the photoreceptors and morning clock neurons, with a
+  dorsal fan-shaped body SLEEP readout (off by default). Lunges and sleep need P1 or FB6/FB7 stimulated in surgery:
+  nothing in play drives them far enough on its own.
+- **Validation:** pIP10 -> ps1 (PASS), optomotor T4/T5 -> DNa through a game-rule EMD stage (PASS), bitter -> DNg28,
+  CO2 -> V PNs, hot -> VP2 PNs, cold -> VP3 PNs (PASS, as one-synapse activation), P1 -> ps1 (FAIL, too weak), the
+  Seeds et al. 2014 grooming hierarchy (FAIL). docs/validation.md.
+- **Brain view search and path tracer:** find a neuron by type, instance or body ID; trace the 5 strongest paths of
+  up to 3 synapses between two neurons, with live spikes along them.
+- **Python API:** `from kickthefly import Fly` (docs/api.md, docs/api_example.ipynb).
+- **Gamepad** in the 3D game, rebindable in Settings > Controls.
+- **Flatpak manifest** for local builds (packaging/flatpak/).
+
+### Changed
+- **gl backend:** learning uploads only the KC -> MBON synapses it changed (68 KB and 0.03 ms per update instead of
+  41 MB and 2.1 ms; #2). Still not in `auto`: it is slower than NumPy on the machines tested.
+- README restructured: Download and contents at the top; Lab, validation and performance detail moved to docs/.
+
+### Fixed
+- The 3D brain panel's whole-brain trace crashed with NumPy 2 and pygame-ce 2.5 (float32 points).
+- Settings > Brain > Compute backend said `auto` picks OpenGL; it doesn't. The fly cap is documented as it is
+  (GPU backends 32, or 64 with KICK_THE_FLY_EXPANDED_SWARM=1).
+
 ## 2.8.3 (2026-09-20)
 
 ### Added
