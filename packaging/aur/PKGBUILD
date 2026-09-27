@@ -1,7 +1,7 @@
 # Maintainer: legendarylolo318-cloud <274669742+legendarylolo318-cloud@users.noreply.github.com>
 pkgname=kickthefly-bin
 _pkgname=kickthefly
-pkgver=2.7.1
+pkgver=2.9.0
 pkgrel=1
 pkgdesc="Kick the Fly: a game running the MaleCNS v1.0 fruit fly connectome live, with Lab tools (prebuilt AppImage)"
 arch=('x86_64')
@@ -20,7 +20,7 @@ source=("KickTheFly-x86_64-$pkgver.AppImage::$url/releases/download/v$pkgver/Kic
         "kickthefly.sh"
         "LICENSE")
 noextract=("KickTheFly-x86_64-$pkgver.AppImage")
-sha256sums=('c69b2c8db47c1b7ecc6eb6bf921f9cecea7cda55319958d11f8db0586d8f957d'
+sha256sums=('21f351667ac450361642253aa5b795347cd16f4439dc7a9997ef1ba6f3b69e8e'
             '5955914a768e4e81389f93732c47c8b77fa4db1ddf7a68b0475d65df60bbf333'
             'ccf2cec7c35c6490e432860a2770435352a947a1d34c1a1db3426e5c096419d4'
             'f8792b58df71b2ca72f0f552a4f1a6a2327d2b9f7e24332d69c7a938801d22fe'
