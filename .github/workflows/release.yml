@@ -46,30 +46,6 @@ jobs:
   test-linux:
     needs: brainpack
     runs-on: ubuntu-22.04
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with: {name: brainpack, path: data}
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
-      - run: python -m pip install -r requirements.txt pytest
-      - name: Tests, including the validation suite
-        env:
-          KTF_VALIDATION_WORKERS: "4"
-          KTF_VALIDATION_OUT: data/validation_results.json
-        run: python -m pytest -v -rs
-      - uses: actions/upload-artifact@v4
-        with:
-          name: validation-results
-          path: data/validation_results.json
-          retention-days: 7
-
-  test-windows:
-    needs: brainpack
-    runs-on: windows-latest
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
@@ -80,10 +56,40 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
       - run: python -m pip install -r requirements.txt pytest
-      - name: Tests, including the validation suite
+      # Two pytest processes, as in tests.yml: in one, the validation suite's 4 worker brains start while the fast
+      # suite's brains are still held, and on a 16 GB runner it ran more than twice as slow (2.9.0 hit the time limit).
+      - name: Tests
+        run: python -m pytest -m "not validation" -v -rs
+      - name: Validation suite
         env:
           KTF_VALIDATION_WORKERS: "4"
-        run: python -m pytest -v -rs
+          KTF_VALIDATION_OUT: data/validation_results.json
+        run: python -m pytest -m validation -v -rs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: validation-results
+          path: data/validation_results.json
+          retention-days: 7
+
+  test-windows:
+    needs: brainpack
+    runs-on: windows-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: {name: brainpack, path: data}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - run: python -m pip install -r requirements.txt pytest
+      - name: Tests
+        run: python -m pytest -m "not validation" -v -rs
+      - name: Validation suite
+        env:
+          KTF_VALIDATION_WORKERS: "4"
+        run: python -m pytest -m validation -v -rs
 
   build-appimage:
     needs: [brainpack, test-linux]
