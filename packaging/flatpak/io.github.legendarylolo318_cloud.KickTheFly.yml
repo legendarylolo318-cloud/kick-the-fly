@@ -36,7 +36,7 @@ modules:
       - install -Dm644 packaging/linux/io.github.legendarylolo318_cloud.KickTheFly.desktop -t ${FLATPAK_DEST}/share/applications/
       - sed -i 's/^Exec=.*/Exec=kickthefly %U/' ${FLATPAK_DEST}/share/applications/io.github.legendarylolo318_cloud.KickTheFly.desktop
       - install -Dm644 packaging/linux/io.github.legendarylolo318_cloud.KickTheFly.appdata.xml ${FLATPAK_DEST}/share/metainfo/io.github.legendarylolo318_cloud.KickTheFly.metainfo.xml
-      - install -Dm644 packaging/aur/kickthefly.png ${FLATPAK_DEST}/share/icons/hicolor/256x256/apps/io.github.legendarylolo318_cloud.KickTheFly.png
+      - install -Dm644 packaging/linux/io.github.legendarylolo318_cloud.KickTheFly.png ${FLATPAK_DEST}/share/icons/hicolor/256x256/apps/io.github.legendarylolo318_cloud.KickTheFly.png
     sources:
       - type: dir
         path: ../..
