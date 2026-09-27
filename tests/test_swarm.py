@@ -21,6 +21,13 @@ def test_dynamic_max_flies():
     assert get_max_flies("torch-cpu") == 16
     assert get_max_flies("numba") == min(32, max(16, os.cpu_count() or 16))
     assert get_max_flies("torch-cuda") == get_max_flies("torch-rocm") == 32
+    assert get_max_flies("gl") == 32                            # one batch group (backends._GLGroup)
+
+
+def test_gl_cap_ignores_expanded_swarm(monkeypatch):
+    monkeypatch.setenv("KICK_THE_FLY_EXPANDED_SWARM", "1")
+    assert get_max_flies("torch-cuda") == 64
+    assert get_max_flies("gl") == 32
 
 
 def test_swarm_and_f_cycling_and_plasticity():

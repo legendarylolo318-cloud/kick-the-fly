@@ -38,8 +38,9 @@ above their calm rate glow. B toggles the big view.
 Compute backends (sim/connectome/backends.py): the same LIF step runs on NumPy
 (cpu, the reference), Numba (numba), PyTorch (torch-cpu, torch-cuda, torch-rocm) or
 OpenGL 4.3 compute shaders (gl, any vendor's GPU); auto picks a PyTorch GPU, then
-Numba, then NumPy (gl only when asked for: slower than NumPy here), and a missing
-library falls back to NumPy with a logged reason. On gl, learning uploads only the
+Numba, then NumPy (gl only when asked for), and a missing library falls back to NumPy
+with a logged reason. On gl, a process's brains step together, up to 32 on one GL context
+with the weights read once per step for all of them, and learning uploads only the
 synapses it changed. numba and torch-cpu are bit-exact with cpu (same float32
 operations in the same order; tested over 1000 steps in float32 and float64), so
 validation, assays and save states give identical spikes on any of them. GPU sparse
@@ -384,7 +385,8 @@ def get_max_flies(backend: str | None = None) -> int:
 
     NumPy (cpu) and torch-cpu: 16; brains share Python's GIL.
     Numba: one per core, between 16 and 32 (releases GIL).
-    GPU backends (torch-cuda, torch-rocm, gl): 32, or 64 with KICK_THE_FLY_EXPANDED_SWARM=1 (batched SpMM in VRAM).
+    PyTorch GPU (torch-cuda, torch-rocm): 32, or 64 with KICK_THE_FLY_EXPANDED_SWARM=1 (batched SpMM in VRAM).
+    gl: 32, one batch group (backends._GLGroup: a spike word holds 32 flies); measured 0.86x real time at 32 (2.10).
     Every spawn also needs free memory (BRAIN_MB each), checked when you press N."""
     if backend is None or backend == "auto":
         from kickthefly.sim.connectome.backends import detect_available_backends
@@ -392,7 +394,9 @@ def get_max_flies(backend: str | None = None) -> int:
         # the same chain create_backend's 'auto' walks: gl is not in it, so the cap must not assume it either
         backend = next((b for b in ("torch-cuda", "torch-rocm", "numba") if b in avail), "cpu")
     backend = str(backend).lower()
-    if backend in ("torch-cuda", "torch-rocm", "gl"):
+    if backend == "gl":
+        return 32                    # a 33rd fly would start a second group, streaming the weights twice per step
+    if backend in ("torch-cuda", "torch-rocm"):
         return 64 if os.environ.get("KICK_THE_FLY_EXPANDED_SWARM") else 32
     if backend == "numba":
         return int(min(32, max(16, os.cpu_count() or 16)))

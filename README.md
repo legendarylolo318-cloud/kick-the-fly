@@ -140,7 +140,7 @@ Every key below can be rebound in Settings > Controls (a key that's already take
 | V | brain panel: solid, see-through, faint, hidden (hidden gives the room the whole screen) |
 | U | menu size: crisp (sharp whole-pixel scaling, the default) or large |
 | F11 or Alt+Enter | fullscreen; the game fills any screen with no black bars |
-| N | spawn another fly, each with its own independent brain (up to 16 on NumPy; one per CPU core, 16-32, on Numba; 32 on a GPU backend, 64 with `KICK_THE_FLY_EXPANDED_SWARM=1`) |
+| N | spawn another fly, each with its own independent brain (up to 16 on NumPy; one per CPU core, 16-32, on Numba; 32 on `gl`; 32 on PyTorch GPU, 64 with `KICK_THE_FLY_EXPANDED_SWARM=1`) |
 | F | pick which fly the brain panel, surgery and training follow (for 5 s, then back to the nearest) |
 | R | reset to a single fresh fly |
 | Z | pause or resume time |
@@ -294,9 +294,11 @@ failure means: **[docs/validation.md](docs/validation.md)**.
 
 A brain keeps real time (200 steps/s) on any backend with one fly. With many flies, Numba scales best on the CPU
 (16 brains in real time on 24 cores) and PyTorch GPU backends run them batched (32 brains at 15x real time in 2.8).
-The OpenGL `gl` backend runs on any vendor's GPU but is slower than NumPy here, so `auto` doesn't pick it; since 2.9
-its learning uploads only the synapses that changed (68 KB instead of 41 MB per update, issue #2). Tables and
-methods: **[docs/performance.md](docs/performance.md)**.
+The OpenGL `gl` backend runs on any vendor's GPU. Since 2.10 it steps a process's flies together (the connectome is
+read once per step for up to 32 of them) and is the fastest backend here for one fly: 16 flies keep real time and 32
+run at 0.86x, where NumPy manages 0.37x. It is held only to a statistical tolerance of NumPy on other drivers, so
+`auto` still doesn't pick it. Its learning uploads only the synapses that changed (68 KB instead of 41 MB per update,
+issue #2). Tables and methods: **[docs/performance.md](docs/performance.md)**.
 
 ## Python API
 
@@ -348,7 +350,7 @@ game uses it by itself (`auto`), or pick one in Settings > Brain > Compute backe
 | `torch-cuda` | PyTorch with CUDA, from the selector on [pytorch.org](https://pytorch.org/get-started/locally/) | NVIDIA GPU |
 | `torch-rocm` | PyTorch with ROCm (Linux), from the same selector | AMD GPU |
 | `torch-cpu` | any PyTorch | PyTorch on the CPU; mainly for checking the torch code path |
-| `gl` | nothing extra (ModernGL is already a requirement); needs OpenGL 4.3 | OpenGL compute shaders on any vendor's GPU (AMD, NVIDIA, Intel). Only when you pick it: it is slower than NumPy on the machines tested and doesn't run many flies in parallel ([numbers](docs/performance.md)) |
+| `gl` | nothing extra (ModernGL is already a requirement); needs OpenGL 4.3 | OpenGL compute shaders on any vendor's GPU (AMD, NVIDIA, Intel), with a process's flies stepped together on one context. Only when you pick it ([numbers](docs/performance.md)) |
 
 `auto` picks a PyTorch GPU, then Numba, then NumPy (never `gl`). A backend that can't start (library missing, no GPU visible to that
 PyTorch build) falls back to NumPy and logs why; the backend that actually ran is what the Lab header, benchmarks,

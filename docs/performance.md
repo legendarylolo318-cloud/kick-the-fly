@@ -7,10 +7,80 @@ A brain steps every 5 ms of brain time, so real time is 200 steps/s. "Paced" is 
 keeps up; "uncapped" is how fast it steps when it isn't held back, as a multiple of real time.
 
 ```bash
-python kick_the_fly.py --headless --benchmark --backend NAME --flies 1 8 16 --seconds 5
+python kick_the_fly.py --headless --benchmark --backend NAME --flies 1 8 16 32 --seconds 5
 ```
 
 Lab > Simulation benchmark runs the same thing in the game and reports the backend that actually ran.
+
+## 2.10
+
+Same machine as 2.9: AMD Radeon RX 9070 XT (radeonsi, Mesa, OpenGL 4.6) / Intel Core Ultra 7 270K Plus (24 cores),
+32 GB, Linux 7.2, Python 3.14.7, NumPy 2.5.3, Numba 0.67.0, ModernGL 5.12.0. All four backends measured the same day,
+`--flies 1 8 16 32 --seconds 5`.
+
+| brains | `cpu` (NumPy) paced / uncapped | `numba` paced / uncapped | `gl` paced / uncapped | `gl`, flies per dispatch |
+|---|---|---|---|---|
+| 1 | 1.00x / 4.14x (829 steps/s, 1.21 ms) | 1.00x / 4.71x (942 steps/s, 1.06 ms) | **1.00x / 5.20x** (1,040 steps/s, 0.96 ms) | 1.0 |
+| 8 | 1.00x / 2.28x | **1.00x / 3.32x** | 1.00x / 2.48x | 8.0 |
+| 16 | 0.94x / 0.94x | **1.00x / 1.91x** | 1.00x / 1.49x | 12.8 |
+| 32 | 0.37x / 0.38x | 0.78x / 0.82x | **0.86x** / 0.78x | 8.7 |
+| synaptic events/s, best | 944 M (8 brains) | 1,588 M (16 brains) | 1,313 M (32 brains) | |
+| memory, 32 brains | 9.9 GB | 9.8 GB | 9.8 GB | |
+
+### gl: batched multi-fly
+
+Until 2.9 each gl brain had a context of its own and read the whole connectome (41 MB of weights plus 41 MB of
+column indices) every step, so eight brains read it eight times and queued behind each other on the GPU. In 2.10 the
+brains of a process join a batch group (`_GLGroup` in `kickthefly/sim/connectome/backends.py`), the same idea as the
+PyTorch backends' batched SpMM:
+
+- One GL context on a thread of its own holds the connectome once and the state of up to 32 flies. Each brain still
+  steps on its own thread and hands its step to the group; the group waits up to 2 ms for the others that are running
+  and dispatches all of them together. One SpMM pass streams the weights once for every fly in the dispatch (a fly's
+  spikes are one bit of a 32-bit word per neuron), then one LIF pass updates them all.
+- Flies learn separately. A row whose weights differ between flies (the KC -> MBON rows, once learning touches them)
+  becomes per-fly: the shader reads that row's weights from a per-fly table and every other row from the shared copy.
+  Learning still uploads only the synapses it changed. A fly whose weights differ in too many rows (a lesion, a
+  synapse threshold) moves to a group of its own.
+- Each fly's input is summed over its row's synapses in CSR order, whatever the batch, so batched and unbatched gl are
+  bit-exact with each other: `tests/test_backends.py::test_gl_batched_multi_fly_plastic_weights_bit_exact` conditions
+  two flies on different odors on their own threads, batched and not, and compares every learned KC -> MBON weight,
+  the weights read back from the GPU and the spikes.
+- `KICK_THE_FLY_GL_BATCH=0` gives every brain a group of its own (the unbatched path, same shaders).
+
+What batching is worth, same kernels, `--backend gl`:
+
+| brains | unbatched (`KICK_THE_FLY_GL_BATCH=0`) paced / uncapped | batched paced / uncapped | memory, unbatched / batched |
+|---|---|---|---|
+| 1 | 1.00x / 5.20x | 1.00x / 5.20x | 0.9 / 0.9 GB |
+| 8 | 0.91x / 0.90x | 1.00x / 2.48x | 3.5 / 3.0 GB |
+| 16 | 0.42x / 0.42x | 1.00x / 1.49x | 7.8 / 5.4 GB |
+| 32 | 0.21x / 0.21x | 0.86x / 0.78x | 16.2 / 9.8 GB |
+
+Three other changes are behind the single-brain speed (2.37 ms per step in 2.9, 0.96 ms now):
+
+- **A workgroup per row.** The old SpMM gave each neuron's row to one thread. The longest row has 9,184 synapses
+  (median 35), and that one thread's chain of dependent loads set the time of the whole pass. Now 64 lanes look up
+  64 synapses' presynaptic spikes at once and lane f adds fly f's weights in order.
+- **No Python lock while the GPU works.** ModernGL holds Python's GIL through every GL call, `ctx.finish()` and
+  buffer reads included, so every brain thread (and the game) stood still while the GPU ran. The group waits on a GL
+  fence through ctypes instead, which lets them go (`_GLFence`; falls back to `ctx.finish()` where the entry points
+  can't be found).
+- **The LIF step in NumPy's order.** The shader does `CPUBackend.step`'s float operations in its order, with
+  `precise` so they aren't fused into multiply-adds. On this GPU gl now gives NumPy's spikes exactly (0 of 166.7 M
+  differ over 1,000 steps, sparse and dense paths). That is an observation, not a promise: another driver may round
+  or flush denormals differently, so gl stays under the statistical tolerance in `tests/test_backends.py`.
+
+The limit at 32 brains is Python, not the GPU. Bare `sim.step()` loops on 32 threads keep 1.18x real time with 27.6
+flies per dispatch (8: 2.98x, 16: 1.88x). With the benchmark's full `Brain` step around each, the brains' own Python
+work shares one interpreter lock and they reach the group spread out, 8.7 flies per dispatch.
+
+VRAM: the connectome once per group (about 85 MB) plus about 45 MB per fly (its 16-step noise bank is most of it), so
+about 1.5 GB for 32.
+
+Learning uploads (`tools/bench_gl_plastic.py`, the same 10-pairing session as below): scatter 68 KB and 0.074 ms per
+update, runs 88 KB and 0.353 ms, full re-upload 41 MB and 2.016 ms. The bytes are 2.9's; the times now include the
+group keeping its host copy of the shared weights, and are measured on the group's thread.
 
 ## 2.9
 
@@ -57,10 +127,16 @@ How many flies N can spawn, from `get_max_flies()` in `kickthefly/game/kick_the_
 |---|---|
 | `cpu` (NumPy), `torch-cpu` | 16 |
 | `numba` | one per CPU core, at least 16 and at most 32 |
-| `gl`, `torch-cuda`, `torch-rocm` | 32, or 64 with `KICK_THE_FLY_EXPANDED_SWARM=1` |
+| `gl` | 32 |
+| `torch-cuda`, `torch-rocm` | 32, or 64 with `KICK_THE_FLY_EXPANDED_SWARM=1` |
 
 Each fly also needs about 350 MB of free memory, checked when you press N. The cap is how many you may spawn, not how
-many keep real time: see the tables (gl in particular falls behind with more than one).
+many keep real time: see the tables.
+
+gl's cap, revisited in 2.10 from the numbers above: 16 flies keep real time with room to spare (1.49x uncapped) and
+32 run at 0.86x, better than Numba (0.78x) and NumPy (0.37x) at 32, so 32 stays. `KICK_THE_FLY_EXPANDED_SWARM` no
+longer raises it to 64 on gl: one group holds 32 flies, a 33rd starts a second group that reads the weights again
+every step, and that hasn't been measured. Until 2.10 the gl cap of 32 had no measurement behind it (0.11x at 16).
 
 ## 2.8: simulation backends and GPU acceleration
 
