@@ -380,7 +380,7 @@ CALM_STEPS = 400             # 2 s without a touch before the baseline learns ag
 
 
 def get_max_flies(backend: str | None = None) -> int:
-    """How many flies N may spawn, dynamically adapted to the active backend (measured in README: Performance).
+    """How many flies N may spawn, dynamically adapted to the active backend (measured in docs/performance.md).
 
     NumPy (cpu) and torch-cpu: 16; brains share Python's GIL.
     Numba: one per core, between 16 and 32 (releases GIL).
@@ -3079,8 +3079,8 @@ class Game:
             real = skel_status.startswith("Real")
             self._text(surf, skel_status + ("; every other fiber is estimated" if real else ""), (24, ly + 18),
                        (130, 220, 180) if real else (210, 160, 120), self.f_small)
-        self._text(surf, "click: inspect (then PATH FROM/TO HERE) · search box: top left · drag: orbit · Shift+drag: pan · "
-                   "wheel: zoom · K: stethoscope (GAME RULE) · B: close", (24, ly + 36), LABEL, self.f_small)
+        self._text(surf, "click: inspect, then PATH FROM/TO · drag: orbit · Shift+drag: pan · wheel: zoom · K: stethoscope "
+                   "(GAME RULE) · B: close", (24, ly + 36), LABEL, self.f_small)
 
     def _draw_region_neuron_list(self, surf, rect: pygame.Rect, now: float) -> None:
         rname = self.selected_region
@@ -4112,7 +4112,7 @@ class Game:
         pygame.draw.rect(surf, (18, 24, 36), box, border_radius=5)
         pygame.draw.rect(surf, ACCENT if st["active"] else BORDER, box, 1, border_radius=5)
         caret = "|" if st["active"] and int(time.perf_counter() * 2) % 2 == 0 else ""
-        label = (st["text"] + caret) if (st["text"] or st["active"]) else "Search: type, instance or body ID"
+        label = (st["text"] + caret) if (st["text"] or st["active"]) else "Search neurons (type, body ID)"
         self._text(surf, label, (box.x + 8, box.y + 4), INK if st["text"] else LABEL, self.f_small)
         self.search_result_rects = []
         if not st["active"] or not st["results"]:
@@ -5734,7 +5734,8 @@ class Game:
         th_h = 40
         if len(tr) > 2:
             top = max(float(tr.max()), 8.0)
-            pts = [(x + 8 + k * (bw - 16) / (len(tr) - 1), y + th_h - tr[k] / top * (th_h - 4)) for k in range(0, len(tr), 2)]
+            pts = [(x + 8 + k * (bw - 16) / (len(tr) - 1), y + th_h - float(tr[k]) / top * (th_h - 4))   # float32 breaks
+                   for k in range(0, len(tr), 2)]                                                        # pygame-ce aalines
             pygame.draw.aalines(scr, ACCENT, False, pts)
             self._text(scr, f"{tr[-1]:.1f}", (x + bw - 8, y - 6), TEXT, self.f_small, "topright")
         y += th_h + 12

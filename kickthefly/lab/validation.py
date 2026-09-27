@@ -7,7 +7,7 @@ Every cell type named here was checked against the MaleCNS v1.0 annotations (the
 published names: DNg62 and DNge078 are "Hampel 2015: aDN1/aDN2", DNp01 is the giant fiber, MDN is the moonwalker
 descending neuron, GNG540/GNG550 are "Yao & Scott 2022: Sugar SEL PN", DNg28 is "Yao & Scott 2022: Bitter-SEL").
 
-Method (fixed before the held-out run; see README "Validation"):
+Method (fixed before the held-out run; see docs/validation.md):
   - Seeds 1000-1009, never used while developing the assays (exploratory probing used seeds 0-299).
   - Pathway tests: after 2 s of calm, a set of neurons is held driven for 2 s (current every step, like optogenetic
     activation) and a readout population's firing is compared with the 2 s before. The same brain state (snapshot) is
@@ -194,7 +194,7 @@ TESTS = (
               "neurons than pIP10."),
 )
 BY_ID = {t["id"]: t for t in TESTS}
-# The held-out results of this release (README "Validation"). tests/test_validation.py and --strict flag any change,
+# The held-out results of this release (docs/validation.md). tests/test_validation.py and --strict flag any change,
 # in either direction, so a regression (or a newly reproduced behavior) never goes unnoticed.
 EXPECTED = {
     "looming_escape": True, "mdn_backward": False, "sugar_feeding": True, "antenna_grooming_circuit": True,
