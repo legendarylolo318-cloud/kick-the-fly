@@ -2954,11 +2954,14 @@ class Game:
             pygame.draw.rect(surf, (70, 80, 100, 180), box, 1, border_radius=6)
             surf.blit(b_txt, b_txt.get_rect(center=box.center))
             return
+        self._draw_paths(surf, rect, now)
         if self.inspect is not None:
             self._draw_inspect(surf, rect, now)
+        self._draw_search(surf, rect)
         labels = (("optic lobe", 0.10, 0.18), ("optic lobe", 0.90, 0.18), ("mushroom bodies", 0.50, 0.06),
                   ("central brain", 0.50, 0.42), ("to nerve cord", 0.50, 0.93))
-        for label, fx, fy in labels if (self.inspect is None and self.view.is_default_view()) else ():
+        for label, fx, fy in labels if (self.inspect is None and self.view.is_default_view()
+                                        and not getattr(self, "path_ends", None)) else ():
             self._text(surf, label.upper(), (rect.x + int(fx * w), rect.y + int(fy * h)), (120, 170, 190), self.f_small, "center")
         self._text(surf, "LIVE CONNECTOME", (22, 16), INK, self.f_head)
         v = self.view
@@ -3074,8 +3077,8 @@ class Game:
             real = skel_status.startswith("Real")
             self._text(surf, skel_status + ("; every other fiber is estimated" if real else ""), (24, ly + 18),
                        (130, 220, 180) if real else (210, 160, 120), self.f_small)
-        self._text(surf, "click: inspect · drag: orbit · Shift+drag: pan · wheel: zoom · K: stethoscope (a GAME RULE) "
-                   "· B: close", (24, ly + 36), LABEL, self.f_small)
+        self._text(surf, "click: inspect (then PATH FROM/TO HERE) · search box: top left · drag: orbit · Shift+drag: pan · "
+                   "wheel: zoom · K: stethoscope (GAME RULE) · B: close", (24, ly + 36), LABEL, self.f_small)
 
     def _draw_region_neuron_list(self, surf, rect: pygame.Rect, now: float) -> None:
         rname = self.selected_region
@@ -4023,6 +4026,171 @@ class Game:
                        "center")
             self.inspect_flip_button = (r, i)
             self._text(surf, "Lab: sign flip", (card.right - 12, card.bottom - 26), DIM, self.f_small, "topright")
+        self.path_buttons = []                       # path tracer: this neuron as the start or the end
+        for k, (label, what) in enumerate((("PATH FROM HERE", "from"), ("PATH TO HERE", "to"))):
+            r = pygame.Rect(card.x + k * 156, card.bottom + 6, 150, 24)
+            on = getattr(self, "path_ends", {}).get(what) == i
+            pygame.draw.rect(surf, (40, 120, 90) if on else (40, 46, 58), r, border_radius=6)
+            self._text(surf, label, r.center, INK, self.f_small, "center")
+            self.path_buttons.append((r, what, i))
+
+    # --- big view: neuron search and path tracer (kickthefly/lab/neurosearch.py) ---------------------------------
+    def search_box_rect(self) -> pygame.Rect:
+        r = getattr(self, "big_rect", None) or pygame.Rect(0, 58, *VIEW_SIZES["big"])
+        return pygame.Rect(r.x + 8, r.y + 8, 250, 24)
+
+    def search_key(self, ev) -> bool:
+        """Typing into the big view's search box. Returns True if the event was used (hotkeys wait meanwhile)."""
+        st = getattr(self, "nsearch", None)
+        if not (self.big_view and st and st["active"]) or self.menu.open:
+            return False
+        if ev.type == pygame.TEXTINPUT:
+            st["text"] = (st["text"] + ev.text)[:40]
+        elif ev.type == pygame.KEYDOWN:
+            if ev.key == pygame.K_ESCAPE:
+                st["active"] = False
+            elif ev.key == pygame.K_BACKSPACE:
+                st["text"] = st["text"][:-1]
+            elif ev.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                if st["results"]:
+                    self.pick_neuron(st["results"][0])
+                st["active"] = False
+            else:
+                return True
+        else:
+            return False
+        from kickthefly.lab import neurosearch
+        st["results"] = neurosearch.search(self.brain, st["text"]) if st["text"].strip() else []
+        return True
+
+    def search_click(self, pos) -> bool:
+        """Clicks on the search box, its results and the path tracer. Returns True if used."""
+        st = self.__dict__.setdefault("nsearch", dict(active=False, text="", results=[]))
+        if self.search_box_rect().collidepoint(pos):
+            st["active"] = True
+            return True
+        for r, i in getattr(self, "search_result_rects", []):
+            if st["active"] and r.collidepoint(pos):
+                self.pick_neuron(i)
+                st["active"] = False
+                return True
+        was = st["active"]
+        st["active"] = False
+        for r, what, i in getattr(self, "path_buttons", []) if self.inspect is not None else ():
+            if r.collidepoint(pos):
+                self.set_path_end(what, i)
+                return True
+        clear = getattr(self, "path_clear_rect", None)
+        if clear is not None and clear.collidepoint(pos):
+            self.path_ends, self.paths = {}, []
+            return True
+        return was                                    # a click outside only closes the result list
+
+    def pick_neuron(self, i: int) -> None:
+        self.inspect = self._neuron_info(int(i))
+        self.update_stethoscope_target()
+        self.sound.play("click")
+
+    def set_path_end(self, what: str, i: int, k: int = 5) -> None:
+        """Mark a path end; with both ends set, trace the k strongest paths (up to 3 synapses) between them."""
+        from kickthefly.lab import neurosearch
+
+        ends = self.__dict__.setdefault("path_ends", {})
+        ends[what] = int(i)
+        self.paths = []
+        if "from" in ends and "to" in ends:
+            sim = self.brain.sim
+            self.paths = neurosearch.top_paths(sim.W_csr, ends["from"], ends["to"], k=k, Wc=sim.W_csc)
+            self.note(f"PATHS    {self.brain.types[ends['from']] or '#%d' % ends['from']} -> "
+                      f"{self.brain.types[ends['to']] or '#%d' % ends['to']}: {len(self.paths)} found (<= 3 synapses)")
+
+    def _draw_search(self, surf, rect: pygame.Rect) -> None:
+        st = self.__dict__.setdefault("nsearch", dict(active=False, text="", results=[]))
+        box = self.search_box_rect()
+        pygame.draw.rect(surf, (18, 24, 36), box, border_radius=5)
+        pygame.draw.rect(surf, ACCENT if st["active"] else BORDER, box, 1, border_radius=5)
+        caret = "|" if st["active"] and int(time.perf_counter() * 2) % 2 == 0 else ""
+        label = (st["text"] + caret) if (st["text"] or st["active"]) else "Search: type, instance or body ID"
+        self._text(surf, label, (box.x + 8, box.y + 4), INK if st["text"] else LABEL, self.f_small)
+        self.search_result_rects = []
+        if not st["active"] or not st["results"]:
+            return
+        br, rates = self.brain, self.brain.sim.activity.rates()
+        for k, i in enumerate(st["results"]):
+            r = pygame.Rect(box.x, box.bottom + 2 + k * 20, 330, 20)
+            pygame.draw.rect(surf, (14, 18, 28) if k % 2 else (20, 26, 38), r)
+            bid = f"  {int(br.body_id[i])}" if getattr(br, "body_id", None) is not None else ""
+            self._text(surf, f"{br.types[i] or 'untyped'}  {br.instance[i] or ''}{bid}"[:48], (r.x + 6, r.y + 2), TEXT,
+                       self.f_small)
+            self._text(surf, f"{rates[i] / 0.005:4.0f} Hz", (r.right - 6, r.y + 2), (140, 220, 180), self.f_small,
+                       "topright")
+            self.search_result_rects.append((r, i))
+
+    def _draw_paths(self, surf, rect: pygame.Rect, now: float) -> None:
+        """The traced paths over the brain: brighter for stronger paths, and a dot runs along each synapse whenever
+        its presynaptic neuron fires above its calm rate (the live activity)."""
+        ends = getattr(self, "path_ends", {})
+        self.path_clear_rect = None
+        if not ends:
+            return
+        w = VIEW_SIZES["big"][0]
+        pix = self.view.spark_pix["big"]
+        rates = self.brain.sim.activity.rates()
+        calm = self.view.calm
+
+        def at(j):
+            q = pix[j] if 0 <= j < len(pix) else -1
+            return None if q < 0 else (rect.x + q % w, rect.y + q // w)
+
+        cols = ((120, 255, 170), (110, 200, 255), (255, 210, 110), (230, 140, 255), (255, 140, 140))
+        top = max((p["strength"] for p in self.paths), default=1.0)
+        for rank, pth in reversed(list(enumerate(self.paths))):
+            col = cols[rank % len(cols)]
+            fade = 0.35 + 0.65 * (pth["strength"] / top) ** 0.25
+            c = tuple(int(v * fade) for v in col)
+            pts = [at(j) for j in pth["nodes"]]
+            for (a, b), pre, wgt in zip(zip(pts, pts[1:]), pth["nodes"], pth["weights"]):
+                if a is None or b is None:
+                    continue
+                pygame.draw.line(surf, c, a, b, 3 if rank == 0 else 2)
+                act = float(rates[pre] / max(calm[pre], 1e-4))
+                if act > 1.2 and not self.calm_fx:        # live: spikes travelling along the synapse
+                    for f in ((now * 1.6 + rank * 0.2) % 1.0, (now * 1.6 + rank * 0.2 + 0.5) % 1.0):
+                        q = (a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f)
+                        aacircle(surf, q, 3, (255, 255, 255) if wgt > 0 else (255, 110, 110))
+            for j, q in zip(pth["nodes"], pts):
+                if q is not None:
+                    glow = min(1.0, float(rates[j] / max(calm[j], 1e-4)) / 3)
+                    aacircle(surf, q, 4 + int(3 * glow), tuple(int(v * (0.5 + 0.5 * glow)) for v in col))
+        for what, label in (("from", "FROM"), ("to", "TO")):
+            q = at(ends[what]) if what in ends else None
+            if q:
+                self._text(surf, label, (q[0] + 8, q[1] - 16), INK, self.f_small)
+        # the list of paths, bottom left
+        br = self.brain
+        lines = []
+        if "from" in ends and "to" in ends:
+            lines.append(f"{br.types[ends['from']] or '#%d' % ends['from']} -> {br.types[ends['to']] or '#%d' % ends['to']}"
+                         f": {'the strongest paths, up to 3 synapses' if self.paths else 'no path within 3 synapses'}")
+            for rank, pth in enumerate(self.paths):
+                names = " > ".join((br.types[j] or f"#{j}") for j in pth["nodes"])
+                lines.append((rank, f"{'+' if pth['sign'] > 0 else '-'} {pth['strength']:.1e}  {names}"))
+        else:
+            lines.append("Path tracer: now pick the other end (inspect a neuron, PATH FROM / TO HERE)")
+        box = pygame.Rect(rect.x + 8, rect.bottom - 14 - 18 * len(lines) - 8, min(rect.w - 16, 520), 18 * len(lines) + 12)
+        bg = pygame.Surface(box.size, pygame.SRCALPHA)
+        pygame.draw.rect(bg, (8, 10, 16, 215), bg.get_rect(), border_radius=8)
+        surf.blit(bg, box)
+        for n, line in enumerate(lines):
+            if isinstance(line, tuple):
+                rank, text = line
+                aacircle(surf, (box.x + 12, box.y + 14 + n * 18), 4, cols[rank % len(cols)])
+                self._text(surf, text[:70], (box.x + 22, box.y + 6 + n * 18), TEXT, self.f_small)
+            else:
+                self._text(surf, line, (box.x + 8, box.y + 6 + n * 18), INK, self.f_small)
+        self.path_clear_rect = pygame.Rect(box.right - 60, box.y + 4, 54, 18)
+        pygame.draw.rect(surf, (40, 46, 58), self.path_clear_rect, border_radius=4)
+        self._text(surf, "CLEAR", self.path_clear_rect.center, INK, self.f_small, "center")
 
     def flip_neuron(self, i: int) -> None:
         """Flip (or unflip) one neuron's excitatory/inhibitory sign, from the inspector."""
@@ -5792,6 +5960,8 @@ class Game:
 
     def handle(self, ev, now: float) -> bool:
         """2D input. Returns False to quit. Keys go through the rebindable actions in config.py."""
+        if self.search_key(ev):
+            return True
         if self.menu_first(ev, pygame.mouse.get_pos()):
             return not self.want_quit
         if ev.type == pygame.KEYDOWN:
@@ -5869,6 +6039,8 @@ class Game:
                 self.big_view = not self.big_view
                 return True
             if self.big_view:
+                if ev.button == 1 and self.search_click(ev.pos):         # search box, results, path tracer
+                    return True
                 # Region neuron list modal interaction:
                 if getattr(self, "selected_region", None):
                     if getattr(self, "region_close_button", None) and self.region_close_button.collidepoint(ev.pos):

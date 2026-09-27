@@ -2893,6 +2893,8 @@ class Game3D(k2.Game):
         if hasattr(ev, "pos"):
             ev = pygame.event.Event(ev.type, {**ev.dict, "pos": to_logical(ev.pos)})
             self.mouse_logical = ev.pos
+        if self.search_key(ev):
+            return True
         if self.menu_first(ev, self.mouse_logical):
             return not self.want_quit
         if ev.type == pygame.KEYDOWN:
