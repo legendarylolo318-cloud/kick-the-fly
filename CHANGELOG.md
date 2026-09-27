@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased (2.9)
+## 2.9.0 (2026-09-26)
 
 ### Added
 - **Courtship song, aggression, thermo arena, day/night** (science 2.9). pIP10 -> ps1 wing motor neurons (validated)
