@@ -13,8 +13,6 @@
   "Save the whole simulation: every neuron's voltage, the learned synapses, surgery, the room and the flies.": "",
   "Load State": "",
   "Go back to a saved moment.": "",
-  "Replay": "",
-  "Play back a recorded .ktfreplay session.": "",
   "Mode: Lab": "",
   "Mode: Play": "",
   "Switch between Play (the game) and Lab (research tools). Saved in your settings.": "",
@@ -26,13 +24,11 @@
   "Back": "",
   "Reset Tab": "",
   "Reset this whole tab to its default settings.": "",
-
   "Graphics": "",
   "Audio": "",
   "Brain": "",
   "Controls": "",
   "Accessibility": "",
-
   "Fullscreen": "",
   "Resolution scale": "",
   "FPS cap": "",
@@ -54,7 +50,6 @@
   "Game rule": "",
   "REAL": "",
   "RULE": "",
-
   "HAND": "",
   "FLICK": "",
   "SWAT": "",
@@ -69,7 +64,6 @@
   "LASER": "",
   "CVA": "",
   "DECOY": "",
-
   "puffs cVA pheromone: activates Or67d/DA1 glomerulus": "",
   "spawns a decoy female target to evoke courtship": ""
 }

@@ -11,6 +11,9 @@ Language preferences are managed in **Settings > Accessibility > Language** (`ac
 - Explicit language choices (e.g., `English`, `Deutsch`).
 - Any missing or untranslated keys fall back automatically to the English translation.
 
+What goes through the catalog so far (2.10): the pause menu, the quit confirmation, the Settings tab names and the
+setting labels and tips that have catalog entries. Everything else (the HUD, the Lab, popups) is still English only.
+
 ---
 
 ## Critical Translation Rules
@@ -44,8 +47,8 @@ Language preferences are managed in **Settings > Accessibility > Language** (`ac
    ```
 
 3. **Register the language**:
-   - In [`kickthefly/core/i18n.py`](file:///home/lolo/kick-the-fly/kickthefly/core/i18n.py), add your language code and display name to `AVAILABLE_LANGUAGES`.
-   - In [`kickthefly/core/config.py`](file:///home/lolo/kick-the-fly/kickthefly/core/config.py), add your language code to the `access.language` setting `options` and `labels`.
+   - In [`kickthefly/core/i18n.py`](../kickthefly/core/i18n.py), add your language code and display name to `AVAILABLE_LANGUAGES`.
+   - In [`kickthefly/core/config.py`](../kickthefly/core/config.py), add your language code to the `access.language` setting `options` and `labels`.
 
 4. **Verify and test**:
    Launch the game or run pytest:

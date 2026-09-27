@@ -39,7 +39,7 @@ def detect_system_language() -> str:
             code = env_lang.split(".")[0].split("_")[0].lower()
             if code in AVAILABLE_LANGUAGES:
                 return code
-        loc = locale.getlocale(locale.LC_MESSAGES)[0] or locale.getdefaultlocale()[0]
+        loc = locale.getlocale(locale.LC_MESSAGES)[0] if hasattr(locale, "LC_MESSAGES") else locale.getlocale()[0]
         if loc:
             code = loc.split("_")[0].lower()
             if code in AVAILABLE_LANGUAGES:

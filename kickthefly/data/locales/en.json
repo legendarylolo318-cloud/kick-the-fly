@@ -13,8 +13,6 @@
   "Save the whole simulation: every neuron's voltage, the learned synapses, surgery, the room and the flies.": "Save the whole simulation: every neuron's voltage, the learned synapses, surgery, the room and the flies.",
   "Load State": "Load State",
   "Go back to a saved moment.": "Go back to a saved moment.",
-  "Replay": "Replay",
-  "Play back a recorded .ktfreplay session.": "Play back a recorded .ktfreplay session.",
   "Mode: Lab": "Mode: Lab",
   "Mode: Play": "Mode: Play",
   "Switch between Play (the game) and Lab (research tools). Saved in your settings.": "Switch between Play (the game) and Lab (research tools). Saved in your settings.",
@@ -26,13 +24,11 @@
   "Back": "Back",
   "Reset Tab": "Reset Tab",
   "Reset this whole tab to its default settings.": "Reset this whole tab to its default settings.",
-
   "Graphics": "Graphics",
   "Audio": "Audio",
   "Brain": "Brain",
   "Controls": "Controls",
   "Accessibility": "Accessibility",
-
   "Fullscreen": "Fullscreen",
   "Resolution scale": "Resolution scale",
   "FPS cap": "FPS cap",
@@ -54,7 +50,6 @@
   "Game rule": "Game rule",
   "REAL": "REAL",
   "RULE": "RULE",
-
   "HAND": "HAND",
   "FLICK": "FLICK",
   "SWAT": "SWAT",
@@ -69,7 +64,6 @@
   "LASER": "LASER",
   "CVA": "CVA",
   "DECOY": "DECOY",
-
   "puffs cVA pheromone: activates Or67d/DA1 glomerulus": "puffs cVA pheromone: activates Or67d/DA1 glomerulus",
   "spawns a decoy female target to evoke courtship": "spawns a decoy female target to evoke courtship"
 }

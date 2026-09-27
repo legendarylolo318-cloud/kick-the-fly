@@ -19,6 +19,7 @@ import pygame
 
 from kickthefly.core import config
 from kickthefly.core.config import ACTIONS, SETTINGS, TABS
+from kickthefly.core.i18n import tr
 from kickthefly.core.version import __version__
 
 BG = (14, 17, 23)
@@ -400,7 +401,7 @@ class Menu:
             surf.set_clip(None)
             self.text(surf, f"This screen hit an error: {type(e).__name__}: {e}", (rect.centerx, rect.centery),
                       BAD, self.f_small, "center")
-            self.button(surf, (rect.right - 164, rect.bottom - 58, 140, 42), "Back", self.back, style="primary",
+            self.button(surf, (rect.right - 164, rect.bottom - 58, 140, 42), tr("Back"), self.back, style="primary",
                         id=("error", "back"))
         if self.message and time.perf_counter() < self.message[1]:
             self.text(surf, self.message[0], (rect.centerx, rect.bottom + 10), self.message[2], self.f_small, "midtop")
@@ -431,7 +432,7 @@ class Menu:
 
     def _page_pause(self, surf, rect) -> None:
         cfg = self.host.cfg
-        self.text(surf, "PAUSED", (rect.centerx, rect.y + 22), INK, self.f_title, "midtop")
+        self.text(surf, tr("PAUSED"), (rect.centerx, rect.y + 22), INK, self.f_title, "midtop")
         lab = cfg.lab
         self.text(surf, f"Kick the Fly {__version__}   ·   {'Lab' if lab else 'Play'} mode", (rect.centerx, rect.y + 76),
                   LABEL, self.f_small, "midtop")
@@ -444,31 +445,31 @@ class Menu:
                   "Save the whole simulation: every neuron's voltage, the learned synapses, surgery, the room and the "
                   "flies."),
                  ("Load State", "load_state", "normal", True, "Go back to a saved moment."),
-                 (f"Mode: {'Lab' if lab else 'Play'}", "toggle_mode", "normal", True,
+                 ("Mode: Lab" if lab else "Mode: Play", "toggle_mode", "normal", True,
                   "Switch between Play (the game) and Lab (research tools). Saved in your settings."),
                  ("Quit", "quit", "danger", True, "Asks first. Training memory is saved.")]
         bw, bh, gap = 300, 50, 12
         y = rect.y + 116
         for label, action, style, enabled, tip in items:
-            self.button(surf, (rect.centerx - bw // 2, y, bw, bh), label,
-                        (lambda a=action: self.host.menu_action(a)), style=style, enabled=enabled, tip=tip,
+            self.button(surf, (rect.centerx - bw // 2, y, bw, bh), tr(label),
+                        (lambda a=action: self.host.menu_action(a)), style=style, enabled=enabled, tip=tr(tip),
                         id=("pause", action))
             y += bh + gap
 
     def _page_confirm_quit(self, surf, rect) -> None:
-        self.text(surf, "Quit Kick the Fly?", (rect.centerx, rect.y + 30), INK, self.f_head, "midtop")
-        self.text(surf, "The fly's training memory and your settings are saved.", (rect.centerx, rect.y + 76),
+        self.text(surf, tr("Quit Kick the Fly?"), (rect.centerx, rect.y + 30), INK, self.f_head, "midtop")
+        self.text(surf, tr("The fly's training memory and your settings are saved."), (rect.centerx, rect.y + 76),
                   LABEL, self.f_small, "midtop")
-        self.button(surf, (rect.centerx - 170, rect.bottom - 90, 160, 50), "Quit",
+        self.button(surf, (rect.centerx - 170, rect.bottom - 90, 160, 50), tr("Quit"),
                     lambda: self.host.menu_action("quit_now"), style="danger", id=("cq", "quit"))
-        self.button(surf, (rect.centerx + 10, rect.bottom - 90, 160, 50), "Cancel", self.back, id=("cq", "cancel"))
+        self.button(surf, (rect.centerx + 10, rect.bottom - 90, 160, 50), tr("Cancel"), self.back, id=("cq", "cancel"))
 
     def _page_settings(self, surf, rect) -> None:
         cfg, host = self.host.cfg, self.host
         self.text(surf, "SETTINGS", (rect.x + 24, rect.y + 16), INK, self.f_head)
         tw = (rect.w - 48) // len(TABS)
         for i, tab in enumerate(TABS):
-            self.button(surf, (rect.x + 24 + i * tw, rect.y + 54, tw - 8, 38), tab,
+            self.button(surf, (rect.x + 24 + i * tw, rect.y + 54, tw - 8, 38), tr(tab),
                         (lambda t=tab: setattr(self, "tab", t)), active=tab == self.tab, id=("tab", tab))
         body = pygame.Rect(rect.x + 16, rect.y + 104, rect.w - 32, rect.h - 104 - 70)
         key = self._scroll_key()
@@ -487,8 +488,8 @@ class Menu:
             row = pygame.Rect(body.x, y, body.w, 44)
             if row.collidepoint(self.mouse) and body.collidepoint(self.mouse):
                 pygame.draw.rect(surf, ROW_HOVER, row, border_radius=8)
-            tip = s.tip + ("" if on else "  (3D game only.)")
-            lr = self.text(surf, s.label, (row.x + 12, row.centery), TEXT if on else DIM, self.f_text, "midleft")
+            tip = tr(s.tip) + ("" if on else "  (3D game only.)")
+            lr = self.text(surf, tr(s.label), (row.x + 12, row.centery), TEXT if on else DIM, self.f_text, "midleft")
             self._register(pygame.Rect(row.x, row.y, label_w + 150, row.h), "label", id=("label", s.key), tip=tip)
             cx = max(lr.right + 10, row.x + label_w)
             for chip in ([s.tag] if s.tag else []) + (["RESTART"] if s.restart else []) + ([] if on else ["3D ONLY"]):
@@ -537,7 +538,7 @@ class Menu:
         fy = rect.bottom - 58
         self.button(surf, (rect.x + 24, fy, 200, 42), "Reset to defaults", lambda: self._reset_tab(),
                     id=("reset", self.tab), tip=f"Put every {self.tab} setting back to how the game ships.")
-        self.button(surf, (rect.right - 164, fy, 140, 42), "Back", self.back, style="primary", id=("settings", "back"))
+        self.button(surf, (rect.right - 164, fy, 140, 42), tr("Back"), self.back, style="primary", id=("settings", "back"))
         self.text(surf, "Changes apply right away and are saved.", (rect.centerx, fy + 21), LABEL, self.f_small,
                   "center")
 

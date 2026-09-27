@@ -13,8 +13,6 @@
   "Save the whole simulation: every neuron's voltage, the learned synapses, surgery, the room and the flies.": "Die gesamte Simulation speichern: jede Neuronenspannung, gelernte Synapsen, Operationen, Raum und Fliegen.",
   "Load State": "Spielstand laden",
   "Go back to a saved moment.": "Zu einem gespeicherten Moment zurückkehren.",
-  "Replay": "Wiedergabe",
-  "Play back a recorded .ktfreplay session.": "Eine aufgezeichnete .ktfreplay-Sitzung wiedergeben.",
   "Mode: Lab": "Modus: Labor",
   "Mode: Play": "Modus: Spiel",
   "Switch between Play (the game) and Lab (research tools). Saved in your settings.": "Zwischen Spiel und Labor umschalten. In Einstellungen gespeichert.",
@@ -26,13 +24,11 @@
   "Back": "Zurück",
   "Reset Tab": "Reiter zurücksetzen",
   "Reset this whole tab to its default settings.": "Diesen gesamten Reiter auf Standardeinstellungen zurücksetzen.",
-
   "Graphics": "Grafik",
   "Audio": "Audio",
   "Brain": "Gehirn",
   "Controls": "Steuerung",
   "Accessibility": "Barrierefreiheit",
-
   "Fullscreen": "Vollbild",
   "Resolution scale": "Auflösungsskalierung",
   "FPS cap": "FPS-Begrenzung",
@@ -54,7 +50,6 @@
   "Game rule": "Spielregel",
   "REAL": "REAL",
   "RULE": "REGEL",
-
   "HAND": "HAND",
   "FLICK": "SCHNIPSEN",
   "SWAT": "KLATSCHEN",
@@ -69,7 +64,6 @@
   "LASER": "LASER",
   "CVA": "CVA",
   "DECOY": "KÖDER",
-
   "puffs cVA pheromone: activates Or67d/DA1 glomerulus": "stößt cVA-Pheromon aus: aktiviert Or67d/DA1-Glomerulus",
   "spawns a decoy female target to evoke courtship": "erzeugt einen weiblichen Köder, um Balzverhalten hervorzurufen"
 }
