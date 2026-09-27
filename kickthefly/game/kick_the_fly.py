@@ -217,10 +217,12 @@ so the fly doesn't sleep on its own; stimulate FB6/FB7 in surgery.
 
 Validation (validation.py): which published results this sim reproduces, on held-out seeds with pass criteria fixed
 beforehand. Pass: looming -> giant fiber, sugar -> MN9, antennal touch -> aDN, T-maze conditioning, pIP10 -> ps1,
-bitter GRNs -> DNg28, CO2 ORNs -> V PNs, TRN_VP2 -> VP2 PNs, TRN_VP3 -> VP3 PNs, optomotor (T4/T5 -> DNa_R).
+bitter GRNs -> DNg28, CO2 ORNs -> V PNs, TRN_VP2 -> VP2 PNs, TRN_VP3 -> VP3 PNs, optomotor (T4/T5 -> DNa_R),
+cVA: DA1 ORNs -> DA1 PNs -> lateral horn / aSP (2.10).
 Fail: MDN -> leg motor neurons (MDN's targets send them nearly balanced excitation and inhibition, 27,560 vs 24,186
 synapses), aDN -> front-leg motor neurons, P1 -> ps1 (too weak), the Seeds et al. 2014 grooming hierarchy, and no
-E-PG head-direction bump forms, neither from a driven wedge nor (2.7) from the open field's steady wind. The
+E-PG head-direction bump forms, neither from a driven wedge nor (2.7) from the open field's steady wind. 2.10 adds three
+fails: foreleg pheromone GRNs -> P1 (too weak), mushroom body extinction and second-order conditioning. The
 pathway tests on CO2, bitter, hot and cold are one- or two-synapse activation, not avoidance behavior.
 Real-science cards in Play mode come only from passing tests; the BACK UP reaction (MDN) is a game rule.
 
@@ -264,45 +266,39 @@ unconstrained property of the recurrent network. Reports before/after firing rat
 Convulsion animations and severity levels are game-level rules; the runaway activity is a
 direct connectome manipulation outcome.
 
-cVA pheromone tool. CONNECTOME: drives the real Or67d olfactory receptor neurons (ORN_DA1, 204 neurons),
-which excite the DA1 projection neurons (DA1_lPN, DA1_vPN, M_lvPNm43, M_lvPNm45; x2.58 vs x0.80 control,
-p < 0.001: validated), which in turn excite downstream lateral horn and anterior superior protocerebrum targets
-(LHAV4a4, LHAV4c1, LH008m/aSP-f; x2.22 vs x0.96 control, p < 0.001: validated). In multi-fly play, cVA exposure
-feeds the existing aggression drive only through this real connectome wiring without shortcuts. GAME RULE: the
-aerosol puff animation and spatial particle dispersion in the arena.
+cVA pheromone tool (2.10; mouse wheel or toolbar). CONNECTOME: the puff drives the fly's DA1 olfactory receptor
+neurons (ORN_DA1, 204; the Or67d cVA sensors, Kurtovic et al. 2007), which excite the DA1 projection neurons
+(DA1_lPN, DA1_vPN, M_lvPNm43/45: x2.58 vs x0.80, validated), which excite their lateral horn / aSP targets
+(LHAV4a4, LHAV4c1, LH008m = aSP-f: x2.22 vs x0.96, validated). Nothing reads a cVA behavior from them, and nothing
+ties cVA to aggression beyond the wiring. GAME RULE: the puff's reach (250 px, 2.5 m in 3D) and strength.
 
-Decoy female. GAME RULE: a female-shaped physical target (stationary or scripted slow walking) spawned in the
-arena. CONNECTOME: contact from the male's forelegs drives the real putative ppk23/ppk25 foreleg pheromone
-gustatory receptor neurons (LgLG5, LgLG6, LgLG7, LgLG8; ProLN nerve) -> ascending vAB3/PPN1 (AN09B017e/f/g,
-AN05B102a) -> P1/pC1 courtship hub -> pIP10 descending command neuron -> ps1 pulse song motor neurons. Firing
-reaches P1 (x1.20 vs x0.92 control, p < 0.001; fails the 1.5x threshold, reported honestly). Courtship orienting
-(DNa02), wing extension, and pulse song are read from these real neurons.
+Decoy female (2.10; mouse wheel or toolbar). GAME RULE: the decoy's body (it drops to the floor; three at most), the
+contact distance, and COURTSHIP, a RULE tag contact triggers without reading any neuron. CONNECTOME: contact drives
+LgLG5-8, the 64 foreleg gustatory neurons MaleCNS v1.0 annotates as putative ppk23/ppk25 (prothoracic leg nerve).
+Their drive reaches P1 only weakly (x1.20 vs x0.92, FAIL); SONG is still read from ps1 as before.
 
-Odor plume in open field. GAME RULE: intermittent Gaussian odor filaments advected by ambient wind (plume model)
-and the fly's navigation strategy (upwind surge on odor contact, crosswind casting during blanks). Tested: DNa01/02
-and DNp09 descending steering neurons do not show emergent surge/cast behavior from raw ORN and JO-C/E connectome
-wiring alone. CONNECTOME: the plume odor drives real ORNs (ORN_DM1) and wind drives real antennal mechanoreceptors
-(JO-C/E).
+Plume tracking (2.10; assays.plume_tracking_fly, headless and Python only; the open field has no plume). GAME RULE,
+all of it: the plume and the navigation (surge upwind in odor, cast crosswind without) are computed from the
+geometry. ORN_DM1 are driven while the fly is in odor, but their firing doesn't steer it.
 
-Mushroom body learning extensions (memory.py, assays.py). GAME RULE: extinction plasticity rule
-(EXTINCTION_RATE = 0.005; active Kenyon cells without PPL1 punishment dopamine undergo synaptic depotentiation,
-reducing learned fear after repeated unreinforced odor exposure; Felsenberg et al. 2018). Extinguished PI
-0.90 ± 0.09 vs unextinguished 1.00 ± 0.00 (p = 0.0078; fails <= 0.65 threshold, reported honestly). Second-order
-conditioning: odor A + shock pairing followed by compound odor B + odor A pairing transfers fear to odor B via
-fear-driven PPL1 activation (PI 1.00 ± 0.00 vs unpaired -0.10, p < 0.001: validated). CONNECTOME: the KC, MBON,
-PPL1 and PAM connectivity.
+Extinction and second-order conditioning (2.10; assays.extinction_fly, second_order_fly; validation mb_extinction,
+mb_second_order). No rule is added for either: they run on the existing learning rule, so the brain would have to
+make them through its own dopamine neurons. Neither emerges: re-exposing a trained odor without shock leaves the
+T-maze choice unchanged (PI 1.00 vs 1.00), and odor B paired with a trained odor A, without shock, gains no fear
+(PI 0.00 vs -0.03 unpaired). Both FAIL.
 
-Deterministic replay files (.ktfreplay, replay.py). Records seed, backend, dtype, brain pack signature, arena,
-settings, and step-exact input events. NumPy, Numba and torch-cpu guarantee bit-exact spike reproduction; GPU
-backends reproduce statistically due to floating-point atomic sum non-determinism. Compatible with --replay FILE
-and --headless --replay FILE --out DIR.
+Replay files (.ktfreplay, 2.10; core/replay.py). Headless only: `--headless --protocol FILE --record-replay OUT`
+records a protocol's first fly (seed, Lab parameters, surgery, the brain pack's SHA-256, every poke, drive and
+surgery change at its step, and a checksum of the spikes); `--headless --replay FILE --out DIR` runs it again. On
+NumPy, Numba and torch-cpu the spikes must match exactly; on GPU backends a replay is reported, not judged. Another
+brain pack is refused. The windowed game doesn't record or play replays yet.
 
-Localization (i18n.py). Lightweight JSON catalog in data/locales/ (en.json, de.json, template.json) with system
-locale detection and English fallback. Settings > Accessibility > Language. Cell type names, gene names, and
-scientific citations are strictly unlocalized.
+Localization (2.10; core/i18n.py, data/locales/). JSON catalogs with English fallback; Settings > Accessibility >
+Language. So far the pause menu and the Settings labels go through it; German is machine-translated and incomplete.
+Cell types, gene names and citations are never translated.
 
-Real-science popups (Settings > Brain > Real-science popups). Defaulted to OFF in Play and Lab. Old configs
-(schema 1) automatically migrate once to false. Works in Play and Lab when switched on.
+Real-science popups (Settings > Brain) are OFF by default in Play and Lab from 2.10; configs from before migrate to
+off once, and turning them on afterwards sticks.
 
 Settings, time and saves: settings live in config.toml (config.py, menu.py). The game
 runs on a virtual clock (simclock.py): pause, 0.1-1x slow motion and single steps
@@ -1774,19 +1770,19 @@ assert tuple(t[0] for t in TOOLS) == TOOL_NAMES
 REACTION_SOURCE = {
     "DODGE": "real", "FLY AWAY": "real", "TAKE OFF": "real", "RUN": "real", "KICK": "real", "BACK UP": "real",
     "WALK": "real", "TURN": "real", "SHOOT": "real", "GROOM": "real", "PROBOSCIS": "real",
-    "SONG": "real", "CO2": "real", "HEAT": "real", "COLD": "real", "COURTSHIP": "real",
+    "SONG": "real", "CO2": "real", "HEAT": "real", "COLD": "real",
     "EATING": "rule", "TO LIGHT": "rule", "AVOID": "rule", "APPROACH": "rule", "FLEE": "rule", "WRAPPED": "rule",
     "BROKE FREE": "rule", "DIED": "rule", "HIT YOU": "rule", "YOU DIED": "rule", "AUTOPILOT": "rule",
     "PHOTO MODE": "rule", "ALCOHOL": "rule", "INEBRIATED": "rule", "STUMBLE": "rule", "SIP": "rule", "DRINKING": "rule",
     "TO FRUIT": "rule", "LOST": "rule", "RECALL": "rule", "LUNGE": "rule", "FIGHT": "rule", "SLEEP": "rule",
-    "cVA PUFF": "rule", "DECOY FEMALE": "rule",
+    "cVA PUFF": "rule", "DECOY FEMALE": "rule", "COURTSHIP": "rule",
 }
 POPUP_SOURCE = {"DODGE!": "real", "YIKES!": "real", "NOPE!": "rule", "RUN AWAY!": "rule", "YUM!": "rule",
                 "SWEET!": "rule", "NOM NOM": "rule", "K.O.!": "rule", "BROKE FREE!": "rule", "FLY WINS!": "rule",
                 "GOTCHA!": "rule", "PEW PEW!": "rule", "TAKE THAT!": "rule", "AUTOPILOT": "rule", "SPECTATOR": "rule",
                 "PHOTO MODE": "rule", "*HIC*": "rule", "SIP...": "rule", "GLUG!": "rule", "STUMBLE!": "rule",
                 "ALL GONE": "rule", "♪ BUZZ ♪": "rule", "LUNGE!": "rule", "ZZZ": "rule",
-                "COURTSHIP": "real", "cVA PUFF": "rule", "DECOY FEMALE": "rule"}
+                "COURTSHIP": "rule", "cVA PUFF": "rule", "DECOY FEMALE": "rule"}
 SOURCE_TIP = {"real": "REAL: triggered by the connectome sim's own neurons firing above a threshold.",
               "rule": "RULE: a game rule, not something the connectome sim produced."}
 
@@ -1813,8 +1809,9 @@ def draw_source_chip(surf, pos, source: str, font, anchor: str = "midtop", alpha
     return r
 
 
-TOOL_KEYS = (pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5, pygame.K_6, pygame.K_7, pygame.K_8, pygame.K_9, pygame.K_0, pygame.K_MINUS, pygame.K_EQUALS, pygame.K_LEFTBRACKET, pygame.K_RIGHTBRACKET)
-TOOL_KEY_LABELS = ("1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=", "[", "]")      # what the toolbar shows for each
+# cVA and the decoy have no key: [ and ] are slow motion (and photo mode's field of view). Wheel or toolbar.
+TOOL_KEYS = (pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5, pygame.K_6, pygame.K_7, pygame.K_8, pygame.K_9, pygame.K_0, pygame.K_MINUS, pygame.K_EQUALS)
+TOOL_KEY_LABELS = ("1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=", "", "")      # what the toolbar shows for each
 TORCH_KEYS = (("head", None), ("body", None), ("legs", "L"), ("legs", "R"), ("wing", "L"), ("wing", "R"), ("heat", None))
 OUCH = ("BONK!", "OOF!", "SPLAT!", "THWACK!", "BZZT!", "OW!")
 CURSOR_SIZE = {"flick": 12, "swatter": 38, "bomb": 16, "torch": 18, "cleaner": 22, "zapper": 16, "freeze": 22, "spider": 20, "laser": 14}
@@ -2270,6 +2267,9 @@ class Game:
                 pygame.display.toggle_fullscreen()
         elif key == "access.palette":
             self.view.set_palette(c[key])
+        elif key == "access.language":
+            from kickthefly.core import i18n
+            i18n.set_language(c[key])
         elif key == "access.larger_text":
             self.make_fonts()
         elif key == "brain.mirror_weights":
@@ -4982,9 +4982,8 @@ class Game:
                 break
 
     def _decoy(self, now: float) -> None:
-        """Decoy female body (GAME RULE body, stationary or walking).
-        Male fly foreleg contact drives real foreleg pheromone GRNs (putative ppk23/ppk25: LgLG5..8).
-        Courtship orienting, wing extension and pulse song read from the real neurons."""
+        """Decoy female (GAME RULE: the body, the contact distance and the COURTSHIP tag, which contact triggers; no
+        neuron is read for it). CONNECTOME: contact drives the foreleg GRNs annotated putative ppk23/ppk25 (LgLG5-8)."""
         if not hasattr(self, "decoys") or not self.decoys:
             return
         for dec in self.decoys:
@@ -5001,7 +5000,7 @@ class Game:
                 slot.brain.poke("pheromone", "foreleg", 0.6)
                 if now >= getattr(fly, "court_until", 0.0):
                     fly.court_until = now + 0.5
-                    self.note("COURTSHIP   foreleg contact: ppk23/ppk25 GRNs -> P1")
+                    self.note("COURTSHIP   foreleg contact (rule): drives the putative ppk23/ppk25 GRNs")
                     self.popup(fly.p[HEAD] + (0, -50), "COURTSHIP", (255, 180, 220))
 
     def _torch(self, mouse, now: float) -> None:
@@ -6393,7 +6392,9 @@ def parse_args(argv: list[str] | None = None):
     ap.add_argument("--strict", action="store_true", help="exit 1 if validation differs from the expected results")
     ap.add_argument("--record-video", dest="record_video", nargs="?", const="default", metavar="PATH",
                     help="start recording a video at launch, to PATH or the screenshots folder (MP4/WebM with ffmpeg, else GIF)")
-    ap.add_argument("--replay", metavar="FILE", help="play back a recorded .ktfreplay session")
+    ap.add_argument("--replay", metavar="FILE", help="with --headless: run a .ktfreplay again and compare its spikes")
+    ap.add_argument("--record-replay", dest="record_replay", metavar="FILE",
+                    help="with --protocol: record the protocol's first fly as a .ktfreplay")
     args, unknown = ap.parse_known_args(argv)
     if unknown:
         log.warning("ignoring unknown arguments: %s", " ".join(unknown))
@@ -6415,11 +6416,17 @@ def main(argv: list[str] | None = None) -> int:
     if (args.headless or args.validate or args.protocol or getattr(args, "audit_asymmetry", False)
             or getattr(args, "benchmark", False) or getattr(args, "threshold_sweep", False)
             or getattr(args, "signflip_test", False) or getattr(args, "critical_path", None)
-            or (args.headless and getattr(args, "replay", None))):
+            or getattr(args, "replay", None) or getattr(args, "record_replay", None)):
+        if getattr(args, "replay", None) and not args.headless:
+            print("--replay runs headless (--headless --replay FILE): the windowed game doesn't play replays yet",
+                  file=sys.stderr)
+            return 2
         from kickthefly.lab import headless
 
         return headless.main(args)
     cfg = config.Config.load(p.config_file)
+    from kickthefly.core import i18n
+    i18n.set_language(cfg["access.language"])
     # Disambiguate --backend: if it matches a sim backend, apply to brain.backend; if display backend, use for video
     sim_backend_choice = getattr(args, "sim_backend", None)
     display_backend_choice = None

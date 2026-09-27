@@ -1900,7 +1900,7 @@ class Game3D(k2.Game):
                 break
 
     def _decoy3d(self, now: float) -> None:
-        """Decoy female body in 3D: male foreleg contact drives real foreleg GRNs (LgLG5..8)."""
+        """Decoy female in 3D (GAME RULE body, contact distance and COURTSHIP tag; contact drives the LgLG5-8 GRNs)."""
         if not hasattr(self, "decoys3") or not self.decoys3:
             return
         for dec in self.decoys3:
@@ -1919,7 +1919,7 @@ class Game3D(k2.Game):
                 slot.brain.poke("pheromone", "foreleg", 0.6)
                 if now >= getattr(fly, "court_until", 0.0):
                     fly.court_until = now + 0.5
-                    self.note("COURTSHIP   foreleg contact: ppk23/ppk25 GRNs -> P1")
+                    self.note("COURTSHIP   foreleg contact (rule): drives the putative ppk23/ppk25 GRNs")
                     self.popup(fly.p[HEAD] + (0, 0.4, 0), "COURTSHIP", (255, 180, 220))
 
     def _die(self, slot: "k2.FlySlot", now: float) -> None:
