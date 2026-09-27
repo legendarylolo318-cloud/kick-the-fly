@@ -36,6 +36,12 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="2.10.0" date="2026-09-27">
+      <description>
+        <p>A cVA pheromone tool and a decoy female; the OpenGL backend runs many flies together (16 in real time);
+        headless replay files; a language setting; real-science cards off by default.</p>
+      </description>
+    </release>
     <release version="2.9.0" date="2026-09-26">
       <description>
         <p>Courtship song, aggression, a thermo arena and a day/night cycle; more validation tests; neuron search and a
