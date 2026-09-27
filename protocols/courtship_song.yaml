@@ -1,0 +1,14 @@
+# Courtship song: the male-specific command neuron pIP10, then P1, onto the ps1 wing motor neurons
+# (von Philipsborn et al. 2011). Validation: courtship_song (pIP10, PASS) and p1_courtship_song (P1, too weak).
+name: courtship_song
+seed: 1000
+flies: 5
+warmup_s: 2
+duration_s: 6
+stimuli:
+  - {at_s: 1.5, for_s: 1.5, target: pip10, mode: drive, amp: 0.5}
+  - {at_s: 4.0, for_s: 1.5, target: p1, mode: drive, amp: 0.5}
+recordings:
+  - {name: ps1_motor, neurons: ps1}
+  - {name: song_wm, neurons: song_wm}
+  - {name: pip10, neurons: pip10}

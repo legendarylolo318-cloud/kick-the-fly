@@ -122,6 +122,14 @@ class Menu:
         """Consume an event while the menu is open. pos: the mouse in HUD coordinates (for mouse events)."""
         if not self.open:
             return False
+        if self.capture and self.capture.startswith("pad:") and ev.type in (
+                pygame.JOYBUTTONDOWN, pygame.JOYAXISMOTION, pygame.CONTROLLERBUTTONDOWN, pygame.CONTROLLERAXISMOTION):
+            from kickthefly.game import gamepad
+
+            b = gamepad.capture_binding(ev, getattr(self.host, "pad", None))
+            if b is not None:
+                self._bind_pad(self.capture[4:], b)
+            return True
         if ev.type == pygame.KEYDOWN:
             return self._key(ev)
         if ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
@@ -166,7 +174,22 @@ class Menu:
     def _scroll_key(self) -> str:
         return f"{self.screen}:{self.tab}" if self.screen == "settings" else str(self.screen)
 
+    def _bind_pad(self, action: str, binding: str) -> None:
+        self.capture = None
+        ok, msg = self.host.cfg.bind_pad(action, binding)
+        if ok:
+            self.host.set_setting("keys", None)
+        from kickthefly.game import gamepad
+
+        self.flash(msg or f"{config.PAD_LABEL[action]}: {gamepad.pretty(binding)}", AMBER if msg else GOOD)
+
     def _key(self, ev) -> bool:
+        if self.capture is not None and self.capture.startswith("pad:"):
+            if ev.key == pygame.K_ESCAPE:
+                self.capture = None
+            elif ev.key in (pygame.K_BACKSPACE, pygame.K_DELETE):
+                self._bind_pad(self.capture[4:], "")
+            return True
         if self.capture is not None:
             action, self.capture = self.capture, None
             if ev.key == pygame.K_ESCAPE:
@@ -543,7 +566,28 @@ class Menu:
             self.button(surf, (cx + col_w - 190, ry + 2, 170, 30), name, (lambda a=action: setattr(self, "capture", a)),
                         id=("key", action), active=active, style="danger" if action in conflicts else "normal",
                         font=self.f_small, tip=f"{label}: click, then press a key.")
-        return y + ((len(ACTIONS) + 1) // 2) * 38
+        y += ((len(ACTIONS) + 1) // 2) * 38 + 10
+        if not self.host.three_d:
+            return y
+        pad = getattr(self.host, "pad", None)
+        status = f"connected: {pad.name()[:32]}" if pad is not None and pad.pads else "none connected"
+        self.text(surf, f"GAMEPAD ({status})", (body.x + 12, y), LABEL, self.f_small)
+        self.text(surf, "Click a binding, then press the button or push the stick. Backspace unbinds.",
+                  (body.x + 12, y + 18), DIM, self.f_small)
+        y += 18
+        y += 26
+        for i, (action, label, _) in enumerate(config.PAD_ACTIONS):
+            cx = body.x + 12 + (i % 2) * col_w
+            ry = y + (i // 2) * 38
+            active = self.capture == "pad:" + action
+            self.text(surf, label, (cx, ry + 16), TEXT, self.f_small, "midleft")
+            from kickthefly.game import gamepad
+
+            name = "press or push..." if active else gamepad.pretty(cfg.pad[action])
+            self.button(surf, (cx + col_w - 190, ry + 2, 170, 30), name,
+                        (lambda a=action: setattr(self, "capture", "pad:" + a)), id=("pad", action), active=active,
+                        font=self.f_small, tip=f"{label}: click, then press a gamepad button or push a stick.")
+        return y + ((len(config.PAD_ACTIONS) + 1) // 2) * 38
 
 
 def draw_check(surf, center, size: int, color) -> None:

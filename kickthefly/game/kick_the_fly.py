@@ -36,9 +36,11 @@ shapes are only drawn: the simulation is point neurons either way. Neurons firin
 above their calm rate glow. B toggles the big view.
 
 Compute backends (sim/connectome/backends.py): the same LIF step runs on NumPy
-(cpu, the reference), Numba (numba), or PyTorch (torch-cpu, torch-cuda, torch-rocm);
-auto picks a GPU, then Numba, then NumPy, and a missing library falls back to NumPy
-with a logged reason. numba and torch-cpu are bit-exact with cpu (same float32
+(cpu, the reference), Numba (numba), PyTorch (torch-cpu, torch-cuda, torch-rocm) or
+OpenGL 4.3 compute shaders (gl, any vendor's GPU); auto picks a PyTorch GPU, then
+Numba, then NumPy (gl only when asked for: slower than NumPy here), and a missing
+library falls back to NumPy with a logged reason. On gl, learning uploads only the
+synapses it changed. numba and torch-cpu are bit-exact with cpu (same float32
 operations in the same order; tested over 1000 steps in float32 and float64), so
 validation, assays and save states give identical spikes on any of them. GPU sparse
 kernels may add a neuron's inputs in another order, so torch-cuda/torch-rocm are only
@@ -180,15 +182,46 @@ proboscis comes out (drawn by the game). Sugar-pathway neurons -> MN9 is validat
 
 Real vs rule (REACTION_SOURCE): reactions triggered by live descending-neuron firing
 are tagged REAL; ones the game decides (eating, the lamp, memory-driven avoidance,
-silk, death, duel hits, flying to fruit, getting lost, recall) are tagged RULE. The movement itself is always game physics.
+silk, death, duel hits, flying to fruit, getting lost, recall, LUNGE, SLEEP) are tagged RULE. The movement itself
+is always game physics.
 
-Validation (validation.py): which published results this sim reproduces, on held-out
-seeds with pass criteria fixed beforehand. Pass: looming -> giant fiber, sugar -> MN9,
-antennal touch -> aDN, T-maze conditioning. Fail: MDN -> backward walking (MDN doesn't
-reach the leg motor neurons), aDN -> front-leg motor neurons, and no E-PG
-head-direction bump forms, neither from a driven wedge nor (2.7) from the open field's
-steady wind (contrast 1.81x vs 3.0x needed, 101 ms vs 500 ms). Real-science cards in
-Play mode come only from passing tests; the BACK UP reaction (MDN) is a game rule.
+Courtship song (SONG). CONNECTOME: the male-specific descending neuron pIP10 excites the two ps1 wing motor
+neurons, through VNC interneurons (no direct synapses): validated, x1.93 vs x0.94. P1 (the pC1 types annotated
+"Cachero 2010: pMP-e; Yu 2010: pMP4") sends pIP10 1,503 synapses, but P1 -> ps1 is too weak (x1.43, FAIL). SONG
+reads ps1 averaged over ~1 s (two neurons are noisy). GAME RULE: the threshold, and the synthesized pulse-song buzz
+(220 Hz pulses every 35 ms; Settings > Brain > Courtship song buzz). Nothing in play drives pIP10: stimulate it in
+brain surgery (strong wing hits can also fire ps1 past the threshold now and then).
+
+Aggression (LUNGE), 2D and 3D. CONNECTOME: the readout is AVLP727m ("Asahina 2014: TK-FruM") plus the pC1 cluster,
+P1 included; flies notice each other only through looming and touch. GAME RULE: with 2+ flies, that readout above
+THRESH["aggression"] throws the fly at the nearest one (Settings > Brain > Aggression lunges). In testing, touch and
+looming took it to ~1.5x at most, so lunges need P1 stimulated in surgery (~9x; AVLP727m alone only ~1.3x).
+
+Optomotor. CONNECTOME: T4a/T5a (front-to-back) and T4b/T5b (back-to-front) and everything after them: rightward
+wide-field rotation (T4a/T5a_R + T4b/T5b_L) excites DNa01_R/DNa02_R, x2.72 vs x0.80 for matched optic-lobe neurons,
+while DNa01_L/02_L stay near calm (x1.09): validated. GAME RULE: the EMD stage (outdoors.emd_motion_drive,
+assays.emd_stage) that turns a rotation into T4/T5 current. Lab only: the game loop doesn't feed it the fly's view.
+
+Thermo arena (2D and 3D). GAME RULE: a floor from 15 C (left) to 35 C (right); distance from the middle drives the
+cold TRN_VP3 or hot TRN_VP2 antennal neurons (thermo_gradient), and the extremes hurt it on the floor. CONNECTOME:
+what that drive reaches; TRN_VP2 -> VP2 PNs (x2.00) and TRN_VP3 -> VP3 PNs (x1.86) are validated as one-synapse
+activation, not as avoidance. HEAT, COLD and CO2 log the VP2, VP3 and V glomerulus PNs (thresholds in THRESH); the
+fly doesn't move toward comfort or away from CO2.
+
+Day/night and sleep (3D outdoors). GAME RULE: the cycle (Settings > Brain > Day/night cycle, or Lab
+outdoor.day_s; off by default), daylight driving the morning clock neurons l-LNv/s-LNv directly, the scene darkening,
+and SLEEP: dorsal fan-shaped body FB6/FB7 above THRESH["sleep"] stops spontaneous take-off and walking for 2 s.
+CONNECTOME: the photoreceptors, the LNvs and everything downstream. A full simulated day never took dFB past 1.46x,
+so the fly doesn't sleep on its own; stimulate FB6/FB7 in surgery.
+
+Validation (validation.py): which published results this sim reproduces, on held-out seeds with pass criteria fixed
+beforehand. Pass: looming -> giant fiber, sugar -> MN9, antennal touch -> aDN, T-maze conditioning, pIP10 -> ps1,
+bitter GRNs -> DNg28, CO2 ORNs -> V PNs, TRN_VP2 -> VP2 PNs, TRN_VP3 -> VP3 PNs, optomotor (T4/T5 -> DNa_R).
+Fail: MDN -> leg motor neurons (MDN's targets send them nearly balanced excitation and inhibition, 27,560 vs 24,186
+synapses), aDN -> front-leg motor neurons, P1 -> ps1 (too weak), the Seeds et al. 2014 grooming hierarchy, and no
+E-PG head-direction bump forms, neither from a driven wedge nor (2.7) from the open field's steady wind. The
+pathway tests on CO2, bitter, hot and cold are one- or two-synapse activation, not avoidance behavior.
+Real-science cards in Play mode come only from passing tests; the BACK UP reaction (MDN) is a game rule.
 
 Assays and challenges (assays.py, challenges.py): T-maze conditioning (the choice at
 the fork and each odor's glomeruli are game rules), looming escape (uses the game's
@@ -263,6 +296,7 @@ from kickthefly.core import platform_env
 from kickthefly.core.simclock import SimClock
 from kickthefly.core.crash import log
 from kickthefly.core.version import __version__
+from kickthefly.lab.assays import P1_TYPES
 
 W, H = 1280, 760
 PLAY_W = 890                 # left part is the arena, right part the brain panel
@@ -325,7 +359,15 @@ POPS = (  # population name, superclasses
 # DNg02 (29 wing-power DNs) rests at ~7 spikes/s; over 30 s of play its level never passed 1.64x (p99.9 1.60), so 1.58x
 # takes off now and then.
 # DNp01, the giant fiber: over 60 s calm its level never passed 2.64x; driving the looming detectors took it to 7-12x.
-THRESH = {"groom": 4.0, "jump": 3.0, "run": 2.4, "kick": 2.0, "walk": 3.0, "back": 3.8, "turn": 2.1, "fly": 1.58, "escape": 4.0, "fire": 3.0}
+# 2.9 readouts, probed the same way on seeds 21 and 33 (exploration seeds). song is ps1's level averaged over ~1 s:
+# over 120 s calm it never passed 1.61x, wing touch took it to 1.86x, and pIP10 stimulated in brain surgery held it at
+# a median 1.78x on one fly and 2.85x on the other, so 1.8x sings with pIP10 on and now and then under wing hits. co2 (V PNs),
+# hot_pn (VP2 PNs) and cold_pn (VP3 PNs) never passed 1.44x calm; brake cleaner's smell took co2 to 2.5x, full heat
+# hot_pn to 2.5x (half heat 1.75x), full cold cold_pn to 2.05x. aggression (AVLP727m + pC1) and sleep (FB6/FB7) never
+# passed 1.57x calm or under touch, looming, heat, cold or light; stimulating P1 in surgery takes aggression to ~9x
+# (AVLP727m alone only ~1.3x: 5 of its 161 neurons), FB6/FB7 takes sleep to ~6.6x.
+THRESH = {"groom": 4.0, "jump": 3.0, "run": 2.4, "kick": 2.0, "walk": 3.0, "back": 3.8, "turn": 2.1, "fly": 1.58, "escape": 4.0, "fire": 3.0,
+          "song": 1.8, "aggression": 2.0, "sleep": 2.0, "co2": 2.0, "hot_pn": 1.6, "cold_pn": 1.7}
 PAIN_WEIGHTS = np.array([0.55, 0.25, 0.55, 0.20, 0.30])   # touch, thermal, chemical, DN alarm, body relay; cap 100
 PAIN_LEVELS = (  # name, share of a region's neurons a light touch recruits, how hard the rest of the body's sensors join
     ("normal", 0.3, 0.0), ("more", 0.6, 0.5), ("max", 1.0, 1.0),
@@ -338,11 +380,11 @@ CALM_STEPS = 400             # 2 s without a touch before the baseline learns ag
 
 
 def get_max_flies(backend: str | None = None) -> int:
-    """How many flies N may spawn, dynamically adapted to the active backend (measured in README: Performance).
+    """How many flies N may spawn, dynamically adapted to the active backend (measured in docs/performance.md).
 
     NumPy (cpu) and torch-cpu: 16; brains share Python's GIL.
     Numba: one per core, between 16 and 32 (releases GIL).
-    GPU backends (torch-cuda, torch-rocm, gl): 32 (or up to 64 with batched SpMM in VRAM).
+    GPU backends (torch-cuda, torch-rocm, gl): 32, or 64 with KICK_THE_FLY_EXPANDED_SWARM=1 (batched SpMM in VRAM).
     Every spawn also needs free memory (BRAIN_MB each), checked when you press N."""
     if backend is None or backend == "auto":
         from kickthefly.sim.connectome.backends import detect_available_backends
@@ -427,6 +469,19 @@ class Brain:
         # DNg62 and DNge078, "Hampel 2015: aDN1/aDN2") and the proboscis motor neuron MN9
         add_detail("groom", is_dn & np.isin(types, ("DNg62", "DNge078")))
         add_detail("proboscis", np.isin(types, ("MN9",)))
+        # 2.9 readouts. song: the ps1 wing motor neurons that pIP10 and P1 drive (validated). aggression: the
+        # tachykinin/fru neurons AVLP727m ("Asahina 2014: TK-FruM") and the male pC1 cluster, P1 included. sleep: the
+        # dorsal fan-shaped body layers FB6/FB7. co2, hot_pn, cold_pn: the second-order neurons of the CO2 ORNs and the
+        # hot and cold antennal neurons (V, VP2 and VP3 projection neurons; each pathway validated).
+        add_detail("song", (sc == "vnc_motor") & (types == "ps1 MN"))
+        add_detail("aggression", np.isin(types, ("AVLP727m",)) | (np.char.startswith(types, "pC1") & (sc == "cb_intrinsic")))
+        add_detail("sleep", np.char.startswith(types, "FB6") | np.char.startswith(types, "FB7"))
+        add_detail("co2", np.isin(types, ("V_ilPN", "V_l2PN")))
+        add_detail("hot_pn", np.isin(types, ("VP2_adPN", "VP2_l2PN", "VP2+_adPN", "VP1m+VP2_lvPN1", "VP1m+VP2_lvPN2")))
+        add_detail("cold_pn", np.isin(types, ("VP3+_l2PN", "VP3+_vPN", "VP1l+VP3_ilPN", "VP3+VP1l_ivPN", "VP5+VP3_l2PN")))
+        # the morning clock neurons l-LNv and s-LNv: daylight drives them directly outdoors when the day/night cycle
+        # is on (game rule: real LNvs see light through the Hofbauer-Buchner eyelet and CRY, neither modelled)
+        self.sense[("clock", None)] = np.flatnonzero(add_detail("clock", np.isin(types, ("l-LNv", "s-LNv"))))
         # the rest of the body's sensory neurons (campaniform sensilla, hair plates, chordotonal organs, unnamed SN*):
         # only counted and driven when the pain setting asks for more neurons
         body_extra = add_detail("body_extra", np.isin(sc, ("vnc_sensory", "vnc_sensory_tbc", "sensory_ascending",
@@ -1031,8 +1086,19 @@ for wtip in WING:
     LINKS += [(THX, wtip, 0.9, False), (ABD, wtip, 0.6, True), (HEAD, wtip, 0.3, True)]
 LINK_LEN = [float(np.hypot(*(REST[a] - REST[b]))) for a, b, _, _ in LINKS]
 MAX_HEALTH = 100.0
-ARENAS = ("room", "fan", "flypaper", "pool", "lamp", "escaperoom", "field", "orchard")
+# New arenas are only ever appended: a save state from before 2.7 names its arena by index alone (savestate.py).
+ARENAS = ("room", "fan", "flypaper", "pool", "lamp", "escaperoom", "field", "orchard", "thermo")
 OUTDOOR_ARENAS = ("field", "orchard")            # 3D only: large open worlds (kickthefly/game/outdoors.py)
+# Thermo arena (GAME RULE): the temperature runs linearly from 15 C at the left wall to 35 C at the right, and the
+# fly's cold (TRN_VP3) or hot (TRN_VP2) antennal neurons are driven by how far it is from the comfortable middle.
+THERMO_MID_X, THERMO_HALF_X = 445.0, 365.0     # 2D pixels; the 3D room uses its own width (kick3d.py)
+THERMO_DEADBAND = 0.05
+
+
+def thermo_gradient(t: float) -> tuple[float, float]:
+    """(cold, hot) drive in 0..1 at position t, -1 at the cold wall and +1 at the hot wall."""
+    t = float(np.clip(t, -1.0, 1.0))
+    return max(0.0, -t), max(0.0, t)
 WATER_Y = FLOOR - 140                 # pool surface
 PAPER_X = (230.0, 660.0)              # flypaper strip on the floor
 LAMP = (445.0, 196.0)                 # bulb center
@@ -1647,16 +1713,17 @@ assert tuple(t[0] for t in TOOLS) == TOOL_NAMES
 REACTION_SOURCE = {
     "DODGE": "real", "FLY AWAY": "real", "TAKE OFF": "real", "RUN": "real", "KICK": "real", "BACK UP": "real",
     "WALK": "real", "TURN": "real", "SHOOT": "real", "GROOM": "real", "PROBOSCIS": "real",
+    "SONG": "real", "CO2": "real", "HEAT": "real", "COLD": "real",
     "EATING": "rule", "TO LIGHT": "rule", "AVOID": "rule", "APPROACH": "rule", "FLEE": "rule", "WRAPPED": "rule",
     "BROKE FREE": "rule", "DIED": "rule", "HIT YOU": "rule", "YOU DIED": "rule", "AUTOPILOT": "rule",
     "PHOTO MODE": "rule", "ALCOHOL": "rule", "INEBRIATED": "rule", "STUMBLE": "rule", "SIP": "rule", "DRINKING": "rule",
-    "TO FRUIT": "rule", "LOST": "rule", "RECALL": "rule",
+    "TO FRUIT": "rule", "LOST": "rule", "RECALL": "rule", "LUNGE": "rule", "FIGHT": "rule", "SLEEP": "rule",
 }
 POPUP_SOURCE = {"DODGE!": "real", "YIKES!": "real", "NOPE!": "rule", "RUN AWAY!": "rule", "YUM!": "rule",
                 "SWEET!": "rule", "NOM NOM": "rule", "K.O.!": "rule", "BROKE FREE!": "rule", "FLY WINS!": "rule",
                 "GOTCHA!": "rule", "PEW PEW!": "rule", "TAKE THAT!": "rule", "AUTOPILOT": "rule", "SPECTATOR": "rule",
                 "PHOTO MODE": "rule", "*HIC*": "rule", "SIP...": "rule", "GLUG!": "rule", "STUMBLE!": "rule",
-                "ALL GONE": "rule"}
+                "ALL GONE": "rule", "♪ BUZZ ♪": "rule", "LUNGE!": "rule", "ZZZ": "rule"}
 SOURCE_TIP = {"real": "REAL: triggered by the connectome sim's own neurons firing above a threshold.",
               "rule": "RULE: a game rule, not something the connectome sim produced."}
 
@@ -1837,6 +1904,17 @@ class Sound:
         pause = np.zeros(int(R * 0.02))
         fx["shutter"] = self._snd(np.concatenate([c1, pause, c2]), 0.6)
 
+        # Drosophila courtship pulse song buzz (GAME RULE audio): 220 Hz oscillation with 35 ms IPI
+        tt_song = t(0.42)
+        song_wave = np.zeros_like(tt_song)
+        n_pulses = int(0.42 / 0.035)
+        for pi in range(n_pulses):
+            p_start = pi * 0.035
+            p_mask = (tt_song >= p_start) & (tt_song < p_start + 0.012)
+            tau = tt_song[p_mask] - p_start
+            song_wave[p_mask] = np.sin(2 * np.pi * 220 * tau) * np.sin(np.pi * tau / 0.012)
+        fx["pulse_song"] = self._snd(song_wave * 0.6, 0.4)
+
         # Extracellular biphasic action potential clicks (~1.5 to 15 ms) for brain stethoscope sonification
         t_spk = t(0.002)
         spk1 = -np.sin(2 * np.pi * 950 * t_spk) * np.exp(-t_spk * 2500) + 0.15 * noise(0.002) * np.exp(-t_spk * 2000)
@@ -1945,12 +2023,17 @@ SURGERY = (  # label, how to find the neurons (see Game._surgery_rows)
     ("Left hemisphere (all left neurons)", ("hemisphere", "L")),
     ("Right hemisphere (all right neurons)", ("hemisphere", "R")),
     ("Every neuron", ("all", ())),
+    # 2.9, appended so older saves' surgery settings keep pointing at the same groups
+    ("Song command neuron (pIP10)", ("type", ("pIP10",))),
+    ("Courtship neurons P1 (pC1, pMP-e/pMP4)", ("type", P1_TYPES)),
+    ("Aggression neurons TK-FruM (AVLP727m)", ("type", ("AVLP727m",))),
+    ("Sleep neurons: dorsal fan-shaped body (FB6, FB7)", ("prefix", ("FB6", "FB7"))),
 )
 HELP = (
     ("1-9, 0, -, =", "pick a tool (or click the toolbar; = is the laser)"),
     ("B", "big live brain view; click a neuron to inspect it"),
     ("O", "brain surgery: silence or stimulate neuron groups"),
-    ("E", "change arena: room, fan, flypaper, pool, lamp, escaperoom"),
+    ("E", "change arena: room, fan, flypaper, pool, lamp, escaperoom, thermo"),
     ("P", "pain neurons: normal, more, max"),
     ("I", "immortal mode"),
     ("K", "brain stethoscope (spike sonification clicks)"),
@@ -2873,11 +2956,14 @@ class Game:
             pygame.draw.rect(surf, (70, 80, 100, 180), box, 1, border_radius=6)
             surf.blit(b_txt, b_txt.get_rect(center=box.center))
             return
+        self._draw_paths(surf, rect, now)
         if self.inspect is not None:
             self._draw_inspect(surf, rect, now)
+        self._draw_search(surf, rect)
         labels = (("optic lobe", 0.10, 0.18), ("optic lobe", 0.90, 0.18), ("mushroom bodies", 0.50, 0.06),
                   ("central brain", 0.50, 0.42), ("to nerve cord", 0.50, 0.93))
-        for label, fx, fy in labels if (self.inspect is None and self.view.is_default_view()) else ():
+        for label, fx, fy in labels if (self.inspect is None and self.view.is_default_view()
+                                        and not getattr(self, "path_ends", None)) else ():
             self._text(surf, label.upper(), (rect.x + int(fx * w), rect.y + int(fy * h)), (120, 170, 190), self.f_small, "center")
         self._text(surf, "LIVE CONNECTOME", (22, 16), INK, self.f_head)
         v = self.view
@@ -2993,8 +3079,8 @@ class Game:
             real = skel_status.startswith("Real")
             self._text(surf, skel_status + ("; every other fiber is estimated" if real else ""), (24, ly + 18),
                        (130, 220, 180) if real else (210, 160, 120), self.f_small)
-        self._text(surf, "click: inspect · drag: orbit · Shift+drag: pan · wheel: zoom · K: stethoscope (a GAME RULE) "
-                   "· B: close", (24, ly + 36), LABEL, self.f_small)
+        self._text(surf, "click: inspect, then PATH FROM/TO · drag: orbit · Shift+drag: pan · wheel: zoom · K: stethoscope "
+                   "(GAME RULE) · B: close", (24, ly + 36), LABEL, self.f_small)
 
     def _draw_region_neuron_list(self, surf, rect: pygame.Rect, now: float) -> None:
         rname = self.selected_region
@@ -3396,6 +3482,25 @@ class Game:
         else:
             slot.mn9_bout = []
             slot.mn9_calm = getattr(slot, "mn9_calm", mn9) + (mn9 - getattr(slot, "mn9_calm", mn9)) * 0.02
+        # SONG: the ps1 wing motor neurons that pIP10 and P1 drive. There are only two of them, so their level is read
+        # over about a second (the fast level of two neurons passes 2.5x at rest).
+        slot.song_slow = getattr(slot, "song_slow", 1.0) + (br.level("song") - getattr(slot, "song_slow", 1.0)) / 60
+        if slot.song_slow > THRESH["song"] and now >= getattr(slot, "song_ready", 0.0):
+            slot.song_ready = now + 1.8
+            self.note(f"SONG     ps1 wing MNs x{slot.song_slow:.1f}")
+            self.on_reaction("SONG", slot)
+            if self.cfg["brain.song_buzz"]:
+                self.sound.play("pulse_song")
+                head_offset = np.array([0.0, 0.4, 0.0]) if len(fly.p[HEAD]) == 3 else np.array([0.0, -60.0])
+                self.popup(fly.p[HEAD] + head_offset, "♪ BUZZ ♪", (255, 180, 220))
+        # second-order neurons of the CO2, hot and cold sensors: logged only, the fly doesn't act on them
+        for kind, group, label in (("CO2", "co2", "V glomerulus PNs"), ("HEAT", "hot_pn", "VP2 PNs (hot)"),
+                                   ("COLD", "cold_pn", "VP3 PNs (cold)")):
+            lvl = br.level(group)
+            if lvl > THRESH[group] and now >= getattr(slot, f"{group}_ready", 0.0):
+                setattr(slot, f"{group}_ready", now + 3.0)
+                self.note(f"{kind:<8} {label} x{lvl:.1f}")
+                self.on_reaction(kind, slot)
 
     def _memory_behavior(self, slot: "FlySlot", now: float, free: bool, can_fly: bool) -> None:
         fly = slot.fly
@@ -3532,6 +3637,8 @@ class Game:
                     record_score("escaperoom_speedrun", run_time, "low")
                     self.sound.play("yum")
                     self.note(f"ESCAPEROOM CLEAR {run_time:.2f}s ({self.escaperoom_code})")
+        elif arena == "thermo":
+            self._thermo_tick(slot, (float(fly.p[THX, 0]) - THERMO_MID_X) / THERMO_HALF_X, fly.p[THX, 1] > FLOOR - STAND - 20)
         if arena != "pool":
             fly.wet = max(0.0, fly.wet - 1 / 60)
         elif not (fly.p[:, 1] > WATER_Y).any():
@@ -3612,6 +3719,90 @@ class Game:
             pygame.draw.circle(surf, (255, 245, 220), (int(gx), int(gy)), 14)
             pygame.draw.circle(surf, (255, 255, 255), (int(gx), int(gy)), int(10 * sparkle))
             self._text(surf, "★ SUGAR GOAL ★", (int(gx), FLOOR + 10), (255, 220, 100), self.f_small, "midtop")
+        elif arena == "thermo":
+            bar_y = FLOOR - 6
+            bar_h = 10
+            n_segs = 40
+            seg_w = PLAY_W / n_segs
+            for s in range(n_segs):
+                frac = s / (n_segs - 1)
+                if frac < 0.5:
+                    t_val = frac / 0.5
+                    r = int(50 * (1 - t_val) + 40 * t_val)
+                    g = int(120 * (1 - t_val) + 180 * t_val)
+                    b = int(230 * (1 - t_val) + 110 * t_val)
+                else:
+                    t_val = (frac - 0.5) / 0.5
+                    r = int(40 * (1 - t_val) + 230 * t_val)
+                    g = int(180 * (1 - t_val) + 60 * t_val)
+                    b = int(110 * (1 - t_val) + 40 * t_val)
+                pygame.draw.rect(surf, (r, g, b), (int(s * seg_w), bar_y, int(seg_w) + 1, bar_h))
+            self._text(surf, "COLD (15°C)", (100, FLOOR + 10), (70, 150, 240), self.f_small, "midtop")
+            self._text(surf, "COMFORT (24°C)", (int(PLAY_W / 2), FLOOR + 10), (80, 200, 140), self.f_small, "midtop")
+            self._text(surf, "HOT (35°C)", (PLAY_W - 100, FLOOR + 10), (240, 90, 60), self.f_small, "midtop")
+
+    def _aggression(self, slot: "FlySlot", now: float, free: bool) -> None:
+        """LUNGE (GAME RULE, 2D and 3D): with other flies around, the aggression neurons (AVLP727m and pC1, P1
+        included) above THRESH["aggression"] throw the fly at the nearest one. In play nothing takes them there on its
+        own (flies bumping or looming at each other reach ~1.5x): stimulate them in brain surgery (P1, AVLP727m)."""
+        fly, br = slot.fly, slot.brain
+        if (len(self.flies) < 2 or not free or now < getattr(slot, "lunge_ready", 0.0)
+                or not self.cfg["brain.lunge"]):
+            return
+        lvl = br.level("aggression")
+        if lvl <= THRESH["aggression"]:
+            return
+        scale = 0.006 if self.three_d else 1.0          # kick3d's meters per 2D pixel
+        others = [o for o in self.flies if o is not slot and not o.fly.dead]
+        if not others:
+            return
+        near = min(others, key=lambda o: float(np.linalg.norm(o.fly.p[THX] - fly.p[THX])))
+        d = float(np.linalg.norm(near.fly.p[THX] - fly.p[THX]))
+        if d > 180.0 * scale:
+            return
+        slot.lunge_ready = now + 1.8
+        vec = (near.fly.p[THX] - fly.p[THX]) / max(d, 1e-6)
+        if self.three_d:
+            fly.yaw_target = math.atan2(vec[0], vec[2])
+            fly.impulse(THX, (vec * 6.0 + np.array([0.0, 2.5, 0.0])) * scale)
+        else:
+            fly.facing = 1 if vec[0] > 0 else -1
+            fly.impulse(THX, vec * 6.0 + np.array([0.0, -2.5]))
+        self.note(f"LUNGE    AVLP727m/pC1 x{lvl:.1f}")
+        self.on_reaction("LUNGE", slot)
+        up = np.array([0.0, 0.4, 0.0]) if self.three_d else np.array([0.0, -60.0])
+        self.popup(fly.p[HEAD] + up, "LUNGE!", (255, 120, 80))
+        self.sound.play("whack")
+
+    def _sleep(self, slot: "FlySlot", now: float, free: bool) -> None:
+        """SLEEP (GAME RULE readout): dorsal fan-shaped body (FB6/FB7) above THRESH["sleep"] puts the fly to rest for
+        2 s: no spontaneous take-off or walking (its reflexes still work). Nothing in play drives dFB that far on its
+        own, daylight and darkness included; stimulate FB6/FB7 in brain surgery to see it."""
+        lvl = slot.brain.level("sleep")
+        if lvl <= THRESH["sleep"] or not free:
+            return
+        if now >= getattr(slot, "asleep_until", 0.0):
+            self.note(f"SLEEP    dFB FB6/FB7 x{lvl:.1f}")
+            self.on_reaction("SLEEP", slot)
+            up = np.array([0.0, 0.4, 0.0]) if self.three_d else np.array([0.0, -60.0])
+            self.popup(slot.fly.p[HEAD] + up, "ZZZ", (170, 190, 255))
+        slot.asleep_until = now + 2.0
+
+    def _thermo_tick(self, slot: "FlySlot", t: float, on_floor: bool) -> None:
+        """The thermo arena, shared by the 2D and 3D games. t is where the fly is between the cold wall (-1) and the
+        hot wall (+1). GAME RULE: the gradient and the damage at the extremes. CONNECTOME: what the drive reaches."""
+        fly, br = slot.fly, slot.brain
+        cold, hot = thermo_gradient(t)
+        if not fly.dead and self.frame % 3 == 0:
+            if cold > THERMO_DEADBAND:
+                br.poke("cold", None, cold)
+            if hot > THERMO_DEADBAND:
+                br.poke("heat", None, hot)
+        if on_floor and not fly.dead:
+            if hot > 0.85:
+                self.damage(slot, 0.02, "extreme heat")
+            elif cold > 0.85:
+                self.damage(slot, 0.02, "extreme cold")
 
     def _draw_arena_front(self, surf, now: float) -> None:
         if ARENAS[self.arena_i] != "pool":
@@ -3837,6 +4028,171 @@ class Game:
                        "center")
             self.inspect_flip_button = (r, i)
             self._text(surf, "Lab: sign flip", (card.right - 12, card.bottom - 26), DIM, self.f_small, "topright")
+        self.path_buttons = []                       # path tracer: this neuron as the start or the end
+        for k, (label, what) in enumerate((("PATH FROM HERE", "from"), ("PATH TO HERE", "to"))):
+            r = pygame.Rect(card.x + k * 156, card.bottom + 6, 150, 24)
+            on = getattr(self, "path_ends", {}).get(what) == i
+            pygame.draw.rect(surf, (40, 120, 90) if on else (40, 46, 58), r, border_radius=6)
+            self._text(surf, label, r.center, INK, self.f_small, "center")
+            self.path_buttons.append((r, what, i))
+
+    # --- big view: neuron search and path tracer (kickthefly/lab/neurosearch.py) ---------------------------------
+    def search_box_rect(self) -> pygame.Rect:
+        r = getattr(self, "big_rect", None) or pygame.Rect(0, 58, *VIEW_SIZES["big"])
+        return pygame.Rect(r.x + 8, r.y + 8, 250, 24)
+
+    def search_key(self, ev) -> bool:
+        """Typing into the big view's search box. Returns True if the event was used (hotkeys wait meanwhile)."""
+        st = getattr(self, "nsearch", None)
+        if not (self.big_view and st and st["active"]) or self.menu.open:
+            return False
+        if ev.type == pygame.TEXTINPUT:
+            st["text"] = (st["text"] + ev.text)[:40]
+        elif ev.type == pygame.KEYDOWN:
+            if ev.key == pygame.K_ESCAPE:
+                st["active"] = False
+            elif ev.key == pygame.K_BACKSPACE:
+                st["text"] = st["text"][:-1]
+            elif ev.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                if st["results"]:
+                    self.pick_neuron(st["results"][0])
+                st["active"] = False
+            else:
+                return True
+        else:
+            return False
+        from kickthefly.lab import neurosearch
+        st["results"] = neurosearch.search(self.brain, st["text"]) if st["text"].strip() else []
+        return True
+
+    def search_click(self, pos) -> bool:
+        """Clicks on the search box, its results and the path tracer. Returns True if used."""
+        st = self.__dict__.setdefault("nsearch", dict(active=False, text="", results=[]))
+        if self.search_box_rect().collidepoint(pos):
+            st["active"] = True
+            return True
+        for r, i in getattr(self, "search_result_rects", []):
+            if st["active"] and r.collidepoint(pos):
+                self.pick_neuron(i)
+                st["active"] = False
+                return True
+        was = st["active"]
+        st["active"] = False
+        for r, what, i in getattr(self, "path_buttons", []) if self.inspect is not None else ():
+            if r.collidepoint(pos):
+                self.set_path_end(what, i)
+                return True
+        clear = getattr(self, "path_clear_rect", None)
+        if clear is not None and clear.collidepoint(pos):
+            self.path_ends, self.paths = {}, []
+            return True
+        return was                                    # a click outside only closes the result list
+
+    def pick_neuron(self, i: int) -> None:
+        self.inspect = self._neuron_info(int(i))
+        self.update_stethoscope_target()
+        self.sound.play("click")
+
+    def set_path_end(self, what: str, i: int, k: int = 5) -> None:
+        """Mark a path end; with both ends set, trace the k strongest paths (up to 3 synapses) between them."""
+        from kickthefly.lab import neurosearch
+
+        ends = self.__dict__.setdefault("path_ends", {})
+        ends[what] = int(i)
+        self.paths = []
+        if "from" in ends and "to" in ends:
+            sim = self.brain.sim
+            self.paths = neurosearch.top_paths(sim.W_csr, ends["from"], ends["to"], k=k, Wc=sim.W_csc)
+            self.note(f"PATHS    {self.brain.types[ends['from']] or '#%d' % ends['from']} -> "
+                      f"{self.brain.types[ends['to']] or '#%d' % ends['to']}: {len(self.paths)} found (<= 3 synapses)")
+
+    def _draw_search(self, surf, rect: pygame.Rect) -> None:
+        st = self.__dict__.setdefault("nsearch", dict(active=False, text="", results=[]))
+        box = self.search_box_rect()
+        pygame.draw.rect(surf, (18, 24, 36), box, border_radius=5)
+        pygame.draw.rect(surf, ACCENT if st["active"] else BORDER, box, 1, border_radius=5)
+        caret = "|" if st["active"] and int(time.perf_counter() * 2) % 2 == 0 else ""
+        label = (st["text"] + caret) if (st["text"] or st["active"]) else "Search neurons (type, body ID)"
+        self._text(surf, label, (box.x + 8, box.y + 4), INK if st["text"] else LABEL, self.f_small)
+        self.search_result_rects = []
+        if not st["active"] or not st["results"]:
+            return
+        br, rates = self.brain, self.brain.sim.activity.rates()
+        for k, i in enumerate(st["results"]):
+            r = pygame.Rect(box.x, box.bottom + 2 + k * 20, 330, 20)
+            pygame.draw.rect(surf, (14, 18, 28) if k % 2 else (20, 26, 38), r)
+            bid = f"  {int(br.body_id[i])}" if getattr(br, "body_id", None) is not None else ""
+            self._text(surf, f"{br.types[i] or 'untyped'}  {br.instance[i] or ''}{bid}"[:48], (r.x + 6, r.y + 2), TEXT,
+                       self.f_small)
+            self._text(surf, f"{rates[i] / 0.005:4.0f} Hz", (r.right - 6, r.y + 2), (140, 220, 180), self.f_small,
+                       "topright")
+            self.search_result_rects.append((r, i))
+
+    def _draw_paths(self, surf, rect: pygame.Rect, now: float) -> None:
+        """The traced paths over the brain: brighter for stronger paths, and a dot runs along each synapse whenever
+        its presynaptic neuron fires above its calm rate (the live activity)."""
+        ends = getattr(self, "path_ends", {})
+        self.path_clear_rect = None
+        if not ends:
+            return
+        w = VIEW_SIZES["big"][0]
+        pix = self.view.spark_pix["big"]
+        rates = self.brain.sim.activity.rates()
+        calm = self.view.calm
+
+        def at(j):
+            q = pix[j] if 0 <= j < len(pix) else -1
+            return None if q < 0 else (rect.x + q % w, rect.y + q // w)
+
+        cols = ((120, 255, 170), (110, 200, 255), (255, 210, 110), (230, 140, 255), (255, 140, 140))
+        top = max((p["strength"] for p in self.paths), default=1.0)
+        for rank, pth in reversed(list(enumerate(self.paths))):
+            col = cols[rank % len(cols)]
+            fade = 0.35 + 0.65 * (pth["strength"] / top) ** 0.25
+            c = tuple(int(v * fade) for v in col)
+            pts = [at(j) for j in pth["nodes"]]
+            for (a, b), pre, wgt in zip(zip(pts, pts[1:]), pth["nodes"], pth["weights"]):
+                if a is None or b is None:
+                    continue
+                pygame.draw.line(surf, c, a, b, 3 if rank == 0 else 2)
+                act = float(rates[pre] / max(calm[pre], 1e-4))
+                if act > 1.2 and not self.calm_fx:        # live: spikes travelling along the synapse
+                    for f in ((now * 1.6 + rank * 0.2) % 1.0, (now * 1.6 + rank * 0.2 + 0.5) % 1.0):
+                        q = (a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f)
+                        aacircle(surf, q, 3, (255, 255, 255) if wgt > 0 else (255, 110, 110))
+            for j, q in zip(pth["nodes"], pts):
+                if q is not None:
+                    glow = min(1.0, float(rates[j] / max(calm[j], 1e-4)) / 3)
+                    aacircle(surf, q, 4 + int(3 * glow), tuple(int(v * (0.5 + 0.5 * glow)) for v in col))
+        for what, label in (("from", "FROM"), ("to", "TO")):
+            q = at(ends[what]) if what in ends else None
+            if q:
+                self._text(surf, label, (q[0] + 8, q[1] - 16), INK, self.f_small)
+        # the list of paths, bottom left
+        br = self.brain
+        lines = []
+        if "from" in ends and "to" in ends:
+            lines.append(f"{br.types[ends['from']] or '#%d' % ends['from']} -> {br.types[ends['to']] or '#%d' % ends['to']}"
+                         f": {'the strongest paths, up to 3 synapses' if self.paths else 'no path within 3 synapses'}")
+            for rank, pth in enumerate(self.paths):
+                names = " > ".join((br.types[j] or f"#{j}") for j in pth["nodes"])
+                lines.append((rank, f"{'+' if pth['sign'] > 0 else '-'} {pth['strength']:.1e}  {names}"))
+        else:
+            lines.append("Path tracer: now pick the other end (inspect a neuron, PATH FROM / TO HERE)")
+        box = pygame.Rect(rect.x + 8, rect.bottom - 14 - 18 * len(lines) - 8, min(rect.w - 16, 520), 18 * len(lines) + 12)
+        bg = pygame.Surface(box.size, pygame.SRCALPHA)
+        pygame.draw.rect(bg, (8, 10, 16, 215), bg.get_rect(), border_radius=8)
+        surf.blit(bg, box)
+        for n, line in enumerate(lines):
+            if isinstance(line, tuple):
+                rank, text = line
+                aacircle(surf, (box.x + 12, box.y + 14 + n * 18), 4, cols[rank % len(cols)])
+                self._text(surf, text[:70], (box.x + 22, box.y + 6 + n * 18), TEXT, self.f_small)
+            else:
+                self._text(surf, line, (box.x + 8, box.y + 6 + n * 18), INK, self.f_small)
+        self.path_clear_rect = pygame.Rect(box.right - 60, box.y + 4, 54, 18)
+        pygame.draw.rect(surf, (40, 46, 58), self.path_clear_rect, border_radius=4)
+        self._text(surf, "CLEAR", self.path_clear_rect.center, INK, self.f_small, "center")
 
     def flip_neuron(self, i: int) -> None:
         """Flip (or unflip) one neuron's excitatory/inhibitory sign, from the inspector."""
@@ -4802,6 +5158,7 @@ class Game:
                 self.note(f"FLY AWAY head-touch DNs x{lv['jump']:.1f}")
                 self.popup(fly.p[HEAD] + (0, -60), "YIKES!", (160, 230, 255))
             elif (lv["fly"] > THRESH["fly"] and now >= fly.escape_ready and free and can_fly and now >= fly.stun_until
+                  and now >= getattr(slot, "asleep_until", 0.0)
                   and now >= fly.eating_until):
                 fly.escape(now, seconds=random.uniform(2.5, 4.0), wander=True)
                 self.note(f"TAKE OFF DNg02 x{lv['fly']:.2f}")
@@ -4815,7 +5172,8 @@ class Game:
             if lv["back"] > THRESH["back"] and now >= fly.back_until and now >= fly.walk_until:
                 fly.back_until = now + 0.8
                 self.note(f"BACK UP  MDN x{lv['back']:.1f}")
-            elif lv["walk"] > THRESH["walk"] and now >= fly.walk_until and now >= fly.back_until:
+            elif (lv["walk"] > THRESH["walk"] and now >= fly.walk_until and now >= fly.back_until
+                  and now >= getattr(slot, "asleep_until", 0.0)):
                 fly.walk_until, fly.run = now + 1.2, False
                 self.note(f"WALK     DNp09 x{lv['walk']:.1f}")
             self._memory_behavior(slot, now, free, can_fly)
@@ -4836,6 +5194,9 @@ class Game:
                 if new != fly.facing:
                     fly.facing = new
                     self.note(f"TURN {'R' if new > 0 else 'L'}   DNa01/02 R-L {turn:+.1f}")
+
+            self._aggression(slot, now, free)
+            self._sleep(slot, now, free)
 
         self._update_focus()
         self._training_tick(now)
@@ -4872,6 +5233,8 @@ class Game:
                             slot.brain.poke("body", None, 0.5 * s)
                             slot.brain.poke("legs", None, 0.3 * s)
                             fly.hurt = max(fly.hurt, 0.3)
+                    if sa.brain.level("aggression") > THRESH["aggression"] or sb.brain.level("aggression") > THRESH["aggression"]:
+                        self.note("FIGHT    aggression collision")
 
     def _die(self, slot: "FlySlot", now: float) -> None:
         fly = slot.fly
@@ -5371,7 +5734,8 @@ class Game:
         th_h = 40
         if len(tr) > 2:
             top = max(float(tr.max()), 8.0)
-            pts = [(x + 8 + k * (bw - 16) / (len(tr) - 1), y + th_h - tr[k] / top * (th_h - 4)) for k in range(0, len(tr), 2)]
+            pts = [(x + 8 + k * (bw - 16) / (len(tr) - 1), y + th_h - float(tr[k]) / top * (th_h - 4))   # float32 breaks
+                   for k in range(0, len(tr), 2)]                                                        # pygame-ce aalines
             pygame.draw.aalines(scr, ACCENT, False, pts)
             self._text(scr, f"{tr[-1]:.1f}", (x + bw - 8, y - 6), TEXT, self.f_small, "topright")
         y += th_h + 12
@@ -5599,6 +5963,8 @@ class Game:
 
     def handle(self, ev, now: float) -> bool:
         """2D input. Returns False to quit. Keys go through the rebindable actions in config.py."""
+        if self.search_key(ev):
+            return True
         if self.menu_first(ev, pygame.mouse.get_pos()):
             return not self.want_quit
         if ev.type == pygame.KEYDOWN:
@@ -5676,6 +6042,8 @@ class Game:
                 self.big_view = not self.big_view
                 return True
             if self.big_view:
+                if ev.button == 1 and self.search_click(ev.pos):         # search box, results, path tracer
+                    return True
                 # Region neuron list modal interaction:
                 if getattr(self, "selected_region", None):
                     if getattr(self, "region_close_button", None) and self.region_close_button.collidepoint(ev.pos):
@@ -5811,7 +6179,7 @@ def page_load_state(m, surf, rect, mouse) -> None:
         if meta is not None:
             nfl = len(meta["flies"])
             label = (f"{meta['created']}   {meta['mode'].upper()}   {nfl} {'fly' if nfl == 1 else 'flies'}   "
-                     f"{ARENAS[meta['arena_i']]}   seed {meta['seed']}")
+                     f"{meta.get('arena') or ARENAS[min(meta['arena_i'], len(ARENAS) - 1)]}   seed {meta['seed']}")
             sub = f"{f.name}   v{meta['app_version']} on {meta['platform']}"
         else:
             label, sub = f.name, ""
@@ -5888,7 +6256,8 @@ def parse_args(argv: list[str] | None = None):
     ap.add_argument("--validate", action="store_true", help="run the validation suite (implies --headless)")
     ap.add_argument("--protocol", metavar="FILE", help="run a YAML protocol file (implies --headless)")
     ap.add_argument("--out", metavar="PATH", help="where headless results go")
-    ap.add_argument("--arena", choices=ARENAS, help="start in this arena (saved to config.toml like pressing E)")
+    ap.add_argument("--arena", choices=ARENAS, help="start in this arena (saved to config.toml like pressing E): room, fan, "
+                    "flypaper, pool, lamp, escaperoom, thermo, field or orchard; field and orchard need the 3D game")
     ap.add_argument("--nwb", action="store_true", help="also write each recording as NWB (needs pynwb)")
     ap.add_argument("--workers", type=int, help="worker processes for headless runs (default: up to 4)")
     ap.add_argument("--seeds", help="validation seeds, e.g. 1000-1009")

@@ -285,6 +285,37 @@ scene("escaperoom", "The escape room: fan, flypaper and a hot lamp between the f
       every=lambda g, t: look_at(g, fly_pos(g), 2.2, math.pi / 2 + 0.3, 1.6), shot_at=8.0)
 
 
+def _to_hot_side(g):
+    """Put the fly on the thermo arena's warm half, where its hot-sensing antennal neurons are driven."""
+    for slot in g.flies:
+        dx = 2.4 - float(slot.fly.p[k2.THX, 0])
+        slot.fly.p[:, 0] += dx
+        slot.fly.prev[:, 0] += dx
+
+
+scene("thermo", "The thermo arena: cold on the left, hot on the right; the warm floor drives its hot-sensing antennal "
+                "neurons (TRN_VP2) and their VP2 projection neurons",
+      arena="thermo", steps=[(0.0, lambda g: g.set_setting("brain.immortal", True, save=False)), (0.5, _to_hot_side)],
+      every=lambda g, t: look_at(g, fly_pos(g), 2.6, math.pi / 2 + 0.25, 1.7), shot_at=6.0)
+
+
+def _paths(g):
+    from kickthefly.lab import neurosearch
+
+    br = g.brain
+    g.big_view = True
+    src, dst = neurosearch.search(br, "LPLC2")[0], neurosearch.search(br, "DNp01")[0]
+    g.set_path_end("from", src)
+    g.set_path_end("to", dst)
+    g.inspect = g._neuron_info(dst)
+
+
+scene("paths", "The path tracer in the big brain view (B): the strongest paths from a looming detector (LPLC2) to the "
+               "giant fiber, with live spikes running along them while something looms",
+      steps=[(1.0, _paths)], every=lambda g, t: (near(1.5, height=1.2)(g, t), g.brain.poke("loom", None, 0.9)),
+      shot_at=4.0)
+
+
 scene("portrait", "Close-up of the fly model itself (not used in the README; for checking the model after a change)",
       steps=[(0.0, lambda g: g.set_setting("brain.immortal", True, save=False))],
       every=lambda g, t: look_at(g, fly_pos(g), 0.8, math.pi / 2 + 2.6, 0.42), shot_at=6.0)

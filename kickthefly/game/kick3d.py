@@ -29,7 +29,7 @@ import pygame
 
 from kickthefly.core import crash
 from kickthefly.game import kick_the_fly as k2
-from kickthefly.game import outdoors
+from kickthefly.game import gamepad, outdoors
 from kickthefly.game.kick_the_fly import (ABD, FOOT, HEAD, KNEE, LINKS, MAX_HEALTH, N_P, PULL, RADIUS, REST, THRESH, THX, TOOLS,
                           TORCH_KEYS, TRIPOD, WING, drop_item)
 from kickthefly.game.render3d import (P_BOOKS, P_CEIL, P_EYE, P_GRASS, P_ICE, P_NONE, P_PAPER, P_RUG, P_SKYDOME, P_STRIPES,
@@ -44,6 +44,7 @@ EYE, CROUCH_EYE = 1.6, 0.85
 LAMP3 = np.array([0.0, 2.2, -0.8])
 FAN3 = np.array([-RX + 0.45, 0.0, 0.6])
 PAPER3 = (-1.6, 1.6, -1.9, 1.1)             # flypaper x0, x1, z0, z1
+THERMO_HALF3 = RX - 0.3                     # thermo arena: full cold at x = -3.9 m, full hot at +3.9 m (game rule)
 REACH, GRAB_REACH = 3.0, 3.2
 PANEL_W = k2.W - k2.PLAY_W                 # the brain panel's width in HUD units (390)
 PANEL_MODES = (("solid", 255), ("see-through", 150), ("faint", 70), ("hidden", 0))
@@ -112,13 +113,14 @@ def scene_setup(game) -> tuple[dict, tuple, float]:
     the room's ceiling light is off, and distant scenery fades into haze instead of stopping at the far plane."""
     arena = k2.ARENAS[game.arena_i] if game is not None else "room"
     if arena in outdoors.OUTDOOR:
-        p = game.lab_params
-        sun = outdoors.sun_direction(p.get("outdoor.sun_az", 135.0), p.get("outdoor.sun_el", 45.0))
+        az, el = outdoors.sun_now(game.lab_params, game.clock.now, game.cfg["brain.day_night"])
+        sun = outdoors.sun_direction(az, el)
         up = max(0.0, float(sun[1]))
+        day = 0.12 + 0.88 * outdoors.dusk(el)          # 1 unless the sun is low: night falls with the day/night cycle
         w = outdoors.spec(arena)
-        haze = (0.72, 0.78, 0.84)
-        lights = dict(u_sun_dir=-sun, u_sun_col=tuple(np.array((1.05, 0.98, 0.86)) * (0.25 + 0.9 * up ** 0.5)),
-                      u_sky=tuple(np.array(w.sky) * (0.45 + 0.55 * up)), u_ground=w.ground, u_lp0=(0.0, 100.0, 0.0),
+        haze = tuple(np.array((0.72, 0.78, 0.84)) * day)
+        lights = dict(u_sun_dir=-sun, u_sun_col=tuple(np.array((1.05, 0.98, 0.86)) * (0.25 + 0.9 * up ** 0.5) * day),
+                      u_sky=tuple(np.array(w.sky) * (0.45 + 0.55 * up) * day), u_ground=w.ground, u_lp0=(0.0, 100.0, 0.0),
                       u_lc0=(0, 0, 0), u_lp1=(0.0, 100.0, 0.0), u_lc1=(0, 0, 0), u_fog=(*haze, DRAW_DIST * 2.0))
         return lights, haze, OUTDOOR_FAR
     lamp_on = arena == "lamp"
@@ -140,12 +142,13 @@ HELP3D = (
     ("WASD", "walk (Shift sprint, Ctrl crouch)"),
     ("Mouse", "look; left click uses the tool in your hand"),
     ("1-9, 0, -, = / wheel", "pick a tool (= is the laser)"),
+    ("Gamepad", "sticks walk and look, RT/ZR uses, LB/RB or hold Y (wheel) pick tools, Start/+ menu"),
     ("Tab", "free the mouse to click the brain panel and menus"),
     ("B", "big live brain view; click a neuron to inspect it"),
     ("O", "brain surgery"),
     ("T", "training: teach it to fear or like a smell (saved)"),
     ("X", "1v1 duel: the fly gets a blaster and can kill you"),
-    ("E", "arena: room, fan, flypaper, pool, lamp, escape room, open field, orchard"),
+    ("E", "arena: room, fan, flypaper, pool, lamp, escape room, open field, orchard, thermo"),
     ("J", "outdoors: call back a fly that flew out of sight"),
     ("P / I", "pain neurons / immortal mode"),
     ("M", "mute"),
@@ -649,6 +652,69 @@ class Game3D(k2.Game):
         self.duel = False
         self.player_hp, self.player_dead_at = PLAYER_HP, None
         self.duel_stats = dict(shots=0, hits=0, deaths=0)
+        self.pad = gamepad.Gamepad(self.cfg)
+        self._pad_using = False
+
+    # --- gamepad (game/gamepad.py): merged into the keyboard and mouse input, never replacing it ----------------------
+    def pad_tick(self, dt: float, now: float) -> tuple[dict, tuple[float, float]]:
+        """Read the pad once per frame. Returns movement keys to OR into the keyboard's and a look delta in mouse
+        units (it goes through update_player like the mouse, so it is pre-scaled to ignore the mouse settings)."""
+        pad = self.pad
+        keys, (lx, ly), down = pad.poll()
+        if not pad.connected:
+            return {}, (0.0, 0.0)
+        if "menu" in down:
+            esc = pygame.event.Event(pygame.KEYDOWN, key=pygame.K_ESCAPE, mod=0, unicode="\x1b", scancode=0)
+            self.handle3d(esc, now, lambda q: q)
+        if self.menu.open:
+            return {}, (0.0, 0.0)
+        if "big_view" in down:
+            self.do_action("big_view", now)
+        if "tool_next" in down:
+            self.tool = (self.tool + 1) % len(TOOLS)
+        if "tool_prev" in down:
+            self.tool = (self.tool - 1) % len(TOOLS)
+        rel = (0.0, 0.0)
+        if pad.was.get("tool_wheel"):                   # held: the right stick points at a tool instead of looking
+            pad.wheel_open = True
+            pad.wheel(len(TOOLS))
+        else:
+            if pad.wheel_open and pad.wheel_pick is not None:
+                self.tool = pad.wheel_pick
+            pad.wheel_open, pad.wheel_pick = False, None
+            c = self.cfg
+            speed = float(c["controls.pad_look_speed"]) * dt / 0.0024 / max(0.1, float(c["controls.mouse_sensitivity"]))
+            flip = (-1 if c["controls.pad_invert_y"] else 1) * (-1 if c["controls.invert_y"] else 1)
+            rel = (lx * speed, ly * speed * flip)
+        if "use" in down:
+            if self.look:
+                if not getattr(self, "autopilot", False) and not self.photo_mode:
+                    self.use_tool3d(now)
+                    self._pad_using = True
+            elif self.player_dead_at is None and not self._overlay_open():
+                self.set_look(True)                      # like clicking the room
+        if self._pad_using and not pad.was.get("use"):  # trigger let go: what a mouse-up does
+            self._pad_using = False
+            if not self.fly.wrapped:
+                self.fly.grabbed = None
+            self.torching = False
+            if hasattr(self, "laser_state"):
+                self.laser_state.trigger_release()
+        return keys, rel
+
+    def _draw_tool_wheel(self, hud) -> None:
+        cx, cy, r = k2.PLAY_W // 2, self.hud_h // 2, 150
+        card = pygame.Surface((2 * r + 120, 2 * r + 80), pygame.SRCALPHA)
+        pygame.draw.circle(card, (8, 10, 16, 190), (r + 60, r + 40), r + 50)
+        hud.blit(card, (cx - r - 60, cy - r - 40))
+        n = len(TOOLS)
+        for i, t in enumerate(TOOLS):
+            a = i / n * 2 * math.pi
+            x, y = cx + r * math.sin(a), cy - r * math.cos(a)
+            on = i == self.pad.wheel_pick or (self.pad.wheel_pick is None and i == self.tool)
+            pygame.draw.circle(hud, (70, 120, 200) if on else (30, 36, 48), (int(x), int(y)), 30)
+            self._text(hud, t[0], (int(x), int(y)), k2.INK if on else k2.TEXT, self.f_small, "center")
+        self._text(hud, "release to pick", (cx, cy), k2.LABEL, self.f_small, "center")
 
     # --- settings -------------------------------------------------------------------------------------------------
     def save_extra(self, arrays: dict, now: float) -> dict:
@@ -1371,12 +1437,17 @@ class Game3D(k2.Game):
                 self.parts.append(dict(p=src, v=outdoors.wind_vector(wd, ws) / 60, t=now, life=1.2, kind="streak",
                                        size=0.02))
         if not fly.dead and self.frame % 2 == 0:
-            left, right = outdoors.sun_light(fly.yaw, float(p.get("outdoor.sun_az", 135.0)),
-                                             float(p.get("outdoor.sun_el", 45.0)))
+            day_s = self.cfg["brain.day_night"]
+            az, el = outdoors.sun_now(p, now, day_s)
+            left, right = outdoors.sun_light(fly.yaw, az, el)
             if left > 0.02:
                 br.poke("light", "L", left, recruit=0.25 * left)
             if right > 0.02:
                 br.poke("light", "R", right, recruit=0.25 * right)
+            if float(p.get("outdoor.day_s", 0.0)) > 0 or day_s:   # day/night on: daylight reaches the LNvs (rule)
+                clock = outdoors.circadian_clock_drive(el)["morning_cells"]
+                if clock > 0.02:
+                    br.poke("clock", None, clock)
 
     # the orchard: fruit, flying to it, feeding. All of it GAME RULE except the neurons feeding drives.
     def _perch_of(self, f) -> np.ndarray:
@@ -1527,6 +1598,8 @@ class Game3D(k2.Game):
                         fly.impulse(i, away * 1.5 * S)
             if now < fly.escape_until and np.linalg.norm(fly.fly_target - LAMP3) > 0.8:
                 fly.fly_target = LAMP3 + np.array([random.uniform(-0.6, 0.6), -random.uniform(0.3, 0.8), random.uniform(-0.6, 0.6)])
+        elif arena == "thermo":
+            self._thermo_tick(slot, float(fly.p[THX, 0]) / THERMO_HALF3, fly.p[THX, 1] < STAND3 + 20 * S)
         elif arena == "escaperoom":
             # 1. Fan wind from left
             gust = 0.75 + 0.25 * math.sin(now * 1.3) + 0.15 * math.sin(now * 4.1)
@@ -2047,7 +2120,7 @@ class Game3D(k2.Game):
                 self.note(f"FLY AWAY head-touch DNs x{lv['jump']:.1f}")
                 self.popup(fly.p[HEAD] + (0, 0.4, 0), "YIKES!", (160, 230, 255))
             elif (lv["fly"] > THRESH["fly"] and now >= fly.escape_ready and free and can_fly and now >= fly.stun_until
-                  and now >= fly.eating_until):
+                  and now >= fly.eating_until and now >= getattr(slot, "asleep_until", 0.0)):
                 fly.escape(now, seconds=random.uniform(2.5, 4.0), wander=True)
                 self.note(f"TAKE OFF DNg02 x{lv['fly']:.2f}")
             if lv["run"] > THRESH["run"] and now >= fly.walk_until and free:
@@ -2061,7 +2134,8 @@ class Game3D(k2.Game):
             if lv["back"] > THRESH["back"] and now >= fly.back_until and now >= fly.walk_until:
                 fly.back_until = now + 0.8
                 self.note(f"BACK UP  MDN x{lv['back']:.1f}")
-            elif lv["walk"] > THRESH["walk"] and now >= fly.walk_until and now >= fly.back_until:
+            elif (lv["walk"] > THRESH["walk"] and now >= fly.walk_until and now >= fly.back_until
+                  and now >= getattr(slot, "asleep_until", 0.0)):
                 fly.walk_until, fly.run = now + 1.2, False
                 self.note(f"WALK     DNp09 x{lv['walk']:.1f}")
             self._memory_behavior(slot, now, free, can_fly)
@@ -2084,6 +2158,8 @@ class Game3D(k2.Game):
                 fly.turn_ready = now + 1.5
                 fly.yaw_target = fly.yaw + math.copysign(random.uniform(0.9, 1.6), turn)
                 self.note(f"TURN {'R' if turn > 0 else 'L'}   DNa01/02 R-L {turn:+.1f}")
+            self._aggression(slot, now, free)
+            self._sleep(slot, now, free)
 
         if self.duel:
             self._duel_senses(now)
@@ -2173,6 +2249,14 @@ class Game3D(k2.Game):
             rd.add("sphere", trs(LAMP3, None, (0.11, 0.13, 0.11)), (1.0, 0.95, 0.8), P_NONE, 3.0)
             for k in range(3):
                 rd.particle(LAMP3, 0.35 + 0.25 * k + 0.03 * math.sin(now * 3 + k), (1.0, 0.85, 0.5, 0.12), additive=True)
+        elif arena == "thermo":
+            n = 24                                   # the floor strip: blue (15 C) through green to red (35 C)
+            w = 2 * THERMO_HALF3 / n
+            for k in range(n):
+                t = (k + 0.5) / n * 2 - 1
+                cold, hot = k2.thermo_gradient(t)
+                col = (0.25 + 0.65 * hot, 0.7 - 0.45 * (cold + hot), 0.4 + 0.5 * cold)
+                rd.add("cube", trs((t * THERMO_HALF3, 0.012, 0), None, (w, 0.01, 2 * RZ - 0.4)), col, P_NONE)
         elif arena == "escaperoom":
             self._draw_fan(rd, now)
             x0, x1, z0, z1 = PAPER3
@@ -2819,12 +2903,15 @@ class Game3D(k2.Game):
                 badge = f"LASER: {ls.target_type} ({'STIM' if ls.mode == 'activate' else 'SILENCE'})"
                 self._text(hud, badge, (cx + 18, cy - 18), col_b, self.f_small)
         self._draw_toolbar(hud)
+        if self.pad.wheel_open and not self._overlay_open():
+            self._draw_tool_wheel(hud)
         self._draw_hud(hud, now)
         if self.duel:
             self._draw_duel(hud, now)
         if not self.look and not self._overlay_open() and self.player_dead_at is None and not self.menu.open and not (self.cfg["brain.autopilot"] and self.cfg["brain.autopilot_hide_hud"]):
-            msg = self.f_bold.render(f"click the room (or press {self.cfg.keys['free_mouse'].title()}) to look around   "
-                                     "·   Esc: menu", True, INK_ON)
+            pad = " or pull the trigger" if self.pad.connected else ""
+            msg = self.f_bold.render(f"click the room (or press {self.cfg.keys['free_mouse'].title()}{pad}) to look around"
+                                     "   ·   Esc: menu", True, INK_ON)
             box = msg.get_rect(center=(k2.PLAY_W // 2, self.hud_h // 2 + 60)).inflate(24, 12)
             pygame.draw.rect(hud, (8, 10, 16, 200), box, border_radius=8)
             hud.blit(msg, msg.get_rect(center=box.center))
@@ -2873,6 +2960,8 @@ class Game3D(k2.Game):
         if hasattr(ev, "pos"):
             ev = pygame.event.Event(ev.type, {**ev.dict, "pos": to_logical(ev.pos)})
             self.mouse_logical = ev.pos
+        if self.search_key(ev):
+            return True
         if self.menu_first(ev, self.mouse_logical):
             return not self.want_quit
         if ev.type == pygame.KEYDOWN:
@@ -3349,11 +3438,16 @@ def run(smoke: float = 0.0, shot: str | None = None, fullscreen: bool = False, s
                 game.toggle_fullscreen()
                 lay = app.layout(game)
                 continue
+            game.pad.device_event(ev)
             running = game.handle3d(ev, game.clock.now, to_logical) and running
+        pad_keys, pad_rel = game.pad_tick(dt, game.clock.now)
         if game.look and (game._overlay_open() or game.menu.open):
             game.set_look(False)
         rel = pygame.mouse.get_rel() if game.look else (0, 0)
+        rel = (rel[0] + pad_rel[0], rel[1] + pad_rel[1])
         keys = game.held(pygame.key.get_pressed())
+        for k_, v_ in pad_keys.items():
+            keys[k_] = keys[k_] or v_
         if to_spawn and not game._spawning and len(game.flies) < getattr(game, "max_flies", k2.MAX_FLIES):
             game.spawn_fly()
             to_spawn -= 1

@@ -38,6 +38,18 @@ PARAMS = (
     ("thresh.turn", "Turn: DNa01/02 R-L above", "rule", 2.1, 0.5, 8.0, 0.1, "{:.1f}", "Steering difference threshold."),
     ("thresh.fly", "Take off: DNg02 above", "rule", 1.58, 1.1, 4.0, 0.02, "{:.2f}x", "Wing-power threshold."),
     ("thresh.fire", "Shoot: DNp35 above", "rule", 3.0, 1.2, 8.0, 0.1, "{:.1f}x", "Duel trigger threshold."),
+    ("thresh.song", "Song: ps1 wing MNs (1 s) above", "rule", 1.8, 1.1, 5.0, 0.05, "{:.2f}x",
+     "The two ps1 wing motor neurons' firing, averaged over about a second, that plays the courtship buzz (SONG)."),
+    ("thresh.aggression", "Lunge: AVLP727m/pC1 above", "rule", 2.0, 1.1, 8.0, 0.1, "{:.1f}x",
+     "Aggression neurons' firing that throws the fly at the nearest other fly (LUNGE; needs 2+ flies)."),
+    ("thresh.sleep", "Sleep: dFB FB6/FB7 above", "rule", 2.0, 1.1, 8.0, 0.1, "{:.1f}x",
+     "Dorsal fan-shaped body firing that puts the fly to rest (SLEEP): no spontaneous take-off or walking."),
+    ("thresh.co2", "CO2 log: V glomerulus PNs above", "rule", 2.0, 1.1, 8.0, 0.1, "{:.1f}x",
+     "V glomerulus projection neurons' firing that logs a CO2 reaction (no body movement)."),
+    ("thresh.hot_pn", "Heat log: VP2 PNs above", "rule", 1.6, 1.1, 8.0, 0.05, "{:.2f}x",
+     "Hot-pathway projection neurons' firing that logs a HEAT reaction (no body movement)."),
+    ("thresh.cold_pn", "Cold log: VP3 PNs above", "rule", 1.7, 1.1, 8.0, 0.05, "{:.2f}x",
+     "Cold-pathway projection neurons' firing that logs a COLD reaction (no body movement)."),
     ("loom_min", "Looming: ignored below (rad/s)", "rule", 1.5, 0.0, 6.0, 0.1, "{:.1f}",
      "Angular expansion speed below which approaching objects don't drive LPLC2/LC4 at all."),
     ("loom_full", "Looming: full drive span (rad/s)", "rule", 8.0, 1.0, 20.0, 0.5, "{:.1f}",
@@ -51,6 +63,9 @@ PARAMS = (
      "Where the sun stands. Sunlight drives the real photoreceptors, split between the eyes by heading (game rule)."),
     ("outdoor.sun_el", "Outdoors: sun elevation (deg)", "rule", 45.0, -10.0, 90.0, 5.0, "{:.0f}",
      "How high the sun is: brightness of the light drive, and the scene's lighting. Below 0 it is night."),
+    ("outdoor.day_s", "Outdoors: day length (s, 0 = off)", "rule", 0.0, 0.0, 1800.0, 30.0, "{:.0f}",
+     "Day/night cycle: the sun circles once in this many seconds (noon +60 deg, midnight -30 deg), replacing the "
+     "fixed sun above. Daylight drives the photoreceptors and the morning clock neurons l-LNv/s-LNv (game rule)."),
     ("orchard.feeds", "Orchard: feeds per fruit", "rule", 4.0, 1.0, 10.0, 1.0, "{:.0f}",
      "How many feeding bouts one fruit supports before it drops. Applies to fruit that grow from now on."),
     ("orchard.regrow_s", "Orchard: regrow time (s)", "rule", 75.0, 10.0, 300.0, 5.0, "{:.0f}",
@@ -296,7 +311,7 @@ ASSUMPTIONS = (
     ("Central complex head-direction ring attractor requires fine-tuned E/I balance",
      "BIOPHYSICS",
      "The sim tests the EPG/PEN/Delta7 compass network directly under raw connectome weights, without weight-tuning.",
-     "Biological head-direction tracking in the central complex relies on precisely balanced recurrent excitation and broad Delta7 lateral inhibition to sustain a localized activity bump and track rotational visual/wind cues. Under raw unweighted LIF dynamics, bump contrast and persistence fail; reported as a negative validation result rather than tuned.",
+     "Biological head-direction tracking in the central complex relies on precisely balanced recurrent excitation and broad Delta7 lateral inhibition to sustain a localized activity bump and track rotational visual/wind cues. With the connectome's signed synapse counts (normalized by each neuron's total input) and no ring weights tuned, bump contrast and persistence fail; reported as a negative validation result rather than tuned.",
      "kickthefly/lab/compass.py · kickthefly/lab/validation.py:epg_compass"),
 
     ("Neuron morphology: drawn, not simulated; real skeletons for ten neurons only",
@@ -319,6 +334,58 @@ ASSUMPTIONS = (
      "Real neurons are not deterministic at all; the point of bit-exactness is reproducibility of this model, not "
      "biological fidelity. The backend that ran is recorded with every result.",
      "kickthefly/sim/connectome/backends.py · tests/test_backends.py"),
+
+    ("Courtship song: the buzz is synthesized",
+     "GAME RULE",
+     "When the two ps1 wing motor neurons, averaged over about a second, pass the song threshold (Lab > Parameters), "
+     "the game plays a pulse-song buzz (220 Hz pulses every 35 ms) and logs SONG. pIP10 -> ps1 is validated; P1 -> "
+     "ps1 is consistent but too weak. Nothing in play drives pIP10: stimulate it in brain surgery (strong wing hits "
+     "can also fire ps1 past the threshold).",
+     "Real pulse song comes from the wing's vibration, shaped by thoracic mechanics and feedback. The sim has no wing, "
+     "and pIP10 reaches ps1 only through VNC interneurons, so the sound is the game's, not the fly's.",
+     "kickthefly/game/kick_the_fly.py:Game.readouts · validation: courtship_song, p1_courtship_song"),
+
+    ("Aggression lunge from the TK-FruM and pC1 neurons",
+     "GAME RULE",
+     "With two or more flies, the aggression neurons (AVLP727m, \"Asahina 2014: TK-FruM\", and the pC1 cluster, "
+     "P1 included) above the lunge threshold throw the fly at the nearest fly within reach (2D and 3D). Flies only "
+     "notice each other through their looming and touch neurons, which in testing never took the aggression neurons "
+     "past ~1.5x; stimulate P1 in brain surgery to see a lunge (AVLP727m alone is too few neurons to move it).",
+     "Real aggression depends on pheromones (e.g. 7-tricosene through Gr32a), octopamine, social experience and a "
+     "sequenced motor program. None of that is modelled; the lunge itself is scripted.",
+     "kickthefly/game/kick_the_fly.py:Game._aggression · protocols/male_aggression.yaml"),
+
+    ("Optomotor EMD stage in front of T4/T5",
+     "GAME RULE",
+     "A wide-field yaw rotation becomes current on the T4/T5 subtypes whose preferred direction it matches in each "
+     "eye (a saturating Reichardt-style detector output). Everything after T4/T5 is the connectome: rightward "
+     "rotation excites DNa01_R/DNa02_R (validated). Used by validation and protocols; the game loop doesn't feed it "
+     "the fly's own view.",
+     "Real motion detection is computed from photoreceptors through lamina and medulla neurons (L1-L3, Mi1, Tm3, "
+     "Tm1/2/4/9) onto T4/T5 dendrites. Pixel input through the sim's photoreceptors carries no usable motion signal, "
+     "so this stage replaces that computation.",
+     "kickthefly/lab/assays.py:emd_stage · kickthefly/game/outdoors.py:emd_motion_drive · validation: optomotor_turning"),
+
+    ("Thermo arena temperature gradient",
+     "GAME RULE",
+     "The thermo arena (2D and 3D) runs from 15 C at the left wall to 35 C at the right. The fly's distance from the "
+     "comfortable middle drives its cold (TRN_VP3) or hot (TRN_VP2) antennal neurons, and the extremes hurt it on the "
+     "floor. The fly doesn't seek the comfortable middle: nothing it does comes from the temperature.",
+     "Real flies sense temperature through thermosensitive channels (Gr28b in the hot cells, Brv1 and IR21a/25a/93a "
+     "in the cold cells) that adapt, and they navigate gradients with steering behavior. The hot- and cold-cell to "
+     "projection-neuron steps are validated here; thermotaxis is not.",
+     "kickthefly/game/kick_the_fly.py:Game._thermo_tick · validation: hot_trn_to_vp2pn, cold_trn_to_vp3pn"),
+
+    ("Day/night cycle and the dFB sleep readout",
+     "GAME RULE",
+     "With Outdoors: day length above 0 the sun circles (noon +60, midnight -30 deg), daylight drives the "
+     "photoreceptors and the morning clock neurons l-LNv/s-LNv directly, and the scene darkens at night. SLEEP is "
+     "logged when the dorsal fan-shaped body (FB6/FB7) passes its threshold, and the fly then stops taking off and "
+     "walking on its own for 2 s. In testing a full day never took dFB past ~1.5x, so it only sleeps when FB6/FB7 are "
+     "stimulated in brain surgery.",
+     "Real circadian timing is a molecular clock (per/tim/Clk/cyc) and slow PDF signalling over hours, and sleep "
+     "pressure builds up over waking. The sim is point neurons over seconds: it has no clock and no sleep drive.",
+     "kickthefly/game/outdoors.py:sun_now · kickthefly/game/kick_the_fly.py:Game._sleep"),
 )
 
 

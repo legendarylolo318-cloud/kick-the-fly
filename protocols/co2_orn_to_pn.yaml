@@ -1,0 +1,13 @@
+# CO2 pathway, one synapse: the CO2-sensing ORNs (ORN_V) excite the V glomerulus projection neurons (V_ilPN,
+# V_l2PN; Suh et al. 2004). Activation only: the sim has no CO2 avoidance behavior. Validation: co2_orn_to_pn.
+name: co2_orn_to_pn
+seed: 1000
+flies: 5
+warmup_s: 2
+duration_s: 4
+stimuli:
+  - {at_s: 2.0, for_s: 2.0, target: co2_orn, mode: drive, amp: 0.5}
+recordings:
+  - {name: co2_pn, neurons: co2_pn}
+  - {name: co2_orn, neurons: co2_orn}
+  - {name: sensory_all, neurons: "superclass:cb_sensory"}

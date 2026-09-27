@@ -132,11 +132,25 @@ SETTINGS: tuple[Setting, ...] = (
     S("brain.autopilot_hide_hud", "Brain", "Autopilot hide HUD", "bool", True,
       "Hide HUD in spectator mode for demo or screensaver use.", tag=GAME_RULE),
     S("brain.arena", "Brain", "Arena", "choice", "room",
-      "Where the fly lives. Room is the default. Open field and Orchard are large outdoor 3D worlds (the 2D game "
-      "stays indoors). The sensory neurons each arena drives are real; the places themselves are game rules. "
-      "Hotkey E cycles them.",
-      options=("room", "fan", "flypaper", "pool", "lamp", "escaperoom", "field", "orchard"),
-      labels=("Room", "Fan", "Flypaper", "Pool", "Lamp", "Escape room", "Open field", "Orchard"), tag=GAME_RULE),
+      "Where the fly lives. Room is the default. Thermo has a floor running from cold (left) to hot (right) that "
+      "drives its real cold- and hot-sensing antennal neurons. Open field and Orchard are large outdoor 3D worlds "
+      "(the 2D game stays indoors). The sensory neurons each arena drives are real; the places themselves are game "
+      "rules. Hotkey E cycles them.",
+      options=("room", "fan", "flypaper", "pool", "lamp", "thermo", "escaperoom", "field", "orchard"),
+      labels=("Room", "Fan", "Flypaper", "Pool", "Lamp", "Thermo", "Escape room", "Open field", "Orchard"),
+      tag=GAME_RULE),
+    S("brain.song_buzz", "Brain", "Courtship song buzz", "bool", True,
+      "Plays a synthesized pulse-song buzz when its ps1 wing motor neurons fire (SONG). The neurons are real "
+      "(pIP10 -> ps1 is validated); the sound is the game's.", tag=GAME_RULE),
+    S("brain.lunge", "Brain", "Aggression lunges", "bool", True,
+      "With two or more flies, a fly whose aggression neurons (AVLP727m, pC1/P1) fire strongly lunges at the "
+      "nearest one. The firing is real; the lunge is scripted. They rarely fire that hard unless P1 is stimulated in "
+      "brain surgery.",
+      tag=GAME_RULE),
+    S("brain.day_night", "Brain", "Day/night cycle", "choice", 0,
+      "Outdoors, the sun circles once a day and night falls. Daylight drives the real photoreceptors and morning "
+      "clock neurons (l-LNv, s-LNv); the cycle and that link are game rules. Lab > Parameters can set any day length.",
+      options=(0, 300, 600, 1200), labels=("Off", "5 min day", "10 min day", "20 min day"), only="3d", tag=GAME_RULE),
     S("brain.mirror_weights", "Brain", "Mirror-average weights", "bool", False,
       "Average left and right synaptic weights to enforce bilateral symmetry. Clearly a data modification game rule.",
       tag=GAME_RULE),
@@ -145,8 +159,9 @@ SETTINGS: tuple[Setting, ...] = (
       "the numbers slightly; validation hasn't been run in it.", options=("float32", "float64"), labels=("float32 (Fast)", "float64 (Double)"),
       tag=CONNECTOME),
     S("brain.backend", "Brain", "Compute backend", "choice", "auto",
-      "What runs the brain simulation. Auto picks a GPU, then OpenGL compute, then Numba, then NumPy. OpenGL "
-      "needs 4.3+; Numba and PyTorch are optional (from source only); anything missing falls back to NumPy. "
+      "What runs the brain simulation. Auto picks a PyTorch GPU, then Numba, then NumPy. OpenGL compute (4.3+) "
+      "runs only when you pick it: it works on any vendor's GPU but is slower than NumPy here and doesn't scale to "
+      "many flies. Numba and PyTorch are optional (from source only); anything missing falls back to NumPy. "
       "Applies to every fly right away.",
       options=("auto", "cpu", "numba", "gl", "torch-cpu", "torch-cuda", "torch-rocm"),
       labels=("Auto", "CPU (NumPy)", "Numba (JIT)", "OpenGL Compute", "PyTorch (CPU)", "PyTorch (CUDA)",
@@ -158,6 +173,17 @@ SETTINGS: tuple[Setting, ...] = (
     S("controls.invert_y", "Controls", "Invert Y", "bool", False, "Moving the mouse up looks down.", only="3d"),
     S("controls.fov", "Controls", "Field of view", "float", 70.0,
       "How wide your view of the room is, in degrees.", lo=50, hi=110, step=1, only="3d", fmt="{:.0f}°"),
+    S("controls.gamepad", "Controls", "Gamepad", "bool", True,
+      "Use a connected gamepad in the 3D game alongside keyboard and mouse: left stick walks, right stick looks, "
+      "right trigger uses the tool, bumpers cycle tools, hold Y for the tool wheel. Rebind below.", only="3d"),
+    S("controls.pad_look_speed", "Controls", "Gamepad look speed", "float", 2.5,
+      "How fast the right stick turns your view, in radians per second at full tilt.", lo=0.5, hi=6.0, step=0.1,
+      only="3d", fmt="{:.1f}"),
+    S("controls.pad_deadzone", "Controls", "Gamepad dead zone", "float", 0.2,
+      "How far a stick must move before it counts, so a worn stick doesn't drift.", lo=0.05, hi=0.5, step=0.01,
+      only="3d", fmt="{:.2f}"),
+    S("controls.pad_invert_y", "Controls", "Gamepad invert Y", "bool", False, "Pushing the right stick up looks down.",
+      only="3d"),
     # --- Accessibility
     S("access.palette", "Accessibility", "Brain view colors", "choice", "default",
       "Colors for firing neurons in the brain view. Blue/yellow is safe for red-green color blindness. High contrast "
@@ -192,6 +218,33 @@ ACTIONS: tuple[tuple[str, str, str], ...] = (
 ACTION_LABEL = {a: label for a, label, _ in ACTIONS}
 RESERVED_KEYS = {"escape", *"0123456789", "-", "="}      # the pause menu and the tool keys can't be rebound
 MOVEMENT_3D_ONLY = {"forward", "back", "left", "right", "sprint", "crouch", "free_mouse", "duel", "panel", "menu_size"}
+# gamepad bindings (game/gamepad.py): action, label, default. A binding is one of SDL's standard controller names
+# (the same on Xbox, PlayStation, Switch Pro...; button names follow the pad's printed labels), a raw "axisN" or
+# "buttonN" for a pad SDL doesn't know, or "" (unbound). PAD_AXES and PAD_BUTTONS are in SDL's own enum order.
+PAD_AXES = ("leftx", "lefty", "rightx", "righty", "lefttrigger", "righttrigger")
+PAD_BUTTONS = ("a", "b", "x", "y", "back", "guide", "start", "leftstick", "rightstick", "leftshoulder", "rightshoulder",
+               "dpup", "dpdown", "dpleft", "dpright")
+PAD_ACTIONS: tuple[tuple[str, str, str], ...] = (
+    ("move_x", "Walk left / right (stick)", "leftx"), ("move_y", "Walk forward / back (stick)", "lefty"),
+    ("look_x", "Look left / right (stick)", "rightx"), ("look_y", "Look up / down (stick)", "righty"),
+    ("use", "Use the tool", "righttrigger"), ("tool_next", "Next tool", "rightshoulder"),
+    ("tool_prev", "Previous tool", "leftshoulder"), ("tool_wheel", "Tool wheel (hold)", "y"),
+    ("sprint", "Sprint", "leftstick"), ("crouch", "Crouch / fly down", "b"), ("up", "Fly up (photo mode)", "a"),
+    ("menu", "Menu (Esc)", "start"), ("big_view", "Big brain view", "back"),
+)
+PAD_LABEL = {a: label for a, label, _ in PAD_ACTIONS}
+
+
+def _pad_binding(v) -> str | None:
+    if not isinstance(v, str):
+        return None
+    v = v.strip().lower()
+    if v in PAD_AXES or v in PAD_BUTTONS:
+        return v
+    for kind in ("axis", "button"):
+        if v.startswith(kind) and v[len(kind):].isdigit() and int(v[len(kind):]) < 64:
+            return v
+    return "" if v == "" else None
 
 
 def _coerce(s: Setting, v):
@@ -219,6 +272,7 @@ class Config:
         self.path = path
         self.values: dict[str, object] = {s.key: s.default for s in SETTINGS}
         self.keys: dict[str, str] = {a: k for a, _, k in ACTIONS}
+        self.pad: dict[str, str] = {a: b for a, _, b in PAD_ACTIONS}
         self.warnings: list[str] = []
         self.dirty = False
 
@@ -248,6 +302,10 @@ class Config:
             default = {a: k for a, _, k in ACTIONS}
             if self.keys != default:
                 self.keys = default
+                changed.append("keys")
+            pad = {a: b for a, _, b in PAD_ACTIONS}
+            if self.pad != pad:
+                self.pad = pad
                 changed.append("keys")
         self.dirty = self.dirty or bool(changed)
         return changed
@@ -279,6 +337,20 @@ class Config:
         if other and other != action:
             self.keys[other] = old
             return True, f"'{key_name}' was used by {ACTION_LABEL[other]}; swapped, that is now '{old}'"
+        return True, ""
+
+    def bind_pad(self, action: str, binding: str) -> tuple[bool, str]:
+        """Rebind a gamepad action. A binding another action uses swaps the two. Returns (ok, message)."""
+        b = _pad_binding(binding)
+        if b is None:
+            return False, f"'{binding}' isn't a gamepad button or axis"
+        other = next((a for a, x in self.pad.items() if x == b and a != action and b), None)
+        old = self.pad[action]
+        self.pad[action] = b
+        self.dirty = True
+        if other:
+            self.pad[other] = old
+            return True, f"{b} was used by {other}; swapped, that is now {old or 'unbound'}"
         return True, ""
 
     def conflicts(self) -> dict[str, list[str]]:
@@ -313,6 +385,12 @@ class Config:
                     cfg.values[s.key] = _coerce(s, sec[name])
                 except ValueError as e:
                     cfg.warnings.append(f"{e}; using the default")
+        pad = data.get("gamepad")
+        if isinstance(pad, dict):
+            for a, _, _ in PAD_ACTIONS:
+                b = _pad_binding(pad.get(a))
+                if b is not None:
+                    cfg.pad[a] = b
         keys = data.get("keys")
         if isinstance(keys, dict):
             for a, _, _ in ACTIONS:
@@ -339,6 +417,9 @@ class Config:
             out += [f"[{section}]", *lines, ""]
         out.append("[keys]")
         out += [f"{a} = {_toml_value(k)}" for a, k in self.keys.items()]
+        out.append("")
+        out.append("[gamepad]")
+        out += [f"{a} = {_toml_value(b)}" for a, b in self.pad.items()]
         return "\n".join(out) + "\n"
 
     def save(self) -> bool:
