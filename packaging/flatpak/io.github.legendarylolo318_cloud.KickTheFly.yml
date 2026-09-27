@@ -1,0 +1,51 @@
+# Flatpak manifest for Kick the Fly. Local builds only (not submitted to Flathub); see README.md in this folder.
+#
+# Built from this checkout, which needs the brain pack first: data/kick_brain.npz (README: Run from source).
+# The game keeps its files where the AppImage and source installs keep them (~/.config/kickthefly,
+# ~/.local/share/kickthefly, ~/.local/state/kickthefly, ~/Pictures/Kick the Fly), so a fly's training memory, saves
+# and settings are shared between them: the launcher points XDG_* back at the host's folders and the permissions
+# below open exactly those.
+app-id: io.github.legendarylolo318_cloud.KickTheFly
+runtime: org.freedesktop.Platform
+runtime-version: '24.08'
+sdk: org.freedesktop.Sdk
+command: kickthefly
+finish-args:
+  - --share=ipc
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --socket=pulseaudio
+  - --device=all                              # the GPU (OpenGL 3.3 for 3D, 4.3 for the gl backend) and gamepads
+  - --share=network                           # optional: EM skeletons from neuPrint, cached after the first time
+  - --filesystem=~/.config/kickthefly:create
+  - --filesystem=~/.local/share/kickthefly:create
+  - --filesystem=~/.local/state/kickthefly:create
+  - --filesystem=xdg-pictures                 # screenshots, GIFs and videos go to <Pictures>/Kick the Fly
+  - --filesystem=xdg-config/user-dirs.dirs:ro # where Pictures is
+modules:
+  - python3-deps.json                         # numpy, scipy, pygame, pillow, moderngl, pyyaml: pinned cp312 wheels
+  - name: kickthefly
+    buildsystem: simple
+    build-commands:
+      - test -f data/kick_brain.npz || { echo "build data/kick_brain.npz first (README: Run from source)"; exit 1; }
+      - mkdir -p ${FLATPAK_DEST}/share/kickthefly/data
+      - cp -r kickthefly protocols kick_the_fly.py LICENSE ${FLATPAK_DEST}/share/kickthefly/
+      - cp data/kick_brain.npz ${FLATPAK_DEST}/share/kickthefly/data/
+      - if [ -f data/validation_results.json ]; then cp data/validation_results.json ${FLATPAK_DEST}/share/kickthefly/data/; fi
+      - install -Dm755 packaging/flatpak/kickthefly.sh ${FLATPAK_DEST}/bin/kickthefly
+      - install -Dm644 packaging/linux/io.github.legendarylolo318_cloud.KickTheFly.desktop -t ${FLATPAK_DEST}/share/applications/
+      - sed -i 's/^Exec=.*/Exec=kickthefly %U/' ${FLATPAK_DEST}/share/applications/io.github.legendarylolo318_cloud.KickTheFly.desktop
+      - install -Dm644 packaging/linux/io.github.legendarylolo318_cloud.KickTheFly.appdata.xml ${FLATPAK_DEST}/share/metainfo/io.github.legendarylolo318_cloud.KickTheFly.metainfo.xml
+      - install -Dm644 packaging/aur/kickthefly.png ${FLATPAK_DEST}/share/icons/hicolor/256x256/apps/io.github.legendarylolo318_cloud.KickTheFly.png
+    sources:
+      - type: dir
+        path: ../..
+        skip:
+          - .git
+          - .venv
+          - .venv-build
+          - build
+          - dist
+          - .flatpak-builder
+          - data/graph.pkl
+          - data/skeletons
