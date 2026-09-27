@@ -218,17 +218,20 @@ ACTIONS: tuple[tuple[str, str, str], ...] = (
 ACTION_LABEL = {a: label for a, label, _ in ACTIONS}
 RESERVED_KEYS = {"escape", *"0123456789", "-", "="}      # the pause menu and the tool keys can't be rebound
 MOVEMENT_3D_ONLY = {"forward", "back", "left", "right", "sprint", "crouch", "free_mouse", "duel", "panel", "menu_size"}
-# gamepad bindings (game/gamepad.py): action, label, default. "axisN", "buttonN" or "" (unbound); the defaults are an
-# Xbox-style pad on SDL, and other pads can be rebound in Settings > Controls
+# gamepad bindings (game/gamepad.py): action, label, default. A binding is one of SDL's standard controller names
+# (the same on Xbox, PlayStation, Switch Pro...; button names follow the pad's printed labels), a raw "axisN" or
+# "buttonN" for a pad SDL doesn't know, or "" (unbound). PAD_AXES and PAD_BUTTONS are in SDL's own enum order.
+PAD_AXES = ("leftx", "lefty", "rightx", "righty", "lefttrigger", "righttrigger")
+PAD_BUTTONS = ("a", "b", "x", "y", "back", "guide", "start", "leftstick", "rightstick", "leftshoulder", "rightshoulder",
+               "dpup", "dpdown", "dpleft", "dpright")
 PAD_ACTIONS: tuple[tuple[str, str, str], ...] = (
-    ("move_x", "Walk left / right (stick)", "axis0"), ("move_y", "Walk forward / back (stick)", "axis1"),
-    ("look_x", "Look left / right (stick)", "axis3"), ("look_y", "Look up / down (stick)", "axis4"),
-    ("use", "Use the tool", "axis5"), ("tool_next", "Next tool", "button5"), ("tool_prev", "Previous tool", "button4"),
-    ("tool_wheel", "Tool wheel (hold)", "button3"), ("sprint", "Sprint", "button9"),
-    ("crouch", "Crouch / fly down", "button1"), ("up", "Fly up (photo mode)", "button0"), ("menu", "Menu (Esc)", "button7"),
-    ("big_view", "Big brain view", "button6"),
+    ("move_x", "Walk left / right (stick)", "leftx"), ("move_y", "Walk forward / back (stick)", "lefty"),
+    ("look_x", "Look left / right (stick)", "rightx"), ("look_y", "Look up / down (stick)", "righty"),
+    ("use", "Use the tool", "righttrigger"), ("tool_next", "Next tool", "rightshoulder"),
+    ("tool_prev", "Previous tool", "leftshoulder"), ("tool_wheel", "Tool wheel (hold)", "y"),
+    ("sprint", "Sprint", "leftstick"), ("crouch", "Crouch / fly down", "b"), ("up", "Fly up (photo mode)", "a"),
+    ("menu", "Menu (Esc)", "start"), ("big_view", "Big brain view", "back"),
 )
-
 PAD_LABEL = {a: label for a, label, _ in PAD_ACTIONS}
 
 
@@ -236,6 +239,8 @@ def _pad_binding(v) -> str | None:
     if not isinstance(v, str):
         return None
     v = v.strip().lower()
+    if v in PAD_AXES or v in PAD_BUTTONS:
+        return v
     for kind in ("axis", "button"):
         if v.startswith(kind) and v[len(kind):].isdigit() and int(v[len(kind):]) < 64:
             return v

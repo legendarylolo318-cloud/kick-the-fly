@@ -142,7 +142,7 @@ HELP3D = (
     ("WASD", "walk (Shift sprint, Ctrl crouch)"),
     ("Mouse", "look; left click uses the tool in your hand"),
     ("1-9, 0, -, = / wheel", "pick a tool (= is the laser)"),
-    ("Gamepad", "sticks walk and look, RT uses, LB/RB or hold Y (wheel) pick tools, Start menu"),
+    ("Gamepad", "sticks walk and look, RT/ZR uses, LB/RB or hold Y (wheel) pick tools, Start/+ menu"),
     ("Tab", "free the mouse to click the brain panel and menus"),
     ("B", "big live brain view; click a neuron to inspect it"),
     ("O", "brain surgery"),

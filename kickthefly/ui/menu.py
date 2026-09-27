@@ -122,10 +122,11 @@ class Menu:
         """Consume an event while the menu is open. pos: the mouse in HUD coordinates (for mouse events)."""
         if not self.open:
             return False
-        if self.capture and self.capture.startswith("pad:") and ev.type in (pygame.JOYBUTTONDOWN, pygame.JOYAXISMOTION):
+        if self.capture and self.capture.startswith("pad:") and ev.type in (
+                pygame.JOYBUTTONDOWN, pygame.JOYAXISMOTION, pygame.CONTROLLERBUTTONDOWN, pygame.CONTROLLERAXISMOTION):
             from kickthefly.game import gamepad
 
-            b = gamepad.capture_binding(ev)
+            b = gamepad.capture_binding(ev, getattr(self.host, "pad", None))
             if b is not None:
                 self._bind_pad(self.capture[4:], b)
             return True
@@ -178,7 +179,9 @@ class Menu:
         ok, msg = self.host.cfg.bind_pad(action, binding)
         if ok:
             self.host.set_setting("keys", None)
-        self.flash(msg or f"{config.PAD_LABEL[action]}: {binding or 'unbound'}", AMBER if msg else GOOD)
+        from kickthefly.game import gamepad
+
+        self.flash(msg or f"{config.PAD_LABEL[action]}: {gamepad.pretty(binding)}", AMBER if msg else GOOD)
 
     def _key(self, ev) -> bool:
         if self.capture is not None and self.capture.startswith("pad:"):
@@ -578,7 +581,9 @@ class Menu:
             ry = y + (i // 2) * 38
             active = self.capture == "pad:" + action
             self.text(surf, label, (cx, ry + 16), TEXT, self.f_small, "midleft")
-            name = "press or push..." if active else (cfg.pad[action] or "unbound")
+            from kickthefly.game import gamepad
+
+            name = "press or push..." if active else gamepad.pretty(cfg.pad[action])
             self.button(surf, (cx + col_w - 190, ry + 2, 170, 30), name,
                         (lambda a=action: setattr(self, "capture", "pad:" + a)), id=("pad", action), active=active,
                         font=self.f_small, tip=f"{label}: click, then press a gamepad button or push a stick.")
