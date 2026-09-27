@@ -1,6 +1,6 @@
-# CO2 avoidance assay: specialized olfactory receptor neurons (ORN_V)
-# exciting V glomerulus projection neurons (V_ilPN, V_l2PN; Suh et al. 2004).
-name: co2_avoidance
+# CO2 pathway, one synapse: the CO2-sensing ORNs (ORN_V) excite the V glomerulus projection neurons (V_ilPN,
+# V_l2PN; Suh et al. 2004). Activation only: the sim has no CO2 avoidance behavior. Validation: co2_orn_to_pn.
+name: co2_orn_to_pn
 seed: 1000
 flies: 5
 warmup_s: 2

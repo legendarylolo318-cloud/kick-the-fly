@@ -1,6 +1,6 @@
-# Optomotor response assay: wide-field directional motion stimulation
-# driving progressive (T4a/T5a) and regressive (T4b/T5b) visual neurons,
-# recording descending steering neurons DNa01 and DNa02 (Borst et al. 2020).
+# Optomotor: the T4/T5 subtypes a rightward wide-field rotation drives (T4a/T5a_R front-to-back on the right eye,
+# T4b/T5b_L back-to-front on the left), recording the steering neurons on both sides. amp 0.5 is what the EMD stage
+# (a game rule, assays.emd_stage) gives at full motion. Validation: optomotor_turning.
 name: optomotor
 seed: 1000
 flies: 5
@@ -10,5 +10,5 @@ stimuli:
   - {at_s: 2.0, for_s: 2.0, target: optomotor_right, mode: drive, amp: 0.5}
 recordings:
   - {name: dna_steer_r, neurons: dna_steer_r}
-  - {name: optomotor_detectors, neurons: optomotor_right}
-  - {name: descending, neurons: "superclass:descending_neuron"}
+  - {name: dna_steer_l, neurons: dna_steer_l}
+  - {name: t4t5_right_yaw, neurons: optomotor_right}

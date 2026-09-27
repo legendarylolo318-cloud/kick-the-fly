@@ -1,13 +1,15 @@
-# Grooming hierarchy assay: anterior grooming command neurons (aDN1/aDN2)
-# activation and readout from front-leg (mn_front) vs hind-leg (mn_hind) motor neurons (Seeds et al. 2014).
+# Grooming hierarchy (Seeds et al. 2014): the abdomen's mechanosensory neurons alone, then head bristles and abdomen
+# together. Anterior-first priority would show as front-leg motor neurons winning and the hind-leg response shrinking
+# when the head is added. It doesn't in this sim (validation: grooming_hierarchy, FAIL).
 name: grooming_hierarchy
 seed: 1000
 flies: 5
 warmup_s: 2
-duration_s: 4
+duration_s: 6
 stimuli:
-  - {at_s: 2.0, for_s: 2.0, target: adn, mode: drive, amp: 0.5}
+  - {at_s: 1.0, for_s: 1.5, target: groom_posterior, mode: drive, amp: 0.5}
+  - {at_s: 4.0, for_s: 1.5, target: groom_posterior, mode: drive, amp: 0.5}
+  - {at_s: 4.0, for_s: 1.5, target: groom_anterior, mode: drive, amp: 0.5}
 recordings:
-  - {name: adn_command, neurons: adn}
   - {name: mn_front, neurons: mn_front}
   - {name: mn_hind, neurons: mn_hind}

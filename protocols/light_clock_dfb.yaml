@@ -1,0 +1,16 @@
+# Daylight onto the clock: photoreceptors plus the morning clock neurons l-LNv/s-LNv, the way the day/night cycle
+# drives them outdoors (the direct LNv drive is a game rule), recording the clock neurons and the dorsal fan-shaped
+# body (FB6/FB7) that the SLEEP readout watches. Not a circadian rhythm: the sim has no molecular clock.
+name: light_clock_dfb
+seed: 1000
+flies: 5
+warmup_s: 2
+duration_s: 4
+stimuli:
+  - {at_s: 2.0, for_s: 2.0, target: light, strength: 1.0}
+  - {at_s: 2.0, for_s: 2.0, target: clock, strength: 1.0}
+recordings:
+  - {name: clock_l_lnv, neurons: "type:l-LNv"}
+  - {name: clock_s_lnv, neurons: "type:s-LNv"}
+  - {name: dfb_sleep_fb6, neurons: "prefix:FB6"}
+  - {name: dfb_sleep_fb7, neurons: "prefix:FB7"}

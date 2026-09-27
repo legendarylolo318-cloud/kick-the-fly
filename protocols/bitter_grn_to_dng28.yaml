@@ -1,0 +1,14 @@
+# Bitter pathway: the 30 bitter-pathway gustatory neurons excite DNg28 ("Yao & Scott 2022: Bitter-SEL"). Activation
+# only: nothing in the sim turns DNg28 into avoidance. The bitter set is chosen by its wiring (assays.py).
+# Validation: bitter_grn_to_dng28.
+name: bitter_grn_to_dng28
+seed: 1000
+flies: 5
+warmup_s: 2
+duration_s: 4
+stimuli:
+  - {at_s: 2.0, for_s: 2.0, target: bitter, mode: drive, amp: 0.5}
+recordings:
+  - {name: bitter_sel_dng28, neurons: dng28}
+  - {name: bitter_grn, neurons: bitter}
+  - {name: sugar_grn, neurons: sweet}

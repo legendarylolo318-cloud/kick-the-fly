@@ -43,6 +43,10 @@ STEPS_PER_TICK = (4, 3, 3)          # 10 brain steps (50 ms) per 3 game ticks (1
 SWEET_N = 30
 PER_RATIO = 1.5
 ODOR_GLOMERULI_SEED = 1985           # which 6 glomeruli each T-maze odor uses (game rule)
+P1_TYPES = ("pC1_1a", "pC1_1b", "pC1_2a", "pC1_2a/2b", "pC1_2b", "pC1_2c", "pC1_3a", "pC1_3b", "pC1_3c", "pC1_5a",
+            "pC1_5b", "pC1_6a", "pC1_7a", "pC1_7b", "pC1_12a", "pC1_13a", "pC1_14a", "pC1_14b", "pC1_15a", "pC1_15b",
+            "pC1_15c", "pC1_16a", "pC1_16b", "pC1_17a", "pC1_17b")     # synonym "Cachero 2010: pMP-e; Yu 2010: pMP4"
+OPTOMOTOR_YAW = 3.0                  # rad/s, rightward: the validation's wide-field rotation (~170 deg/s)
 
 
 # --- neuron groups -------------------------------------------------------------------------------------------------
@@ -80,13 +84,32 @@ def groups(br) -> dict[str, np.ndarray]:
         trn_vp3=np.flatnonzero(np.isin(t, ("TRN_VP3a", "TRN_VP3b")) & (np.char.find(sc, "sensory") >= 0)),
         vp3_pn=np.flatnonzero(np.isin(t, ("VP3+_l2PN", "VP3+_vPN", "VP1l+VP3_ilPN", "VP3+VP1l_ivPN", "VP5+VP3_l2PN"))),
     )
+    # P1: the male-specific fru/dsx cluster of Kimura et al. 2008. MaleCNS v1.0 has no "P1" type or synonym, but P1 is
+    # the clone Cachero 2010 calls pMP-e and Yu 2010 pMP4, and exactly these 25 pC1 types (86 neurons) carry that
+    # synonym; no pC1 type mixes neurons with and without it. The pack keeps no synonyms, hence the fixed list.
+    g["p1"] = T(*P1_TYPES)
+    g["cb_intrinsic"] = np.flatnonzero(sc == "cb_intrinsic")
+    # Seeds et al. 2014 grooming hierarchy: head bristle mechanosensory neurons (BM_*, not the taste ones) are the
+    # anterior stimulus, the abdomen's sensory neurons (subclass "abdomen") minus its chemosensory (SNch) and
+    # proprioceptive (SNpp) types the posterior one
+    g["groom_anterior"] = np.flatnonzero(np.char.startswith(t, "BM_") & (t != "BM_Taste") & (np.char.find(sc, "sensory") >= 0))
+    g["groom_posterior"] = np.flatnonzero((sub == "abdomen") & (np.char.find(sc, "sensory") >= 0)
+                                          & ~np.char.startswith(t, "SNch") & ~np.char.startswith(t, "SNpp"))
+    # Optomotor. T4/T5 subtype a prefers front-to-back (progressive) motion, b back-to-front (Maisak et al. 2013). A
+    # world rotating rightward (clockwise from above) moves front-to-back across the right eye and back-to-front across
+    # the left, so a rightward yaw stimulus is T4a/T5a_R + T4b/T5b_L, and the fly follows it by turning right.
     inst = np.array([("" if x is None else str(x)) for x in getattr(br, "instance", np.full(br.n, ""))])
-    t4a_l = np.flatnonzero((t == "T4a") & np.char.endswith(inst, "_L"))
-    t5a_l = np.flatnonzero((t == "T5a") & np.char.endswith(inst, "_L"))
-    t4b_r = np.flatnonzero((t == "T4b") & np.char.endswith(inst, "_R"))
-    t5b_r = np.flatnonzero((t == "T5b") & np.char.endswith(inst, "_R"))
-    g["optomotor_right"] = np.concatenate([t4a_l, t5a_l, t4b_r, t5b_r])
-    g["dna_steer_r"] = np.flatnonzero(np.isin(t, ("DNa01", "DNa02")) & np.char.endswith(inst, "_R"))
+
+    def side(types, s):
+        return np.flatnonzero(np.isin(t, types) & np.char.endswith(inst, "_" + s))
+
+    g["t45_prog_r"], g["t45_prog_l"] = side(("T4a", "T5a"), "R"), side(("T4a", "T5a"), "L")
+    g["t45_regr_r"], g["t45_regr_l"] = side(("T4b", "T5b"), "R"), side(("T4b", "T5b"), "L")
+    g["optomotor_right"] = np.concatenate([g["t45_prog_r"], g["t45_regr_l"]])
+    g["dna_steer_r"], g["dna_steer_l"] = side(("DNa01", "DNa02"), "R"), side(("DNa01", "DNa02"), "L")
+    # the optomotor control pool: optic-lobe intrinsic neurons like T4/T5, minus every T4/T5
+    t45 = np.char.startswith(t, "T4") | np.char.startswith(t, "T5")
+    g["ol_intrinsic_not_t45"] = np.flatnonzero((sc == "ol_intrinsic") & ~t45)
     g["mn_legs"] = np.concatenate([g["mn_front"], g["mn_mid"], g["mn_hind"]])
     W = abs(br.sim.W_csr)
 
@@ -117,19 +140,37 @@ def hz(spike_counts: int, n_neurons: int, steps: int, dt: float = 0.005) -> floa
 def pathway_response(br, drive_rows, readouts: dict[str, np.ndarray], pre: int = 400, stim: int = 400,
                      amp: float = 0.5) -> dict[str, tuple[float, float]]:
     """Hold drive_rows driven for `stim` steps after `pre` calm steps. Returns {readout: (baseline Hz, driven Hz)}.
-    Driven neurons get current every step, the way optogenetic activation does in the experiments."""
+    Driven neurons get current every step, the way optogenetic activation does in the experiments.
+    drive_rows may also be a list of (rows, amp) pairs, each held at its own current (the optomotor EMD stage)."""
+    if isinstance(drive_rows, list):
+        sets = [(np.asarray(r), float(a)) for r, a in drive_rows if len(r) and a > 0]
+    else:
+        sets = [(drive_rows, amp)] if drive_rows is not None and len(drive_rows) else []
     counts = {k: [0, 0] for k in readouts}
     for phase, n in ((0, pre), (1, stim)):
-        if phase == 1 and drive_rows is not None and len(drive_rows):
-            simcore.drive(br, drive_rows, amp)
+        if phase == 1:
+            for rows, a in sets:
+                simcore.drive(br, rows, a)
         for _ in range(n):
             br._step()
             s = br.sim.spikes
             for k, rows in readouts.items():
                 counts[k][phase] += int(np.count_nonzero(s[rows]))
-    if drive_rows is not None and len(drive_rows):
-        simcore.undrive(br, drive_rows)
+    for rows, _ in sets:
+        simcore.undrive(br, rows)
     return {k: (hz(c[0], len(readouts[k]), pre), hz(c[1], len(readouts[k]), stim)) for k, c in counts.items()}
+
+
+def emd_stage(g: dict, yaw_rate: float, amp: float = 0.5) -> list[tuple[np.ndarray, float]]:
+    """The optomotor transduction (GAME RULE): a wide-field yaw rotation becomes current on the T4/T5 subtypes whose
+    preferred direction it matches in each eye, through outdoors.emd_motion_drive (a saturating Reichardt-style
+    detector output). Full motion gets the same current as every other pathway test's drive. The sim has no
+    photoreceptor-to-medulla motion computation that works, so the detector is replaced by this rule."""
+    from kickthefly.game import outdoors
+
+    e = outdoors.emd_motion_drive(yaw_rate)
+    return [(g["t45_prog_r"], amp * e["prog_r"]), (g["t45_prog_l"], amp * e["prog_l"]),
+            (g["t45_regr_r"], amp * e["regr_r"]), (g["t45_regr_l"], amp * e["regr_l"])]
 
 
 # --- T-maze olfactory conditioning ------------------------------------------------------------------------------------
