@@ -184,7 +184,8 @@ class Fly:
             raise RuntimeError("nothing recorded yet: call fly.record(...) first")
         rec = self._recording._rec
         stem = Path(path)
-        extra = dict(source="kickthefly.Fly", seed=self.seed, note=note)
+        extra = dict(source="kickthefly.Fly", seed=self.seed, note=note, backend=self.backend,
+                     device=self.brain.sim.backend.device)
         files = list(rec.save(stem, extra))
         if nwb:
             from kickthefly.lab import nwbexport
