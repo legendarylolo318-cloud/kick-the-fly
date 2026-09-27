@@ -31,7 +31,6 @@ all 166,700 neurons simulated live while you throw, swat, bomb, burn, dissolve, 
 **[Download KickTheFly-x86_64.AppImage](https://github.com/legendarylolo318-cloud/kick-the-fly/releases/latest/download/KickTheFly-x86_64.AppImage)** (about 110 MB), `chmod +x` it, and run it. No install needed, and the fly's whole brain is inside it. It's built on Ubuntu 22.04, so it runs on most distros from then on.
 
 - **Startup:** the first launch takes a few seconds while it unpacks.
-- **Arch Linux:** an AUR package `kickthefly-bin` is in `packaging/aur/` (installs the release AppImage and a menu entry).
 - **Flatpak:** a manifest for building it yourself is in `packaging/flatpak/` (`flatpak-builder --user --install ...`, see its README). It isn't on Flathub. It keeps its files in the same folders as the AppImage.
 - **Wayland and X11:** it uses native Wayland when `WAYLAND_DISPLAY` is set and falls back to X11/XWayland by itself if that fails. Force one with `--backend wayland` or `--backend x11`, or in Settings > Graphics (applies on restart). An `SDL_VIDEODRIVER` you set yourself always wins. Mouse look uses relative pointer mode on both.
 - **GPU:** needs OpenGL 3.3 for the 3D room. Without it the game logs why and starts the 2D game (`--2d` skips the check). Software rendering (`LIBGL_ALWAYS_SOFTWARE=1`) works but is slow.
