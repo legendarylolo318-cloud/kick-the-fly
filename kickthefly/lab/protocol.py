@@ -134,8 +134,9 @@ def _rows(br, spec):
         raise ProtocolError(str(e)) from None
 
 
-def run_seed(p: dict, seed: int, surgery: dict | None, folder: Path, tag: str) -> dict:
-    """One fly of a stimulus protocol. Returns mean firing per recording group."""
+def run_seed(p: dict, seed: int, surgery: dict | None, folder: Path, tag: str, replay_to: Path | None = None) -> dict:
+    """One fly of a stimulus protocol. Returns mean firing per recording group. replay_to: also record the run as a
+    .ktfreplay (kickthefly/core/replay.py) there."""
     from kickthefly.lab import assays
     from kickthefly.lab import recorder
     from kickthefly.core import simcore
@@ -143,6 +144,14 @@ def run_seed(p: dict, seed: int, surgery: dict | None, folder: Path, tag: str) -
     br = simcore.new_brain(seed=seed, params=p.get("params"))
     if surgery:
         assays.apply_surgery(br, surgery)
+    replay_rec = None
+    if replay_to is not None:
+        from kickthefly.core import replay
+
+        replay_rec = replay.ReplayRecorder(
+            seed=seed, backend=br.sim.backend.name, dtype=str(br.sim.p.dtype), signature=replay.pack_signature(br),
+            arena="headless", settings=dict(params=p.get("params") or {}, surgery=surgery or {}, protocol=p["name"]),
+        ).attach(br)
     assays.rest(br, int(round(p["warmup_s"] / 0.005)))
     groups = {r.get("name", f"rec{i}"): _rows(br, r["neurons"]) for i, r in enumerate(p["recordings"])}
     stims = []
@@ -167,6 +176,9 @@ def run_seed(p: dict, seed: int, surgery: dict | None, folder: Path, tag: str) -
                 _poke_rows(br, s)
         br._step()
     rec.stop()
+    if replay_rec is not None:
+        replay_rec.detach()
+        replay_rec.save(replay_to)
     stem = folder / f"{tag}-seed{seed}"
     extra = dict(protocol=p["name"], protocol_spec={k: v for k, v in p.items() if k != "stimuli_rows"},
                  condition=tag, surgery=surgery)
@@ -244,6 +256,31 @@ def find(path: Path) -> Path:
         if f.name == Path(path).name or f.stem == Path(path).name:
             return f
     raise FileNotFoundError(f"protocol file {path} not found (bundled: {', '.join(f.name for f in lab.protocol_files())})")
+
+
+def record_replay(path: Path, dest: Path, out: Path | None = None) -> int:
+    """--headless --protocol FILE --record-replay DEST: the protocol's first fly, recorded as a .ktfreplay."""
+    path = find(path)
+    try:
+        p = load(path)
+        if "assay" in p:
+            raise ProtocolError("--record-replay records a stimulus protocol; assay protocols aren't supported")
+    except ProtocolError as e:
+        print(f"error: {e}")
+        return 2
+    from kickthefly.lab import recorder
+
+    seed = p["seeds"][0]
+    folder = (out or recorder.exports_dir()) / f"{time.strftime('%Y%m%d-%H%M%S')}-{p['name']}-replay"
+    folder.mkdir(parents=True, exist_ok=True)
+    run_seed(p, seed, p.get("surgery") or None, folder, "replay", replay_to=Path(dest))
+    from kickthefly.core import replay
+
+    rp = replay.ReplayPlayer.load(Path(dest))
+    print(f"recorded {p['name']} seed {seed}: {rp.total_steps} steps on {rp.backend}, "
+          f"{len(rp.meta['events'])} input events, spikes SHA-256 {rp.spike_sha256}")
+    print(f"replay written to {dest}")
+    return 0
 
 
 def run_file(path: Path, out: Path | None = None, workers: int | None = None, nwb: bool = False) -> int:

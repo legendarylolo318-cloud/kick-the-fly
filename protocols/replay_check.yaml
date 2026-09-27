@@ -1,0 +1,13 @@
+# What CI's replay determinism job records and replays (checks.yml): pokes (which draw from the brain's own random
+# generator), a held drive and brain surgery, so every kind of input a .ktfreplay stores is exercised.
+name: replay_check
+seed: 1003
+warmup_s: 0.2
+duration_s: 1.5
+surgery: {dnp01: -1}
+stimuli:
+  - {at_s: 0.1, for_s: 0.4, target: loom, mode: poke, strength: 0.7}
+  - {at_s: 0.3, for_s: 0.5, target: sweet, mode: drive, amp: 0.5}
+  - {at_s: 0.9, for_s: 0.3, target: "prefix:JO-", mode: poke, strength: 0.9}
+recordings:
+  - {name: mn9, neurons: mn9}

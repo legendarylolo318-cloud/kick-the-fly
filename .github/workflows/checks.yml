@@ -125,3 +125,39 @@ jobs:
             --max-retries 4 --retry-wait-time 10 --timeout 30 --accept '200..=299,403,429' --no-progress
             README.md 'docs/**/*.md'
           fail: true
+
+  replay:
+    name: replay determinism
+    needs: brainpack
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: {name: brainpack-checks, path: data}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - run: python -m pip install -r requirements.txt numba
+      - name: Record a protocol run on NumPy (pokes, a held drive, surgery)
+        run: >-
+          python kick_the_fly.py --headless --backend cpu --protocol protocols/replay_check.yaml
+          --record-replay build/replay/check.ktfreplay --out build/replay
+      - name: Replay it on NumPy and on Numba (either exits 1 if its spikes differ from the recording)
+        run: |
+          python kick_the_fly.py --headless --backend cpu --replay build/replay/check.ktfreplay --out build/replay/cpu
+          python kick_the_fly.py --headless --backend numba --replay build/replay/check.ktfreplay --out build/replay/numba
+      - name: Compare the two replays' spikes
+        run: |
+          python - <<'PY'
+          import json, numpy as np
+          runs = {b: (np.load(f"build/replay/{b}/spikes.npz"), json.load(open(f"build/replay/{b}/replay_summary.json")))
+                  for b in ("cpu", "numba")}
+          for b, (_, s) in runs.items():
+              assert s["backend"] == b, f"asked for {b}, ran {s['backend']}"
+              assert s["identical"], f"{b} did not reproduce the recording"
+          a, n = runs["cpu"][0], runs["numba"][0]
+          assert np.array_equal(a["step"], n["step"]) and np.array_equal(a["neuron"], n["neuron"])
+          print(f"{len(a['neuron'])} spikes over {runs['cpu'][1]['steps']} steps: identical on NumPy and Numba")
+          PY

@@ -9,10 +9,13 @@ Exit codes: 0 success; 1 a validation result differs from the expected pass/fail
 """
 from __future__ import annotations
 
+import json
 import os
 import sys
 import time
 from pathlib import Path
+
+import numpy as np
 
 from kickthefly.core.crash import log
 
@@ -249,37 +252,50 @@ def run_benchmark(args) -> int:
 
 
 def run_headless_replay(args) -> int:
-    """--headless --replay FILE --out DIR: re-exports the recording."""
-    from kickthefly.core import replay, simcore
-    from kickthefly.lab import recorder
-    replay_path = Path(args.replay)
-    if not replay_path.exists():
-        print(f"error: replay file not found: {replay_path}", file=sys.stderr)
+    """--headless --replay FILE --out DIR: run a .ktfreplay again on this backend and compare its spikes."""
+    from kickthefly.core import replay
+
+    path = Path(args.replay)
+    if not path.exists():
+        print(f"error: replay file not found: {path}", file=sys.stderr)
         return 2
     try:
-        player = replay.ReplayPlayer.load(replay_path)
+        player = replay.ReplayPlayer.load(path)
     except replay.ReplayError as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
-
-    out_dir = Path(args.out) if args.out else recorder.exports_dir() / f"replay-{replay_path.stem}"
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    br = simcore.new_brain(seed=player.seed)
+    if not getattr(args, "dtype", None):                 # the recording's precision unless --dtype says otherwise
+        os.environ["KICK_THE_FLY_SIM_DTYPE"] = player.dtype
+    br = player.new_brain()
     why = replay.check_compatibility(player.meta, replay.pack_signature(br))
     if why:
-        print(f"error: incompatible replay: {why}", file=sys.stderr)
+        print(f"error: can't replay {path.name}: {why}", file=sys.stderr)
         return 2
+    ran = br.sim.backend.name
+    steps, neurons = [], []
 
-    rec = recorder.Recorder(br)
-    for step in range(player.total_steps + 1):
-        for ev in player.events_at(step):
-            if ev["type"] == "poke":
-                br.poke(ev["sense"], ev.get("target"), ev.get("val", 0.5))
-        br._step()
-        rec.step(br)
-    rec.export_csv(out_dir / "replay_spikes.csv")
-    print(f"Replay re-exported to {out_dir}")
+    def keep(step, spikes):
+        idx = np.flatnonzero(spikes)
+        steps.append(np.full(len(idx), step, np.int32))
+        neurons.append(idx.astype(np.int32))
+
+    digest = player.play(br, on_step=keep)
+    same = digest == player.spike_sha256
+    out_dir = Path(args.out) if args.out else path.with_suffix("")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    np.savez_compressed(out_dir / "spikes.npz", step=np.concatenate(steps or [np.zeros(0, np.int32)]),
+                        neuron=np.concatenate(neurons or [np.zeros(0, np.int32)]))
+    summary = dict(replay=str(path), steps=player.total_steps, recorded_backend=player.backend, backend=ran,
+                   device=br.sim.backend.device, dtype=str(br.sim.p.dtype), recorded_spike_sha256=player.spike_sha256,
+                   spike_sha256=digest, identical=same)
+    (out_dir / "replay_summary.json").write_text(json.dumps(summary, indent=1), encoding="utf-8")
+    print(f"replayed {player.total_steps} steps on {ran} (recorded on {player.backend}): spikes "
+          f"{'identical to the recording' if same else 'DIFFER from the recording'}; results in {out_dir}")
+    if not same and ran in replay.BIT_EXACT_BACKENDS and player.backend in replay.BIT_EXACT_BACKENDS:
+        print(f"error: {ran} and {player.backend} are bit-exact backends, so the spikes must match", file=sys.stderr)
+        return 1
+    if not same:
+        print(f"note: {ran} is held to a statistical tolerance of NumPy, not spike for spike")
     return 0
 
 
@@ -295,6 +311,13 @@ def main(args) -> int:
     try:
         if getattr(args, "replay", None):
             return run_headless_replay(args)
+        if getattr(args, "record_replay", None):
+            if not args.protocol:
+                print("error: --record-replay records a --protocol run", file=sys.stderr)
+                return 2
+            from kickthefly.lab import protocol
+            return protocol.record_replay(Path(args.protocol), Path(args.record_replay),
+                                          Path(args.out) if args.out else None)
         if getattr(args, "benchmark", False):
             return run_benchmark(args)
         if getattr(args, "audit_asymmetry", False):
