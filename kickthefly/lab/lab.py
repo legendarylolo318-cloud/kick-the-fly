@@ -386,6 +386,30 @@ ASSUMPTIONS = (
      "Real circadian timing is a molecular clock (per/tim/Clk/cyc) and slow PDF signalling over hours, and sleep "
      "pressure builds up over waking. The sim is point neurons over seconds: it has no clock and no sleep drive.",
      "kickthefly/game/outdoors.py:sun_now · kickthefly/game/kick_the_fly.py:Game._sleep"),
+
+    ("cVA pheromone puff and olfactory transduction",
+     "GAME RULE",
+     "cVA pheromone puff particles are simulated as a game rule in the arena; upon reaching the fly's antenna, they drive the real Or67d ORNs (ORN_DA1) without shortcut to aggression.",
+     "Real cVA is a male-specific volatile pheromone transferred to females during mating. While the connectome pathways (Or67d -> DA1 PNs -> LH/aSP) are real, spatial plume dispersion and turbulent odor transport are simplified game physics.",
+     "kickthefly/game/kick_the_fly.py · kickthefly/lab/validation.py:or67d_to_da1pn"),
+
+    ("Decoy female body vs foreleg pheromone GRN drive",
+     "GAME RULE",
+     "The decoy female body and its stationary or scripted movement are a game rule. Contact from the male's forelegs drives the real putative ppk23/ppk25 foreleg pheromone GRNs (LgLG5..8).",
+     "Real female contact pheromones (e.g. 7,11-HD, 7,11-ND) activate specialized tarsal gustatory receptor neurons on male forelegs. The sim drives putative ppk23/ppk25 GRNs; the physical female body is an artificial game target.",
+     "kickthefly/game/kick_the_fly.py · kickthefly/lab/validation.py:foreleg_grn_to_p1"),
+
+    ("Odor plume tracking navigation as a game rule",
+     "GAME RULE",
+     "Intermittent odor filaments are advected by wind. When odor filaments contact antennae, fly executes upwind surge and crosswind cast on blank as a game rule.",
+     "Real plume tracking involves complex closed-loop sensorimotor integration between antennal mechanosensory (JO), olfactory (ORN), and central complex / descending steering circuits. In the connectome model, DNa/DNp descending neurons do not display emergent surge/cast navigation from raw sensory drive alone.",
+     "kickthefly/lab/assays.py:plume_tracking_fly · README.md § Plume Tracking"),
+
+    ("Mushroom body extinction depotentiation and second-order conditioning",
+     "GAME RULE",
+     "Unreinforced odor presentations trigger KC->MBON depotentiation at EXTINCTION_RATE = 0.005. Second-order conditioning couples CS2 with fear-induced PPL1 activation during compound presentation with CS1.",
+     "Extinction in Drosophila involves distinct dopaminergic sub-clusters (e.g. PAM-gamma5, Felsenberg et al. 2018) driving competing memories and parallel depression, rather than a single simple depotentiation rule.",
+     "kickthefly/core/memory.py:EXTINCTION_RATE · kickthefly/lab/validation.py:mb_extinction"),
 )
 
 

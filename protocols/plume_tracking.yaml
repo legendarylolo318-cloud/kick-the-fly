@@ -1,0 +1,15 @@
+# Odor plume tracking in open field: intermittent odor filaments drive ORN_DM1
+# alongside ambient wind driving JO-C/E antennal mechanoreceptors.
+# Readouts monitor ORN_DM1 excitation and DNa steering descending neurons.
+name: plume_tracking
+seed: 1000
+flies: 5
+warmup_s: 2
+duration_s: 6
+stimuli:
+  - {at_s: 1.0, for_s: 1.0, target: orn, mode: drive, amp: 0.5}
+  - {at_s: 3.0, for_s: 1.0, target: wind, mode: drive, amp: 0.4}
+recordings:
+  - {name: orn, neurons: orn}
+  - {name: wind, neurons: wind}
+  - {name: dna_steer_r, neurons: dna_steer_r}

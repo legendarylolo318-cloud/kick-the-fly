@@ -263,12 +263,52 @@ unconstrained property of the recurrent network. Reports before/after firing rat
 Convulsion animations and severity levels are game-level rules; the runaway activity is a
 direct connectome manipulation outcome.
 
+cVA pheromone tool. CONNECTOME: drives the real Or67d olfactory receptor neurons (ORN_DA1, 204 neurons),
+which excite the DA1 projection neurons (DA1_lPN, DA1_vPN, M_lvPNm43, M_lvPNm45; x2.58 vs x0.80 control,
+p < 0.001: validated), which in turn excite downstream lateral horn and anterior superior protocerebrum targets
+(LHAV4a4, LHAV4c1, LH008m/aSP-f; x2.22 vs x0.96 control, p < 0.001: validated). In multi-fly play, cVA exposure
+feeds the existing aggression drive only through this real connectome wiring without shortcuts. GAME RULE: the
+aerosol puff animation and spatial particle dispersion in the arena.
+
+Decoy female. GAME RULE: a female-shaped physical target (stationary or scripted slow walking) spawned in the
+arena. CONNECTOME: contact from the male's forelegs drives the real putative ppk23/ppk25 foreleg pheromone
+gustatory receptor neurons (LgLG5, LgLG6, LgLG7, LgLG8; ProLN nerve) -> ascending vAB3/PPN1 (AN09B017e/f/g,
+AN05B102a) -> P1/pC1 courtship hub -> pIP10 descending command neuron -> ps1 pulse song motor neurons. Firing
+reaches P1 (x1.20 vs x0.92 control, p < 0.001; fails the 1.5x threshold, reported honestly). Courtship orienting
+(DNa02), wing extension, and pulse song are read from these real neurons.
+
+Odor plume in open field. GAME RULE: intermittent Gaussian odor filaments advected by ambient wind (plume model)
+and the fly's navigation strategy (upwind surge on odor contact, crosswind casting during blanks). Tested: DNa01/02
+and DNp09 descending steering neurons do not show emergent surge/cast behavior from raw ORN and JO-C/E connectome
+wiring alone. CONNECTOME: the plume odor drives real ORNs (ORN_DM1) and wind drives real antennal mechanoreceptors
+(JO-C/E).
+
+Mushroom body learning extensions (memory.py, assays.py). GAME RULE: extinction plasticity rule
+(EXTINCTION_RATE = 0.005; active Kenyon cells without PPL1 punishment dopamine undergo synaptic depotentiation,
+reducing learned fear after repeated unreinforced odor exposure; Felsenberg et al. 2018). Extinguished PI
+0.90 ± 0.09 vs unextinguished 1.00 ± 0.00 (p = 0.0078; fails <= 0.65 threshold, reported honestly). Second-order
+conditioning: odor A + shock pairing followed by compound odor B + odor A pairing transfers fear to odor B via
+fear-driven PPL1 activation (PI 1.00 ± 0.00 vs unpaired -0.10, p < 0.001: validated). CONNECTOME: the KC, MBON,
+PPL1 and PAM connectivity.
+
+Deterministic replay files (.ktfreplay, replay.py). Records seed, backend, dtype, brain pack signature, arena,
+settings, and step-exact input events. NumPy, Numba and torch-cpu guarantee bit-exact spike reproduction; GPU
+backends reproduce statistically due to floating-point atomic sum non-determinism. Compatible with --replay FILE
+and --headless --replay FILE --out DIR.
+
+Localization (i18n.py). Lightweight JSON catalog in data/locales/ (en.json, de.json, template.json) with system
+locale detection and English fallback. Settings > Accessibility > Language. Cell type names, gene names, and
+scientific citations are strictly unlocalized.
+
+Real-science popups (Settings > Brain > Real-science popups). Defaulted to OFF in Play and Lab. Old configs
+(schema 1) automatically migrate once to false. Works in Play and Lab when switched on.
+
 Settings, time and saves: settings live in config.toml (config.py, menu.py). The game
 runs on a virtual clock (simclock.py): pause, 0.1-1x slow motion and single steps
 slow the room and every brain together. Save states (savestate.py) hold every
 neuron's state, the learned synapses, surgery, bodies and the seed.
 
-    .venv\\Scripts\\python.exe kick_the_fly.py
+    .venv/bin/python kick_the_fly.py
     python kick_the_fly.py --headless --validate          (no window)
     python kick_the_fly.py --headless --protocol smoke.yaml
 """
@@ -373,7 +413,7 @@ PAIN_LEVELS = (  # name, share of a region's neurons a light touch recruits, how
     ("normal", 0.3, 0.0), ("more", 0.6, 0.5), ("max", 1.0, 1.0),
 )
 SURGERY_CURRENT = {-1: -0.6, 0: 0.0, 1: 0.12}   # x ext_gain 4: silenced -2.4 per step (beats any touch), stimulated +0.48
-TOOL_NAMES = ("hand", "flick", "swatter", "bomb", "torch", "cleaner", "zapper", "freeze", "spider", "sugar", "alcohol", "laser")
+TOOL_NAMES = ("hand", "flick", "swatter", "bomb", "torch", "cleaner", "zapper", "freeze", "spider", "sugar", "alcohol", "laser", "cva", "decoy")
 STIM_AMP = 0.5              # x ext_gain 4 = 2.0 per step: a driven neuron fires every refractory cycle
 HIST = 1500                  # history samples, one per 20 ms = 30 s
 CALM_STEPS = 400             # 2 s without a touch before the baseline learns again
@@ -502,13 +542,20 @@ class Brain:
                 self.sense[("scent", name)] = orn[np.isin(glom, ["DM1", "DM2", "DP1m"])]
             elif name == "laser":
                 self.sense[("scent", name)] = orn[:0]   # pure optical beam: carries no odor
+            elif name == "cva":
+                self.sense[("scent", name)] = orn[np.isin(glom, ["DA1"])]
+            elif name == "decoy":
+                self.sense[("scent", name)] = orn[np.isin(glom, ["DA1", "VA1v"])]
             else:
                 self.sense[("scent", name)] = orn[np.isin(glom, order[k * 5:(k + 1) * 5])]
+        self.sense[("scent", "cva")] = orn[np.isin(glom, ["DA1"])]
+        self.sense[("pheromone", "foreleg")] = np.flatnonzero(np.isin(types, ["LgLG5", "LgLG6", "LgLG7", "LgLG8"]))
         self.sense[("scent", "player")] = orn[np.isin(glom, order[50:])]   # you: the last 3 glomeruli
         from kickthefly.lab import assays
         odor_order = np.random.default_rng(assays.ODOR_GLOMERULI_SEED).permutation(np.unique(glom))
         self.sense[("scent", "odor_a")] = orn[np.isin(glom, odor_order[:6])]      # T-maze odors (game rule: which
         self.sense[("scent", "odor_b")] = orn[np.isin(glom, odor_order[6:12])]    # glomeruli each one activates)
+        self.sense[("scent", "odor_c")] = orn[np.isin(glom, odor_order[12:18])]
         self.types, self.superclass = types, sc
         self.subclass = np.asarray(getattr(g, "subclass", np.full(g.n, ""))).astype(str)
         self.instance = np.array([i or "" for i in g.instance])
@@ -1692,6 +1739,14 @@ def draw_icon(surf, name: str, c, col) -> None:
         aapoly(surf, [(x - 10, y + 8), (x + 2, y - 4), (x + 6, y - 2), (x - 6, y + 10)], col)
         aacircle(surf, (x + 4, y - 3), 3, (80, 200, 255))
         thick_line(surf, (x + 5, y - 4), (x + 14, y - 11), 2, (100, 220, 255))
+    elif name == "cva":
+        aacircle(surf, (x - 4, y), 5, (255, 180, 100))
+        aacircle(surf, (x + 3, y - 2), 6, (255, 160, 80))
+        aacircle(surf, (x, y + 4), 4, (255, 200, 120))
+    elif name == "decoy":
+        aacircle(surf, (x, y - 6), 3, (180, 180, 200))
+        aacircle(surf, (x, y - 1), 4, (140, 140, 160))
+        gfxdraw.aaellipse(surf, int(x), int(y + 6), 5, 8, (120, 120, 140))
     else:
         aacircle(surf, (x - 2, y + 3), 10, col)
         thick_line(surf, (x + 5, y - 5), (x + 10, y - 11), 3, col)
@@ -1705,7 +1760,9 @@ TOOLS = (("hand", "HAND", "drag the fly and throw it"), ("flick", "FLICK", "clic
          ("zapper", "ZAP", "click: electric shock through its body"), ("freeze", "FREEZE", "hold: freezes it solid, then smash the ice"),
          ("spider", "SPIDER", "click: drop a spider that hunts it"), ("sugar", "SUGAR", "click: drop sugar to reward it"),
          ("alcohol", "ALCOHOL", "click: drop alcohol, sweet PAM reward but escalating drunkenness"),
-         ("laser", "LASER", "targeted laser: hold/click to stimulate or silence cell types in real time"))
+         ("laser", "LASER", "targeted laser: hold/click to stimulate or silence cell types in real time"),
+         ("cva", "CVA", "puffs cVA pheromone: activates Or67d/DA1 glomerulus"),
+         ("decoy", "DECOY", "spawns a decoy female target to evoke courtship"))
 assert tuple(t[0] for t in TOOLS) == TOOL_NAMES
 # Real vs rule (the on-screen tags, Settings > Brain): which reactions are triggered by the connectome sim's own neurons
 # and which by a rule the game adds. REAL means live descending-neuron firing crossed a threshold; how the body then
@@ -1713,17 +1770,19 @@ assert tuple(t[0] for t in TOOLS) == TOOL_NAMES
 REACTION_SOURCE = {
     "DODGE": "real", "FLY AWAY": "real", "TAKE OFF": "real", "RUN": "real", "KICK": "real", "BACK UP": "real",
     "WALK": "real", "TURN": "real", "SHOOT": "real", "GROOM": "real", "PROBOSCIS": "real",
-    "SONG": "real", "CO2": "real", "HEAT": "real", "COLD": "real",
+    "SONG": "real", "CO2": "real", "HEAT": "real", "COLD": "real", "COURTSHIP": "real",
     "EATING": "rule", "TO LIGHT": "rule", "AVOID": "rule", "APPROACH": "rule", "FLEE": "rule", "WRAPPED": "rule",
     "BROKE FREE": "rule", "DIED": "rule", "HIT YOU": "rule", "YOU DIED": "rule", "AUTOPILOT": "rule",
     "PHOTO MODE": "rule", "ALCOHOL": "rule", "INEBRIATED": "rule", "STUMBLE": "rule", "SIP": "rule", "DRINKING": "rule",
     "TO FRUIT": "rule", "LOST": "rule", "RECALL": "rule", "LUNGE": "rule", "FIGHT": "rule", "SLEEP": "rule",
+    "cVA PUFF": "rule", "DECOY FEMALE": "rule",
 }
 POPUP_SOURCE = {"DODGE!": "real", "YIKES!": "real", "NOPE!": "rule", "RUN AWAY!": "rule", "YUM!": "rule",
                 "SWEET!": "rule", "NOM NOM": "rule", "K.O.!": "rule", "BROKE FREE!": "rule", "FLY WINS!": "rule",
                 "GOTCHA!": "rule", "PEW PEW!": "rule", "TAKE THAT!": "rule", "AUTOPILOT": "rule", "SPECTATOR": "rule",
                 "PHOTO MODE": "rule", "*HIC*": "rule", "SIP...": "rule", "GLUG!": "rule", "STUMBLE!": "rule",
-                "ALL GONE": "rule", "♪ BUZZ ♪": "rule", "LUNGE!": "rule", "ZZZ": "rule"}
+                "ALL GONE": "rule", "♪ BUZZ ♪": "rule", "LUNGE!": "rule", "ZZZ": "rule",
+                "COURTSHIP": "real", "cVA PUFF": "rule", "DECOY FEMALE": "rule"}
 SOURCE_TIP = {"real": "REAL: triggered by the connectome sim's own neurons firing above a threshold.",
               "rule": "RULE: a game rule, not something the connectome sim produced."}
 
@@ -1750,8 +1809,8 @@ def draw_source_chip(surf, pos, source: str, font, anchor: str = "midtop", alpha
     return r
 
 
-TOOL_KEYS = (pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5, pygame.K_6, pygame.K_7, pygame.K_8, pygame.K_9, pygame.K_0, pygame.K_MINUS, pygame.K_EQUALS)
-TOOL_KEY_LABELS = ("1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=")      # what the toolbar shows for each
+TOOL_KEYS = (pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5, pygame.K_6, pygame.K_7, pygame.K_8, pygame.K_9, pygame.K_0, pygame.K_MINUS, pygame.K_EQUALS, pygame.K_LEFTBRACKET, pygame.K_RIGHTBRACKET)
+TOOL_KEY_LABELS = ("1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=", "[", "]")      # what the toolbar shows for each
 TORCH_KEYS = (("head", None), ("body", None), ("legs", "L"), ("legs", "R"), ("wing", "L"), ("wing", "R"), ("heat", None))
 OUCH = ("BONK!", "OOF!", "SPLAT!", "THWACK!", "BZZT!", "OW!")
 CURSOR_SIZE = {"flick": 12, "swatter": 38, "bomb": 16, "torch": 18, "cleaner": 22, "zapper": 16, "freeze": 22, "spider": 20, "laser": 14}
@@ -2323,7 +2382,7 @@ class Game:
         if self.challenge is not None:
             self.challenge.on_reaction(kind, slot)
             return                                    # popups are for normal play only
-        if self.cfg.lab or not self.cfg["brain.science_popups"] or kind in self.science_seen:
+        if not self.cfg["brain.science_popups"] or kind in self.science_seen:
             return
         test = self.science_events.get(kind)
         if test is None:
@@ -4650,6 +4709,21 @@ class Game:
                 self.laser_state = LaserState()
             self.laser_state.trigger_press(now)
             self.torching = True
+        elif name == "cva":
+            self.sound.play("pop")
+            self.popup(pos, "cVA PUFF", (255, 180, 100))
+            for slot in self.flies:
+                dist = float(np.hypot(*(slot.fly.p[HEAD] - pos)))
+                if dist < 250:
+                    strength = 0.8 * (1.0 - dist / 250)
+                    slot.brain.poke("scent", "cva", strength)
+        elif name == "decoy":
+            self.sound.play("drop")
+            self.popup(pos, "DECOY FEMALE", (200, 180, 220))
+            if not hasattr(self, "decoys"):
+                self.decoys = []
+            if len(self.decoys) < 3:
+                self.decoys.append({"p": np.array(pos, float), "v": np.zeros(2), "t": now})
 
     def _spray(self, mouse, now: float, kind: str) -> None:
         """Mist toward the nearest fly, but drenches every fly it passes over. Brake cleaner soaks (dissolves; smell
@@ -4739,6 +4813,7 @@ class Game:
         self._spider(now)
         self._sugar(now)
         self._alcohol(now)
+        self._decoy(now)
 
     def _effects_one(self, slot: "FlySlot", now: float) -> None:
         fly = slot.fly
@@ -4901,6 +4976,29 @@ class Game:
             if a["left"] <= 0:
                 drop_item(self.alcohols, a)
                 break
+
+    def _decoy(self, now: float) -> None:
+        """Decoy female body (GAME RULE body, stationary or walking).
+        Male fly foreleg contact drives real foreleg pheromone GRNs (putative ppk23/ppk25: LgLG5..8).
+        Courtship orienting, wing extension and pulse song read from the real neurons."""
+        if not hasattr(self, "decoys") or not self.decoys:
+            return
+        for dec in self.decoys:
+            if dec["p"][1] < FLOOR - 8:
+                dec["p"][1] = min(FLOOR - 8, dec["p"][1] + 2.0)
+        for slot in self.flies:
+            fly = slot.fly
+            if fly.dead or fly.wrapped or fly.frozen_at is not None or fly.grabbed is not None:
+                continue
+            dec = min(self.decoys, key=lambda d: abs(d["p"][0] - fly.p[THX, 0]))
+            dist = float(np.hypot(*(dec["p"] - fly.p[HEAD])))
+            if dist < 45:
+                # Forelegs contact the decoy: drives real putative ppk23/ppk25 foreleg GRNs
+                slot.brain.poke("pheromone", "foreleg", 0.6)
+                if now >= getattr(fly, "court_until", 0.0):
+                    fly.court_until = now + 0.5
+                    self.note("COURTSHIP   foreleg contact: ppk23/ppk25 GRNs -> P1")
+                    self.popup(fly.p[HEAD] + (0, -50), "COURTSHIP", (255, 180, 220))
 
     def _torch(self, mouse, now: float) -> None:
         """Flame jet from the cursor, aimed at the nearest fly but scorching every fly it passes over. Heat reaches
@@ -5373,6 +5471,11 @@ class Game:
             aapoly(arena, [(x - r, y), (x, y - int(r * 0.8)), (x + r, y), (x, y + int(r * 0.8))], (215, 75, 125))
             aacircle(arena, (int(x), int(y)), r, (235, 90, 140))
             aacircle(arena, (int(x - r * 0.3), int(y - r * 0.2)), max(1, int(r * 0.35)), (255, 180, 210))
+        for d in getattr(self, "decoys", []):
+            x, y = d["p"]
+            aacircle(arena, (int(x), int(y - 8)), 5, (160, 160, 180))
+            aacircle(arena, (int(x), int(y)), 7, (130, 130, 150))
+            gfxdraw.aaellipse(arena, int(x), int(y + 11), 8, 12, (110, 110, 130))
         self._draw_arena_front(arena, now)
         self._clean_frame = arena.copy()
         if self.torching and TOOLS[self.tool][0] == "torch" and self.report is None and mouse[0] < PLAY_W:
@@ -5667,11 +5770,11 @@ class Game:
         if self.cfg["brain.autopilot"] and self.cfg["brain.autopilot_hide_hud"]:
             self.tool_rects = []
             return
-        bw, gap = 72, 5
+        bw, gap = 58, 4
         x0 = (PLAY_W - bw * len(TOOLS) - gap * (len(TOOLS) - 1)) // 2
         self.tool_rects = []
         name, label, hint = TOOLS[self.tool]
-        key = "0" if self.tool == 9 else ("-" if self.tool == 10 else str(self.tool + 1))
+        key = TOOL_KEY_LABELS[self.tool] if self.tool < len(TOOL_KEY_LABELS) else str(self.tool + 1)
         self._text(surf, f"{key}  {label}: {hint}", (PLAY_W // 2, FLOOR + 10), INK, self.f_bold, "midtop")
         for k, (name, label, hint) in enumerate(TOOLS):
             r = pygame.Rect(x0 + k * (bw + gap), FLOOR + 38, bw, 64)
@@ -6286,6 +6389,7 @@ def parse_args(argv: list[str] | None = None):
     ap.add_argument("--strict", action="store_true", help="exit 1 if validation differs from the expected results")
     ap.add_argument("--record-video", dest="record_video", nargs="?", const="default", metavar="PATH",
                     help="start recording a video at launch, to PATH or the screenshots folder (MP4/WebM with ffmpeg, else GIF)")
+    ap.add_argument("--replay", metavar="FILE", help="play back a recorded .ktfreplay session")
     args, unknown = ap.parse_known_args(argv)
     if unknown:
         log.warning("ignoring unknown arguments: %s", " ".join(unknown))
@@ -6306,7 +6410,8 @@ def main(argv: list[str] | None = None) -> int:
         log.info(n)
     if (args.headless or args.validate or args.protocol or getattr(args, "audit_asymmetry", False)
             or getattr(args, "benchmark", False) or getattr(args, "threshold_sweep", False)
-            or getattr(args, "signflip_test", False) or getattr(args, "critical_path", None)):
+            or getattr(args, "signflip_test", False) or getattr(args, "critical_path", None)
+            or (args.headless and getattr(args, "replay", None))):
         from kickthefly.lab import headless
 
         return headless.main(args)

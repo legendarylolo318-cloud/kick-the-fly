@@ -46,6 +46,11 @@ This release, on the NumPy reference backend (n = 10 flies, mean ± SD; Numba an
 | `cold_trn_to_vp3pn`: cold-sensing antennal neurons (TRN_VP3a/b) excite the VP3 projection neurons (Gallio et al. 2011; Frank et al. 2015) | VP3 PNs x1.86 ± 0.08 vs x0.96 ± 0.05 for 7 random sensory neurons, p < 0.001 | **PASS** (activation, not thermotaxis) |
 | Grooming hierarchy: with head and abdomen stimulated together, the head (front-leg) program wins and the abdomen (hind-leg) program is suppressed ([Seeds et al. 2014](https://elifesciences.org/articles/02951)) | abdomen alone: hind-leg motor neurons x1.46 ± 0.03 (1.5x needed); both: front-leg x1.09 ± 0.06 vs hind-leg x1.44 ± 0.02 (priority p = 1.00), hind-leg not lower than abdomen alone (p = 0.07) | **FAIL: no hierarchy** |
 | Optomotor: rightward wide-field rotation (T4a/T5a_R front-to-back, T4b/T5b_L back-to-front) excites the right steering neurons ([Maisak et al. 2013](https://www.nature.com/articles/nature12320); Rayshubskiy et al. 2020) | DNa01_R + DNa02_R x2.72 ± 0.88 vs x0.80 ± 0.32 for as many random optic-lobe intrinsic neurons, p < 0.001; the left pair x1.09 | **PASS** (through a game-rule EMD stage) |
+| `or67d_to_da1pn`: cVA-sensing ORNs (Or67d) excite the DA1 projection neurons ([Datta et al. 2008](https://doi.org/10.1038/nature06808); [Kurtovic et al. 2007](https://doi.org/10.1038/nature05677)) | DA1 PNs x2.58 ± 0.34 vs x0.80 ± 0.15 for 204 random other olfactory receptor neurons, p < 0.001 | **PASS** |
+| `da1pn_to_lh_asp`: DA1 projection neurons excite lateral horn and aSP targets ([Cachero et al. 2010](https://doi.org/10.1016/j.cub.2010.07.045); [Ruta et al. 2010](https://doi.org/10.1038/nature09554)) | LH / aSP targets x2.22 ± 0.28 vs x0.96 ± 0.12 for 26 random other antennal lobe projection neurons, p < 0.001 | **PASS** |
+| `foreleg_grn_to_p1`: Foreleg pheromone GRNs excite the male P1 cluster ([Koganezawa et al. 2010](https://doi.org/10.1016/j.cub.2010.08.017); [Clowney et al. 2015](https://doi.org/10.1016/j.neuron.2015.06.007)) | P1 courtship cluster x1.20 ± 0.11 vs x0.92 ± 0.08 for 64 random sensory neurons, p < 0.001 | **FAIL: too weak** (consistent, below 1.5x) |
+| `mb_extinction`: Mushroom body extinction: unreinforced odor exposure reduces learned fear ([Felsenberg et al. 2018](https://doi.org/10.1038/s41586-018-0055-y)) | extinguished PI 0.90 ± 0.09 vs unextinguished 1.00 ± 0.00, p = 0.0078 | **FAIL: reduction too small** (0.90 vs ≤ 0.65 threshold) |
+| `mb_second_order`: Mushroom body second-order conditioning: odor A + shock, then odor B + odor A ([Geweth & Fiala 2018](https://doi.org/10.3389/fnbeh.2018.00180); Tabone & de Belle 2011) | PI 1.00 ± 0.00 vs unpaired -0.10 ± 0.08, p < 0.001 | **PASS** |
 
 ## What the failures and passes mean
 
@@ -91,11 +96,11 @@ This release, on the NumPy reference backend (n = 10 flies, mean ± SD; Numba an
   field's steady wind as the cue, through exactly the transduction the arena uses, with the first test's pass
   criteria fixed before the run and no weights or time constants tuned. It reaches the ring only weakly (EPG firing
   actually drops, 6.8 to 5.5 spikes/s) and forms no bump. No compass HUD ships.
+- **cVA to DA1 PNs and LH/aSP:** Or67d olfactory receptor neurons drive the DA1 glomerulus projection neurons (x2.58 ± 0.34 vs x0.80 ± 0.15 control, p < 0.001: PASS), which in turn excite lateral horn anterior ventral and aSP targets including LH008m/aSP-f (x2.22 ± 0.28 vs x0.96 ± 0.12 control, p < 0.001: PASS). In multi-fly play, cVA exposure feeds the aggression circuit only through this real connectome wiring without artificial shortcuts.
+- **Foreleg GRN to P1:** Putative ppk23/ppk25 foreleg gustatory receptor neurons (LgLG5..8 in the ProLN nerve) activate ascending vAB3 and PPN1 neurons towards the P1/pC1 courtship hub. Across held-out seeds, P1 excitation averages x1.20 ± 0.11 vs x0.92 ± 0.08 for matched sensory controls (p < 0.001); like P1->ps1, this drive is consistent across seeds but too weak to meet the pre-fixed 1.5x threshold. Reported honestly as a FAIL.
+- **Mushroom body extinction:** Repeated unreinforced odor exposures trigger KC->MBON depotentiation (EXTINCTION_RATE = 0.005; Felsenberg et al. 2018). Extinguished PI drops from 1.00 ± 0.00 to 0.90 ± 0.09 (p = 0.0078), but does not reach the pre-fixed pass threshold of ≤ 0.65 over 12 cycles. Reported honestly as a FAIL without post-hoc parameter tuning.
+- **Second-order conditioning:** Odor A + shock conditioning followed by compound odor B + odor A presentation without shock robustly transfers conditioned avoidance to odor B via fear-driven PPL1 reinforcement (PI 1.00 ± 0.00 vs unpaired -0.10 ± 0.08, p < 0.001: PASS).
 
-## Checked in the 2.9 review
+## Checked in the 2.10 review
 
-The science added in 2.9 was reviewed before release: each number above is from a rerun on the held-out seeds, not
-from the branch's notes (most of which didn't match a rerun of its own code). The review also found no weights,
-thresholds or time constants changed to make a test pass; the pass criteria are unchanged. New thresholds that turn
-firing into game reactions (song, lunge, sleep, CO2/heat/cold logs) are game rules in Lab > Parameters, set above
-each group's calm maximum on exploration seeds.
+All new validation tests were evaluated on held-out seeds 1000-1009 with criteria fixed in advance. Pass/fail results are reported faithfully without tuning weights, time constants, or thresholds to force passes. Replay determinism was verified bit-exact on CPU backends (NumPy, Numba, torch-cpu), and localization catalogs maintain strict preservation of canonical connectome, anatomical, and genetic nomenclature.

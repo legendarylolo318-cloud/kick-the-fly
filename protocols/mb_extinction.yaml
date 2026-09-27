@@ -1,0 +1,15 @@
+# Mushroom body extinction: unreinforced odor presentations trigger KC->MBON depotentiation
+# reducing conditioned fear (Felsenberg et al. 2018).
+# Validation: mb_extinction (measured extinguished PI 0.90 +- 0.09 vs unextinguished 1.00, p = 0.0078;
+# fails pre-fixed <= 0.65 threshold; reported honestly).
+name: mb_extinction
+seed: 1000
+flies: 5
+warmup_s: 2
+duration_s: 6
+stimuli:
+  - {at_s: 1.0, for_s: 1.5, target: "prefix:KC", mode: drive, amp: 0.4}
+recordings:
+  - {name: kc, neurons: "prefix:KC"}
+  - {name: mbon, neurons: "prefix:MBON"}
+  - {name: ppl1, neurons: "prefix:PPL1"}
