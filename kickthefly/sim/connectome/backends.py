@@ -9,8 +9,13 @@ Provides backend interface and implementations:
 from __future__ import annotations
 
 import logging
+import os
+import threading
 import time
 import warnings
+import weakref
+from collections import deque
+from concurrent.futures import Future
 from typing import Any
 import numpy as np
 import scipy.sparse as sp
@@ -617,101 +622,710 @@ def _gl_compute_available() -> tuple[bool, str]:
         binder.make_current(saved)
 
 
-_SPMV_COMPUTE_SHADER = """
+# Batched multi-fly on gl (2.10). A group of flies shares one GL context on a thread of its own, with the connectome's
+# weights on the GPU once. Each step the flies that are due are dispatched together: one SpMM pass streams the weights
+# once for all of them (the torch backends' batched SpMM, done in a compute shader), then one LIF pass updates every
+# fly. Per-fly state is fly-major (fly f's neuron i at f * n + i); spikes are one word per neuron with a bit per fly,
+# so a group holds up to 32 flies. A fly on its own (KICK_THE_FLY_GL_BATCH=0, or the only gl brain) is a group of one
+# and runs the same shaders, which is what keeps batched and unbatched bit-exact with each other.
+#
+# Flies learn separately, so their weights are not all the same. Rows where they differ (the KC -> MBON rows, once
+# learning touches them) become private: row_off[row] points into row_vals, which holds that row's weights once per
+# fly. Every other row reads the shared values. A fly whose weights differ from the group's in too many rows (a lesion,
+# a synapse threshold) moves to a group of its own.
+
+_NO_ROW = 0xFFFFFFFF
+
+
+class _GLFence:
+    """Waits for the GPU without holding Python's GIL.
+
+    ModernGL keeps the GIL through every GL call, ctx.finish() and buffer reads included, so while one group's GPU
+    work runs every brain thread in the process stands still. glClientWaitSync called through ctypes releases it:
+    the brains do their Python work while the GPU steps them. Resolved with the group's context current; if any
+    entry point is missing, wait() is ctx.finish()."""
+
+    _GPU_COMMANDS_COMPLETE, _FLUSH, _TIMEOUT, _FAILED = 0x9117, 0x1, 0x911B, 0x911D
+
+    def __init__(self, ctx) -> None:
+        import ctypes
+        import sys
+        self.ctx = ctx
+        self._fence = self._wait = self._delete = None
+        functype = getattr(ctypes, "WINFUNCTYPE", ctypes.CFUNCTYPE) if sys.platform == "win32" else ctypes.CFUNCTYPE
+        protos = {"glFenceSync": functype(ctypes.c_void_p, ctypes.c_uint, ctypes.c_uint),
+                  "glClientWaitSync": functype(ctypes.c_uint, ctypes.c_void_p, ctypes.c_uint, ctypes.c_uint64),
+                  "glDeleteSync": functype(None, ctypes.c_void_p)}
+        found = {}
+        for name, proto in protos.items():
+            addr = self._proc_address(ctypes, sys, name)
+            if not addr:
+                return
+            found[name] = proto(addr)
+        self._fence, self._wait, self._delete = found["glFenceSync"], found["glClientWaitSync"], found["glDeleteSync"]
+
+    @staticmethod
+    def _proc_address(ctypes, sys, name: str) -> int:
+        b = name.encode()
+        loaders = []
+        if sys.platform == "win32":
+            loaders.append(("opengl32", "wglGetProcAddress"))
+        else:
+            loaders += [("libEGL.so.1", "eglGetProcAddress"), ("libGL.so.1", "glXGetProcAddressARB")]
+        for lib, fn in loaders:
+            try:
+                handle = ctypes.windll.opengl32 if lib == "opengl32" else ctypes.CDLL(lib)
+                get = getattr(handle, fn)
+                get.restype = ctypes.c_void_p
+                get.argtypes = [ctypes.c_char_p]
+                addr = get(b)
+                if addr and addr not in (1, 2, 3, -1):         # wglGetProcAddress's error values
+                    return addr
+            except Exception:
+                continue
+        return 0
+
+    @property
+    def available(self) -> bool:
+        return self._fence is not None
+
+    def wait(self) -> None:
+        if self._fence is None:
+            self.ctx.finish()
+            return
+        sync = self._fence(self._GPU_COMMANDS_COMPLETE, 0)
+        try:
+            while True:
+                r = self._wait(sync, self._FLUSH, 1_000_000_000)
+                if r == self._FAILED:
+                    self.ctx.finish()
+                    return
+                if r != self._TIMEOUT:
+                    return
+        finally:
+            self._delete(sync)
+
+# SSBO binding points, shared by the three shaders of one context
+_B_ROWPTR, _B_COLIND, _B_VALUES, _B_V, _B_REFR, _B_SPIKES, _B_NOISE, _B_SENS, _B_ISYN, _B_SCATTER, _B_ROWOFF, \
+    _B_ROWVALS, _B_PARAMS, _B_TARGET = range(14)
+
+_SPMM_COMPUTE_SHADER = """
 #version 430
 layout(local_size_x = 64) in;
 layout(std430, binding = 0) readonly buffer BRowPtr { uint row_ptr[]; };
 layout(std430, binding = 1) readonly buffer BColInd { uint col_ind[]; };
 layout(std430, binding = 2) readonly buffer BValues { float values[]; };
 layout(std430, binding = 5) readonly buffer BSpikes { uint spikes[]; };
-layout(std430, binding = 8) writeonly buffer BISyn   { float i_syn[]; };
+layout(std430, binding = 8) writeonly buffer BISyn { float i_syn[]; };
+layout(std430, binding = 10) readonly buffer BRowOff { uint row_off[]; };
+layout(std430, binding = 11) readonly buffer BRowVals { float row_vals[]; };
 uniform uint num_neurons;
+uniform uint num_slots;
+uniform uint active_mask;
 
+shared float s_w[64];
+shared uint s_mask[32][2];              // per fly: which of the chunk's 64 synapses had a spiking presynaptic neuron
+
+// One workgroup per row (a neuron's inputs). The 64 lanes look up 64 synapses' presynaptic spikes at once, which is
+// what a thread walking a 9,184-synapse row alone waits on; then lane f adds fly f's weights for the spiking ones in
+// CSR order. Each fly's input is the same additions in the same order as CPUBackend's, whatever the batch.
 void main() {
-    uint i = gl_GlobalInvocationID.x;
-    if (i >= num_neurons) return;
-    uint start = row_ptr[i];
-    uint end = row_ptr[i + 1];
-    float sum = 0.0;
-    for (uint idx = start; idx < end; ++idx) {
-        if (spikes[col_ind[idx]] != 0u) {
-            sum += values[idx];
+    uint row = gl_WorkGroupID.x + gl_WorkGroupID.y * gl_NumWorkGroups.x;
+    if (row >= num_neurons) return;                     // the whole workgroup, so the barriers below stay uniform
+    uint lane = gl_LocalInvocationID.x;
+    uint start = row_ptr[row];
+    uint end = row_ptr[row + 1];
+    uint off = row_off[row];
+    bool mine = lane < num_slots && ((active_mask >> lane) & 1u) != 0u;
+    precise float acc = 0.0;
+    for (uint base = start; base < end; base += 64u) {
+        if (lane < 32u) { s_mask[lane][0] = 0u; s_mask[lane][1] = 0u; }
+        barrier();
+        uint idx = base + lane;
+        if (idx < end) {
+            uint bits = spikes[col_ind[idx]] & active_mask;
+            if (bits != 0u) {
+                if (off == 0xFFFFFFFFu) s_w[lane] = values[idx];
+                uint word = lane >> 5;
+                uint bit = 1u << (lane & 31u);
+                while (bits != 0u) { int f = findLSB(bits); atomicOr(s_mask[f][word], bit); bits &= bits - 1u; }
+            }
         }
+        memoryBarrierShared();
+        barrier();
+        if (mine) {
+            for (uint word = 0u; word < 2u; ++word) {
+                uint m = s_mask[lane][word];
+                while (m != 0u) {
+                    uint j = word * 32u + uint(findLSB(m));
+                    m &= m - 1u;
+                    acc += (off == 0xFFFFFFFFu) ? s_w[j] : row_vals[(off + base - start + j) * num_slots + lane];
+                }
+            }
+        }
+        barrier();
     }
-    i_syn[i] = sum;
+    if (mine) i_syn[lane * num_neurons + row] = acc;
 }
 """
 
 _LIF_COMPUTE_SHADER = """
 #version 430
 layout(local_size_x = 64) in;
-layout(std430, binding = 3) buffer BV       { float v[]; };
-layout(std430, binding = 4) buffer BRefr    { int refr[]; };
-layout(std430, binding = 5) buffer BSpikes  { uint spikes[]; };
-layout(std430, binding = 6) readonly buffer BNoise   { float noise[]; };
-layout(std430, binding = 7) readonly buffer BSens    { float sensory[]; };
-layout(std430, binding = 8) readonly buffer BISyn    { float i_syn[]; };
-
+struct FlyParams {
+    float gain; float bias; float ext_gain; float leak_decay; float leak_reset; float v_reset; float v_thresh;
+    int refr_steps; uint noise_off; uint has_sens; uint scale_sens; uint has_reset;
+};
+layout(std430, binding = 3) buffer BV { float v[]; };
+layout(std430, binding = 4) buffer BRefr { int refr[]; };
+layout(std430, binding = 5) buffer BSpikes { uint spikes[]; };
+layout(std430, binding = 6) readonly buffer BNoise { float noise[]; };
+layout(std430, binding = 7) readonly buffer BSens { float sensory[]; };
+layout(std430, binding = 8) readonly buffer BISyn { float i_syn[]; };
+layout(std430, binding = 12) readonly buffer BParams { FlyParams fp[]; };
 uniform uint num_neurons;
-uniform uint noise_offset;
-uniform float gain;
-uniform float bias;
-uniform float ext_gain;
-uniform float leak_decay;
-uniform float leak_reset;
-uniform float v_reset;
-uniform float v_thresh;
-uniform int refr_steps;
-uniform int has_sensory;
+uniform uint noise_len;
+uniform uint active_mask;
 
+// CPUBackend.step's operations in its order; precise keeps the compiler from fusing them into multiply-adds.
 void main() {
     uint i = gl_GlobalInvocationID.x;
     if (i >= num_neurons) return;
-
-    float drive = i_syn[i] * gain + bias + noise[noise_offset + i];
-    if (has_sensory != 0) {
-        drive += sensory[i] * ext_gain;
+    uint bits = spikes[i] & ~active_mask;
+    uint a = active_mask;
+    while (a != 0u) {
+        uint f = uint(findLSB(a));
+        a &= a - 1u;
+        uint k = f * num_neurons + i;
+        precise float drive = i_syn[k] * fp[f].gain;
+        drive += fp[f].bias;
+        drive += noise[f * noise_len + fp[f].noise_off + i];
+        if (fp[f].has_sens != 0u) {
+            float s = sensory[k];
+            drive += (fp[f].scale_sens != 0u) ? fp[f].ext_gain * s : s;
+        }
+        precise float vv = v[k] * fp[f].leak_decay;
+        if (fp[f].has_reset != 0u) vv += fp[f].leak_reset;
+        vv += drive;
+        int r = refr[k];
+        if (r > 0) {
+            vv = fp[f].v_reset;
+            r -= 1;
+        }
+        if (vv >= fp[f].v_thresh) {
+            bits |= 1u << f;
+            v[k] = fp[f].v_reset;
+            refr[k] = fp[f].refr_steps;
+        } else {
+            v[k] = vv;
+            refr[k] = r;
+        }
     }
-
-    float v_val = v[i] * leak_decay + leak_reset + drive;
-    int r = refr[i];
-    if (r > 0) {
-        v_val = v_reset;
-        r -= 1;
-    }
-
-    if (v_val >= v_thresh) {
-        spikes[i] = 1u;
-        v[i] = v_reset;
-        refr[i] = refr_steps;
-    } else {
-        spikes[i] = 0u;
-        v[i] = v_val;
-        refr[i] = r;
-    }
+    spikes[i] = bits;
 }
 """
-
 
 _SCATTER_COMPUTE_SHADER = """
 #version 430
 layout(local_size_x = 64) in;
-layout(std430, binding = 2) buffer BValues { float values[]; };
-layout(std430, binding = 9) readonly buffer BScatter { uvec2 items[]; };   // (W_csr.data index, float bits)
+layout(std430, binding = 13) buffer BTarget { float target[]; };
+layout(std430, binding = 9) readonly buffer BScatter { uvec2 items[]; };   // (index into target, float bits)
 uniform uint count;
 
 void main() {
     uint i = gl_GlobalInvocationID.x;
     if (i >= count) return;
     uvec2 it = items[i];
-    values[it.x] = uintBitsToFloat(it.y);
+    target[it.x] = uintBitsToFloat(it.y);
 }
 """
+
+_FLY_PARAMS = np.dtype([("gain", "<f4"), ("bias", "<f4"), ("ext_gain", "<f4"), ("leak_decay", "<f4"),
+                        ("leak_reset", "<f4"), ("v_reset", "<f4"), ("v_thresh", "<f4"), ("refr_steps", "<i4"),
+                        ("noise_off", "<u4"), ("has_sens", "<u4"), ("scale_sens", "<u4"), ("has_reset", "<u4")])
+
+
+class _GLGroup:
+    """Up to MAX_SLOTS flies' brains on one GL context, stepped together. Everything GL runs on the group's own
+    thread: brains hand it their steps (submit) and anything else (call) and wait for the answer."""
+
+    MAX_SLOTS = 32                  # one bit per fly in a neuron's spike word
+    GATHER_S = 0.002                # how long a dispatch waits for the group's other running flies
+    LIVE_S = 0.05                   # a fly that stepped this recently is running, and worth waiting for
+    MAX_PRIVATE = 0.125             # at most this share of the synapses may be per-fly before a fly gets its own group
+
+    _registry: list["_GLGroup"] = []
+    _registry_lock = threading.Lock()
+
+    @classmethod
+    def join(cls, backend: "GLBackend", shared: bool) -> tuple["_GLGroup", int]:
+        """A slot for this brain: in an open shared group that takes it, else in a new group."""
+        with cls._registry_lock:
+            cls._registry[:] = [g for g in cls._registry if not g.closed]
+            if shared:
+                for g in list(cls._registry):
+                    try:
+                        slot = g.call(g._add, backend)
+                    except Exception:                       # closed since, or broken: try the next one
+                        continue
+                    if slot is not None:
+                        return g, slot
+            g = cls(backend.sim, shared)
+            slot = g.call(g._add, backend)
+            if slot is None:
+                g.close()
+                raise RuntimeError("a new OpenGL brain group refused its first brain")
+            if shared:
+                cls._registry.append(g)
+            return g, slot
+
+    def __init__(self, sim: Any, shared: bool) -> None:
+        W = sim.W_csr
+        self.shared = shared
+        self.n = int(sim.n)
+        self.nnz = int(W.nnz)
+        self.indptr = W.indptr                       # structure the members share (compared by value on joining)
+        self.indices = W.indices
+        self.base = np.ascontiguousarray(W.data, dtype=np.float32).copy()   # the shared weights, as on the GPU
+        self.noise_len = int(sim._noise.size)
+        self.members: list[Any] = []                 # weakref to each slot's backend, or None
+        self.row_off = np.full(self.n, _NO_ROW, np.uint32)
+        self.priv_pos = np.zeros(0, np.int64)        # W_csr.data index of each private entry, in row_vals order
+        self.slots = 0
+        self.max_slots = self.MAX_SLOTS
+        self.dispatches = 0                          # how many batched steps ran, and how many fly-steps they carried
+        self.fly_steps = 0
+        self.closed = False
+        self._cond = threading.Condition()
+        self._tasks: deque = deque()
+        self._pending: dict[int, tuple] = {}
+        self._first_pending = 0.0
+        self._last_seen: dict[int, float] = {}
+        self._ready = threading.Event()
+        self._error: Exception | None = None
+        self.ctx = None
+        self.device_name = ""
+        self._thread = threading.Thread(target=self._run, name="gl-brains", daemon=True)
+        self._thread.start()
+        self._ready.wait()
+        if self._error is not None:
+            raise self._error
+
+    # --- called from brain threads --------------------------------------------------------------------------
+    def call(self, fn, *args):
+        """Run fn(*args) on the group's thread and return its result (or raise its exception)."""
+        fut: Future = Future()
+        with self._cond:
+            if self.closed:
+                raise RuntimeError("this OpenGL brain group is closed")
+            self._tasks.append((fn, args, fut))
+            self._cond.notify_all()
+        return fut.result()
+
+    def post(self, fn, *args) -> None:
+        """call() without waiting (a garbage-collected brain giving its slot back)."""
+        with self._cond:
+            if not self.closed:
+                self._tasks.append((fn, args, Future()))
+                self._cond.notify_all()
+
+    def submit(self, slot: int, params: np.ndarray, sens: np.ndarray | None) -> np.ndarray:
+        """One step for this slot's fly, batched with whichever of the others are due. Returns its spikes."""
+        fut: Future = Future()
+        with self._cond:
+            if self.closed:
+                raise RuntimeError("this OpenGL brain group is closed")
+            now = time.perf_counter()
+            if not self._pending:
+                self._first_pending = now
+            self._pending[slot] = (params, sens, fut)
+            self._last_seen[slot] = now
+            self._cond.notify_all()
+        return fut.result()
+
+    def close(self) -> None:
+        # join() drops closed groups from the registry. Taking its lock here could deadlock: this runs on the
+        # group's thread (the last brain leaving) while join() may hold the lock waiting for this very thread.
+        with self._cond:
+            self.closed = True
+            self._cond.notify_all()
+
+    @property
+    def member_count(self) -> int:
+        return sum(1 for m in self.members if m is not None and m() is not None)
+
+    # --- the group's thread ---------------------------------------------------------------------------------
+    def _run(self) -> None:
+        try:
+            self._init_context()
+        except Exception as e:
+            self._error = e
+            self.closed = True
+            self._ready.set()
+            return
+        self._ready.set()
+        while True:
+            with self._cond:
+                while not self._tasks and not self._pending and not self.closed:
+                    self._cond.wait()
+                if self._tasks:
+                    task = self._tasks.popleft()
+                    batch = None
+                elif self._pending:
+                    task = None
+                    deadline = self._first_pending + self.GATHER_S
+                    while not self._tasks:
+                        now = time.perf_counter()
+                        live = {s for s, t in self._last_seen.items() if now - t < self.LIVE_S}
+                        if live.issubset(self._pending) or now >= deadline:
+                            break
+                        self._cond.wait(deadline - now)
+                    batch, self._pending = self._pending, {}
+                else:                                         # closed, nothing left to do
+                    break
+            if task is not None:
+                fn, args, fut = task
+                try:
+                    fut.set_result(fn(*args))
+                except Exception as e:
+                    fut.set_exception(e)
+            elif batch:
+                try:
+                    self._dispatch(batch)
+                except Exception as e:
+                    for _, _, fut in batch.values():
+                        if not fut.done():
+                            fut.set_exception(e)
+                    self.close()                              # its brains fall back to the CPU; no one joins it again
+        for _, _, fut in list(self._pending.values()) + [(None, None, t[2]) for t in self._tasks]:
+            if not fut.done():
+                fut.set_exception(RuntimeError("this OpenGL brain group is closed"))
+        try:
+            self.ctx.release()
+        except Exception:
+            pass
+
+    def _init_context(self) -> None:
+        self.ctx = ctx = _create_gl_context()
+        if ctx.version_code < 430:
+            ver = ctx.version_code / 100.0
+            ctx.release()
+            raise RuntimeError(f"OpenGL {ver:.1f} does not support compute shaders (OpenGL 4.3+ required)")
+        self.device_name = f"OpenGL {ctx.version_code / 100.0:.1f}: {ctx.info.get('GL_RENDERER', 'OpenGL GPU')}"
+        bindings = int(ctx.info.get("GL_MAX_SHADER_STORAGE_BUFFER_BINDINGS", 0) or 0)
+        if bindings and bindings < 14:
+            raise RuntimeError(f"OpenGL offers {bindings} storage buffer bindings, the brain needs 14")
+        block = int(ctx.info.get("GL_MAX_SHADER_STORAGE_BLOCK_SIZE", 0) or 0) & 0xFFFFFFFF
+        if block:
+            # every fly's noise bank is one buffer, and it has to fit in one shader storage block
+            self.max_slots = max(1, min(self.MAX_SLOTS, block // (self.noise_len * 4)))
+        self.fence = _GLFence(ctx)
+        self.cs_spmm = ctx.compute_shader(_SPMM_COMPUTE_SHADER)
+        self.cs_lif = ctx.compute_shader(_LIF_COMPUTE_SHADER)
+        self.cs_scatter = ctx.compute_shader(_SCATTER_COMPUTE_SHADER)
+        self.num_groups = (self.n + 63) // 64
+        self.row_groups = (min(self.n, 65535), (self.n + 65534) // 65535)
+        self.buf_rowptr = ctx.buffer(self.indptr.astype(np.uint32).tobytes())
+        self.buf_colind = ctx.buffer(self.indices.astype(np.uint32).tobytes())
+        self.buf_values = ctx.buffer(self.base.tobytes())
+        self.buf_rowoff = ctx.buffer(self.row_off.tobytes())
+        self.buf_spikes = ctx.buffer(reserve=self.n * 4)
+        self.buf_rowvals = ctx.buffer(reserve=64 * 1024)
+        self.buf_scatter = ctx.buffer(reserve=64 * 1024)
+        self.buf_v = self.buf_refr = self.buf_isyn = self.buf_sens = self.buf_noise = self.buf_params = None
+        self.cs_spmm["num_neurons"] = self.n
+        self.cs_lif["num_neurons"] = self.n
+        self.cs_lif["noise_len"] = self.noise_len
+        self._alloc_slots(1)
+
+    def _bind(self) -> None:
+        for buf, b in ((self.buf_rowptr, _B_ROWPTR), (self.buf_colind, _B_COLIND), (self.buf_values, _B_VALUES),
+                       (self.buf_v, _B_V), (self.buf_refr, _B_REFR), (self.buf_spikes, _B_SPIKES),
+                       (self.buf_noise, _B_NOISE), (self.buf_sens, _B_SENS), (self.buf_isyn, _B_ISYN),
+                       (self.buf_scatter, _B_SCATTER), (self.buf_rowoff, _B_ROWOFF), (self.buf_rowvals, _B_ROWVALS),
+                       (self.buf_params, _B_PARAMS)):
+            buf.bind_to_storage_buffer(b)
+
+    def _alloc_slots(self, slots: int) -> None:
+        """(Re)allocate the per-fly buffers for `slots` flies. Callers re-upload every member afterwards."""
+        for name in ("buf_v", "buf_refr", "buf_isyn", "buf_sens", "buf_noise", "buf_params"):
+            buf = getattr(self, name)
+            if buf is not None:
+                buf.release()
+        n, ctx = self.n, self.ctx
+        self.buf_v = ctx.buffer(reserve=n * 4 * slots)
+        self.buf_refr = ctx.buffer(reserve=n * 4 * slots)
+        self.buf_isyn = ctx.buffer(reserve=n * 4 * slots)
+        self.buf_sens = ctx.buffer(reserve=n * 4 * slots)
+        self.buf_noise = ctx.buffer(reserve=self.noise_len * 4 * slots)
+        self.buf_params = ctx.buffer(reserve=_FLY_PARAMS.itemsize * slots)
+        old = self.slots
+        self.slots = slots
+        self.members += [None] * (slots - len(self.members))
+        self.cs_spmm["num_slots"] = slots
+        if len(self.priv_pos):
+            self._write_rowvals(0, self.priv_pos)             # row_vals' layout depends on the slot count
+        self._bind()
+        if old and old != slots:
+            log.info("OpenGL brain group resized from %d to %d flies", old, slots)
+
+    def _live_members(self) -> list[tuple[int, Any]]:
+        out = []
+        for slot, ref in enumerate(self.members):
+            be = ref() if ref is not None else None
+            if be is not None:
+                out.append((slot, be))
+            elif ref is not None:
+                self.members[slot] = None
+        return out
+
+    def _data_of(self, slot: int) -> np.ndarray:
+        ref = self.members[slot] if slot < len(self.members) else None
+        be = ref() if ref is not None else None
+        return be.sim.W_csr.data if be is not None else self.base
+
+    def _rows_of(self, pos: np.ndarray) -> np.ndarray:
+        return np.searchsorted(self.indptr, pos, side="right") - 1
+
+    def _add(self, backend: "GLBackend") -> int | None:
+        """Take this brain into a free slot, or None if it doesn't fit here (other wiring, or no room)."""
+        sim = backend.sim
+        W = sim.W_csr
+        live = self._live_members()
+        if live:
+            if (sim.n != self.n or W.nnz != self.nnz or sim._noise.size != self.noise_len
+                    or not (W.indptr is self.indptr or np.array_equal(W.indptr, self.indptr))
+                    or not (W.indices is self.indices or np.array_equal(W.indices, self.indices))):
+                return None
+        free = [s for s in range(self.slots) if self.members[s] is None]
+        if not free and self.slots >= self.max_slots:
+            return None
+        data = np.ascontiguousarray(W.data, dtype=np.float32)
+        if live:
+            rows = np.unique(self._rows_of(np.flatnonzero(data != self.base)))
+            rows = rows[self.row_off[rows] == _NO_ROW]
+            if self._private_len() + int(np.sum(np.diff(self.indptr)[rows])) > self.MAX_PRIVATE * self.nnz:
+                return None
+        else:                                                  # an empty group adopts this brain's weights
+            self.base[:] = data
+            self.buf_values.write(self.base.tobytes())
+            rows = np.zeros(0, np.int64)
+        if not free:
+            for s, be in live:
+                self._pull(s, be.sim)
+            self._alloc_slots(min(self.max_slots, max(1, self.slots * 2)))
+            for s, be in live:
+                self._push(s, be.sim)
+                self._push_noise(s, be.sim)
+            free = [s for s in range(self.slots) if self.members[s] is None]
+        slot = free[0]
+        self.members[slot] = weakref.ref(backend)
+        self._last_seen.pop(slot, None)
+        if len(rows):
+            self._privatize(rows)
+        if len(self.priv_pos):
+            self._write_rowvals(slot, self.priv_pos, only_slot=True)
+        self._push(slot, sim)
+        self._push_noise(slot, sim)
+        return slot
+
+    def _remove(self, slot: int) -> None:
+        if slot < len(self.members):
+            self.members[slot] = None
+        self._last_seen.pop(slot, None)
+        if not self._live_members():
+            self.close()
+
+    def _private_len(self) -> int:
+        return len(self.priv_pos)
+
+    def _privatize(self, rows: np.ndarray) -> int:
+        """Give these rows per-fly weights: each slot's copy comes from its own brain's W_csr.data."""
+        rows = np.asarray(rows, np.int64)
+        lens = np.diff(self.indptr)[rows].astype(np.int64)
+        starts = self.indptr[rows].astype(np.int64)
+        first = len(self.priv_pos)
+        offs = first + np.concatenate(([0], np.cumsum(lens)[:-1])) if len(rows) else np.zeros(0, np.int64)
+        pos = np.repeat(starts - offs, lens) + np.arange(first, first + int(lens.sum()))
+        self.row_off[rows] = offs.astype(np.uint32)
+        self.priv_pos = np.concatenate((self.priv_pos, pos))
+        self.buf_rowoff.write(self.row_off.tobytes())
+        return self._write_rowvals(None, pos, first=first) + self.row_off.nbytes
+
+    def _write_rowvals(self, slot: int | None, pos: np.ndarray, first: int = 0, only_slot: bool = False) -> int:
+        """Upload private entries. slot None: every slot's values for entries first.. (appended rows); only_slot: one
+        slot's values for all entries (a brain joining or a full weight change); slot 0 with first 0 and not
+        only_slot: rebuild the whole table (after a resize)."""
+        F = self.slots
+        if only_slot:
+            e = np.arange(len(self.priv_pos), dtype=np.int64)
+            return self._scatter_to(self.buf_rowvals, e * F + slot, self._data_of(slot)[self.priv_pos])
+        need = (first + len(pos)) * F * 4
+        if self.buf_rowvals.size < need:
+            grown = self.ctx.buffer(reserve=max(need, 2 * self.buf_rowvals.size))
+            if first:
+                self.ctx.copy_buffer(grown, self.buf_rowvals, size=first * F * 4)
+            self.buf_rowvals.release()
+            self.buf_rowvals = grown
+            self.buf_rowvals.bind_to_storage_buffer(_B_ROWVALS)
+        block = np.empty((len(pos), F), np.float32)
+        for s in range(F):
+            block[:, s] = self._data_of(s)[pos]
+        self.buf_rowvals.write(block.tobytes(), offset=first * F * 4)
+        return block.nbytes
+
+    def _scatter_to(self, target, index: np.ndarray, values: np.ndarray) -> int:
+        """(index, value) pairs written into `target` by a compute shader (issue #2: 8 bytes per changed synapse)."""
+        if not len(index):
+            return 0
+        items = np.empty((len(index), 2), np.uint32)
+        items[:, 0] = index
+        items[:, 1] = np.ascontiguousarray(values, dtype=np.float32).view(np.uint32)
+        if self.buf_scatter.size < items.nbytes:
+            size = max(items.nbytes, 2 * self.buf_scatter.size)
+            self.buf_scatter.release()
+            self.buf_scatter = self.ctx.buffer(reserve=size)
+            self.buf_scatter.bind_to_storage_buffer(_B_SCATTER)
+        self.buf_scatter.write(items.tobytes())
+        target.bind_to_storage_buffer(_B_TARGET)
+        self.cs_scatter["count"] = len(index)
+        self.cs_scatter.run((len(index) + 63) // 64)
+        self.ctx.memory_barrier(moderngl.SHADER_STORAGE_BARRIER_BIT)
+        return items.nbytes
+
+    def _write_runs(self, pos: np.ndarray, data: np.ndarray, gap: int) -> int:
+        """Changed shared weights as a few contiguous writes. pos must be sorted."""
+        brk = np.flatnonzero(np.diff(pos) > gap)
+        starts = np.concatenate(([pos[0]], pos[brk + 1]))
+        ends = np.concatenate((pos[brk], [pos[-1]])) + 1
+        total = 0
+        for a, b in zip(starts.tolist(), ends.tolist()):
+            chunk = np.ascontiguousarray(data[a:b], dtype=np.float32)
+            self.buf_values.write(chunk, offset=a * 4)
+            total += chunk.nbytes
+        return total
+
+    def _weights(self, slot: int, positions: np.ndarray | None, mode: str, gap: int):
+        """A brain's W_csr.data changed at `positions` (None: anywhere). Returns (kind, bytes, seconds), or None when
+        the brain's weights now differ from the group's in too many rows and it should move to a group of its own."""
+        t0 = time.perf_counter()
+        data = self._data_of(slot)
+        sole = len(self._live_members()) == 1
+        if positions is None:
+            kind = "full"
+            if sole:                                          # its weights are the shared ones
+                self.base[:] = data
+                self.buf_values.write(self.base.tobytes())
+                nbytes = self.base.nbytes
+            else:
+                rows = np.unique(self._rows_of(np.flatnonzero(np.asarray(data, np.float32) != self.base)))
+                rows = rows[self.row_off[rows] == _NO_ROW]
+                if self._private_len() + int(np.sum(np.diff(self.indptr)[rows])) > self.MAX_PRIVATE * self.nnz:
+                    return None
+                nbytes = self._privatize(rows) if len(rows) else 0
+            if len(self.priv_pos):
+                nbytes += self._write_rowvals(slot, self.priv_pos, only_slot=True)
+            return kind, nbytes, time.perf_counter() - t0
+        pos = np.asarray(positions, np.int64)
+        if not len(pos):
+            return "part", 0, 0.0
+        if sole and not len(self.priv_pos):                   # a fly on its own: every row is shared, skip the lookup
+            rows, shared = None, np.ones(len(pos), bool)
+        else:
+            rows = self._rows_of(pos)
+            shared = self.row_off[rows] == _NO_ROW
+        nbytes = 0
+        if shared.any():
+            if sole:
+                sp_pos = pos[shared]
+                self.base[sp_pos] = data[sp_pos]
+                if mode == "scatter":
+                    nbytes += self._scatter_to(self.buf_values, sp_pos, self.base[sp_pos])
+                else:
+                    nbytes += self._write_runs(sp_pos, self.base, gap)
+                pos = pos[~shared]
+                rows = rows[~shared] if rows is not None else None
+            else:
+                new = np.unique(rows[shared])
+                if self._private_len() + int(np.sum(np.diff(self.indptr)[new])) > self.MAX_PRIVATE * self.nnz:
+                    return None
+                nbytes += self._privatize(new)
+        if len(pos):
+            e = self.row_off[rows].astype(np.int64) + (pos - self.indptr[rows])
+            nbytes += self._scatter_to(self.buf_rowvals, e * self.slots + slot, data[pos])
+        return "part", nbytes, time.perf_counter() - t0
+
+    def _read_weights(self, slot: int) -> np.ndarray:
+        """The weights this slot's fly is using, read back from the GPU."""
+        self.ctx.memory_barrier(moderngl.BUFFER_UPDATE_BARRIER_BIT)
+        self.ctx.finish()
+        out = np.frombuffer(self.buf_values.read(), dtype=np.float32).copy()
+        if len(self.priv_pos):
+            F = self.slots
+            rv = np.frombuffer(self.buf_rowvals.read(size=len(self.priv_pos) * F * 4), dtype=np.float32)
+            out[self.priv_pos] = rv.reshape(-1, F)[:, slot]
+        return out
+
+    def _push(self, slot: int, sim: Any) -> None:
+        n = self.n
+        self.buf_v.write(np.ascontiguousarray(sim.v, dtype=np.float32).tobytes(), offset=slot * n * 4)
+        self.buf_refr.write(np.ascontiguousarray(sim.refr, dtype=np.int32).tobytes(), offset=slot * n * 4)
+        self.ctx.finish()
+        bits = np.frombuffer(self.buf_spikes.read(), dtype=np.uint32).copy()
+        bit = np.uint32(1 << slot)
+        bits &= ~bit
+        bits[np.asarray(sim.spikes, bool)] |= bit
+        self.buf_spikes.write(bits.tobytes())
+
+    def _push_noise(self, slot: int, sim: Any) -> None:
+        if sim._noise.size != self.noise_len:
+            raise RuntimeError("the noise bank changed size")
+        self.buf_noise.write(np.ascontiguousarray(sim._noise, dtype=np.float32).tobytes(),
+                             offset=slot * self.noise_len * 4)
+
+    def _pull(self, slot: int, sim: Any) -> None:
+        n = self.n
+        self.ctx.memory_barrier(moderngl.BUFFER_UPDATE_BARRIER_BIT)
+        self.ctx.finish()
+        sim.v[:] = np.frombuffer(self.buf_v.read(size=n * 4, offset=slot * n * 4), dtype=np.float32)
+        sim.refr[:] = np.frombuffer(self.buf_refr.read(size=n * 4, offset=slot * n * 4), dtype=np.int32)
+        bits = np.frombuffer(self.buf_spikes.read(), dtype=np.uint32)
+        sim.spikes[:] = (bits >> np.uint32(slot)) & np.uint32(1)
+
+    def _dispatch(self, batch: dict[int, tuple]) -> None:
+        n = self.n
+        params = np.zeros(self.slots, _FLY_PARAMS)
+        active = 0
+        for slot, (p, sens, _) in batch.items():
+            params[slot] = p
+            active |= 1 << slot
+            if sens is not None:
+                self.buf_sens.write(sens.tobytes(), offset=slot * n * 4)
+        self.buf_params.write(params.tobytes())
+        self.cs_spmm["active_mask"] = active
+        self.cs_lif["active_mask"] = active
+        self.cs_spmm.run(*self.row_groups)
+        self.ctx.memory_barrier(moderngl.SHADER_STORAGE_BARRIER_BIT)
+        self.cs_lif.run(self.num_groups)
+        # SHADER_STORAGE orders the next shader's view of these buffers. Reading one back on the host is a
+        # different hazard and needs BUFFER_UPDATE too; without it the map is undefined and Mesa refuses it
+        # outright ("cannot map the buffer"). The fence then waits for the write actually to land.
+        self.ctx.memory_barrier(moderngl.SHADER_STORAGE_BARRIER_BIT | moderngl.BUFFER_UPDATE_BARRIER_BIT)
+        self.fence.wait()
+        bits = np.frombuffer(self.buf_spikes.read(), dtype=np.uint32)
+        self.dispatches += 1
+        self.fly_steps += len(batch)
+        for slot, (_, _, fut) in batch.items():
+            fut.set_result(((bits >> np.uint32(slot)) & np.uint32(1)).astype(bool))
 
 
 class GLBackend(SimBackend):
     """ModernGL compute shader backend: vendor-neutral GPU acceleration using OpenGL 4.3+ compute shaders and SSBOs.
-    Runs on AMD, NVIDIA, and Intel GPUs across Linux and Windows without requiring PyTorch."""
+    Runs on AMD, NVIDIA, and Intel GPUs across Linux and Windows without requiring PyTorch.
+
+    Every gl brain in a process joins a shared _GLGroup (up to 32 flies on one context, the weights streamed once per
+    step for all of them); KICK_THE_FLY_GL_BATCH=0 gives each brain a group of its own instead. The two are
+    bit-exact with each other (tests/test_backends.py)."""
 
     name = "gl"
     # How learning's changed synapses reach the GPU (issue #2). The weight SSBO is W_csr.data in order, so a plastic
@@ -722,29 +1336,20 @@ class GLBackend(SimBackend):
     #              41,495 plastic synapses
     # tools/bench_gl_plastic.py, RX 9070 XT, 10 shock pairings (median 8,500 changed synapses per update): full
     # re-upload 41.1 MB and 2.10 ms per update, runs 88 KB and 0.151 ms, scatter 68 KB and 0.032 ms.
+    # In a group of several flies a fly's learned rows are per-fly (see _GLGroup) and always go by scatter.
     PLASTIC_UPLOAD = "scatter"
     RUN_GAP = 16
+    BATCH = os.environ.get("KICK_THE_FLY_GL_BATCH", "1").strip().lower() not in ("0", "false", "no", "off")
 
     def __init__(self, sim: Any) -> None:
         super().__init__(sim)
-        self.ctx = None
-        self.cs_spmv = None
-        self.cs_lif = None
-        self.buf_rowptr = None
-        self.buf_colind = None
-        self.buf_values = None
-        self.buf_v = None
-        self.buf_refr = None
-        self.buf_spikes = None
-        self.buf_noise = None
-        self.buf_sens = None
-        self.buf_isyn = None
-        self.num_groups = (self.n + 63) // 64
+        self.batched = self.BATCH                   # fixed per brain, so batched and unbatched brains can coexist
+        self._group: _GLGroup | None = None
+        self._slot = -1
+        self._finalizer = None
         self._noise_id = None
-        self._thread_id = None
+        self._W = None
         self._fallback: SimBackend | None = None
-        self.cs_scatter = None
-        self.buf_scatter = None
         # what weight uploads cost: full re-uploads and partial (learning) ones, bytes and seconds (benchmarks, tests)
         self.upload_stats = dict(full_n=0, full_bytes=0, full_s=0.0, part_n=0, part_bytes=0, part_s=0.0)
 
@@ -755,229 +1360,138 @@ class GLBackend(SimBackend):
         if not ok:
             raise RuntimeError(dev)
         self.device_name = dev
-        # The device is built on first use, on whichever thread steps this brain. A GL context belongs to the
-        # thread it was made current on, and a brain is constructed on the main thread but stepped on its own.
+        # The brain joins its group on first use, from the host state it has then (save states and the Lab's
+        # parameters are applied between construction and the first step).
 
-    def _init_device(self) -> None:
-        import threading
-        me = threading.get_ident()
-        if self.ctx is not None:
-            if self._thread_id == me:
-                try:
-                    self.ctx.release()
-                except Exception:
-                    pass
-            # Otherwise the context belongs to another thread: releasing it from here is itself a
-            # glXMakeCurrent, and the BadAccess that follows is fatal. Drop it and let it go with its thread.
-            self.ctx = None
-        self._thread_id = me
+    @property
+    def group_size(self) -> int:
+        """How many brains share this one's GPU group (1 when unbatched)."""
+        return self._group.member_count if self._group is not None else 0
 
-        self.ctx = _create_gl_context()
+    def _attach(self) -> _GLGroup:
+        sim = self.sim
+        if self._group is not None and sim.W_csr is not self._W:
+            # the matrix itself was replaced (the game's mirror-weights setting does that): leave and rejoin with it
+            self._group.call(self._group._pull, self._slot, sim)
+            self._leave()
+        if self._group is None:
+            self._group, self._slot = _GLGroup.join(self, shared=self.batched)
+            self._finalizer = weakref.finalize(self, self._group.post, self._group._remove, self._slot)
+            self._noise_id = id(sim._noise)
+            self._W = sim.W_csr
+        return self._group
 
-        if self.ctx.version_code < 430:
-            ver = self.ctx.version_code / 100.0
-            self.ctx.release()
-            self.ctx = None
-            raise RuntimeError(f"OpenGL {ver:.1f} does not support compute shaders (OpenGL 4.3+ required)")
+    def _leave(self) -> None:
+        g, self._group = self._group, None
+        if self._finalizer is not None:
+            self._finalizer.detach()
+            self._finalizer = None
+        if g is not None:
+            try:
+                g.call(g._remove, self._slot)
+            except Exception:
+                pass
 
-        csr = self.sim.W_csr
-        self.buf_rowptr = self.ctx.buffer(csr.indptr.astype(np.uint32).tobytes())
-        self.buf_colind = self.ctx.buffer(csr.indices.astype(np.uint32).tobytes())
-        self.buf_values = self.ctx.buffer(csr.data.astype(np.float32).tobytes())
-
-        self.buf_v = self.ctx.buffer(reserve=self.n * 4)
-        self.buf_refr = self.ctx.buffer(reserve=self.n * 4)
-        self.buf_spikes = self.ctx.buffer(reserve=self.n * 4)
-        self.buf_noise = self.ctx.buffer(self.sim._noise.astype(np.float32).tobytes())
-        self._noise_id = id(self.sim._noise)
-        self.buf_sens = self.ctx.buffer(reserve=self.n * 4)
-        self.buf_isyn = self.ctx.buffer(reserve=self.n * 4)
-
-        self.cs_spmv = self.ctx.compute_shader(_SPMV_COMPUTE_SHADER)
-        self.cs_lif = self.ctx.compute_shader(_LIF_COMPUTE_SHADER)
-        self.cs_scatter = self.ctx.compute_shader(_SCATTER_COMPUTE_SHADER)
-        self.buf_scatter = None
-
-        self.buf_rowptr.bind_to_storage_buffer(0)
-        self.buf_colind.bind_to_storage_buffer(1)
-        self.buf_values.bind_to_storage_buffer(2)
-        self.buf_v.bind_to_storage_buffer(3)
-        self.buf_refr.bind_to_storage_buffer(4)
-        self.buf_spikes.bind_to_storage_buffer(5)
-        self.buf_noise.bind_to_storage_buffer(6)
-        self.buf_sens.bind_to_storage_buffer(7)
-        self.buf_isyn.bind_to_storage_buffer(8)
-
-        self.cs_spmv["num_neurons"] = self.n
-        self.cs_lif["num_neurons"] = self.n
-        self._init_uniforms()
-        self.sync_from_host()
-
-    def _ensure_thread(self) -> None:
-        import threading
-        if self.ctx is None or self._thread_id != threading.get_ident():
-            self._init_device()
+    def close(self) -> None:
+        """Give this brain's slot back (it otherwise goes when the brain is garbage-collected)."""
+        self._leave()
 
     def _degrade(self, exc: Exception) -> SimBackend:
         """Hand this brain to the CPU backend after a GL failure, rather than killing the thread it steps on.
 
-        setup() cannot catch these: the context comes up on the main thread, and the failures land later on the
-        brain's own thread, where create_backend's fallback is long gone. v/refr/spikes keep whatever the last
-        sync left on the host, so the fly carries on from there.
+        setup() cannot catch these: the context comes up on the group's thread, and the failures land later, where
+        create_backend's fallback is long gone. v/refr/spikes keep whatever the last sync left on the host, so the
+        fly carries on from there.
         """
         log.warning("the OpenGL compute backend failed (%s: %s); this brain falls back to the CPU backend",
                     type(exc).__name__, exc)
+        if self._group is not None:
+            try:
+                self._group.call(self._group._pull, self._slot, self.sim)
+            except Exception:
+                pass
+            self._leave()
         self._fallback = CPUBackend(self.sim)
         self._fallback.setup()
-        self.ctx = None
         self.name = CPUBackend.name
         self.device_name = CPUBackend.device_name
         return self._fallback
 
-    def _init_uniforms(self) -> None:
-        p = self.sim.p
-        sim = self.sim
-        self.cs_lif["bias"] = float(p.bias)
-        self.cs_lif["ext_gain"] = float(p.ext_gain)
-        self.cs_lif["leak_decay"] = float(1.0 - sim.leak)
-        self.cs_lif["leak_reset"] = float(sim.leak * p.v_reset) if p.v_reset else 0.0
-        self.cs_lif["v_reset"] = float(p.v_reset)
-        self.cs_lif["v_thresh"] = float(p.v_thresh)
-        self.cs_lif["refr_steps"] = int(p.refractory_steps)
-
     def on_weights_changed(self, positions: np.ndarray | None = None) -> None:
         if self._fallback is not None:
             return self._fallback.on_weights_changed(positions)
-        self._ensure_thread()
-        with self.ctx:
-            if self.buf_values is None:
-                return
-            t0 = time.perf_counter()
-            data = self.sim.W_csr.data
-            if positions is None:                    # anything may have changed: the whole 41 MB buffer
-                raw = np.ascontiguousarray(data, dtype=np.float32)
-                self.buf_values.write(raw)
-                kind, nbytes = "full", raw.nbytes
-            elif len(positions) == 0:
-                return
-            elif self.PLASTIC_UPLOAD == "scatter":
-                nbytes = self._scatter(np.asarray(positions, np.int64), data)
-                kind = "part"
-            else:
-                nbytes = self._write_runs(np.asarray(positions, np.int64), data)
-                kind = "part"
-            st = self.upload_stats
-            st[f"{kind}_n"] += 1
-            st[f"{kind}_bytes"] += int(nbytes)
-            st[f"{kind}_s"] += time.perf_counter() - t0
-
-    def _write_runs(self, pos: np.ndarray, data: np.ndarray) -> int:
-        """Changed entries as a few contiguous writes (see PLASTIC_UPLOAD). pos must be sorted."""
-        brk = np.flatnonzero(np.diff(pos) > self.RUN_GAP)
-        starts = np.concatenate(([pos[0]], pos[brk + 1]))
-        ends = np.concatenate((pos[brk], [pos[-1]])) + 1
-        total = 0
-        for a, b in zip(starts.tolist(), ends.tolist()):
-            chunk = np.ascontiguousarray(data[a:b], dtype=np.float32)
-            self.buf_values.write(chunk, offset=a * 4)
-            total += chunk.nbytes
-        return total
-
-    def _scatter(self, pos: np.ndarray, data: np.ndarray) -> int:
-        """Changed entries as (index, value) pairs, written into place by a compute shader."""
-        items = np.empty((len(pos), 2), np.uint32)
-        items[:, 0] = pos
-        items[:, 1] = np.ascontiguousarray(data[pos], dtype=np.float32).view(np.uint32)
-        if self.buf_scatter is None or self.buf_scatter.size < items.nbytes:
-            if self.buf_scatter is not None:
-                self.buf_scatter.release()
-            self.buf_scatter = self.ctx.buffer(reserve=max(items.nbytes, 64 * 1024))
-            self.buf_scatter.bind_to_storage_buffer(9)
-        self.buf_scatter.write(items)
-        self.cs_scatter["count"] = len(pos)
-        self.cs_scatter.run((len(pos) + 63) // 64)
-        self.ctx.memory_barrier(moderngl.SHADER_STORAGE_BARRIER_BIT)
-        return items.nbytes
+        g = self._attach()
+        res = g.call(g._weights, self._slot, positions, self.PLASTIC_UPLOAD, self.RUN_GAP)
+        if res is None:                              # too different from the others now: a group of its own
+            g.call(g._pull, self._slot, self.sim)
+            self._leave()
+            self._attach()
+            res = ("full", 0, 0.0)
+        kind, nbytes, secs = res
+        if positions is not None and len(positions) == 0:
+            return
+        st = self.upload_stats
+        st[f"{kind}_n"] += 1
+        st[f"{kind}_bytes"] += int(nbytes)
+        st[f"{kind}_s"] += secs
 
     def read_weights(self) -> np.ndarray:
-        """The weights as they are on the GPU, for tests: a copy of the whole W_csr.data buffer."""
+        """The weights as they are on the GPU, for tests: this brain's copy of the whole W_csr.data."""
         if self._fallback is not None:
             return np.ascontiguousarray(self.sim.W_csr.data, dtype=np.float32).copy()
-        self._ensure_thread()
-        with self.ctx:
-            self.ctx.memory_barrier(moderngl.BUFFER_UPDATE_BARRIER_BIT)
-            self.ctx.finish()
-            return np.frombuffer(self.buf_values.read(), dtype=np.float32).copy()
+        g = self._attach()
+        return g.call(g._read_weights, self._slot)
 
     def sync_to_host(self) -> None:
         if self._fallback is not None:
             return self._fallback.sync_to_host()
-        self._ensure_thread()
-        with self.ctx:
-            if self.buf_v is not None:
-                self.ctx.memory_barrier(moderngl.BUFFER_UPDATE_BARRIER_BIT)
-                self.ctx.finish()
-                self.sim.v[:] = np.frombuffer(self.buf_v.read(), dtype=np.float32)
-                self.sim.refr[:] = np.frombuffer(self.buf_refr.read(), dtype=np.int32).astype(np.int16)
-                self.sim.spikes[:] = np.frombuffer(self.buf_spikes.read(), dtype=np.uint32).astype(bool)
+        if self._group is not None:
+            self._group.call(self._group._pull, self._slot, self.sim)
 
     def sync_from_host(self) -> None:
         if self._fallback is not None:
             return self._fallback.sync_from_host()
-        self._ensure_thread()
-        with self.ctx:
-            if self.buf_v is not None:
-                self.buf_v.write(self.sim.v.astype(np.float32).tobytes())
-                self.buf_refr.write(self.sim.refr.astype(np.int32).tobytes())
-                self.buf_spikes.write(self.sim.spikes.astype(np.uint32).tobytes())
-                if self._noise_id != id(self.sim._noise):
-                    self.buf_noise.write(self.sim._noise.astype(np.float32).tobytes())
-                    self._noise_id = id(self.sim._noise)
+        if self._group is None:
+            return                                   # joining uploads the host state anyway
+        g = self._group
+        g.call(g._push, self._slot, self.sim)
+        if self._noise_id != id(self.sim._noise):
+            g.call(g._push_noise, self._slot, self.sim)
+            self._noise_id = id(self.sim._noise)
+
+    def _params(self, noise_off: int, has_sens: bool) -> np.ndarray:
+        sim = self.sim
+        p = sim.p
+        dt = sim.dtype
+        out = np.zeros((), _FLY_PARAMS)
+        out["gain"] = dt(sim.gain)
+        out["bias"] = dt(p.bias)
+        out["ext_gain"] = dt(p.ext_gain)
+        out["leak_decay"] = dt(1.0 - sim.leak)
+        out["leak_reset"] = sim.leak * dt(p.v_reset)
+        out["v_reset"] = dt(p.v_reset)
+        out["v_thresh"] = dt(p.v_thresh)
+        out["refr_steps"] = int(p.refractory_steps)
+        out["noise_off"] = noise_off
+        out["has_sens"] = has_sens
+        out["scale_sens"] = p.ext_gain != 1.0
+        out["has_reset"] = bool(p.v_reset)
+        return out
 
     def step(self, sensory_input: np.ndarray | None = None) -> np.ndarray:
         if self._fallback is not None:
             return self._fallback.step(sensory_input)
+        sim = self.sim
         try:
-            self._ensure_thread()
-            # The 3D renderer holds a ModernGL context of its own, so this one is not necessarily the current
-            # context when the brain thread gets here. Left unmade-current the GL calls go to the renderer's
-            # context instead and the readback fails with "cannot map the buffer".
-            with self.ctx:
-                return self._step_gl(sensory_input)
+            g = self._attach()
+            if self._noise_id != id(sim._noise):
+                g.call(g._push_noise, self._slot, sim)
+                self._noise_id = id(sim._noise)
+            off = int(sim.rng.integers(0, sim._noise.size - self.n))
+            sens = None if sensory_input is None else np.ascontiguousarray(sensory_input, dtype=np.float32)
+            spikes = g.submit(self._slot, self._params(off, sens is not None), sens)
         except Exception as e:
             return self._degrade(e).step(sensory_input)
-
-    def _step_gl(self, sensory_input: np.ndarray | None = None) -> np.ndarray:
-        sim = self.sim
-        if self._noise_id != id(sim._noise):
-            self.buf_noise.write(sim._noise.astype(np.float32).tobytes())
-            self._noise_id = id(sim._noise)
-
-        # 1. Sparse SpMV propagation
-        self.cs_spmv.run(self.num_groups)
-        self.ctx.memory_barrier(moderngl.SHADER_STORAGE_BARRIER_BIT)
-
-        # 2. Sensory input upload if active
-        if sensory_input is not None:
-            self.buf_sens.write(np.ascontiguousarray(sensory_input, dtype=np.float32).tobytes())
-            self.cs_lif["has_sensory"] = 1
-        else:
-            self.cs_lif["has_sensory"] = 0
-
-        # 3. LIF elementwise update
-        off = int(sim.rng.integers(0, sim._noise.size - self.n))
-        self.cs_lif["noise_offset"] = off
-        self.cs_lif["gain"] = float(sim.gain)
-        self.cs_lif.run(self.num_groups)
-        # SHADER_STORAGE orders the next shader's view of these buffers. Reading one back on the host is a
-        # different hazard and needs BUFFER_UPDATE too; without it the map is undefined and Mesa refuses it
-        # outright ("cannot map the buffer"). finish() then waits for the write actually to land.
-        self.ctx.memory_barrier(moderngl.SHADER_STORAGE_BARRIER_BIT | moderngl.BUFFER_UPDATE_BARRIER_BIT)
-        self.ctx.finish()
-
-        # 4. Read spikes
-        spikes_raw = np.frombuffer(self.buf_spikes.read(), dtype=np.uint32)
-        spikes = spikes_raw.astype(bool)
         sim.spikes = spikes
         return spikes
 
@@ -1021,10 +1535,10 @@ def create_backend(sim: Any, backend_choice: str = "auto") -> SimBackend:
     if choice == "auto":
         if _torch_gpu_kind():
             b = _try(lambda: TorchBackend(sim, "cuda:0"), "PyTorch GPU")
-        # 'gl' is deliberately not in the auto chain. Since 2.9 learning uploads only the synapses it changed
-        # (issue #2: 68 KB instead of 41 MB per update), but gl is still slower than NumPy for one brain (2.37 vs
-        # 1.22 ms/step on a 9070 XT) and its brains don't run in parallel (8 brains 0.22x real time, NumPy 1.00x,
-        # Numba 1.00x; --benchmark --flies 1 8 16). Ask for it with --backend gl.
+        # 'gl' is deliberately not in the auto chain. Since 2.10 it is the fastest backend here for one brain
+        # (0.96 ms/step on a 9070 XT, Numba 1.06, NumPy 1.21) and batches a process's brains (16 in real time,
+        # docs/performance.md), but it is held only to a statistical tolerance of NumPy on other drivers, where
+        # Numba is bit-exact. Ask for it with --backend gl.
         if b is None and _numba_available:
             b = _try(lambda: NumbaBackend(sim), "Numba")
     elif choice in ("torch-cuda", "torch-rocm"):

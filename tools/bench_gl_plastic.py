@@ -4,7 +4,7 @@
 
 Runs a real conditioning session (odor + shock, the T-maze assay's own presentation) on a gl-backed brain, records
 every set of KC -> MBON synapses a learning update changed, then replays those sets through each upload path and times
-it up to ctx.finish(), so the GPU's side of the copy is counted too:
+it up to ctx.finish() on the brain's GL thread, so the GPU's side of the copy is counted too:
   full     the old path: the whole W_csr.data buffer (41 MB) on every update
   runs     GLBackend.PLASTIC_UPLOAD = "runs": merged contiguous runs, one buffer.write(offset=...) each
   scatter  GLBackend.PLASTIC_UPLOAD = "scatter": (index, value) pairs and a compute shader
@@ -60,33 +60,28 @@ def main() -> int:
           f"{len(sets)} learning updates changed weights; fear of the trained odor {fear:.2f}")
     print(f"changed synapses per update: median {int(np.median(sizes))}, max {sizes.max()} of {len(br.memory.w)}")
 
+    # Everything GL runs on the brain's group thread (backends._GLGroup), so each upload is timed there, from the
+    # first ctx.finish() to the second, without the hand-off between threads.
+    g, slot = be._group, be._slot
+
     def timed(fn):
-        with be.ctx:
-            be.ctx.finish()
+        def job():
+            g.ctx.finish()
             t = time.perf_counter()
             fn()
-            be.ctx.finish()
+            g.ctx.finish()
             return time.perf_counter() - t
+        return g.call(job)
 
     data = br.sim.W_csr.data
     full_b = np.ascontiguousarray(data, dtype=np.float32).nbytes
     res = {}
-    res["full"] = [timed(lambda: be.buf_values.write(np.ascontiguousarray(data, dtype=np.float32))) for _ in range(a.repeat)]
+    res["full"] = [timed(lambda: g.buf_values.write(np.ascontiguousarray(data, dtype=np.float32))) for _ in range(a.repeat)]
     for mode in ("runs", "scatter"):
-        be.PLASTIC_UPLOAD = mode
-        times, nbytes = [], 0
-        for _ in range(a.repeat):
-            for pos in sets:
-                before = be.upload_stats["part_bytes"]
-                times.append(timed(lambda: be.on_weights_changed(pos)))
-                nbytes = be.upload_stats["part_bytes"] - before
-        res[mode] = times
-        be.upload_stats[f"{mode}_last_bytes"] = nbytes
+        res[mode] = [timed(lambda: g._weights(slot, pos, mode, be.RUN_GAP)) for _ in range(a.repeat) for pos in sets]
     worst = np.sort(br.memory.csr_pos)
     for mode in ("runs", "scatter"):
-        be.PLASTIC_UPLOAD = mode
-        res[mode + "_all"] = [timed(lambda: be.on_weights_changed(worst)) for _ in range(a.repeat)]
-    be.PLASTIC_UPLOAD = type(be).PLASTIC_UPLOAD
+        res[mode + "_all"] = [timed(lambda: g._weights(slot, worst, mode, be.RUN_GAP)) for _ in range(a.repeat)]
     per_update = lambda k: 1000 * float(np.median(res[k]))
     n_upd = len(sets)
     print(f"\n{'path':10s} {'bytes/update':>14s} {'ms/update (median)':>20s} {'all 41,495 plastic':>20s}")
