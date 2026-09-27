@@ -29,7 +29,7 @@ import pygame
 
 from kickthefly.core import crash
 from kickthefly.game import kick_the_fly as k2
-from kickthefly.game import outdoors
+from kickthefly.game import gamepad, outdoors
 from kickthefly.game.kick_the_fly import (ABD, FOOT, HEAD, KNEE, LINKS, MAX_HEALTH, N_P, PULL, RADIUS, REST, THRESH, THX, TOOLS,
                           TORCH_KEYS, TRIPOD, WING, drop_item)
 from kickthefly.game.render3d import (P_BOOKS, P_CEIL, P_EYE, P_GRASS, P_ICE, P_NONE, P_PAPER, P_RUG, P_SKYDOME, P_STRIPES,
@@ -142,6 +142,7 @@ HELP3D = (
     ("WASD", "walk (Shift sprint, Ctrl crouch)"),
     ("Mouse", "look; left click uses the tool in your hand"),
     ("1-9, 0, -, = / wheel", "pick a tool (= is the laser)"),
+    ("Gamepad", "sticks walk and look, RT uses, LB/RB or hold Y (wheel) pick tools, Start menu"),
     ("Tab", "free the mouse to click the brain panel and menus"),
     ("B", "big live brain view; click a neuron to inspect it"),
     ("O", "brain surgery"),
@@ -651,6 +652,69 @@ class Game3D(k2.Game):
         self.duel = False
         self.player_hp, self.player_dead_at = PLAYER_HP, None
         self.duel_stats = dict(shots=0, hits=0, deaths=0)
+        self.pad = gamepad.Gamepad(self.cfg)
+        self._pad_using = False
+
+    # --- gamepad (game/gamepad.py): merged into the keyboard and mouse input, never replacing it ----------------------
+    def pad_tick(self, dt: float, now: float) -> tuple[dict, tuple[float, float]]:
+        """Read the pad once per frame. Returns movement keys to OR into the keyboard's and a look delta in mouse
+        units (it goes through update_player like the mouse, so it is pre-scaled to ignore the mouse settings)."""
+        pad = self.pad
+        keys, (lx, ly), down = pad.poll()
+        if not pad.connected:
+            return {}, (0.0, 0.0)
+        if "menu" in down:
+            esc = pygame.event.Event(pygame.KEYDOWN, key=pygame.K_ESCAPE, mod=0, unicode="\x1b", scancode=0)
+            self.handle3d(esc, now, lambda q: q)
+        if self.menu.open:
+            return {}, (0.0, 0.0)
+        if "big_view" in down:
+            self.do_action("big_view", now)
+        if "tool_next" in down:
+            self.tool = (self.tool + 1) % len(TOOLS)
+        if "tool_prev" in down:
+            self.tool = (self.tool - 1) % len(TOOLS)
+        rel = (0.0, 0.0)
+        if pad.was.get("tool_wheel"):                   # held: the right stick points at a tool instead of looking
+            pad.wheel_open = True
+            pad.wheel(len(TOOLS))
+        else:
+            if pad.wheel_open and pad.wheel_pick is not None:
+                self.tool = pad.wheel_pick
+            pad.wheel_open, pad.wheel_pick = False, None
+            c = self.cfg
+            speed = float(c["controls.pad_look_speed"]) * dt / 0.0024 / max(0.1, float(c["controls.mouse_sensitivity"]))
+            flip = (-1 if c["controls.pad_invert_y"] else 1) * (-1 if c["controls.invert_y"] else 1)
+            rel = (lx * speed, ly * speed * flip)
+        if "use" in down:
+            if self.look:
+                if not getattr(self, "autopilot", False) and not self.photo_mode:
+                    self.use_tool3d(now)
+                    self._pad_using = True
+            elif self.player_dead_at is None and not self._overlay_open():
+                self.set_look(True)                      # like clicking the room
+        if self._pad_using and not pad.was.get("use"):  # trigger let go: what a mouse-up does
+            self._pad_using = False
+            if not self.fly.wrapped:
+                self.fly.grabbed = None
+            self.torching = False
+            if hasattr(self, "laser_state"):
+                self.laser_state.trigger_release()
+        return keys, rel
+
+    def _draw_tool_wheel(self, hud) -> None:
+        cx, cy, r = k2.PLAY_W // 2, self.hud_h // 2, 150
+        card = pygame.Surface((2 * r + 120, 2 * r + 80), pygame.SRCALPHA)
+        pygame.draw.circle(card, (8, 10, 16, 190), (r + 60, r + 40), r + 50)
+        hud.blit(card, (cx - r - 60, cy - r - 40))
+        n = len(TOOLS)
+        for i, t in enumerate(TOOLS):
+            a = i / n * 2 * math.pi
+            x, y = cx + r * math.sin(a), cy - r * math.cos(a)
+            on = i == self.pad.wheel_pick or (self.pad.wheel_pick is None and i == self.tool)
+            pygame.draw.circle(hud, (70, 120, 200) if on else (30, 36, 48), (int(x), int(y)), 30)
+            self._text(hud, t[0], (int(x), int(y)), k2.INK if on else k2.TEXT, self.f_small, "center")
+        self._text(hud, "release to pick", (cx, cy), k2.LABEL, self.f_small, "center")
 
     # --- settings -------------------------------------------------------------------------------------------------
     def save_extra(self, arrays: dict, now: float) -> dict:
@@ -2839,12 +2903,15 @@ class Game3D(k2.Game):
                 badge = f"LASER: {ls.target_type} ({'STIM' if ls.mode == 'activate' else 'SILENCE'})"
                 self._text(hud, badge, (cx + 18, cy - 18), col_b, self.f_small)
         self._draw_toolbar(hud)
+        if self.pad.wheel_open and not self._overlay_open():
+            self._draw_tool_wheel(hud)
         self._draw_hud(hud, now)
         if self.duel:
             self._draw_duel(hud, now)
         if not self.look and not self._overlay_open() and self.player_dead_at is None and not self.menu.open and not (self.cfg["brain.autopilot"] and self.cfg["brain.autopilot_hide_hud"]):
-            msg = self.f_bold.render(f"click the room (or press {self.cfg.keys['free_mouse'].title()}) to look around   "
-                                     "·   Esc: menu", True, INK_ON)
+            pad = " or pull the trigger" if self.pad.connected else ""
+            msg = self.f_bold.render(f"click the room (or press {self.cfg.keys['free_mouse'].title()}{pad}) to look around"
+                                     "   ·   Esc: menu", True, INK_ON)
             box = msg.get_rect(center=(k2.PLAY_W // 2, self.hud_h // 2 + 60)).inflate(24, 12)
             pygame.draw.rect(hud, (8, 10, 16, 200), box, border_radius=8)
             hud.blit(msg, msg.get_rect(center=box.center))
@@ -3371,11 +3438,16 @@ def run(smoke: float = 0.0, shot: str | None = None, fullscreen: bool = False, s
                 game.toggle_fullscreen()
                 lay = app.layout(game)
                 continue
+            game.pad.device_event(ev)
             running = game.handle3d(ev, game.clock.now, to_logical) and running
+        pad_keys, pad_rel = game.pad_tick(dt, game.clock.now)
         if game.look and (game._overlay_open() or game.menu.open):
             game.set_look(False)
         rel = pygame.mouse.get_rel() if game.look else (0, 0)
+        rel = (rel[0] + pad_rel[0], rel[1] + pad_rel[1])
         keys = game.held(pygame.key.get_pressed())
+        for k_, v_ in pad_keys.items():
+            keys[k_] = keys[k_] or v_
         if to_spawn and not game._spawning and len(game.flies) < getattr(game, "max_flies", k2.MAX_FLIES):
             game.spawn_fly()
             to_spawn -= 1

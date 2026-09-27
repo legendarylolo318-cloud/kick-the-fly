@@ -173,6 +173,17 @@ SETTINGS: tuple[Setting, ...] = (
     S("controls.invert_y", "Controls", "Invert Y", "bool", False, "Moving the mouse up looks down.", only="3d"),
     S("controls.fov", "Controls", "Field of view", "float", 70.0,
       "How wide your view of the room is, in degrees.", lo=50, hi=110, step=1, only="3d", fmt="{:.0f}°"),
+    S("controls.gamepad", "Controls", "Gamepad", "bool", True,
+      "Use a connected gamepad in the 3D game alongside keyboard and mouse: left stick walks, right stick looks, "
+      "right trigger uses the tool, bumpers cycle tools, hold Y for the tool wheel. Rebind below.", only="3d"),
+    S("controls.pad_look_speed", "Controls", "Gamepad look speed", "float", 2.5,
+      "How fast the right stick turns your view, in radians per second at full tilt.", lo=0.5, hi=6.0, step=0.1,
+      only="3d", fmt="{:.1f}"),
+    S("controls.pad_deadzone", "Controls", "Gamepad dead zone", "float", 0.2,
+      "How far a stick must move before it counts, so a worn stick doesn't drift.", lo=0.05, hi=0.5, step=0.01,
+      only="3d", fmt="{:.2f}"),
+    S("controls.pad_invert_y", "Controls", "Gamepad invert Y", "bool", False, "Pushing the right stick up looks down.",
+      only="3d"),
     # --- Accessibility
     S("access.palette", "Accessibility", "Brain view colors", "choice", "default",
       "Colors for firing neurons in the brain view. Blue/yellow is safe for red-green color blindness. High contrast "
@@ -207,6 +218,28 @@ ACTIONS: tuple[tuple[str, str, str], ...] = (
 ACTION_LABEL = {a: label for a, label, _ in ACTIONS}
 RESERVED_KEYS = {"escape", *"0123456789", "-", "="}      # the pause menu and the tool keys can't be rebound
 MOVEMENT_3D_ONLY = {"forward", "back", "left", "right", "sprint", "crouch", "free_mouse", "duel", "panel", "menu_size"}
+# gamepad bindings (game/gamepad.py): action, label, default. "axisN", "buttonN" or "" (unbound); the defaults are an
+# Xbox-style pad on SDL, and other pads can be rebound in Settings > Controls
+PAD_ACTIONS: tuple[tuple[str, str, str], ...] = (
+    ("move_x", "Walk left / right (stick)", "axis0"), ("move_y", "Walk forward / back (stick)", "axis1"),
+    ("look_x", "Look left / right (stick)", "axis3"), ("look_y", "Look up / down (stick)", "axis4"),
+    ("use", "Use the tool", "axis5"), ("tool_next", "Next tool", "button5"), ("tool_prev", "Previous tool", "button4"),
+    ("tool_wheel", "Tool wheel (hold)", "button3"), ("sprint", "Sprint", "button9"),
+    ("crouch", "Crouch / fly down", "button1"), ("up", "Fly up (photo mode)", "button0"), ("menu", "Menu (Esc)", "button7"),
+    ("big_view", "Big brain view", "button6"),
+)
+
+PAD_LABEL = {a: label for a, label, _ in PAD_ACTIONS}
+
+
+def _pad_binding(v) -> str | None:
+    if not isinstance(v, str):
+        return None
+    v = v.strip().lower()
+    for kind in ("axis", "button"):
+        if v.startswith(kind) and v[len(kind):].isdigit() and int(v[len(kind):]) < 64:
+            return v
+    return "" if v == "" else None
 
 
 def _coerce(s: Setting, v):
@@ -234,6 +267,7 @@ class Config:
         self.path = path
         self.values: dict[str, object] = {s.key: s.default for s in SETTINGS}
         self.keys: dict[str, str] = {a: k for a, _, k in ACTIONS}
+        self.pad: dict[str, str] = {a: b for a, _, b in PAD_ACTIONS}
         self.warnings: list[str] = []
         self.dirty = False
 
@@ -263,6 +297,10 @@ class Config:
             default = {a: k for a, _, k in ACTIONS}
             if self.keys != default:
                 self.keys = default
+                changed.append("keys")
+            pad = {a: b for a, _, b in PAD_ACTIONS}
+            if self.pad != pad:
+                self.pad = pad
                 changed.append("keys")
         self.dirty = self.dirty or bool(changed)
         return changed
@@ -294,6 +332,20 @@ class Config:
         if other and other != action:
             self.keys[other] = old
             return True, f"'{key_name}' was used by {ACTION_LABEL[other]}; swapped, that is now '{old}'"
+        return True, ""
+
+    def bind_pad(self, action: str, binding: str) -> tuple[bool, str]:
+        """Rebind a gamepad action. A binding another action uses swaps the two. Returns (ok, message)."""
+        b = _pad_binding(binding)
+        if b is None:
+            return False, f"'{binding}' isn't a gamepad button or axis"
+        other = next((a for a, x in self.pad.items() if x == b and a != action and b), None)
+        old = self.pad[action]
+        self.pad[action] = b
+        self.dirty = True
+        if other:
+            self.pad[other] = old
+            return True, f"{b} was used by {other}; swapped, that is now {old or 'unbound'}"
         return True, ""
 
     def conflicts(self) -> dict[str, list[str]]:
@@ -328,6 +380,12 @@ class Config:
                     cfg.values[s.key] = _coerce(s, sec[name])
                 except ValueError as e:
                     cfg.warnings.append(f"{e}; using the default")
+        pad = data.get("gamepad")
+        if isinstance(pad, dict):
+            for a, _, _ in PAD_ACTIONS:
+                b = _pad_binding(pad.get(a))
+                if b is not None:
+                    cfg.pad[a] = b
         keys = data.get("keys")
         if isinstance(keys, dict):
             for a, _, _ in ACTIONS:
@@ -354,6 +412,9 @@ class Config:
             out += [f"[{section}]", *lines, ""]
         out.append("[keys]")
         out += [f"{a} = {_toml_value(k)}" for a, k in self.keys.items()]
+        out.append("")
+        out.append("[gamepad]")
+        out += [f"{a} = {_toml_value(b)}" for a, b in self.pad.items()]
         return "\n".join(out) + "\n"
 
     def save(self) -> bool:
