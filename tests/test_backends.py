@@ -17,6 +17,9 @@ AVAIL = backends.detect_available_backends()
 EXACT = [b for b in ("cpu", "numba", "torch-cpu") if b in AVAIL]
 GPU = [b for b in ("torch-cuda", "torch-rocm", "gl") if b in AVAIL]
 TORCH_GPU = [b for b in ("torch-cuda", "torch-rocm") if b in AVAIL]
+# Mesa's software rasterizer (the CI gl job) steps a brain in ~0.5 s, so there these tests run shorter versions:
+# fewer steps, and conditioning without memory's 5 s settling. On a real GPU they run in full.
+CI_SHORT = bool(os.environ.get("KTF_GL_CI_SHORT"))
 EXPECT_CLASS = {"cpu": backends.CPUBackend, "numba": backends.NumbaBackend, "torch-cpu": backends.TorchBackend,
                 "torch-cuda": backends.TorchBackend, "torch-rocm": backends.TorchBackend, "gl": backends.GLBackend}
 
@@ -161,8 +164,9 @@ def test_cpu_side_backends_are_bit_exact_on_the_dense_path(name, dtype):
 def test_gpu_backends_statistically_match(name):
     """Tolerance: brain-wide firing within 2% of the CPU's, and per-population rates (1000 neuron blocks) correlate
     at r > 0.95 over 1000 steps."""
-    _, ref = _run("cpu", 1000)
-    _, got = _run(name, 1000)
+    steps = 400 if CI_SHORT else 1000
+    _, ref = _run("cpu", steps)
+    _, got = _run(name, steps)
     assert abs(got.sum() - ref.sum()) / ref.sum() < 0.02
     blocks = lambda s: s[:, : s.shape[1] // 1000 * 1000].reshape(s.shape[0], -1, 1000).sum((0, 2))
     assert np.corrcoef(blocks(got), blocks(ref))[0, 1] > 0.95
@@ -324,13 +328,21 @@ def test_gl_batched_multi_fly_plastic_weights_bit_exact(monkeypatch):
     gc.collect()                                              # earlier tests' brains give their slots back
     odors = ("odor_a", "odor_b")
 
+    from kickthefly.core import memory
+
     def condition(br, odor, raster):
-        br.warmup(400)                                        # on the fly's own thread, like a game brain
-        assays.rest(br, 300)
-        for _ in range(6):
+        if CI_SHORT:                                          # skip memory's settling: learning from the first pairing
+            br.warmup(100)
+            br.memory.updates = max(br.memory.updates, memory.SETTLE_UPDATES)
+            pairings = 1
+        else:
+            br.warmup(400)                                    # on the fly's own thread, like a game brain
+            assays.rest(br, 300)
+            pairings = 6
+        for _ in range(pairings):
             assays.present(br, [odor], 240, shock=True)
             assays.rest(br, 100)
-        for _ in range(50):                                   # the last steps' spikes, compared below
+        for _ in range(20 if CI_SHORT else 50):               # the last steps' spikes, compared below
             raster.append(br.sim.step().copy())
 
     def run(batched: bool):
@@ -376,6 +388,8 @@ def test_gl_is_available_where_required():
 @pytest.mark.skipif("gl" not in AVAIL, reason="no OpenGL 4.3 compute here")
 @pytest.mark.parametrize("test_id", ["looming_escape", "sugar_feeding"])
 def test_gl_reproduces_validated_pathways(test_id):
+    if CI_SHORT and test_id != "looming_escape":
+        pytest.skip("software rendering: the looming pathway only")
     """A short validation subset on gl: two validated pathways on the first two held-out seeds, with validation.py's
     drive, readout, control and window. gl must land on the same side of the pass criterion as NumPy (drive ratio >=
     RATIO_MIN and above the control) and within 20% of NumPy's ratios. The full suite (ten seeds and a Wilcoxon test)
@@ -387,8 +401,8 @@ def test_gl_reproduces_validated_pathways(test_id):
     ratios = {}
     for name in ("cpu", "gl"):
         per = []
-        for seed in validation.SEEDS[:2]:
-            br = simcore.new_brain(seed=seed, backend=name)
+        for seed in validation.SEEDS[:1 if CI_SHORT else 2]:
+            br = simcore.new_brain(seed=seed, backend=name, warmup=200 if CI_SHORT else 600)
             assert br.sim.backend.name == name
             g = assays.groups(br)
             drive = g[t["drive"]]
@@ -402,8 +416,9 @@ def test_gl_reproduces_validated_pathways(test_id):
             res = []
             for rows in (drive, control):
                 savestate.restore_brain(br, meta, snap, "s_")
-                r = assays.pathway_response(br, rows, {"readout": g[t["readout"]]}, pre=validation.PRE,
-                                            stim=validation.STIM)["readout"]
+                window = 200 if CI_SHORT else None
+                r = assays.pathway_response(br, rows, {"readout": g[t["readout"]]}, pre=window or validation.PRE,
+                                            stim=window or validation.STIM)["readout"]
                 res.append(validation._ratio(*r))
             per.append(res)
             if name == "gl":

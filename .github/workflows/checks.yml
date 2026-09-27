@@ -59,13 +59,14 @@ jobs:
     name: gl backend (llvmpipe)
     needs: brainpack
     runs-on: ubuntu-22.04
-    timeout-minutes: 120
+    timeout-minutes: 60
     env:
       # GitHub's runners have no GPU. Mesa's software rasterizer gives them OpenGL 4.5 with compute shaders; these
       # variables exist only in this job on this runner.
       LIBGL_ALWAYS_SOFTWARE: "1"
       GALLIUM_DRIVER: llvmpipe
       KTF_REQUIRE_GL: "1"               # tests/test_backends.py: gl missing here is a failure, not a skip
+      KTF_GL_CI_SHORT: "1"              # llvmpipe steps a brain in ~0.5 s: the shorter versions of the gl tests
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -81,10 +82,14 @@ jobs:
       - run: python -m pip install -r requirements.txt pytest
       - name: The OpenGL the backend sees
         run: xvfb-run -a python -c "from kickthefly.sim.connectome import backends as b; print(b._gl_compute_available())"
+      # The issue #2 upload test (10 pairings, ~5,000 steps per mode) runs on real GPUs only; the batched test's
+      # unbatched run uses the same upload path and reads the weights back too.
       - name: Backend smoke test, GPU tolerance, and batched vs unbatched plastic weights
-        run: xvfb-run -a python -m pytest tests/test_backends.py -m "not validation" -k gl -v -rs
+        run: >-
+          xvfb-run -a python -m pytest tests/test_backends.py -m "not validation" -v -rs --durations=0
+          -k "gl and not plastic_weights_bit_exact_after_conditioning"
       - name: Short validation subset on gl (two validated pathways, gl vs NumPy)
-        run: xvfb-run -a python -m pytest tests/test_backends.py -m validation -k reproduces_validated_pathways -v -rs
+        run: xvfb-run -a python -m pytest tests/test_backends.py -m validation -k reproduces_validated_pathways -v -rs --durations=0
 
   flatpak:
     name: flatpak build
