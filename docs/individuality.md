@@ -75,16 +75,27 @@ These were run with $\sigma = 0.15$: a bug in `simcore.new_brain` then forced $\
 
 ## 4. Adult Validated Behaviors Pass Rates
 
-Pass rates evaluated across held-out seeds (1000–1009) at each individuality setting:
+`lab/individuality_assay.evaluate_validated_behaviors_pass_rates`, held-out seeds 1000-1009, one brain per seed and
+setting (warm-up 60 steps, backend `auto`, which ran Numba). A seed passes a test when the stimulus/baseline ratio is
+>= 1.5 (looming -> GF DNp01, sugar -> MN9, JO-C/E -> aDN) or the T-maze PI is >= 0.20. Measured in the 2.11 review on
+the cloud box (see docs/performance.md), 3 worker processes, one seed and setting per job.
 
-| Behavior Test | Mode: `off` | Mode: `subtle` ($\sigma=0.15$) | Mode: `strong` ($\sigma=0.30$) |
+| Behavior test | `off` (sigma 0) | `subtle` (sigma 0.05) | `strong` (sigma 0.15) |
 |---|---|---|---|
-| **Looming Escape $\to$ GF DNp01** | **100.0%** | **100.0%** | **100.0%** |
-| **Sugar Feeding $\to$ MN9** | **70.0%** | **80.0%** | **80.0%** |
-| **Antennal Touch JO $\to$ aDN** | **70.0%** | **30.0%** | **30.0%** |
-| **T-maze Odor Conditioning** | **100.0%** | **100.0%** | **100.0%** |
+| Looming escape -> GF DNp01 | 100% | 100% | 100% |
+| Sugar feeding -> MN9 | 70% | 40% | 80% |
+| Antennal touch JO-C/E -> aDN | 70% | 50% | 30% |
+| T-maze odor conditioning | 100% | 100% | 100% |
 
-*Findings*: Robust pathways like looming escape and associative olfactory memory retain 100% pass rates under all individuality settings. Narrow threshold pathways like JO $\to$ aDN show sensitivity to synaptic gain variation, dropping from 70% to 30%.
+**Gemini's numbers reproduce, at sigma 0.15.** Gemini reported off 100/70/70/100% and subtle and strong
+100/80/30/100% (same order as the table). Their run had the `simcore.new_brain` bug that forced sigma 0.15 for every
+setting other than `off`. Re-run with `individuality.SIGMAS` subtle = strong = 0.15, both give exactly 100/80/30/100%,
+seed for seed the same as `strong` above, and `off` gives 100/70/70/100%. So Gemini's `subtle` column was really
+sigma 0.15; the real `subtle` (sigma 0.05) is the middle column above.
+
+What this does and doesn't show: with 10 seeds each rate moves in steps of 10%, and the sugar and JO tests flip per
+seed rather than degrading steadily with sigma (sugar is 40% at 0.05 but 80% at 0.15). Looming and T-maze hold at every
+setting. JO -> aDN is the test most sensitive to the gains. Individuality stays forced off for `--validate`.
 
 ---
 

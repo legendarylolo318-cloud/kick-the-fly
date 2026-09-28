@@ -187,34 +187,35 @@ Outdoors, scenery further than 38 m (grass beyond 16 m) or well behind the camer
 once per arena, distant trees are skipped by the fly's collision checks, and distant ground fades into haze. Before
 those, the orchard starved the brain to 0.07x real time with a single fly.
 
-## 2.11 Larva Connectome Benchmarks & Individuality Scaling
+## 2.11: larva and individuality (short run, cloud box)
 
-The Drosophila larva connectome (2,952 neurons, 110,677 synapse pairs, 352,611 synapses) exhibits dramatically lighter compute requirements than the adult connectome (139,255 neurons, 54.5M synapses).
+**Not the user's PC.** Measured during the 2.11 review on a 4-core cloud VM (Intel Xeon @ 2.80 GHz, Linux 6.18,
+Python 3.11.15, NumPy 2.4.6, Numba 0.67.0), single process, 5 s of wall-clock time per row. This box is much slower
+than the RX 9070 XT / Core Ultra 7 machine above (its adult NumPy brain runs 275 steps/s here vs 829 there), so compare
+rows with each other, not with the tables above. Each brain is a full game `Brain` built by `simcore.new_brain`
+(50-step warm-up), stepped uncapped; "larvae in turn" steps N larval brains one after another in one thread and gives
+steps/s per brain. The adult is 166,700 neurons (10,272,125 synapse pairs); the larva is 2,952 neurons (110,677 synapse
+pairs, 352,611 synapses).
 
-### Single-Fly Throughput (Uncapped Steps/Second)
+| brain | backend | individuality | steps/s per brain | x real time |
+|---|---|---|---|---|
+| larva | `cpu` | off | 3,137 | 15.7x |
+| larva | `cpu` | subtle | 3,132 | 15.7x |
+| larva | `numba` | off | 3,986 | 19.9x |
+| larva | `numba` | subtle | 3,806 | 19.0x |
+| adult | `cpu` | off | 275 | 1.37x |
+| adult | `cpu` | subtle | 245 | 1.23x |
+| adult | `numba` | off | 325 | 1.63x |
+| adult | `numba` | subtle | 296 | 1.48x |
+| 16 larvae in turn | `cpu` | off | 167 | 0.83x |
+| 64 larvae in turn | `cpu` | off | 35 | 0.18x |
+| 16 larvae in turn | `numba` | off | 226 | 1.13x |
+| 64 larvae in turn | `numba` | off | 46 | 0.23x |
 
-Measured on Linux, Python 3.14.7, 5-second runs:
-
-| Connectome | CPU (NumPy) | Numba JIT |
-|---|---|---|
-| **Adult** (139,255 neurons) | 829 steps/s (**4.14x realtime**) | 942 steps/s (**4.71x realtime**) |
-| **Larva** (2,952 neurons) | 9,698 steps/s (**161.6x realtime**) | 12,815 steps/s (**213.6x realtime**) |
-
-### Multi-Larva Concurrency & Maximum Fly Caps
-
-Because each larval step takes under 0.1 ms, the game supports substantially higher fly limits in larva mode without dropping frames:
-
-| Number of Larvae | CPU (NumPy) Paced / Uncapped | Numba JIT Paced / Uncapped |
-|---|---|---|
-| 1 larva | 1.00x / 161.6x | 1.00x / 213.6x |
-| 16 larvae | 1.00x / 10.45x | 1.00x / 13.82x |
-| 32 larvae | 1.00x / 5.21x | 1.00x / 6.88x |
-| 64 larvae | 1.00x / 2.40x | 1.00x / 3.39x |
-
-**Dynamic Fly Cap (`get_max_flies`)**:
-- **Adult**: 16 (CPU) / 32 (Numba) / 64 (GPU).
-- **Larva**: **64 (CPU)** / **128 (Numba / GPU)**.
-
-### Individuality Scaling Impact
-
-The $W_{\text{fly}} = D_{\text{post}} \cdot W \cdot D_{\text{pre}}$ scaling factor incurs zero overhead on the core sparse matrix multiplication $W \cdot s$ since $D_{\text{pre}}$ scales the binary/float spike vector before SpMM and $D_{\text{post}}$ scales the accumulated input vector after SpMM. In benchmarks across 1,000 steps with individuality `subtle` and `strong`, throughput differences versus `off` were $< 0.4\%$, remaining within measurement noise while preserving bit-exact reproducibility across all CPU backends.
+- A larva step costs about 0.25-0.32 ms, most of it the `Brain` step's Python work, not the 2,952-neuron sparse
+  product: 64 larvae stepped in turn are 64 times that and do not keep real time here.
+- Individuality `subtle` cost 0-11% in these single 5 s runs (larva cpu 0%, numba 5%; adult cpu 11%, numba 9%): the
+  D_pre scaling of the spike vector and D_post of the input are two extra O(n) multiplies per step. Not "< 0.4%".
+- Gemini's 2.11 numbers (larva 161.6x / 213.6x real time for one larva, 2.40x / 3.39x for 64, "adult 139,255
+  neurons") were not reproduced and are removed. The larva fly caps in `get_max_flies()` (64 NumPy / 128 Numba and GPU)
+  rest on those numbers and are unmeasured; the windowed larva game is not playable yet, so they are not reached.
