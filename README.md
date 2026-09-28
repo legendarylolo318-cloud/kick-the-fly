@@ -60,6 +60,9 @@ backends, the Python API and the Lab's optional NWB export.
 
 ## What you can do
 
+- **Larval brain (2.11, headless):** the *Drosophila* larva brain connectome (2,952 neurons, 352,611 synapses; Winding et al. 2023) for `--headless --validate --brain larva` and Python use. It is built on your machine from the paper's Data S1 on first use. The windowed larva game is not finished: with `--brain larva` the game still runs the adult. Neither larva validation test passes. See [docs/larva.md](docs/larva.md).
+- **Fly individuality (2.11):** per-fly variation as per-neuron scaling $W_{\text{fly}} = D_{\text{post}} \cdot W \cdot D_{\text{pre}}$ with the shared matrix unchanged (Settings > Brain > Individuality: off / subtle / strong). NumPy and Numba stay bit-exact; torch-cpu only with it off; not implemented on gl. Forced off for validation. Personality cards show their thresholds, but in the game their metrics are seeded, not yet measured. See [docs/individuality.md](docs/individuality.md).
+- **Pet mode (2.11):** one persistent fly across real days in `Esc > Mode`. No background process, service, autostart or timer: time is caught up deterministically at launch, clamped to 0-7 days. Hunger and sleep pressure (GAME RULE, in Lab > Parameters) scale real taste, PAM reward and dFB sleep neurons. Death is off by default. See [docs/pet.md](docs/pet.md).
 - **Hits fire real sensory neurons:**
   - head: head bristles and Johnston's organ
   - body: tactile neurons
@@ -519,6 +522,8 @@ files and command lines are unchanged.
 
 ## Credits
 
-The connectome data is Janelia FlyEM MaleCNS v1.0, a collaboration between HHMI Janelia, the University of Cambridge, the MRC Laboratory of Molecular Biology and Google Research. It is licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) and available at [male-cns.janelia.org](https://male-cns.janelia.org/download/).
+The adult connectome data is Janelia FlyEM MaleCNS v1.0, a collaboration between HHMI Janelia, the University of Cambridge, the MRC Laboratory of Molecular Biology and Google Research. It is licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) and available at [male-cns.janelia.org](https://male-cns.janelia.org/download/).
 
-The exe and AppImage bundle a compact pack derived from that data. The pack keeps the signed synapse counts, the neuron labels (type, superclass, subclass, instance), body IDs and the cell-body positions, and is otherwise unmodified.
+The Drosophila larva connectome data is from Winding, M., Pedigo, B.D., Barnes, C.L., et al. (2023). "The connectome of an insect brain." *Science*, 379(6636), eadd9330. DOI: [10.1126/science.add9330](https://doi.org/10.1126/science.add9330) (Supplementary Data S1). No license is stated for it, so Kick the Fly does not redistribute it: the larva pack is built on your machine from the downloaded Data S1 (checksum-verified; mirror: [github.com/brain-networks/larval-drosophila-connectome](https://github.com/brain-networks/larval-drosophila-connectome)).
+
+The exe and AppImage bundle a compact pack derived from the adult data only. The pack keeps the signed synapse counts, the neuron labels (type, superclass, subclass, instance), body IDs and the cell-body positions, and is otherwise unmodified.

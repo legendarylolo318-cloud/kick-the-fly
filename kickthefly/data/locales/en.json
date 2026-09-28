@@ -65,5 +65,16 @@
   "CVA": "CVA",
   "DECOY": "DECOY",
   "puffs cVA pheromone: activates Or67d/DA1 glomerulus": "puffs cVA pheromone: activates Or67d/DA1 glomerulus",
-  "spawns a decoy female target to evoke courtship": "spawns a decoy female target to evoke courtship"
+  "spawns a decoy female target to evoke courtship": "spawns a decoy female target to evoke courtship",
+  "Mode: Pet": "Mode: Pet",
+  "Switch between Play (the game), Lab (research tools), and Pet (one persistent fly). Saved in your settings.": "Switch between Play (the game), Lab (research tools), and Pet (one persistent fly). Saved in your settings.",
+  "Larva": "Larva",
+  "Adult": "Adult",
+  "Individuality": "Individuality",
+  "Subtle": "Subtle",
+  "Strong": "Strong",
+  "Off": "Off",
+  "Pet mode": "Pet mode",
+  "Real stakes": "Real stakes",
+  "Immortal": "Immortal"
 }

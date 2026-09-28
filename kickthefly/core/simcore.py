@@ -14,14 +14,14 @@ import numpy as np
 os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
 
 
-@lru_cache(maxsize=1)
-def pack():
+@lru_cache(maxsize=4)
+def pack(brain: str = "adult"):
     """(graph-like namespace, W_in, soma) from the bundled brain pack, loaded once per process."""
     from kickthefly.sim import brainpack
 
-    path = brainpack.find()
+    path = brainpack.find(brain=brain)
     if path is None:
-        raise FileNotFoundError("brain pack kick_brain.npz not found (run 'python -m kickthefly.sim.brainpack build')")
+        raise FileNotFoundError(f"brain pack for '{brain}' not found (run 'python -m kickthefly.sim.brainpack build')")
     return brainpack.load(path)
 
 
@@ -52,7 +52,8 @@ def symmetrize_weights(g, weights):
 
 
 def new_brain(seed: int = 0, memory: bool = True, warmup: int = 600, params: dict | None = None,
-              isolated_memory: bool = True, mirror_weights: bool = False, wiring=None, backend: str | None = None):
+              isolated_memory: bool = True, mirror_weights: bool = False, wiring=None, backend: str | None = None,
+              brain: str = "adult", individuality: str = "off", individuality_sigma: float | None = None):
     """A warmed-up Brain that is not running on a thread. isolated_memory: start from the untrained connectome and never
     read or write the player's saved training memory. wiring: a sim.wiring.Wiring applied before the warm-up, so the
     brain settles with the changed connectome rather than on top of a brain that settled without it."""
@@ -60,16 +61,19 @@ def new_brain(seed: int = 0, memory: bool = True, warmup: int = 600, params: dic
     from kickthefly.lab import lab
     from kickthefly.sim.connectome.sim import LIFParams, LIFSim
 
-    g, W, _ = pack()
+    g, W, _ = pack(brain=brain)
     if mirror_weights:
         W = symmetrize_weights(g, W)
     lif_params = LIFParams()
     if backend is not None:
         lif_params.backend = backend
+    lif_params.individuality = individuality
+    lif_params.individuality_sigma = individuality_sigma
     sim = LIFSim(None, lif_params, W_in=W, seed=seed)
     if params:
         lab.apply_to_sim(sim, params)
     br = k.Brain(g, sim, seed=seed)
+    br.brain_type = brain
     if memory and getattr(g, "dan_mbon", None) is not None:
         from kickthefly.core import memory as mem_mod
 

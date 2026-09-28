@@ -158,7 +158,7 @@ def neurotransmitters(g) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     return nt, conf, source
 
 
-def build(out: Path = DATA_DIR / PACK_NAME) -> Path:
+def _build_adult(out: Path = DATA_DIR / PACK_NAME) -> Path:
     from kickthefly.sim.connectome.loader import load_graph
 
     g = load_graph()
@@ -184,7 +184,7 @@ def build(out: Path = DATA_DIR / PACK_NAME) -> Path:
         indptr=signed.indptr.astype(np.int32), indices=signed.indices.astype(np.int32),
         data=signed.data.astype(np.int16), inv=inv, type=types, superclass=labels(g.superclass),
         instance=labels(g.instance), soma=soma, dan=dan.astype(np.int32), mbon=mbon.astype(np.int32), dan_mbon=dan_mbon,
-        subclass=subclasses(g), body_id=np.asarray(g.body_ids, np.int64), region=reg,
+        subclass=subclasses(g), body_id=np.asarray(g.body_ids, np.int64), region=reg, brain_type=np.array("adult"),
     )
     print(f"[brainpack] wrote {out} ({out.stat().st_size / 1e6:.1f} MB, {g.n:,} neurons, {signed.nnz:,} synapse pairs, "
           f"{int((~np.isnan(soma[:, 0])).sum()):,} cell bodies, "
@@ -192,13 +192,30 @@ def build(out: Path = DATA_DIR / PACK_NAME) -> Path:
     return out
 
 
-def find() -> Path | None:
+LARVA_PACK_NAME = "kick_larva_brain.npz"
+
+
+def find(brain: str = "adult") -> Path | None:
     """The pack next to a PyInstaller bundle, next to the exe, or in data/."""
-    roots = [Path(getattr(sys, "_MEIPASS", "")), Path(sys.executable).resolve().parent, DATA_DIR]
+    pack_filename = LARVA_PACK_NAME if brain == "larva" else PACK_NAME
+    roots = [
+        Path(getattr(sys, "_MEIPASS", "")),
+        Path(sys.executable).resolve().parent,
+        DATA_DIR,
+        DATA_DIR / "larva",
+    ]
     for root in roots:
-        if str(root) and (root / PACK_NAME).exists():
-            return root / PACK_NAME
+        if str(root) and (root / pack_filename).exists():
+            return root / pack_filename
     return None
+
+
+def build(brain: str = "adult", out: Path | None = None) -> Path:
+    """Build the adult pack (from the MaleCNS download) or the larva pack (from Winding et al. 2023 Data S1)."""
+    if brain == "larva":
+        from kickthefly.sim.connectome.larva_loader import build_larva_pack
+        return build_larva_pack(out or (DATA_DIR / LARVA_PACK_NAME))
+    return _build_adult(out or (DATA_DIR / PACK_NAME))
 
 
 def load(path: Path):
@@ -216,6 +233,7 @@ def load(path: Path):
         g.dan, g.mbon, g.dan_mbon = z["dan"], z["mbon"], z["dan_mbon"]
     # packs from before 2.6 have neither: leg motor neuron groups and body IDs in exports are then unavailable
     g.subclass = z["subclass"] if "subclass" in z else np.full(n, "", dtype="<U1")
+    g.subtype = z["subtype"] if "subtype" in z else g.subclass
     g.body_id = z["body_id"] if "body_id" in z else None
     g.region = z["region"] if "region" in z else regions(g)
     # packs from before 2.7 have no transmitter predictions: the Lab's sign-flip and inhibition controls then say
@@ -223,6 +241,9 @@ def load(path: Path):
     g.nt = z["nt"] if "nt" in z else None
     g.nt_conf = z["nt_conf"] if "nt_conf" in z else None
     g.nt_source = z["nt_source"] if "nt_source" in z else None
+    g.brain_type = str(z["brain_type"]) if "brain_type" in z else "adult"
+    g.citation = str(z["citation"]) if "citation" in z else ""
+    g.license = str(z["license"]) if "license" in z else ""
     return g, W, z["soma"]
 
 

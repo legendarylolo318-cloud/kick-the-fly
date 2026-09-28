@@ -186,3 +186,36 @@ fly):
 Outdoors, scenery further than 38 m (grass beyond 16 m) or well behind the camera isn't drawn, static scenery is built
 once per arena, distant trees are skipped by the fly's collision checks, and distant ground fades into haze. Before
 those, the orchard starved the brain to 0.07x real time with a single fly.
+
+## 2.11: larva and individuality (short run, cloud box)
+
+**Not the user's PC.** Measured during the 2.11 review on a 4-core cloud VM (Intel Xeon @ 2.80 GHz, Linux 6.18,
+Python 3.11.15, NumPy 2.4.6, Numba 0.67.0), single process, 5 s of wall-clock time per row. This box is much slower
+than the RX 9070 XT / Core Ultra 7 machine above (its adult NumPy brain runs 275 steps/s here vs 829 there), so compare
+rows with each other, not with the tables above. Each brain is a full game `Brain` built by `simcore.new_brain`
+(50-step warm-up), stepped uncapped; "larvae in turn" steps N larval brains one after another in one thread and gives
+steps/s per brain. The adult is 166,700 neurons (10,272,125 synapse pairs); the larva is 2,952 neurons (110,677 synapse
+pairs, 352,611 synapses).
+
+| brain | backend | individuality | steps/s per brain | x real time |
+|---|---|---|---|---|
+| larva | `cpu` | off | 3,137 | 15.7x |
+| larva | `cpu` | subtle | 3,132 | 15.7x |
+| larva | `numba` | off | 3,986 | 19.9x |
+| larva | `numba` | subtle | 3,806 | 19.0x |
+| adult | `cpu` | off | 275 | 1.37x |
+| adult | `cpu` | subtle | 245 | 1.23x |
+| adult | `numba` | off | 325 | 1.63x |
+| adult | `numba` | subtle | 296 | 1.48x |
+| 16 larvae in turn | `cpu` | off | 167 | 0.83x |
+| 64 larvae in turn | `cpu` | off | 35 | 0.18x |
+| 16 larvae in turn | `numba` | off | 226 | 1.13x |
+| 64 larvae in turn | `numba` | off | 46 | 0.23x |
+
+- A larva step costs about 0.25-0.32 ms, most of it the `Brain` step's Python work, not the 2,952-neuron sparse
+  product: 64 larvae stepped in turn are 64 times that and do not keep real time here.
+- Individuality `subtle` cost 0-11% in these single 5 s runs (larva cpu 0%, numba 5%; adult cpu 11%, numba 9%): the
+  D_pre scaling of the spike vector and D_post of the input are two extra O(n) multiplies per step. Not "< 0.4%".
+- Gemini's 2.11 numbers (larva 161.6x / 213.6x real time for one larva, 2.40x / 3.39x for 64, "adult 139,255
+  neurons") were not reproduced and are removed. The larva fly caps in `get_max_flies()` (64 NumPy / 128 Numba and GPU)
+  rest on those numbers and are unmeasured; the windowed larva game is not playable yet, so they are not reached.

@@ -244,7 +244,27 @@ TESTS = (
          note="No rule is added: odor B can only gain fear if odor A's learned MBON output drives the dopamine "
               "neurons through the connectome while odor B's Kenyon cells are active."),
 )
-BY_ID = {t["id"]: t for t in TESTS}
+LARVA_TESTS = (
+    dict(id="larva_noci_to_goro_rolling", name="Nociceptors excite Goro rolling escape command neurons",
+         brain="larva",
+         play="Nociceptive stimulation triggered rolling escape. Real larvae roll to escape noxious heat/parasitoids.",
+         claim="Nociceptive ascending neurons (annotated 'noci', incl. A00c) excite the neurons annotated _telegoro-1 "
+               "(DN-VNC). Class IV md sensory neurons and Goro itself are in the nerve cord, outside this dataset.",
+         citation="Ohyama et al. 2015, Nature 520:633; Winding et al. 2023, Science 379:eadd9330",
+         drive="noci", drive_label="nociceptive ascending neurons ('noci', 12)", readout="goro", readout_label="_telegoro-1 DN-VNC (2)",
+         control="sensory", control_label="12 random other sensory neurons", popup_event="ROLL"),
+    dict(id="larva_chordotonal_to_basin", name="Chordotonal ascending neurons excite 2nd-order noci/mechano PNs",
+         brain="larva",
+         play="Vibration and sound excited Basin sensory integration interneurons.",
+         claim="Ascending neurons annotated mechano-Ch excite brain neurons annotated noci / mechano-Ch 2nd_order PN. "
+               "The Basin interneurons themselves are in the nerve cord, outside this dataset.",
+         citation="Ohyama et al. 2015, Nature 520:633; Jovanic et al. 2016, Cell 167:858",
+         drive="chordo", drive_label="mechano-Ch ascending neurons (12)", readout="basin",
+         readout_label="noci / mechano-Ch 2nd-order PNs",
+         control="sensory", control_label="12 random other sensory neurons", popup_event=None),
+)
+ALL_TESTS = TESTS + LARVA_TESTS
+BY_ID = {t["id"]: t for t in ALL_TESTS}
 # The held-out results of this release (docs/validation.md). tests/test_validation.py and --strict flag any change,
 # in either direction, so a regression (or a newly reproduced behavior) never goes unnoticed.
 EXPECTED = {
@@ -254,6 +274,8 @@ EXPECTED = {
     "cold_trn_to_vp3pn": True, "grooming_hierarchy": False, "optomotor_turning": True, "p1_courtship_song": False,
     "or67d_to_da1pn": True, "da1pn_to_lh_asp": True, "foreleg_grn_to_p1": False, "mb_extinction": False,
     "mb_second_order": False,
+    "larva_noci_to_goro_rolling": False,
+    "larva_chordotonal_to_basin": False,
 }
 
 
@@ -267,7 +289,7 @@ def _pathway_seed(seed: int, wiring=None) -> dict:
     from kickthefly.core import savestate
     from kickthefly.core import simcore
 
-    br = simcore.new_brain(seed=seed, wiring=wiring)
+    br = simcore.new_brain(seed=seed, wiring=wiring, individuality="off")
     g = assays.groups(br)
     snap: dict = {}
     meta = savestate.brain_state(br, "s_", snap)
@@ -336,6 +358,54 @@ def _second_order_seed(args, wiring=None) -> dict:
     return assays.second_order_fly(seed=seed, paired=paired, wiring=wiring)
 
 
+def _pathway_seed_larva(seed: int) -> dict:
+    """Run larval pathway validation for one seed."""
+    from kickthefly.lab import assays
+    from kickthefly.core import savestate
+    from kickthefly.core import simcore
+
+    from kickthefly.sim.connectome.larva_loader import larva_groups
+
+    br = simcore.new_brain(seed=seed, brain="larva", individuality="off", warmup=100)
+    sc = br.superclass.astype(str)
+    # the annotations are in the pack's subtype (Data S1 'additional_annotations'); `type` is only the broad class
+    lg = larva_groups(br.graph.subtype)
+    noci_rows, chordo_rows, goro_rows = lg["noci"], lg["chordo"], lg["goro"]
+    basin_rows = np.union1d(lg["noci_pn"], lg["chordo_pn"])
+    if not (len(noci_rows) and len(chordo_rows) and len(basin_rows) and len(goro_rows)):
+        raise RuntimeError("larva pack lacks the annotated noci / mechano-Ch / 2nd-order PN / Goro groups")
+
+    sensory_other = np.flatnonzero((np.char.find(sc, "sensory") >= 0) & ~np.isin(np.arange(br.n), np.concatenate([noci_rows, chordo_rows])))
+    rng = np.random.default_rng(seed * 37 + 11)
+    ctrl_noci = rng.choice(sensory_other, size=len(noci_rows), replace=False)
+    ctrl_chordo = rng.choice(sensory_other, size=len(chordo_rows), replace=False)
+
+    snap: dict = {}
+    meta = savestate.brain_state(br, "s_", snap)
+    out = {}
+
+    # Test 1: noci -> goro
+    res1 = {}
+    for label, rows in (("drive", noci_rows), ("control", ctrl_noci)):
+        savestate.restore_brain(br, meta, snap, "s_")
+        rr = assays.pathway_response(br, rows, {"readout": goro_rows}, pre=PRE, stim=STIM)
+        r = rr["readout"]
+        res1[label] = dict(base_hz=r[0], driven_hz=r[1], ratio=_ratio(*r))
+    out["larva_noci_to_goro_rolling"] = res1
+
+    # Test 2: chordo -> basin
+    res2 = {}
+    for label, rows in (("drive", chordo_rows), ("control", ctrl_chordo)):
+        savestate.restore_brain(br, meta, snap, "s_")
+        rr = assays.pathway_response(br, rows, {"readout": basin_rows}, pre=PRE, stim=STIM)
+        r = rr["readout"]
+        res2[label] = dict(base_hz=r[0], driven_hz=r[1], ratio=_ratio(*r))
+    out["larva_chordotonal_to_basin"] = res2
+
+    out["_backend"] = (br.sim.backend.name, br.sim.backend.device)
+    return out
+
+
 def _wilcoxon_greater(a, b) -> float:
     from scipy import stats
 
@@ -345,7 +415,7 @@ def _wilcoxon_greater(a, b) -> float:
     return float(stats.wilcoxon(a, b, alternative="greater", zero_method="wilcox").pvalue)
 
 
-def run(seeds=SEEDS, workers: int | None = None, progress=None, include=None, wiring=None) -> dict:
+def run(seeds=SEEDS, workers: int | None = None, progress=None, include=None, wiring=None, brain: str = "adult") -> dict:
     """Run the suite. progress(done, total, label) is called as work finishes.
 
     wiring: a sim.wiring.Wiring every fly is built with (the threshold sweep and the sign-flip stress test use this
@@ -358,6 +428,41 @@ def run(seeds=SEEDS, workers: int | None = None, progress=None, include=None, wi
     from kickthefly.core.version import __version__
 
     t0 = time.time()
+    if brain == "larva":
+        larva_res = {}
+        for s in seeds:
+            larva_res[s] = _pathway_seed_larva(s)
+            if progress:
+                progress(len(larva_res), len(seeds), "larva")
+        results = []
+        for t in LARVA_TESTS:
+            test_id = t["id"]
+            d_ratios = [larva_res[s][test_id]["drive"]["ratio"] for s in seeds]
+            c_ratios = [larva_res[s][test_id]["control"]["ratio"] for s in seeds]
+            d_base = [larva_res[s][test_id]["drive"]["base_hz"] for s in seeds]
+            d_stim = [larva_res[s][test_id]["drive"]["driven_hz"] for s in seeds]
+            c_base = [larva_res[s][test_id]["control"]["base_hz"] for s in seeds]
+            c_stim = [larva_res[s][test_id]["control"]["driven_hz"] for s in seeds]
+            p = _wilcoxon_greater(d_ratios, c_ratios)
+            passed = bool(np.mean(d_ratios) >= RATIO_MIN and p < P_MAX)
+            r = {k_: v for k_, v in t.items()}
+            r["measured"] = dict(
+                drive_ratio_mean=float(np.mean(d_ratios)), drive_ratio_sd=float(np.std(d_ratios, ddof=1)),
+                control_ratio_mean=float(np.mean(c_ratios)), control_ratio_sd=float(np.std(c_ratios, ddof=1)),
+                drive_base_hz=float(np.mean(d_base)), drive_driven_hz=float(np.mean(d_stim)),
+                control_base_hz=float(np.mean(c_base)), control_driven_hz=float(np.mean(c_stim)),
+                p_value=p, n=len(seeds))
+            r["criteria"] = f"mean ratio >= {RATIO_MIN} and drive > control (one-sided Wilcoxon p < {P_MAX})"
+            r["passed"] = passed
+            r["per_seed"] = [dict(seed=s, drive_ratio=dr, control_ratio=cr) for s, dr, cr in zip(seeds, d_ratios, c_ratios)]
+            results.append(r)
+        g, W, _ = simcore.pack(brain="larva")
+        ran = sorted({r["_backend"] for r in larva_res.values() if "_backend" in r})
+        return dict(app_version=__version__, brain="larva", backend=", ".join(n for n, _ in ran) or "not recorded",
+                    device=", ".join(d for _, d in ran) or "not recorded", created=time.strftime("%Y-%m-%d %H:%M:%S"), seconds=round(time.time() - t0, 1),
+                    seeds=list(seeds), workers=1, n_neurons=int(g.n), synapses=int(W.nnz),
+                    wiring=None, lab_params=dict(lab.DEFAULTS), thresholds=dict(k.THRESH), loom=[k.LOOM_MIN, k.LOOM_FULL],
+                    sweet_n=assays.SWEET_N, tests=results)
     workers = workers or min(4, os.cpu_count() or 1)
     include = set(include or BY_ID)
     jobs_path = [s for s in seeds] if include - {"mb_conditioning", "mb_extinction", "mb_second_order", "epg_compass", "epg_compass_wind"} else []
@@ -526,9 +631,9 @@ def run(seeds=SEEDS, workers: int | None = None, progress=None, include=None, wi
             r["per_seed"] = [dict(seed=s, pi=a, control_pi=b) for s, a, b in zip(seeds, pi_p, pi_u)]
         results.append(r)
 
-    g, W, _ = simcore.pack()
+    g, W, _ = simcore.pack(brain="adult")
     ran = sorted({r["_backend"] for r in path_res.values() if "_backend" in r})
-    return dict(app_version=__version__, backend=", ".join(n for n, _ in ran) or "not recorded",
+    return dict(app_version=__version__, brain="adult", backend=", ".join(n for n, _ in ran) or "not recorded",
                 device=", ".join(d for _, d in ran) or "not recorded", created=time.strftime("%Y-%m-%d %H:%M:%S"), seconds=round(time.time() - t0, 1),
                 seeds=list(seeds), workers=workers, n_neurons=int(g.n), synapses=int(W.nnz),
                 wiring=(wiring.as_dict() if wiring is not None else None),

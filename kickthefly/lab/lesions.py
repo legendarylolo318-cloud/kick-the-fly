@@ -53,7 +53,7 @@ def hemisphere_rows(g, side: str = "L", soma: np.ndarray | None = None) -> np.nd
     if soma_arr is None:
         try:
             from kickthefly.core import simcore
-            _, _, soma_arr = simcore.pack()
+            _, _, soma_arr = simcore.pack(brain=getattr(g, "brain_type", "adult"))
         except Exception:
             soma_arr = None
 
