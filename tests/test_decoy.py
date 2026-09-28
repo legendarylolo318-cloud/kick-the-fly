@@ -39,6 +39,27 @@ class DummyRenderer:
         self.particles["add" if additive else "alpha"].append((pos, size, color))
 
 
+_GAMES: list = []
+
+
+@pytest.fixture(autouse=True)
+def _free_games():
+    """Each game runs a brain-view thread that holds it, and its brain, until view_stop is set: about 0.6 GB per game.
+    Without this the file held 9 GB by its end and the CI runner's fast suite slowed into its time limit."""
+    yield
+    import gc
+    import threading
+    while _GAMES:
+        g = _GAMES.pop()
+        g.view_stop = True
+        for slot in getattr(g, "flies", []):
+            slot.brain.stop()
+    for th in threading.enumerate():
+        if th.name == "brain-view":
+            th.join(timeout=2.0)
+    gc.collect()
+
+
 def _make_game2d():
     pygame.init()
     state = {"seed": 5}
@@ -46,6 +67,7 @@ def _make_game2d():
     assert "error" not in state, state.get("error")
     screen = pygame.Surface((k2.W, k2.H))
     game = k2.Game(screen, state["brain"], state["view"], state["graph"], state["weights"], cfg=config.Config(None))
+    _GAMES.append(game)
     return game
 
 
@@ -56,6 +78,7 @@ def _make_game3d():
     assert "error" not in state, state.get("error")
     hud = pygame.Surface((k2.W, k2.H), pygame.SRCALPHA)
     game = kick3d.Game3D(hud, state["brain"], state["view"], state["graph"], state["weights"], cfg=config.Config(None))
+    _GAMES.append(game)
     return game
 
 
