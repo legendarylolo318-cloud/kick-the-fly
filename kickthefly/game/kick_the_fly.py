@@ -5854,9 +5854,10 @@ class Game:
     def _draw_decoy_contact_hud(self, surf: pygame.Surface, now: float) -> None:
         slot = self.flies[self.focus]
         br = slot.brain
-        grn_x = br.lglg_level()
+        # LgLG5-8 are all but silent at rest, so a multiple of calm is meaningless (any contact read "x99"): their rate
+        # in spikes/s against calm; P1 fires at rest, so its multiple of calm is fine
         p1_x = br.p1_level()
-        txt = f"DECOY CONTACT: LgLG5-8 x{grn_x:.1f}   P1 x{p1_x:.1f} calm"
+        txt = f"DECOY  LgLG5-8 {br.lglg_fast:.0f}/s (calm {br.lglg_base:.1f})  P1 x{p1_x:.2f}"
         rendered = self.f_small.render(txt, True, (230, 230, 240))
         chip_pad = 48
         total_w = rendered.get_width() + chip_pad + 20

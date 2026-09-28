@@ -317,52 +317,30 @@ scene("paths", "The path tracer in the big brain view (B): the strongest paths f
 
 
 def _decoy_setup(g):
+    """One decoy on the floor beside the fly's head, within its forelegs' reach; she stays where she is put."""
     g.set_setting("brain.immortal", True, save=False)
     fly = g.flies[0].fly
     fwd = fly.p[k2.HEAD] - fly.p[k2.THX]
     fwd[1] = 0.0
     norm = float(np.linalg.norm(fwd))
-    if norm > 1e-4:
-        fwd /= norm
-    else:
-        fwd = np.array([1.0, 0.0, 0.0])
-    dp = fly.p[k2.HEAD] + fwd * 0.22
+    fwd = fwd / norm if norm > 1e-4 else np.array([1.0, 0.0, 0.0])
+    side = np.array([-fwd[2], 0.0, fwd[0]])
+    dp = fly.p[k2.HEAD] + fwd * 0.12 + side * 0.28           # beside its head, facing it, bodies apart
     dp[1] = kick3d.STAND3
-    yaw = float(math.atan2(-fwd[2], -fwd[0]))
-    g.decoys3 = [{"p": dp, "v": np.zeros(3), "landed": True, "yaw": yaw}]
+    g.decoys3 = [{"p": dp, "v": np.zeros(3), "landed": True, "yaw": float(math.atan2(-side[2], -side[0]))}]
 
 
 def _decoy_every(game, t):
     fly = game.flies[0].fly
     dec = getattr(game, "decoys3", None)
-    if not dec:
-        return
-    fwd = dec[0]["p"] - fly.p[k2.THX]
-    fwd[1] = 0.0
-    dist = float(np.linalg.norm(fwd))
-    if dist > 0.01:
-        fwd /= dist
-    if dist > 0.35:
-        dec[0]["p"][:] = fly.p[k2.HEAD] + fwd * 0.22
-        dec[0]["p"][1] = kick3d.STAND3
-    dec[0]["yaw"] = float(math.atan2(-fwd[2], -fwd[0]))
-
-    mid = 0.5 * (fly.p[k2.THX] + dec[0]["p"])
-    side = np.array([-fwd[2], 0.0, fwd[0]])
-    cam_pos = mid + side * 0.95 - fwd * 0.15
-    cam_pos[1] = 0.55
-    p = game.player
-    p.pos[:] = (cam_pos[0], cam_pos[2])
-    p.eye_h = cam_pos[1]
-    d = mid - p.eye
-    p.yaw = math.atan2(d[2], d[0])
-    p.pitch = float(np.clip(math.atan2(d[1], math.hypot(d[0], d[2])), -1.4, 1.4))
+    target = (fly.p[k2.THX] + dec[0]["p"]) / 2 if dec else fly.p[k2.THX]
+    look_at(game, target, 1.6, math.pi / 2 + 0.4, 1.2)
 
 
-scene("decoy", "A fly walking into a decoy female in the room: foreleg contact drives its LgLG5-8 taste neurons",
-      arena="room", steps=[(0.0, _decoy_setup)],
-      every=_decoy_every, shot_at=4.0,
-      ready=lambda g: getattr(g.flies[0].fly, "decoy_contact_until", 0) > g.clock.now, timeout=10.0)
+scene("decoy", "A decoy female dropped next to the fly: while its forelegs touch her, the HUD shows its LgLG5-8 taste "
+               "neurons and P1",
+      arena="room", steps=[(0.0, _decoy_setup)], every=_decoy_every, shot_at=0.6,
+      ready=lambda g: getattr(g.flies[0].fly, "decoy_contact_until", 0) > g.clock.now, timeout=12.0)
 
 
 scene("portrait", "Close-up of the fly model itself (not used in the README; for checking the model after a change)",
