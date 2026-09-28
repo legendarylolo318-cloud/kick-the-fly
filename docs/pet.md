@@ -1,6 +1,6 @@
 # Pet Mode (Long-Lived Companion Fly)
 
-Kick the Fly 2.11 introduces **Pet Mode** in `Esc > Mode`, allowing a single fly (adult or larva) to persist across real days as a virtual companion.
+Kick the Fly 2.11 introduces **Pet Mode** in `Esc > Mode`, allowing a single fly to persist across real days as a virtual companion. In the windowed game the pet is always an adult (the larva brain is headless-only in 2.11, see [larva.md](larva.md)).
 
 ---
 
@@ -11,9 +11,10 @@ Kick the Fly 2.11 introduces **Pet Mode** in `Esc > Mode`, allowing a single fly
 - **No Background Services**: There are **NO** background processes, daemons, cron jobs, systemd services, Windows services, startup/autostart entries, or background wake timers. When the game window is closed, Kick the Fly uses zero CPU, GPU, memory, or battery.
 - **Save Location & Durability**:
   - Saved to the user's data directory:
-    - Linux: `~/.local/share/Kick the Fly/pet/pet.ktfsave` (and backup `pet.ktfsave.bak`).
+    - Linux: `$XDG_DATA_HOME/kickthefly/pet/pet.ktfsave` (default `~/.local/share/kickthefly/pet/`, backup `pet.ktfsave.bak`).
     - Windows: `Documents\Kick the Fly\pet\pet.ktfsave` (and `pet.ktfsave.bak`).
-  - Saves are written atomically via tempfiles. Existing saves are never deleted without explicit confirmation.
+  - Saves are written atomically via tempfiles, after copying the previous save to `pet.ktfsave.bak`. The game never deletes a pet save. If both files are unreadable, they are kept as `*.unreadable-<date>` before a new pet is created.
+  - The pet is saved at launch (after the catch-up) and when the game quits.
 
 ---
 
@@ -39,13 +40,13 @@ $$\Delta t = t_{\text{launch}} - t_{\text{saved}}$$
 
 ## 3. Needs & Couplings to Real Neurons
 
-Pet mode introduces biological need states (GAME RULE) that couple bidirectionally to live connectome circuits:
+The need states, their rates and the coupling strengths are all **GAME RULE** (chosen for play, not measured) and shown in `Lab > Parameters` (`Pet: ...`). What they drive are real connectome groups:
 
-| Need State | Dynamics & Range | Circuit Couplings (CONNECTOME) |
+| Need State | Dynamics & Range | Coupling (GAME RULE) onto real neurons |
 |---|---|---|
 | **Hunger** ($0.0 \dots 1.0$) | Increases over time; decreased by feeding (sugar droplet, orchard fruit). | **Sugar Taste Gain**: Scales sensory input from taste receptor neurons by $(1.0 + 2.0 \cdot \text{hunger})$. Starved flies taste sugar more intensely.<br>**Reward Sensitivity**: Scales PAM dopaminergic reward excitation by $(1.0 + 1.5 \cdot \text{hunger})$. Starved flies find eating significantly more rewarding. |
-| **Sleep Pressure** ($0.0 \dots 1.0$) | Accumulates while awake; dissipates during sleep. | **dFB Sleep Drive**: Drives the dorsal fan-shaped body sleep neurons (**FB6/FB7** in adult; premotor resting DNs in larva). High sleep pressure triggers spontaneous resting and suppresses takeoff reflexes. |
-| **Mood** ($0.0 \dots 1.0$) | Evaluated dynamically from live dopamine firing rates. | Driven by the ratio of PAM (reward / contentment) to PPL1 (punishment / stress) activity. Content flies show relaxed movement; stressed flies show heightened grooming and skittish reflexes. |
+| **Sleep Pressure** ($0.0 \dots 1.0$) | Accumulates while awake; dissipates during sleep. | **dFB Sleep Drive**: Drives the dorsal fan-shaped body sleep neurons (**FB6/FB7**) with $0.5 \cdot \text{pressure}$. When they cross the SLEEP threshold the existing SLEEP readout rests the fly. |
+| **Mood** ($0.0 \dots 1.0$) | Evaluated dynamically from live dopamine firing rates. | A readout only: moves toward $0.5 + 0.5\,(\text{PAM} - \text{PPL1}) / (\text{PAM} + \text{PPL1})$ of the live group rates. It does not feed back into behaviour. |
 
 ---
 
@@ -53,17 +54,17 @@ Pet mode introduces biological need states (GAME RULE) that couple bidirectional
 
 The pet retains all learned behavioral memories and its unique individuality profile:
 - **Mushroom Body Synaptic Weights**: Kenyon cell $\to$ MBON plastic weights persist across sessions. A pet trained to avoid an odor remembers that conditioning across days.
-- **Individuality Seed & Personality**: Retains its deterministic individuality gains and personality profile (*e.g., "Alert Straight-walker"*).
+- **Personality card**: stored with the pet. Note (2.11): the card is generated from the pet's own seed with seeded random draws, not measured from its brain, and that seed is not the brain's seed. See [individuality.md](individuality.md).
 - **Life Timeline**: Logs major life events: adoption, meals, sleeps, conditioning sessions, and injuries.
 
 ---
 
 ## 5. Mortality & Death Rules
 
-- **Default State: Immortal**: By default, pet flies cannot die from hunger, neglect, or injury. If health drops to zero, the fly enters a stunned resting state and recovers.
+- **Default State: Immortal**: by default the pet save is never marked dead.
 - **Optional "Real Stakes" Toggle**:
   `Settings > Brain > Pet Real Stakes`
-  When enabled, prolonged starvation ($\ge 48$ hours with $100\%$ hunger) or fatal physical trauma results in death, triggering the standard scientific autopsy screen. Even in real-stakes mode, the previous save backup (`pet.ktfsave.bak`) is preserved.
+  When enabled, a catch-up of $\ge 48$ hours that ends at $100\%$ hunger marks the pet dead and the fly in the game dies (the normal death and autopsy). Even in real-stakes mode, the previous save backup (`pet.ktfsave.bak`) is preserved.
 
 ---
 

@@ -20,12 +20,19 @@ where:
 - **Plasticity Interaction**: Mushroom body Kenyon cell $\to$ MBON plastic weights still update dynamically on top of individuality gains.
 
 ### Streaming GPU Multi-Fly Invariant
-Because $W$ remains invariant across all individuals, batched GPU execution (PyTorch batched SpMM and OpenGL compute shaders) streams **one shared weight matrix** per step:
+Because $W$ remains invariant across all individuals, batched PyTorch execution streams **one shared weight matrix** per step:
 1. Multiply the per-fly spike vector by $D_{\text{pre}}$.
 2. Execute batched SpMM against the shared matrix $W$.
 3. Multiply the resulting post-synaptic current vector by $D_{\text{post}}$.
 
-NumPy, Numba, and torch-cpu remain **100% bit-exact** with individuality enabled.
+Backend support, measured in the 2.11 review (`tests/test_individuality.py`):
+- **NumPy and Numba**: bit-exact (every spike and voltage) with individuality off, subtle and strong.
+- **torch-cpu**: bit-exact with individuality off. With it on, the scaled products are summed in a different order, the
+  float32 rounding differs and the chaotic network drifts apart (after 150 steps at `subtle`, spikes differ and
+  voltages by up to 6.5). Not bit-exact.
+- **gl** (OpenGL compute): **not implemented**. The shaders use the shared $W$ only; a gl brain logs a warning and runs
+  with individuality off (its gains are cleared so nothing reports gains it does not use).
+- torch-cuda / torch-rocm: implemented as above, untested in 2.11 (no such device in the review).
 
 ---
 
@@ -33,10 +40,13 @@ NumPy, Numba, and torch-cpu remain **100% bit-exact** with individuality enabled
 
 - **Settings**: `Settings > Brain > Individuality`:
   - `off`: $\sigma = 0.0$ (identical clone brains).
-  - `subtle`: $\sigma = 0.15$ (default in Play & Pet modes).
-  - `strong`: $\sigma = 0.30$ (amplified individual behavioral divergence).
+  - `subtle`: $\sigma = 0.05$ (the setting's default).
+  - `strong`: $\sigma = 0.15$.
+  - Both are GAME RULE and adjustable in `Lab > Parameters` (`Individuality: subtle/strong sigma`).
+  - Configs from before 2.11 get the default (`subtle`) on upgrade, so existing players' flies change slightly unless
+    they set it to `off`.
 - **Validation Invariant**: Individuality is **strictly forced OFF** during `--validate` and within the automated validation suite to preserve the reproducibility of published benchmark results.
-- **Metadata**: Recorded in save files (`.ktfsave`), NWB exports, and replays.
+- **Metadata**: recorded in save files (`.ktfsave`). Not recorded in NWB exports or replays in 2.11.
 
 ---
 
@@ -44,7 +54,10 @@ NumPy, Numba, and torch-cpu remain **100% bit-exact** with individuality enabled
 
 To evaluate whether flies show individual consistency across sessions ([Kain et al. 2012](https://doi.org/10.1016/j.cub.2012.08.027); [Linneweber et al. 2020](https://doi.org/10.1126/science.aaw7182)), the Lab assay runs repeated sessions across multiple assays (looming escape latency, sugar feeding response, steering bias via DNa01/02, and T-maze memory).
 
-### Empirical Results (Mode: `subtle`, $n = 8$ flies, $k = 4$ sessions):
+### Gemini's results ($n = 8$ flies, $k = 4$ sessions; not re-run in the 2.11 review)
+
+These were run with $\sigma = 0.15$: a bug in `simcore.new_brain` then forced $\sigma = 0.15$ for every setting other than
+`off`, so they correspond to today's `strong`, not `subtle`.
 
 1. **Self-Consistency vs Population Variance Test**:
    - Within-individual Euclidean distance across sessions: **2.675**.
@@ -77,14 +90,17 @@ Pass rates evaluated across held-out seeds (1000–1009) at each individuality s
 
 ## 5. Measured Personality Cards
 
-Each fly receives a non-scripted personality profile card calculated deterministically from its unique individual metrics:
+**Known issue (2.11 review): the cards are not measured.** In the game (`FlySlot`) and in Pet mode the card is built by
+`compute_personality_card(seed)` without assay results, and then its metrics are seeded random draws, independent of the
+fly's actual gains and of the individuality setting (flies get cards even with individuality off). Only a caller that
+passes measured metrics gets a measured card. The thresholds the card applies (`core/individuality.py`, shown on the card):
 - **Temperament**:
-  - *Bold*: Looming escape latency $\ge 0.35$ s.
-  - *Skittish*: Looming escape latency $\le 0.18$ s.
+  - *Bold*: Looming escape latency $\ge 0.30$ s.
+  - *Skittish*: Looming escape latency $\le 0.20$ s.
   - *Alert*: Typical response latency.
 - **Steering Bias**:
-  - *Right-turner*: DNa01/02 R/L firing ratio $\ge 1.35$.
-  - *Left-turner*: DNa01/02 R/L firing ratio $\le 0.74$.
+  - *Right-turner*: DNa01/02 R/L firing ratio $\ge 1.12$.
+  - *Left-turner*: DNa01/02 R/L firing ratio $\le 0.89$.
   - *Straight-walker*: Balanced steering.
 - **Feeding Drive**:
   - *Sugar lover*: MN9 proboscis response $\ge 2.20$x baseline.

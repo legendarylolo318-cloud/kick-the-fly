@@ -1,80 +1,60 @@
-# Drosophila Larva Brain Mode
+# Drosophila Larva Brain
 
-Kick the Fly 2.11 integrates the complete synaptic-resolution connectome of the *Drosophila melanogaster* larva (*Science* 379:eadd9330, 2023).
+Kick the Fly 2.11 can load the synaptic-resolution connectome of the first-instar *Drosophila* larva brain
+(Winding et al. 2023, *Science* 379:eadd9330). In this release it is **headless only**: validation, benchmarks and
+Python use. The windowed game (2D and 3D) always runs the adult brain and logs a warning if `brain.brain = "larva"`,
+because the larva body (`kickthefly/game/larva.py`) does not yet implement what the game loop expects of a fly.
 
----
+## Source, license and how it is shipped
 
-## 1. Connectome Source & Dataset Specifications
+- **Reference**: Winding, M., Pedigo, B.D., Barnes, C.L., et al. (2023). "The connectome of an insect brain."
+  *Science* 379(6636), eadd9330. DOI: [10.1126/science.add9330](https://doi.org/10.1126/science.add9330).
+- **Data**: the paper's Supplementary Data S1 (`Supplementary-Data-S1.zip`). `larva_loader.py` downloads it from the
+  [brain-networks/larval-drosophila-connectome](https://github.com/brain-networks/larval-drosophila-connectome) mirror
+  (Betzel lab; not the publisher) and only accepts the exact archive (SHA-256
+  `8c1f4380…72a4c`, checked before use).
+- **License**: neither the Science supplement nor the mirror states a license (the mirror repository has none, and
+  Crossref lists none for the article). Until one is confirmed, **the larva data is not redistributed**: it is not in
+  git, not in the exe or AppImage, and not in release artifacts. The pack `data/kick_larva_brain.npz` is built on the
+  user's machine on first use (`python -m kickthefly.sim.connectome.larva_loader build`). Please cite the paper above
+  in any work that uses it.
+- **Counts** (read from the matrix at build time, not hardcoded): 2,952 neurons, 110,677 connected pairs,
+  352,611 synapses.
 
-- **Reference**: Winding, M., Pedigo, B.D., Barnes, C.L., et al. (2023). "The connectome of an insect brain." *Science*, 379(6636), eadd9330. DOI: [10.1126/science.add9330](https://doi.org/10.1126/science.add9330).
-- **Official Repository**: [brain-networks/larval-drosophila-connectome](https://github.com/brain-networks/larval-drosophila-connectome) (`Supplementary-Data-S1.zip`).
-- **License**: Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International ([CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)).
-  Because the license permits non-commercial redistribution with attribution and share-alike terms, the compact brain pack `kick_larva_brain.npz` is built from official data files and managed via `kickthefly.sim.connectome.larva_loader`.
-- **Neuron & Synapse Counts (as read dynamically from dataset)**:
-  - **Neurons**: 2,952 annotated cells.
-  - **Synapse Pairs (connected graph edges)**: 110,677.
-  - **Total Synapses**: 352,611.
-  - **Annotated Cell Types**: 96 nociceptors and 2nd-order nociceptive projection neurons (`A00c_a4-a6; noci`, `FFN-27/29`, `Tel5/10`), 94 chordotonal/mechanosensory neurons (`mechano-Ch`, `mechano-II/III`), 358 gustatory sensory neurons (`gustatory-external`, `gustatory-pharyngeal`), 28 thermo-cold/warm receptors, and 2 Goro escape command descending neurons (`5754346`, `3764792` annotated `DN-VNC`, `_telegoro-1`).
+## What the pack keeps, and what it adds
 
----
+Kept from Data S1: the all-to-all synapse-count matrix, the broad cell class (`type`, e.g. `sensory`, `DN-VNC`, `KC`),
+the additional annotations (`subtype`, e.g. `noci`, `mechano-Ch`, `_telegoro-1`), hemisphere and cluster.
 
-## 2. Selection, Brain Pack Separation & Save Compatibility
+Added by the pack builder, **not from the data** (GAME RULE):
+- **Signs.** Data S1 has no transmitter identities. The builder makes local neurons (`LN`) and MBONs inhibitory and
+  every other neuron excitatory. This is a guess and it matters: the network idles at about 60 Hz.
+- **Cell-body positions** for the brain view are laid out from hemisphere and cluster; they are not anatomical.
 
-- **CLI Flag**: `--brain adult|larva` (default `adult`).
-- **Settings**: `Settings > Brain > Brain: Adult | Larva`.
-- **Save State Separation**:
-  - Save states (`.ktfsave`), NWB exports, and replays record the active brain type in metadata.
-  - Attempting to load a save file generated for the other connectome is strictly rejected with a clear message:
-    `"can't load this save: made for the adult brain (currently using larva)"` (or vice versa).
+## Annotations used, and what they really are
 
----
+`larva_loader.larva_groups()` selects by exact annotation tag (`subtype`):
 
-## 3. Crawler Physics & Mechanics (GAME RULE)
-
-Unlike adult flies, larvae cannot fly. Physics are modeled by `LarvaBody` in `kickthefly/game/larva.py`:
-- **Morphology**: 10 articulated segments (Head, T1–T3 thoracic, A1–A6 abdominal segments) with tapering radii (6–13 px) and viscoelastic spring-damper constraints.
-- **Locomotion**:
-  - **Forward Crawling**: Posterior-to-anterior peristaltic wave of segment contractions at 1.4 Hz.
-  - **Head-Casting / Turning**: Lateral bending and orientation search driven by anterior segments (Head–T3).
-  - **Rolling Escape**: High-frequency (up to 4.5 Hz) lateral corkscrew C-curling escape maneuver triggered by noxious stimulation through Goro command descending neurons.
-- **Arena Gating**:
-  - **Allowed Arenas**: Room, Flypaper, Lamp, Thermo, Pool.
-  - **Restricted Arenas**: Open Field, Orchard, Fan, Escape Room. Selecting these arenas prompts an explanatory dialog:
-    *e.g. "The open field requires adult flight and wind navigation."*
-
----
-
-## 4. Sensory & Pain Mapping (CONNECTOME vs GAME RULE)
-
-- **Touch**: Maps to chordotonal organ sensory neurons (`mechano-Ch`) and sub-threshold mechanosensors (`mechano-II/III`).
-- **Blowtorch / Heat**: Directly activates annotated Class IV multi-dendritic (md-IV) nociceptors (`A00c` / `noci`).
-- **Sugar**: Maps to external and pharyngeal gustatory receptor neurons.
-- **Cold**: Maps to cold thermosensory neurons (`thermo-cold`).
-- **Direct Nociceptor Pain Meter (CONNECTOME)**:
-  In the adult connectome, nociceptors are unannotated, requiring a composite estimate (GAME RULE). In larval mode, annotated Class IV md nociceptors are monitored directly, and the HUD card is tagged `CONNECTOME (md-IV)`.
-
----
-
-## 5. Validation Results (Held-Out Seeds 1000–1009)
-
-Validation follows pre-fixed empirical criteria: 2 s calm baseline followed by 2 s stimulation (amplitude 0.5), tested against matched random sensory controls using one-sided Wilcoxon signed-rank tests ($n = 10$). Pass requires ratio $\ge 1.50$ and $p < 0.01$.
-
-| Test ID | Pathway & Citation | Empirical Readout | Result |
+| Group | Annotation | Count | What it is |
 |---|---|---|---|
-| `larva_noci_to_goro_rolling` | Class IV md nociceptors $\to$ Basin interneurons $\to$ Goro command neurons rolling escape ([Ohyama et al. 2015](https://doi.org/10.1038/nature14424); [Winding et al. 2023](https://doi.org/10.1126/science.add9330)) | Goro DNs x1.00 ± 0.04 vs x0.97 ± 0.05 control ($p = 0.0322$) | **FAIL: below 1.5x threshold** (activation reaches Goro consistently above control, but drive ratio is below criterion) |
-| `larva_chordotonal_to_basin` | Chordotonal sensory neurons (`mechano-Ch`) $\to$ Basin interneurons ([Ohyama et al. 2015](https://doi.org/10.1038/nature14424); [Jovanic et al. 2016](https://doi.org/10.1016/j.cell.2016.10.025)) | Basin PNs x1.06 ± 0.05 vs x0.98 ± 0.02 control ($p < 0.001$) | **FAIL: below 1.5x threshold** (highly significant $p < 0.001$, but weak synaptic gain in linear LIF model) |
+| `noci` | `noci`, `A00c_a4/a5/a6; noci` | 12 | nociceptive **ascending** neurons from the nerve cord. The class IV md sensory neurons are not in this dataset. |
+| `chordo` | `mechano-Ch` | 12 | chordotonal-pathway **ascending** neurons |
+| `noci_pn`, `chordo_pn` | `noci 2nd_order PN`, `mechano-Ch 2nd_order PN` | 84, 64 (8 in both) | brain neurons downstream of those. **Not Basins**: the Basin interneurons are in the nerve cord. |
+| `goro` | `_telegoro-1` | 2 | a DN-VNC pair annotated `_telegoro-1`. Goro itself is in the nerve cord; this pair is not verified as Goro. |
 
-Both failures are reported honestly without artificial weight-tuning.
+## Validation (seeds 1000-1009, `--headless --validate --brain larva`)
 
----
+Written to `validation_results_larva.json`, separately from the adult results. Individuality is forced off.
 
-## 6. Performance Benchmarks & Fly Cap
+| Test | Measured | Result |
+|---|---|---|
+| `larva_noci_to_goro_rolling` | `_telegoro-1` x0.66 ± 0.01 vs x0.65 ± 0.01 for 12 random other sensory neurons, p = 0.001 | **FAIL: no excitation** |
+| `larva_chordotonal_to_basin` | 2nd-order PNs x0.68 ± 0.01 vs x0.64 ± 0.01, p = 0.001 | **FAIL: no excitation** |
 
-Due to the larva's smaller matrix size (2,952 neurons vs 139,255 adult neurons), throughput is substantially higher:
-- **1 Larva (CPU)**: 9,698 steps/s (**161.6x realtime**).
-- **1 Larva (Numba JIT)**: 12,815 steps/s (**213.6x realtime**).
-- **Multi-Larva Scaling**:
-  - 64 larvae run smoothly at 2.40x realtime on CPU, and 3.39x realtime on Numba.
-  - **Measured Max Fly Cap**:
-    - **CPU (NumPy / torch-cpu)**: **64 larvae** (vs 16 adult flies).
-    - **Numba / GPU (CUDA / ROCm)**: **128 larvae** (vs 32/64 adult flies).
+Any sensory drive lowers these readouts, whichever neurons are driven (see the signs caveat above). Nothing was tuned.
+Because neither pathway is validated, larva reactions (ROLL etc.) would be GAME RULE, not real.
+
+## Save states
+
+Save states record the brain. Loading one made for the other connectome is refused with
+`can't load this save: made for the adult brain (currently using larva)` (or the reverse).
