@@ -724,6 +724,9 @@ class Game3D(k2.Game):
                           landed=bool(sg["landed"])) for sg in self.sugars3],
             alcohols3=[dict(p=[float(x) for x in al["p"]], v=[float(x) for x in al["v"]], left=float(al["left"]),
                             landed=bool(al["landed"])) for al in getattr(self, "alcohols3", [])],
+            decoys3=[dict(p=[float(x) for x in dec["p"]], v=[float(x) for x in dec["v"]],
+                          landed=bool(dec.get("landed", False)), yaw=float(dec.get("yaw", 0.0)))
+                     for dec in getattr(self, "decoys3", [])],
             player=dict(pos=[float(x) for x in pl.pos], yaw=pl.yaw, pitch=pl.pitch, eye_h=pl.eye_h,
                         vel=[float(x) for x in pl.vel]),
             duel=bool(self.duel), player_hp=float(self.player_hp), duel_stats=dict(self.duel_stats),
@@ -735,6 +738,10 @@ class Game3D(k2.Game):
                         for sg in extra.get("sugars3", [])]
         self.alcohols3 = [dict(p=np.array(al["p"]), v=np.array(al["v"]), left=al["left"], landed=al["landed"])
                           for al in extra.get("alcohols3", [])]
+        self.decoys3 = [dict(p=np.array(dec["p"], float), v=np.array(dec["v"], float),
+                             landed=bool(dec.get("landed", False)), yaw=float(dec.get("yaw", 0.0)))
+                        for dec in extra.get("decoys3", [])]
+        self.grabbed_decoy3 = None
         pl, sp = self.player, extra.get("player")
         if sp:
             pl.pos, pl.yaw, pl.pitch, pl.eye_h = np.array(sp["pos"]), sp["yaw"], sp["pitch"], sp["eye_h"]
@@ -913,6 +920,8 @@ class Game3D(k2.Game):
         super().new_fly()
         self.sugars3: list = []
         self.alcohols3: list = []
+        self.decoys3: list = []
+        self.grabbed_decoy3 = None
 
     def clear_transients(self) -> None:
         super().clear_transients()
@@ -991,6 +1000,27 @@ class Game3D(k2.Game):
                 best_slot, best_i, best_t = slot, i, t
         return best_slot, best_i, best_t
 
+    def _nearest_decoy3d(self, eye, d, reach: float, max_perp: float):
+        if not hasattr(self, "decoys3") or not self.decoys3:
+            return None, None
+        best_dec, best_t = None, None
+        for dec in self.decoys3:
+            rel = dec["p"] - eye
+            t = float(rel @ d)
+            if 0 < t < reach:
+                perp = float(np.linalg.norm(rel - t * d))
+                if perp < max_perp and (best_t is None or t < best_t):
+                    best_dec, best_t = dec, t
+        return best_dec, best_t
+
+    def remove_decoy(self, dec) -> None:
+        if hasattr(self, "decoys3") and dec in self.decoys3:
+            drop_item(self.decoys3, dec)
+            if getattr(self, "grabbed_decoy3", None) is dec:
+                self.grabbed_decoy3 = None
+            self.popup(dec["p"], "DECOY REMOVED", (200, 180, 220))
+            self.sound.play("pop")
+
     def _flies_within3d(self, pos, radius: float) -> list:
         """Every fly with at least one particle within radius of a point (for area-effect tools)."""
         return [slot for slot in self.flies if np.any(np.linalg.norm(slot.fly.p - pos, axis=1) < radius)]
@@ -1009,11 +1039,20 @@ class Game3D(k2.Game):
                 return
         if name == "hand":
             slot, i, t = self._nearest_fly3d(eye, d, GRAB_REACH, 0.18)
+            dec, dec_t = self._nearest_decoy3d(eye, d, GRAB_REACH, 0.35)
+            if dec is not None and (t is None or dec_t < t):
+                self.grabbed_decoy3 = dec
+                self.hold_dist = float(np.clip(dec_t, 0.6, 2.2))
+                return
             if slot is not None and i is not None and slot.fly.frozen_at is None:
                 slot.fly.grabbed, self.hold_dist = i, float(np.clip(t, 0.6, 2.2))
                 slot.fly.last_hit = eye.copy()
                 self.hit(slot, i, 0.25)
                 self.focus = self.flies.index(slot)
+            elif dec is not None:
+                self.grabbed_decoy3 = dec
+                self.hold_dist = float(np.clip(dec_t, 0.6, 2.2))
+                return
         elif name == "flick":
             self.flick_t = now
             slot, i, t = self._nearest_fly3d(eye, d, 2.6, 0.4)
@@ -1069,6 +1108,9 @@ class Game3D(k2.Game):
         elif name == "cva":
             self.sound.play("pop")
             self.popup(self.tool_tip(), "cVA PUFF", (255, 180, 100))
+            if not hasattr(self, "cva_puffs3"):
+                self.cva_puffs3 = []
+            self.cva_puffs3.append(dict(p=self.tool_tip().copy(), t=now, duration=0.65, reach=2.5))
             for slot in self.flies:
                 dist = float(np.linalg.norm(slot.fly.p[HEAD] - self.tool_tip()))
                 if dist < 2.5:
@@ -1076,12 +1118,16 @@ class Game3D(k2.Game):
                     slot.brain.poke("scent", "cva", strength)
         elif name == "decoy" and now - self.throw_t > 0.3:
             self.throw_t = now
-            self.sound.play("drop")
-            self.popup(self.tool_tip(), "DECOY FEMALE", (200, 180, 220))
             if not hasattr(self, "decoys3"):
                 self.decoys3 = []
             if len(self.decoys3) < 3:
-                self.decoys3.append(dict(p=self.tool_tip(), v=d * 0.07 + np.array([0, 0.02, 0]), landed=False))
+                self.sound.play("drop")
+                self.popup(self.tool_tip(), "DECOY FEMALE", (200, 180, 220))
+                self.decoys3.append(dict(p=self.tool_tip().copy(), v=d * 0.07 + np.array([0, 0.02, 0]),
+                                         landed=False, yaw=self.player.yaw + math.pi))
+            else:
+                self.popup(self.tool_tip(), "MAX 3 DECOYS", (200, 180, 220), force=True)
+                self.note("DECOY    limit reached (max 3)")
 
     def _swat3d(self, now: float) -> None:
         eye, d = self.aim()
@@ -1349,6 +1395,8 @@ class Game3D(k2.Game):
         if getattr(self, "_room", None) is None:     # still inside __init__; runs again once the room exists
             return
         super().on_arena_changed(now)
+        self.decoys3 = []
+        self.grabbed_decoy3 = None
         arena = k2.ARENAS[self.arena_i]
         was = getattr(self, "world", "room")
         self.scenery = outdoors.scenery(arena)
@@ -1904,19 +1952,26 @@ class Game3D(k2.Game):
         if not hasattr(self, "decoys3") or not self.decoys3:
             return
         for dec in self.decoys3:
-            if not dec["landed"]:
+            if getattr(self, "grabbed_decoy3", None) is dec:
+                continue
+            if not dec.get("landed", False):
                 dec["v"][1] -= GRAV
                 dec["p"] += dec["v"]
                 if dec["p"][1] <= 0.05:
                     dec["p"][1], dec["landed"] = 0.05, True
+                    dec["v"][:] = 0.0
         for slot in self.flies:
             fly = slot.fly
             if fly.dead or fly.wrapped or fly.frozen_at is not None or fly.grabbed is not None:
                 continue
             dec = min(self.decoys3, key=lambda d: float(np.linalg.norm(d["p"] - fly.p[HEAD])))
-            dist = float(np.linalg.norm(dec["p"] - fly.p[HEAD]))
-            if dist < 0.4:
+            d_p = dec["p"].copy()
+            if d_p[1] < STAND3 * 0.5:
+                d_p[1] = STAND3
+            dist = float(np.linalg.norm(d_p - fly.p[HEAD]))
+            if dist < 0.4 or float(np.linalg.norm(dec["p"] - fly.p[HEAD])) < 0.4:
                 slot.brain.poke("pheromone", "foreleg", 0.6)
+                fly.decoy_contact_until = now + 0.35
                 if now >= getattr(fly, "court_until", 0.0):
                     fly.court_until = now + 0.5
                     self.note("COURTSHIP   foreleg contact (rule): drives the putative ppk23/ppk25 GRNs")
@@ -2009,6 +2064,9 @@ class Game3D(k2.Game):
             slot.fly.p_tick = slot.fly.p.copy()
         if self.challenge is not None:
             self.challenge.update(now)
+        if getattr(self, "grabbed_decoy3", None) is not None:
+            self.grabbed_decoy3["p"] = self._hold_point()
+            self.grabbed_decoy3["landed"] = False
         self._environment(now)
         self._kick(now)
         for slot in list(self.flies):
@@ -2559,6 +2617,111 @@ class Game3D(k2.Game):
         rd.add("cylinder", trs((pos[0], y, pos[2]), None, (radius * (1.2 - 0.5 * k), 0.002, radius * (1.2 - 0.5 * k) * 0.8)),
                (0.0, 0.0, 0.0, 0.35 * k), layer="blend")
 
+    def _draw_cva_puffs3d(self, rd: Renderer, now: float) -> None:
+        active = []
+        for pf in getattr(self, "cva_puffs3", []):
+            dt = now - pf["t"]
+            dur = pf.get("duration", 0.65)
+            if dt < dur:
+                active.append(pf)
+                progress = dt / dur
+                reach_r = 2.5 * (progress ** 0.5)
+                alpha = 0.28 * (1.0 - progress)
+                rd.add("sphere", trs(pf["p"], None, (reach_r, reach_r, reach_r)),
+                       (1.0, 0.72, 0.40, alpha), P_NONE, 0.1, layer="blend")
+                rd.add("sphere", trs(pf["p"], None, (reach_r * 0.55, reach_r * 0.55, reach_r * 0.55)),
+                       (1.0, 0.82, 0.50, alpha * 0.7), P_NONE, 0.15, layer="blend")
+                if int(now * 20) % 2 == 0:
+                    for _ in range(2):
+                        off = np.random.uniform(-reach_r * 0.35, reach_r * 0.35, 3)
+                        rd.particle(pf["p"] + off, 0.08 + 0.1 * (1.0 - progress),
+                                    (1.0, 0.75, 0.45, alpha * 0.9), additive=True)
+        self.cva_puffs3 = active
+
+    def _draw_decoy3d(self, rd: Renderer, now: float, dec: dict) -> None:
+        """Draw 3D decoy with the game's fly model as a female: larger, rounder abdomen with the
+        female band pattern across all tergites, no sex combs, clearly a fly, tinted slightly so it reads as a decoy."""
+        def col(c):
+            if any(x > 1.0 for x in c):
+                r, g, b = [x / 255.0 for x in c]
+            else:
+                r, g, b = c[:3]
+            k = 0.22
+            return (r * (1 - k) + 0.78 * k, g * (1 - k) + 0.71 * k, b * (1 - k) + 0.86 * k)
+
+        yaw = float(dec.get("yaw", 0.0))
+        dec_p = dec["p"].copy()
+        if dec_p[1] < STAND3 * 0.5:
+            dec_p[1] = STAND3
+        p = to_world(REST3, yaw) + dec_p
+
+        axis = p[HEAD] - p[ABD]
+        fwd = axis / (np.linalg.norm(axis) or 1)
+        side = body_axes(yaw)[2]
+        side = side - fwd * (side @ fwd)
+        side = side / (np.linalg.norm(side) or 1)
+        up = np.cross(side, fwd)
+        Rb = np.stack([fwd, up, side], 1)
+
+        fa = p[THX] - p[ABD]
+        fa = fa / (np.linalg.norm(fa) or 1)
+        Ra = np.stack([fa, np.cross(side, fa), side], 1)
+
+        leg_col = col((132, 95, 50))
+        foot_col = col((96, 66, 32))
+        for k in range(6):
+            sgn = 1 if k < 3 else -1
+            hip = p[THX] + fwd * (14 - 12 * (k % 3)) * S - up * 10 * S + side * sgn * 8 * S
+            rd.add("cylinder", segment(hip, p[KNEE[k]], 2.0 * S), leg_col)
+            rd.add("sphere", trs(p[KNEE[k]], None, (2.1 * S,) * 3), leg_col)
+            rd.add("cylinder", segment(p[KNEE[k]], p[FOOT[k]], 1.3 * S), leg_col)
+            rd.add("sphere", trs(p[FOOT[k]], None, (1.8 * S,) * 3), foot_col)
+
+        # Female Drosophila melanogaster: larger, rounder abdomen with the female band pattern across all tergites
+        # without the solid black/dark male tip cap, tapering instead to a light pointed ovipositor tip.
+        abd_l, abd_r = 29.0 * S, 22.0 * S
+        rd.add("sphere", trs(p[ABD], Ra, (abd_l, abd_r, abd_r)), col((206, 172, 104)), P_STRIPES)
+        # Tapered lighter terminal segment (ovipositor tip)
+        rd.add("sphere", trs(p[ABD] - fa * abd_l * 0.52, Ra, (abd_l * 0.40, abd_r * 0.65, abd_r * 0.65)),
+               col((212, 185, 130)), P_STRIPES)
+        rd.add("sphere", trs(p[ABD] - fa * abd_l * 0.74, Ra, (abd_l * 0.22, abd_r * 0.35, abd_r * 0.35)),
+               col((220, 195, 145)))
+
+        # Thorax and scutellum
+        rd.add("sphere", trs(p[THX], Rb, (23 * S, 19.5 * S, 19 * S)), col((176, 146, 92)))
+        rd.add("sphere", trs(p[THX] - fwd * 6 * S + up * 9 * S, Rb, (13 * S, 7 * S, 15 * S)),
+               col((150, 120, 74)))
+
+        # Head and eyes
+        rd.add("sphere", trs(p[HEAD], Rb, (13 * S, 14 * S, 15 * S)), col((186, 154, 96)))
+        for sgn in (1, -1):
+            eye = p[HEAD] + fwd * 1.5 * S + up * 2.5 * S + side * sgn * 8.5 * S
+            rd.add("sphere", trs(eye, Rb, (12 * S, 14 * S, 11.5 * S)), col((222, 44, 30)), P_EYE)
+            rd.add("sphere", trs(eye + up * 5 * S + fwd * 4 * S + side * sgn * 6 * S, None, (2.4 * S,) * 3), (1, 0.85, 0.8), P_NONE, 0.6)
+            a0 = p[HEAD] + fwd * 11 * S + up * 8 * S + side * sgn * 4 * S
+            rd.add("cylinder", segment(a0, a0 + fwd * 10 * S + up * 10 * S + side * sgn * 5 * S, 1.2 * S), col((70, 45, 20)))
+        rd.add("cylinder", segment(p[HEAD] + fwd * 8 * S - up * 10 * S, p[HEAD] + fwd * 14 * S - up * 20 * S, 1.8 * S), col((70, 45, 20)))
+
+        # Bristles on thorax and head
+        bristle = col((74, 52, 28))
+        for bx, by, bs, bl in ((-2, 15, 0, 7), (4, 15, 5, 6), (4, 15, -5, 6), (-8, 13, 7, 7), (-8, 13, -7, 7), (-13, 9, 0, 8)):
+            root = p[THX] + fwd * bx * S + up * by * S + side * bs * S
+            rd.add("cylinder", segment(root, root + (up * 0.8 - fwd * 0.6) * bl * S, 0.7 * S), bristle)
+        for sgn in (1, -1):
+            root = p[HEAD] + fwd * 4 * S + up * 9 * S + side * sgn * 4 * S
+            rd.add("cylinder", segment(root, root + (up * 0.9 + fwd * 0.4) * 6 * S, 0.6 * S), bristle)
+
+        # Wings resting along the back
+        for i, sgn in ((0, 1), (1, -1)):
+            base = p[THX] + up * 12 * S + side * sgn * 5 * S
+            tip = p[THX] - fwd * 48 * S + up * 8 * S + side * sgn * 6 * S
+            span = float(np.linalg.norm(tip - base))
+            rd.add("sphere", trs((base + tip) / 2, frame_from_x(tip - base), (span / 2 + 9 * S, 0.9 * S, 12 * S)),
+                   (0.90, 0.94, 0.99, 0.35), P_NONE, 0.12)
+
+        # Shadow on the ground
+        self._shadow(rd, dec["p"], 0.22)
+
     def _draw_extras(self, rd: Renderer, now: float) -> None:
         for b in self.pellets3:
             rd.add("sphere", trs(b["p"], None, (0.035,) * 3), (0.55, 1.0, 0.45), P_NONE, 3.0)
@@ -2580,6 +2743,9 @@ class Game3D(k2.Game):
                    (1.0, 0.72, 0.85, 0.7), P_NONE, 0.4)
             if a["landed"]:
                 self._shadow(rd, a["p"], e * 1.3)
+        for dec in getattr(self, "decoys3", []):
+            self._draw_decoy3d(rd, now, dec)
+        self._draw_cva_puffs3d(rd, now)
         if self.spider3 is not None:
             sp = self.spider3
             x, y, z = sp["p"]
@@ -2995,6 +3161,9 @@ class Game3D(k2.Game):
         pygame.mouse.set_visible(not on)
         pygame.mouse.get_rel()
 
+    def handle(self, ev, now: float) -> bool:
+        return self.handle3d(ev, now, lambda p: p)
+
     def handle3d(self, ev, now: float, to_logical) -> bool:
         """3D input. Returns False to quit. Keys go through the rebindable actions in config.py."""
         if hasattr(ev, "pos"):
@@ -3086,6 +3255,14 @@ class Game3D(k2.Game):
                 self.take_photo()
                 return True
             if self.look:
+                if ev.button == 3 and TOOLS[self.tool][0] == "hand":
+                    dec = getattr(self, "grabbed_decoy3", None)
+                    if dec is None:
+                        eye, d = self.aim()
+                        dec, _ = self._nearest_decoy3d(eye, d, GRAB_REACH, 0.4)
+                    if dec is not None:
+                        self.remove_decoy(dec)
+                        return True
                 if not getattr(self, "autopilot", False) and not self.photo_mode:
                     self.use_tool3d(now)
                 return True
@@ -3112,6 +3289,11 @@ class Game3D(k2.Game):
         if ev.type == pygame.MOUSEBUTTONUP:
             if not self.look and self.big_view and getattr(self, "big_drag", None):
                 return k2.Game.handle(self, ev, now)
+            if getattr(self, "grabbed_decoy3", None) is not None:
+                eye, d = self.aim()
+                self.grabbed_decoy3["v"] = d * 0.12 + np.array([0.0, 0.02, 0.0])
+                self.grabbed_decoy3["landed"] = False
+                self.grabbed_decoy3 = None
             if not self.fly.wrapped:
                 self.fly.grabbed = None
             self.torching = False
