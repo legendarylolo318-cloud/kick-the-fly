@@ -389,18 +389,18 @@ ASSUMPTIONS = (
 
     ("cVA pheromone puff",
      "GAME RULE",
-     "The puff (its reach, 250 px in 2D and 2.5 m in 3D, and its strength) is a game rule. What it drives is real: the "
+     "The puff (its visible cloud showing its reach, 250 px in 2D and 2.5 m in 3D, and its strength) is a game rule. What it drives is real: the "
      "204 DA1 olfactory receptor neurons, and from there whatever the connectome does. Nothing ties cVA to aggression "
      "beyond that wiring.",
      "cVA is a male pheromone sensed by Or67d neurons (DA1). Real puffs spread and fade; here a puff drives the DA1 "
-     "ORNs in proportion to distance.",
+     "ORNs in proportion to distance, with a short-lived visual cloud indicating reach.",
      "kickthefly/game/kick_the_fly.py:Game.use_tool · kickthefly/lab/validation.py:or67d_to_da1pn"),
 
     ("Decoy female and the COURTSHIP tag",
      "GAME RULE",
      "The decoy's body, the contact distance, and the COURTSHIP tag, which contact triggers without reading any neuron. "
-     "Contact drives the real foreleg GRNs annotated putative ppk23/ppk25 (LgLG5-8); how much of that reaches P1 is "
-     "the connectome's (weak: foreleg_grn_to_p1 fails).",
+     "Contact drives the real foreleg GRNs annotated putative ppk23/ppk25 (LgLG5-8); a live HUD line displays real "
+     "LgLG5-8 and P1 firing during contact (REAL). How much of that reaches P1 is the connectome's (weak: foreleg_grn_to_p1 fails).",
      "Real males taste female cuticular pheromones (7,11-HD, 7,11-ND) through foreleg ppk23/ppk25 neurons and court. "
      "Nothing in play reads P1 to decide courtship.",
      "kickthefly/game/kick_the_fly.py:Game._decoy · kickthefly/lab/validation.py:foreleg_grn_to_p1"),
