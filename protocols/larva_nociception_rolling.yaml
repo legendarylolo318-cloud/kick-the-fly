@@ -1,0 +1,13 @@
+# Larva nociceptive rolling escape: class IV md nociceptors (A00c ascending) excite Goro command neurons (_telegoro-1)
+# Validation: larva_noci_to_goro_rolling (Ohyama et al. 2015; Winding et al. 2023).
+name: larva_nociception_rolling
+brain: larva
+seed: 1000
+flies: 5
+warmup_s: 2
+duration_s: 4
+stimuli:
+  - {at_s: 2.0, for_s: 2.0, target: noci, mode: drive, amp: 0.5}
+recordings:
+  - {name: goro_command, neurons: goro}
+  - {name: nociceptors, neurons: noci}

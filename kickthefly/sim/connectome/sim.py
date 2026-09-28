@@ -55,6 +55,9 @@ class LIFParams:
     batched_spmm: bool = field(default_factory=lambda: os.environ.get("KICK_THE_FLY_BATCHED_SPMM", "0").lower() in ("1", "true", "yes"))
     # fused LIF kernel execution on GPU backend (torch.compile / fused kernels)
     fuse_lif: bool = field(default_factory=lambda: os.environ.get("KICK_THE_FLY_FUSE_LIF", "0").lower() in ("1", "true", "yes"))
+    # individuality variation: off | subtle | strong
+    individuality: str = field(default_factory=lambda: os.environ.get("KICK_THE_FLY_INDIVIDUALITY", "off"))
+    individuality_sigma: float | None = None
 
 
 class ActivityBuffer:
@@ -134,6 +137,12 @@ class LIFSim:
         self.last_step_ms = 0.0
         self.path_counts = {"columns": 0, "full": 0}
         self.spike_total = 0
+        self.individuality = getattr(self.p, "individuality", "off")
+        self.individuality_sigma = getattr(self.p, "individuality_sigma", None)
+        from kickthefly.core import individuality as indiv_mod
+        self.d_pre, self.d_post = indiv_mod.compute_fly_gains(
+            seed, self.n, self.individuality, self.individuality_sigma
+        )
         from kickthefly.sim.connectome import backends
         self.backend_choice = getattr(self.p, "backend", "auto")
         self.backend = backends.create_backend(self, self.backend_choice)
@@ -143,6 +152,18 @@ class LIFSim:
         k = len(active)
         if k == 0:
             return self._zeros
+        if self.d_pre is not None:
+            if k <= self.p.sparse_path_max_active * self.n:
+                self.path_counts["columns"] += 1
+                sub = self.W_csc[:, active]
+                out = sub @ (self.d_pre[active].astype(self.dtype))
+            else:
+                self.path_counts["full"] += 1
+                self._sfloat[:] = self.spikes * self.d_pre
+                out = self.W_csr @ self._sfloat
+            if self.d_post is not None:
+                out = out * self.d_post
+            return out
         if k <= self.p.sparse_path_max_active * self.n:
             self.path_counts["columns"] += 1
             sub = self.W_csc[:, active]

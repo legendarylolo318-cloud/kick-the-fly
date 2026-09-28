@@ -120,6 +120,17 @@ try:
         return out
 
     @numba.njit(cache=True, nogil=True)
+    def _jit_csc_propagate_indiv(indices, indptr, data, active_cols, n_out, d_pre, d_post):
+        out = np.zeros(n_out, dtype=data.dtype)
+        for c in active_cols:
+            scale = d_pre[c]
+            for idx in range(indptr[c], indptr[c + 1]):
+                out[indices[idx]] += data[idx] * scale
+        for i in range(n_out):
+            out[i] *= d_post[i]
+        return out
+
+    @numba.njit(cache=True, nogil=True)
     def _jit_step_core(v, refr, i_syn, noise_slice, sensory, has_sensory, gain, bias, ext_gain, scale_sensory,
                        keep, leak_reset, has_reset, v_reset, v_thresh, refractory_steps):
         n = len(v)
@@ -171,6 +182,15 @@ class NumbaBackend(SimBackend):
         k_active = len(active)
         if k_active == 0:
             i_syn = sim._zeros
+        elif sim.d_pre is not None:
+            if k_active <= p.sparse_path_max_active * self.n:
+                sim.path_counts["columns"] += 1
+                csc = sim.W_csc
+                i_syn = _jit_csc_propagate_indiv(csc.indices, csc.indptr, csc.data, active.astype(np.int32), self.n, sim.d_pre, sim.d_post)
+            else:
+                sim.path_counts["full"] += 1
+                sim._sfloat[:] = sim.spikes * sim.d_pre
+                i_syn = (sim.W_csr @ sim._sfloat) * sim.d_post
         elif k_active <= p.sparse_path_max_active * self.n:
             sim.path_counts["columns"] += 1
             csc = sim.W_csc
@@ -333,6 +353,12 @@ class TorchBackend(SimBackend):
             self.s_float_dev = self.spikes_dev.to(self.W_torch.dtype if self.W_torch is not None else torch.float32).unsqueeze(1)
             self.noise_dev = torch.from_numpy(sim._noise).to(dev, dtype=tdt)
             self._noise_id = id(sim._noise)
+            if getattr(sim, "d_pre", None) is not None:
+                self.d_pre_dev = torch.from_numpy(sim.d_pre).to(dev, dtype=self.W_torch.dtype if self.W_torch is not None else tdt)
+                self.d_post_dev = torch.from_numpy(sim.d_post).to(dev, dtype=tdt)
+            else:
+                self.d_pre_dev = None
+                self.d_post_dev = None
 
     def step(self, sensory_input: np.ndarray | None = None) -> np.ndarray:
         sim = self.sim
@@ -353,8 +379,14 @@ class TorchBackend(SimBackend):
             self._W64 = self.W_torch.to(torch.float64)
         W = self._W64 if dense64 else self.W_torch
 
-        s_float = self.spikes_dev.to(W.dtype).unsqueeze(1)
-        i_syn = torch.sparse.mm(W, s_float).squeeze(1)
+        if getattr(self, "d_pre_dev", None) is not None:
+            s_float = (self.spikes_dev.to(W.dtype) * self.d_pre_dev).unsqueeze(1)
+            i_syn = torch.sparse.mm(W, s_float).squeeze(1)
+            if getattr(self, "d_post_dev", None) is not None:
+                i_syn = i_syn * self.d_post_dev
+        else:
+            s_float = self.spikes_dev.to(W.dtype).unsqueeze(1)
+            i_syn = torch.sparse.mm(W, s_float).squeeze(1)
         off = int(sim.rng.integers(0, sim._noise.size - self.n))
 
         if getattr(p, "fuse_lif", False):
@@ -429,13 +461,31 @@ class TorchBackend(SimBackend):
             if len(indices) == 1:
                 idx = indices[0]
                 b = backends[idx]
-                s_float = b.spikes_dev.to(w.dtype).unsqueeze(1)
-                i_syn_list[idx] = torch.sparse.mm(w, s_float).squeeze(1)
+                if getattr(b, "d_pre_dev", None) is not None:
+                    s_float = (b.spikes_dev.to(w.dtype) * b.d_pre_dev).unsqueeze(1)
+                    i_syn = torch.sparse.mm(w, s_float).squeeze(1)
+                    if getattr(b, "d_post_dev", None) is not None:
+                        i_syn = i_syn * b.d_post_dev
+                    i_syn_list[idx] = i_syn
+                else:
+                    s_float = b.spikes_dev.to(w.dtype).unsqueeze(1)
+                    i_syn_list[idx] = torch.sparse.mm(w, s_float).squeeze(1)
             else:
-                stacked_spikes = torch.stack([backends[idx].spikes_dev.to(w.dtype) for idx in indices], dim=1)
+                stacked = []
+                for idx in indices:
+                    b = backends[idx]
+                    spk = b.spikes_dev.to(w.dtype)
+                    if getattr(b, "d_pre_dev", None) is not None:
+                        spk = spk * b.d_pre_dev
+                    stacked.append(spk)
+                stacked_spikes = torch.stack(stacked, dim=1)
                 batched_out = torch.sparse.mm(w, stacked_spikes)
                 for col, idx in enumerate(indices):
-                    i_syn_list[idx] = batched_out[:, col]
+                    b = backends[idx]
+                    col_out = batched_out[:, col]
+                    if getattr(b, "d_post_dev", None) is not None:
+                        col_out = col_out * b.d_post_dev
+                    i_syn_list[idx] = col_out
 
         results = []
         for idx, (sim, b) in enumerate(zip(sims, backends)):

@@ -104,7 +104,16 @@ SETTINGS: tuple[Setting, ...] = (
     # --- Brain
     S("brain.mode", "Brain", "Mode", "choice", "play",
       "Play is the game with challenges and scores. Lab adds the research tools: validation results, repeated "
-      "trials with statistics, data export and protocol files.", options=("play", "lab"), labels=("Play", "Lab")),
+      "trials with statistics, data export and protocol files. Pet mode provides a persistent companion fly.",
+      options=("play", "lab", "pet"), labels=("Play", "Lab", "Pet")),
+    S("brain.brain", "Brain", "Brain", "choice", "adult",
+      "Which connectome to simulate: adult Drosophila melanogaster (FlyWire) or Drosophila larva (Winding et al. 2023).",
+      options=("adult", "larva"), labels=("Adult (FlyWire)", "Larva (Winding 2023)"), tag=CONNECTOME),
+    S("brain.individuality", "Brain", "Individuality", "choice", "subtle",
+      "Deterministic per-fly gain variation across neurons. Off gives identical brains across flies; subtle adds natural variation; strong accentuates behavioural differences.",
+      options=("off", "subtle", "strong"), labels=("Off", "Subtle", "Strong"), tag=GAME_RULE),
+    S("brain.pet_real_stakes", "Brain", "Pet real stakes", "bool", False,
+      "In Pet mode, lets injury or prolonged starvation kill the fly, triggering an autopsy.", tag=GAME_RULE),
     S("brain.pain_level", "Brain", "Pain neurons", "choice", 0,
       "How many of the fly's real sensory neurons the pain meter listens to, and how many each hit fires. Normal: "
       "touch, heat, cold, smell and taste. More: plus the rest of the body's sensors. Max: plus the neurons that relay "
@@ -319,6 +328,14 @@ class Config:
     @property
     def lab(self) -> bool:
         return self.values["brain.mode"] == "lab"
+
+    @property
+    def pet(self) -> bool:
+        return self.values["brain.mode"] == "pet"
+
+    @property
+    def larva(self) -> bool:
+        return self.values.get("brain.brain", "adult") == "larva"
 
     def tags_on(self) -> bool:
         v = self.values["brain.real_vs_rule"]
