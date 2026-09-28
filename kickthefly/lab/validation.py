@@ -248,16 +248,19 @@ LARVA_TESTS = (
     dict(id="larva_noci_to_goro_rolling", name="Nociceptors excite Goro rolling escape command neurons",
          brain="larva",
          play="Nociceptive stimulation triggered rolling escape. Real larvae roll to escape noxious heat/parasitoids.",
-         claim="Class IV multi-dendritic nociceptors (A00c ascending) activate Goro command neurons (_telegoro-1).",
+         claim="Nociceptive ascending neurons (annotated 'noci', incl. A00c) excite the neurons annotated _telegoro-1 "
+               "(DN-VNC). Class IV md sensory neurons and Goro itself are in the nerve cord, outside this dataset.",
          citation="Ohyama et al. 2015, Nature 520:633; Winding et al. 2023, Science 379:eadd9330",
-         drive="noci", drive_label="class IV md nociceptors (12)", readout="goro", readout_label="Goro DN-VNC (_telegoro-1)",
+         drive="noci", drive_label="nociceptive ascending neurons ('noci', 12)", readout="goro", readout_label="_telegoro-1 DN-VNC (2)",
          control="sensory", control_label="12 random other sensory neurons", popup_event="ROLL"),
-    dict(id="larva_chordotonal_to_basin", name="Chordotonal mechanosensory neurons excite Basin interneurons",
+    dict(id="larva_chordotonal_to_basin", name="Chordotonal ascending neurons excite 2nd-order noci/mechano PNs",
          brain="larva",
          play="Vibration and sound excited Basin sensory integration interneurons.",
-         claim="Chordotonal (mechano-Ch) sensory neurons excite Basin multi-sensory second-order projection neurons.",
+         claim="Ascending neurons annotated mechano-Ch excite brain neurons annotated noci / mechano-Ch 2nd_order PN. "
+               "The Basin interneurons themselves are in the nerve cord, outside this dataset.",
          citation="Ohyama et al. 2015, Nature 520:633; Jovanic et al. 2016, Cell 167:858",
-         drive="chordo", drive_label="chordotonal mechano-Ch neurons (12)", readout="basin", readout_label="Basin interneurons (84)",
+         drive="chordo", drive_label="mechano-Ch ascending neurons (12)", readout="basin",
+         readout_label="noci / mechano-Ch 2nd-order PNs",
          control="sensory", control_label="12 random other sensory neurons", popup_event=None),
 )
 ALL_TESTS = TESTS + LARVA_TESTS
@@ -361,14 +364,16 @@ def _pathway_seed_larva(seed: int) -> dict:
     from kickthefly.core import savestate
     from kickthefly.core import simcore
 
-    br = simcore.new_brain(seed=seed, brain="larva", individuality="off", warmup=100)
-    t = br.types.astype(str)
-    sc = br.superclass.astype(str)
+    from kickthefly.sim.connectome.larva_loader import larva_groups
 
-    noci_rows = np.flatnonzero(np.isin(t, ("noci", "A00c_a4", "A00c_a5", "A00c_a6")) | np.char.startswith(t, "noci"))
-    chordo_rows = np.flatnonzero(t == "mechano-Ch")
-    basin_rows = np.flatnonzero((np.char.find(t, "noci 2nd_order PN") >= 0) | (np.char.find(t, "mechano-Ch 2nd_order PN") >= 0))
-    goro_rows = np.flatnonzero(np.char.find(t, "_telegoro-1") >= 0)
+    br = simcore.new_brain(seed=seed, brain="larva", individuality="off", warmup=100)
+    sc = br.superclass.astype(str)
+    # the annotations are in the pack's subtype (Data S1 'additional_annotations'); `type` is only the broad class
+    lg = larva_groups(br.graph.subtype)
+    noci_rows, chordo_rows, goro_rows = lg["noci"], lg["chordo"], lg["goro"]
+    basin_rows = np.union1d(lg["noci_pn"], lg["chordo_pn"])
+    if not (len(noci_rows) and len(chordo_rows) and len(basin_rows) and len(goro_rows)):
+        raise RuntimeError("larva pack lacks the annotated noci / mechano-Ch / 2nd-order PN / Goro groups")
 
     sensory_other = np.flatnonzero((np.char.find(sc, "sensory") >= 0) & ~np.isin(np.arange(br.n), np.concatenate([noci_rows, chordo_rows])))
     rng = np.random.default_rng(seed * 37 + 11)

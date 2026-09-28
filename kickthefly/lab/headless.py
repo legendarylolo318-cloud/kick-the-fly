@@ -50,10 +50,13 @@ def run_validate(args) -> int:
     def progress(done, total, label):
         print(f"  {done}/{total} ({time.time() - t0:.0f}s)", flush=True)
 
-    res = validation.run(seeds=seeds, workers=args.workers, progress=progress)
-    out = Path(args.out) if args.out else validation.local_path()
+    brain = getattr(args, "brain", None) or "adult"
+    res = validation.run(seeds=seeds, workers=args.workers, progress=progress, brain=brain)
+    # larva results go to their own file so they never replace the adult results the popups read
+    name = validation.RESULTS_NAME if brain == "adult" else f"validation_results_{brain}.json"
+    out = Path(args.out) if args.out else validation.local_path().with_name(name)
     if out.suffix.lower() != ".json":
-        out = out / validation.RESULTS_NAME
+        out = out / name
     validation.save_results(res, out)
     print(validation.summary(res))
     print(f"results written to {out}")

@@ -32,7 +32,43 @@ LARVA_URL = "https://raw.githubusercontent.com/brain-networks/larval-drosophila-
 LARVA_SHA256 = "8c1f43809ed5d527ba61b154e377cc21da26383a75eda8aab85ce05607a72a4c"
 
 CITATION = "Winding et al. 2023, 'The connectome of an insect brain', Science 379:eadd9330. DOI: 10.1126/science.add9330"
-LICENSE = "CC BY-NC-SA 4.0 (Science Supplementary Materials / Research use with attribution)"
+# Neither the Science supplement nor the mirror above states a license, so the pack is never bundled: it is built on the
+# player's machine from the downloaded Data S1 (see docs/larva.md).
+LICENSE = "Science Data S1 (Winding et al. 2023); no explicit license stated. not redistributed: built locally on first use"
+
+
+def larva_groups(subtype) -> dict:
+    """Row indices of the annotated larval groups the game and the validation use, from the Data S1 annotations
+    (the pack's `subtype`, i.e. annotations.csv 'additional_annotations'; `type` only holds the broad class).
+
+    noci:    ascending neurons annotated 'noci' (incl. A00c_a4/a5/a6). These are nociceptive ascending neurons from
+             the nerve cord; the class IV md sensory neurons themselves are not in the brain dataset.
+    chordo:  ascending neurons annotated 'mechano-Ch' (chordotonal pathway).
+    noci_pn / chordo_pn: brain neurons annotated 'noci 2nd_order PN' / 'mechano-Ch 2nd_order PN'. The Basin
+             interneurons of Ohyama et al. 2015 sit in the nerve cord and are not in this dataset.
+    goro:    neurons annotated '_telegoro-1' (DN-VNC).
+    """
+    st = np.asarray(subtype).astype(str)
+    parts = [set(p.strip() for p in x.split(";")) for x in st]
+    has = lambda tag: np.array([tag in p for p in parts], bool)      # noqa: E731
+    return dict(
+        noci=np.flatnonzero(has("noci")),
+        chordo=np.flatnonzero(has("mechano-Ch")),
+        mechano=np.flatnonzero(has("mechano-Ch") | has("mechano-II/III")),
+        noci_pn=np.flatnonzero(has("noci 2nd_order PN")),
+        chordo_pn=np.flatnonzero(has("mechano-Ch 2nd_order PN")),
+        goro=np.flatnonzero(has("_telegoro-1")),
+    )
+
+
+def _sha256(path: Path) -> str:
+    import hashlib
+
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
 
 
 def ensure_dataset(path: Path = LARVA_ZIP) -> Path:
@@ -42,9 +78,15 @@ def ensure_dataset(path: Path = LARVA_ZIP) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     print(f"[larva_loader] downloading {LARVA_URL} -> {path}...")
     req = urllib.request.Request(LARVA_URL, headers={"User-Agent": "Mozilla/5.0 (KickTheFly)"})
-    with urllib.request.urlopen(req) as resp, open(path, "wb") as f:
+    tmp = path.with_name(path.name + ".part")
+    with urllib.request.urlopen(req, timeout=60) as resp, open(tmp, "wb") as f:
         f.write(resp.read())
-    print(f"[larva_loader] downloaded {path.stat().st_size:,} bytes")
+    got = _sha256(tmp)
+    if got != LARVA_SHA256:        # the mirror is not the publisher: only accept the exact Data S1 archive
+        tmp.unlink(missing_ok=True)
+        raise RuntimeError(f"larva dataset checksum mismatch (got {got}, expected {LARVA_SHA256})")
+    tmp.replace(path)
+    print(f"[larva_loader] downloaded {path.stat().st_size:,} bytes (sha256 ok)")
     return path
 
 
@@ -210,7 +252,7 @@ def build_larva_pack(out: Path = DATA_DIR / LARVA_PACK_NAME) -> Path:
 def ensure_larva_brain_pack(out_path: Path | None = None) -> Path:
     out = out_path or (DATA_DIR / LARVA_PACK_NAME)
     if not out.exists():
-        build_larva_pack(out_path=out)
+        build_larva_pack(out)
     return out
 
 

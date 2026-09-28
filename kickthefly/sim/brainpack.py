@@ -158,7 +158,7 @@ def neurotransmitters(g) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     return nt, conf, source
 
 
-def build(out: Path = DATA_DIR / PACK_NAME) -> Path:
+def _build_adult(out: Path = DATA_DIR / PACK_NAME) -> Path:
     from kickthefly.sim.connectome.loader import load_graph
 
     g = load_graph()
@@ -184,7 +184,7 @@ def build(out: Path = DATA_DIR / PACK_NAME) -> Path:
         indptr=signed.indptr.astype(np.int32), indices=signed.indices.astype(np.int32),
         data=signed.data.astype(np.int16), inv=inv, type=types, superclass=labels(g.superclass),
         instance=labels(g.instance), soma=soma, dan=dan.astype(np.int32), mbon=mbon.astype(np.int32), dan_mbon=dan_mbon,
-        subclass=subclasses(g), body_id=np.asarray(g.body_ids, np.int64), region=reg,
+        subclass=subclasses(g), body_id=np.asarray(g.body_ids, np.int64), region=reg, brain_type=np.array("adult"),
     )
     print(f"[brainpack] wrote {out} ({out.stat().st_size / 1e6:.1f} MB, {g.n:,} neurons, {signed.nnz:,} synapse pairs, "
           f"{int((~np.isnan(soma[:, 0])).sum()):,} cell bodies, "
@@ -211,42 +211,11 @@ def find(brain: str = "adult") -> Path | None:
 
 
 def build(brain: str = "adult", out: Path | None = None) -> Path:
+    """Build the adult pack (from the MaleCNS download) or the larva pack (from Winding et al. 2023 Data S1)."""
     if brain == "larva":
         from kickthefly.sim.connectome.larva_loader import build_larva_pack
         return build_larva_pack(out or (DATA_DIR / LARVA_PACK_NAME))
-    from kickthefly.sim.connectome.loader import load_graph
-
-    out = out or (DATA_DIR / PACK_NAME)
-    g = load_graph()
-    signed = g.adjacency.T.tocsr()                          # [post, pre]
-    counts_in = np.asarray(g.weights.sum(axis=0)).ravel()
-    inv = np.where(counts_in > 0, 1.0 / np.maximum(counts_in, 1), 0).astype(np.float32)
-    signed.eliminate_zeros()
-    if np.abs(signed.data).max() > np.iinfo(np.int16).max:
-        raise ValueError("synapse count does not fit int16")
-
-    def labels(a):
-        return np.array(["" if x is None else str(x) for x in a])
-
-    soma = soma_positions(g)
-    types = labels(g.type)
-    dan = np.flatnonzero(np.char.startswith(types, "PAM") | np.char.startswith(types, "PPL1"))
-    mbon = np.flatnonzero(np.char.startswith(types, "MBON"))
-    dan_mbon = g.weights.tocsr()[dan][:, mbon].toarray().astype(np.int16)        # [DAN, MBON] synapse counts
-    reg = regions(g)
-    nt, nt_conf, nt_source = neurotransmitters(g)
-    np.savez_compressed(
-        out, nt=nt, nt_conf=nt_conf, nt_source=nt_source,
-        indptr=signed.indptr.astype(np.int32), indices=signed.indices.astype(np.int32),
-        data=signed.data.astype(np.int16), inv=inv, type=types, superclass=labels(g.superclass),
-        instance=labels(g.instance), soma=soma, dan=dan.astype(np.int32), mbon=mbon.astype(np.int32), dan_mbon=dan_mbon,
-        subclass=subclasses(g), body_id=np.asarray(g.body_ids, np.int64), region=reg,
-        brain_type=np.array("adult"),
-    )
-    print(f"[brainpack] wrote {out} ({out.stat().st_size / 1e6:.1f} MB, {g.n:,} neurons, {signed.nnz:,} synapse pairs, "
-          f"{int((~np.isnan(soma[:, 0])).sum()):,} cell bodies, "
-          f"{int(np.count_nonzero(nt_source == 'ground_truth')):,} measured transmitters)")
-    return out
+    return _build_adult(out or (DATA_DIR / PACK_NAME))
 
 
 def load(path: Path):

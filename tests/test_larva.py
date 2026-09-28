@@ -28,7 +28,7 @@ def test_larva_connectome_loader_and_counts():
     assert n_pairs == 110677, f"Expected 110677 pairs, got {n_pairs}"
     assert total_synapses == 352611, f"Expected 352611 synapses, got {total_synapses}"
     assert "Winding" in citation
-    assert "CC BY-NC-SA 4.0" in license_str
+    assert "not redistributed" in license_str.lower()      # no license is stated for Data S1 (docs/larva.md)
 
 
 def test_brainpack_separation_and_save_refusal():
