@@ -11,7 +11,8 @@ GAME RULE physics & state machine:
     - If elapsed time is negative (clock moved back), clamp to 0 and log warning.
     - If elapsed time > 7 days, clamp catch-up to 7 days and log warning.
 
-Needs & couplings to real neurons:
+Needs & couplings to real neurons (all GAME RULE: the need variables, their rates and how strongly they scale neuron
+input are chosen for play, not measured; the neurons they drive are the real connectome groups):
 - Hunger (0.0 to 1.0):
     - Rises over time (1.0 per 24 hours of elapsed time).
     - Scales sugar taste input gain: (1.0 + 2.0 * hunger).
@@ -52,6 +53,10 @@ MAX_CATCHUP_SECONDS = 7.0 * 86400.0  # 7 days max catch-up
 HUNGER_RATE_PER_SEC = 1.0 / 86400.0   # Empty in 24 hours without food
 SLEEP_RATE_PER_SEC = 1.0 / (16.0 * 3600.0)  # Tired after 16 hours awake
 SLEEP_RECOVERY_RATE = 1.0 / (8.0 * 3600.0)   # Fully rested after 8 hours sleep
+HUNGER_SUGAR_GAIN = 2.0     # sugar taste input x (1 + this * hunger)
+HUNGER_PAM_GAIN = 1.5       # PAM reward drive x (1 + this * hunger)
+SLEEP_DFB_DRIVE = 0.5       # dFB (FB6/FB7) drive = this * sleep pressure
+# All of the above are GAME RULE and shown in Lab > Parameters (lab.PARAMS "pet.*").
 
 
 @dataclass
@@ -133,7 +138,20 @@ class PetManager:
                     return
                 except Exception as be:
                     logger.error("Failed to load backup save: %s", be)
+            self._quarantine_unreadable()
             self.create_new_pet(brain_type=brain_type)
+
+    def _quarantine_unreadable(self) -> None:
+        """Keep unreadable saves under a new name instead of letting the fresh pet's save() overwrite them."""
+        stamp = time.strftime("%Y%m%d-%H%M%S")
+        for f in (self.save_file, self.backup_file):
+            if f.exists():
+                dest = f.with_name(f"{f.name}.unreadable-{stamp}")
+                try:
+                    f.replace(dest)
+                    logger.warning("Kept unreadable pet save as %s", dest)
+                except OSError as e:
+                    logger.error("Could not move unreadable pet save %s: %s", f, e)
 
     def _unpack_state(self, data: dict[str, Any]) -> None:
         self.seed = int(data.get("seed", 12345))
@@ -198,14 +216,15 @@ class PetManager:
         self.last_saved_time = now
         self.save()
 
-    def feed(self, amount: float = 0.35, source: str = "sugar") -> None:
-        """Feed the pet to reduce hunger."""
+    def feed(self, amount: float = 0.35, source: str = "sugar", save: bool = True) -> None:
+        """Feed the pet to reduce hunger. save=False for the per-frame feeding in the game (saved on quit)."""
         self.hunger = max(0.0, self.hunger - amount)
-        self.mood = min(1.0, self.mood + 0.15)
-        self.timeline.append(
-            asdict(PetTimelineEvent(timestamp=time.time(), event_type="meal", description=f"Fed on {source}"))
-        )
-        self.save()
+        self.mood = min(1.0, self.mood + 0.15 * min(1.0, amount / 0.35))   # a full meal (0.35) lifts mood by 0.15
+        if save:
+            self.timeline.append(
+                asdict(PetTimelineEvent(timestamp=time.time(), event_type="meal", description=f"Fed on {source}"))
+            )
+            self.save()
 
     def record_training(self, task_name: str) -> None:
         self.timeline.append(
@@ -222,15 +241,15 @@ class PetManager:
 
     def get_sugar_gain_multiplier(self) -> float:
         """Coupling: hunger scales sugar taste neuron gain."""
-        return float(1.0 + 2.0 * self.hunger)
+        return float(1.0 + HUNGER_SUGAR_GAIN * self.hunger)
 
     def get_pam_reward_multiplier(self) -> float:
         """Coupling: hunger scales PAM reward dopamine drive."""
-        return float(1.0 + 1.5 * self.hunger)
+        return float(1.0 + HUNGER_PAM_GAIN * self.hunger)
 
     def get_dfb_sleep_drive(self) -> float:
         """Coupling: sleep pressure drives dFB sleep neurons."""
-        return float(0.5 * self.sleep_pressure)
+        return float(SLEEP_DFB_DRIVE * self.sleep_pressure)
 
     def update_live(self, dt: float, is_night: bool = False, pam_rate: float = 0.0, ppl1_rate: float = 0.0) -> None:
         """Step live pet state while the game is running."""

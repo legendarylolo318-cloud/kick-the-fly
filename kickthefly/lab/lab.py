@@ -72,6 +72,25 @@ PARAMS = (
      "Mean time for a dropped fruit to grow back, jittered +-25% so regrowth is staggered."),
     ("orchard.cap", "Orchard: fruit per tree (cap)", "rule", 4.0, 1.0, 6.0, 1.0, "{:.0f}",
      "Most fruit one tree carries at a time."),
+    ("indiv.sigma_subtle", "Individuality: subtle sigma", "rule", 0.05, 0.0, 0.5, 0.01, "{:.2f}",
+     "Spread (log-normal sigma) of the per-neuron gains D_pre and D_post in W_fly = D_post·W·D_pre at Individuality "
+     "Subtle. Signs never change. Applies to brains built from now on; validation always runs with individuality off."),
+    ("indiv.sigma_strong", "Individuality: strong sigma", "rule", 0.15, 0.0, 0.5, 0.01, "{:.2f}",
+     "The same at Individuality Strong."),
+    ("pet.hunger_h", "Pet: hours from full to starving", "rule", 24.0, 1.0, 168.0, 1.0, "{:.0f}",
+     "How fast the pet's hunger rises, on the wall clock and in the catch-up when you come back."),
+    ("pet.awake_h", "Pet: hours awake until exhausted", "rule", 16.0, 1.0, 72.0, 1.0, "{:.0f}",
+     "How fast sleep pressure builds while the pet is awake."),
+    ("pet.sleep_h", "Pet: hours of sleep to recover", "rule", 8.0, 1.0, 24.0, 1.0, "{:.0f}",
+     "How fast sleep pressure falls while the pet sleeps."),
+    ("pet.sugar_gain", "Pet: hunger boost to sugar taste", "rule", 2.0, 0.0, 5.0, 0.1, "{:.1f}",
+     "Sugar drives the real taste neurons at (1 + this x hunger) times the normal strength."),
+    ("pet.pam_gain", "Pet: hunger boost to PAM reward", "rule", 1.5, 0.0, 5.0, 0.1, "{:.1f}",
+     "Eating drives the real PAM reward dopamine neurons at (1 + this x hunger) times the normal strength."),
+    ("pet.dfb_drive", "Pet: sleep pressure to dFB drive", "rule", 0.5, 0.0, 2.0, 0.05, "{:.2f}",
+     "Sleep pressure drives the real dorsal fan-shaped body sleep neurons (FB6/FB7) with this x pressure."),
+    ("pet.max_catchup_d", "Pet: longest catch-up (days)", "rule", 7.0, 1.0, 30.0, 1.0, "{:.0f}",
+     "Time away longer than this counts as this long, so a clock jump cannot starve the pet. Read at launch."),
 )
 DEFAULTS = {p[0]: p[3] for p in PARAMS}
 BY_NAME = {p[0]: p for p in PARAMS}
@@ -101,6 +120,18 @@ def apply_rules(params: dict) -> None:
             k2.THRESH[name.split(".", 1)[1]] = float(value)
     k2.LOOM_MIN = float(params.get("loom_min", DEFAULTS["loom_min"]))
     k2.LOOM_FULL = float(params.get("loom_full", DEFAULTS["loom_full"]))
+    from kickthefly.core import individuality, pet
+
+    val = lambda k: float(params.get(k, DEFAULTS[k]))      # noqa: E731
+    individuality.SIGMAS["subtle"] = val("indiv.sigma_subtle")
+    individuality.SIGMAS["strong"] = val("indiv.sigma_strong")
+    pet.HUNGER_RATE_PER_SEC = 1.0 / (val("pet.hunger_h") * 3600.0)
+    pet.SLEEP_RATE_PER_SEC = 1.0 / (val("pet.awake_h") * 3600.0)
+    pet.SLEEP_RECOVERY_RATE = 1.0 / (val("pet.sleep_h") * 3600.0)
+    pet.HUNGER_SUGAR_GAIN = val("pet.sugar_gain")
+    pet.HUNGER_PAM_GAIN = val("pet.pam_gain")
+    pet.SLEEP_DFB_DRIVE = val("pet.dfb_drive")
+    pet.MAX_CATCHUP_SECONDS = val("pet.max_catchup_d") * 86400.0
 
 
 def modified(params: dict) -> dict:
