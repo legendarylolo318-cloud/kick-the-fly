@@ -1,7 +1,6 @@
 """Tests for Task 2: Fly individuality determinism, bit-exactness, and validation invariants."""
 import numpy as np
 import pytest
-import torch
 
 from kickthefly.core import simcore
 from kickthefly.core.individuality import compute_fly_gains, compute_personality_card
@@ -133,6 +132,7 @@ def test_personality_card_generation():
 def test_batched_gpu_plastic_weights_with_individuality():
     """Assert batched GPU paths keep plastic weights equal with individuality on.
     Skips cleanly if no GPU is available, never attempting to set one up."""
+    torch = pytest.importorskip("torch")
     if not torch.cuda.is_available():
         pytest.skip("No CUDA GPU available; cleanly skipping GPU batched individuality test.")
 
