@@ -36,6 +36,13 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="2.12.0" date="2026-09-28">
+      <description>
+        <p>The Drosophila larva brain for headless validation and Python use (the windowed game still runs the adult);
+        per-fly individuality (off, subtle, strong); pet mode, one fly that persists across real days with no
+        background process.</p>
+      </description>
+    </release>
     <release version="2.11.0" date="2026-09-28">
       <description>
         <p>The decoy female is visible in the 3D game, can be picked up, thrown and removed, and is kept in save

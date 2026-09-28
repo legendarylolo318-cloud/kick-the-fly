@@ -1,5 +1,58 @@
 # Changelog
 
+## 2.12.0 (2026-09-28)
+
+2.11.0 was already tagged, so the 2.11 work (Gemini's larval brain, fly individuality and pet mode, plus the review
+fixes, PR #11) ships as 2.12.0.
+
+### Added
+- **Larval brain (headless only).** The first-instar *Drosophila* larva connectome (Winding et al. 2023: 2,952
+  neurons, 110,677 connected pairs, 352,611 synapses) for `--headless --validate --brain larva` and Python use. It is
+  built on your machine from the paper's Data S1 on first use (SHA-256 checked) and is not redistributed: no license
+  is stated for it. Its transmitter signs are a GAME RULE guess. Two larva validation tests; neither passes. The
+  windowed game (2D and 3D) always runs the adult brain and logs a warning when `brain.brain = "larva"`.
+  See docs/larva.md.
+- **Fly individuality.** Per-fly variation as per-neuron gains, W_fly = D_post·W·D_pre with the shared matrix
+  unchanged and signs kept (Settings > Brain > Individuality: off / subtle σ 0.05 / strong σ 0.15, GAME RULE in
+  Lab > Parameters). NumPy and Numba stay bit-exact; torch-cpu is bit-exact only with it off; gl does not implement
+  it (logs that and runs with it off); torch-cuda/rocm untested. Always off in validation. Personality cards; measured
+  pass rates in docs/individuality.md.
+- **Pet mode** (`Esc > Mode`): one persistent adult fly across real days. No background process, service, autostart
+  or timer: time is caught up deterministically at launch, clamped to 0-7 days. Hunger and sleep pressure (GAME RULE)
+  scale real taste, PAM reward and dFB sleep neurons. Death is off by default. Saves are written atomically with a
+  `.bak`, never deleted; unreadable ones are kept as `*.unreadable-<date>`. See docs/pet.md.
+
+### Fixed (review of the 2.11 work, before release)
+- Startup and menu crashes: the splash loop exited before the brain loaded, kick3d lost its splash font, the pause
+  menu lost 'lab', Individuality did `float(None)`; pet mode poked a missing site, saved every eating frame and never
+  saved on quit (d9c4a5a).
+- Larva validation drove 0 neurons (selection used the broad type, not the annotations); `--validate --brain larva`
+  now runs the larva and writes `validation_results_larva.json`; 3 invalid protocol files removed (5afbfde).
+- Individuality: `new_brain` forced σ 0.15 for every setting, so subtle and strong were the same brain; gl no longer
+  reports gains it does not use (924c0d2).
+- Pet saves are never overwritten or deleted (9e318ea).
+- Docs match what was measured (94f6a18, 50d0115).
+- CI: torch imported only in the GPU test (31ecd1a); 2.11 strings in the translation template and the pause menu reads
+  `cfg.pet` (ed40fe9); the arena setting treats a host without `is_larva` as adult (a1cdc65); the individuality
+  validation test builds the larva pack it uses (6bd28f5).
+
+### Known issues
+- The windowed larva game is not playable (the larva body lacks the fly interface); it falls back to the adult brain.
+- Larva transmitter signs are guessed (LN/MBON inhibitory, the rest excitatory). The "class IV md nociceptors" and
+  "chordotonal" groups are ascending neurons, the "Basin" readout is 2nd-order PNs, and "_telegoro-1" is not verified
+  Goro.
+- Personality cards show their thresholds, but in-game metrics are seeded random draws, not measurements.
+- Pet live sleep entry uses `random.random()`, so it is not deterministic (the catch-up is).
+- Individuality defaults to "subtle", so existing players' flies change on upgrade unless they set it to off.
+- The ICC/consistency results in docs/individuality.md were run at σ 0.15 and not re-run.
+- Larva fly caps in `get_max_flies()` (64 NumPy / 128 Numba/GPU) rest on a larva benchmark that did not reproduce;
+  they are unreachable while the larva game falls back to the adult.
+- `test_batched_gpu_plastic_weights_with_individuality` uses backend `"torch-gpu"`, which is not a backend name, so
+  on a CUDA/ROCm machine it runs NumPy and never tests the GPU.
+- `CHANGES_GEMINI_2.11.md` is kept as Gemini wrote it and contains claims that did not hold (larva validation x1.00 /
+  x1.06, a CC BY-NC-SA license for the larva data, σ 0.30 for strong, torch-cpu bit-exact with individuality, the
+  larva benchmark and a <0.4% individuality cost, protocol files the parser rejects).
+
 ## 2.11.0 (2026-09-28)
 
 ### Fixed
