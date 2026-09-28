@@ -32,40 +32,89 @@ def test_individuality_determinism():
     assert np.all(g1_post > 0)
 
 
-def test_cpu_backends_bit_exact_with_individuality():
-    """NumPy, Numba, and torch-cpu must stay bit-exact with individuality turned on."""
+def _run(backend, mode, W, steps=60):
+    sim = LIFSim(None, LIFParams(backend=backend, individuality=mode), W_in=W, seed=77)
+    rng = np.random.default_rng(3)
+    spikes = []
+    for t in range(steps):
+        stim = None
+        if 20 <= t < 40:
+            stim = np.zeros(sim.n, np.float32)
+            stim[rng.choice(sim.n, 200, replace=False)] = 1.0
+        sim.step(stim)
+        spikes.append(sim.spikes.copy())
+    sim.backend.sync_to_host()
+    return np.array(spikes), sim.v.copy()
+
+
+@pytest.mark.parametrize("mode", ["off", "subtle", "strong"])
+def test_numba_bit_exact_with_individuality(mode):
+    """NumPy and Numba stay bit-exact (spikes and every voltage) with individuality off and on."""
+    if "numba" not in backends.detect_available_backends():
+        pytest.skip("numba not installed")
     _, W, _ = simcore.pack("adult")
-    seed = 77
-
-    sim_cpu = LIFSim(None, LIFParams(backend="cpu", individuality="subtle"), W_in=W, seed=seed)
-    sim_torch = LIFSim(None, LIFParams(backend="torch-cpu", individuality="subtle"), W_in=W, seed=seed)
-
-    # Step both in lockstep
-    for _ in range(40):
-        sim_cpu.step()
-        sim_torch.step()
-
-    sim_torch.backend.sync_to_host()
-
-    assert np.array_equal(sim_cpu.spikes, sim_torch.spikes), "torch-cpu spikes differ from NumPy with individuality on!"
-    assert np.allclose(sim_cpu.v, sim_torch.v, atol=1e-5), "torch-cpu potentials differ from NumPy!"
-
-    avail = backends.detect_available_backends()
-    if "numba" in avail:
-        sim_numba = LIFSim(None, LIFParams(backend="numba", individuality="subtle"), W_in=W, seed=seed)
-        for _ in range(40):
-            sim_numba.step()
-        assert np.array_equal(sim_cpu.spikes, sim_numba.spikes), "Numba spikes differ from NumPy with individuality on!"
+    s_np, v_np = _run("cpu", mode, W)
+    s_nb, v_nb = _run("numba", mode, W)
+    assert np.array_equal(s_np, s_nb)
+    assert np.array_equal(v_np, v_nb)
 
 
-def test_individuality_forced_off_in_validation():
-    """Verify that validation forces individuality OFF to ensure reproducibility of published results."""
-    # When validation runs, it must ensure brains have individuality='off'
-    results = validation.run(brain="adult", seeds=(1000,), workers=1, include={"looming_escape"})
-    tests = results["tests"]
-    assert len(tests) == 1
-    assert "passed" in tests[0]
-    assert isinstance(tests[0]["passed"], bool)
+def test_torch_cpu_bit_exact_with_individuality_off_only():
+    """torch-cpu is bit-exact with individuality off. With it on, the scaled products are summed in a different order,
+    so float32 rounding differs and the chaotic network drifts (known, see docs/individuality.md): only closeness over
+    a short run is asserted there."""
+    if "torch-cpu" not in backends.detect_available_backends():
+        pytest.skip("torch not installed")
+    _, W, _ = simcore.pack("adult")
+    s_np, v_np = _run("cpu", "off", W)
+    s_t, v_t = _run("torch-cpu", "off", W)
+    assert np.array_equal(s_np, s_t) and np.array_equal(v_np, v_t)
+    s_np, v_np = _run("cpu", "subtle", W, steps=5)
+    s_t, v_t = _run("torch-cpu", "subtle", W, steps=5)
+    assert np.allclose(v_np, v_t, atol=1e-4)
+
+
+def test_individuality_scaling_is_d_post_w_d_pre():
+    """i_syn equals D_post · W · D_pre · spikes, the shared W is untouched, and every gain is positive (signs kept)."""
+    _, W, _ = simcore.pack("adult")
+    sim = LIFSim(None, LIFParams(backend="cpu", individuality="strong"), W_in=W, seed=5)
+    before = sim.W_csr.data.copy()
+    rng = np.random.default_rng(0)
+    sim.spikes[:] = rng.random(sim.n) < 0.01
+    got = sim._propagate()
+    want = sim.d_post * (sim.W_csr @ (sim.spikes * sim.d_pre).astype(np.float32))
+    assert np.allclose(got, want, rtol=1e-5, atol=1e-5)
+    assert np.array_equal(before, sim.W_csr.data)
+    assert (sim.d_pre > 0).all() and (sim.d_post > 0).all()
+
+
+def test_individuality_forced_off_in_validation(monkeypatch):
+    """Every brain the validation builds has individuality off, whatever the environment asks for."""
+    monkeypatch.setenv("KICK_THE_FLY_INDIVIDUALITY", "strong")
+    built = []
+    real = simcore.new_brain
+
+    def spy(*a, **kw):
+        br = real(*a, **kw)
+        built.append(br.sim.d_pre)
+        return br
+
+    monkeypatch.setattr(simcore, "new_brain", spy)
+    validation.run(brain="adult", seeds=(1000,), workers=1, include={"looming_escape"})
+    validation.run(brain="larva", seeds=(1000,), workers=1)
+    assert built and all(d is None for d in built)
+
+
+def test_gl_does_not_claim_individuality():
+    """The gl shaders do not apply D_pre/D_post, so a gl fly must not report gains it does not use."""
+    if "gl" not in backends.detect_available_backends():
+        pytest.skip("no OpenGL 4.3 compute here")
+    _, W, _ = simcore.pack("adult")
+    sim = LIFSim(None, LIFParams(backend="gl", individuality="subtle"), W_in=W, seed=1)
+    try:
+        assert sim.d_pre is None and sim.d_post is None
+    finally:
+        sim.backend.close()
 
 
 def test_personality_card_generation():

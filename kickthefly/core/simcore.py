@@ -53,7 +53,7 @@ def symmetrize_weights(g, weights):
 
 def new_brain(seed: int = 0, memory: bool = True, warmup: int = 600, params: dict | None = None,
               isolated_memory: bool = True, mirror_weights: bool = False, wiring=None, backend: str | None = None,
-              brain: str = "adult", individuality: str = "off", individuality_sigma: float = 0.15):
+              brain: str = "adult", individuality: str = "off", individuality_sigma: float | None = None):
     """A warmed-up Brain that is not running on a thread. isolated_memory: start from the untrained connectome and never
     read or write the player's saved training memory. wiring: a sim.wiring.Wiring applied before the warm-up, so the
     brain settles with the changed connectome rather than on top of a brain that settled without it."""

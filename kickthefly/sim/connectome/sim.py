@@ -146,6 +146,13 @@ class LIFSim:
         from kickthefly.sim.connectome import backends
         self.backend_choice = getattr(self.p, "backend", "auto")
         self.backend = backends.create_backend(self, self.backend_choice)
+        if self.d_pre is not None and self.backend.name == "gl":
+            # the gl shaders propagate with the shared W only; say so rather than report gains that are not applied
+            import logging
+            logging.getLogger("kickthefly").warning(
+                "individuality '%s' is not implemented on the gl backend; this fly runs the shared connectome",
+                self.individuality)
+            self.d_pre = self.d_post = None
 
     def _propagate(self) -> np.ndarray:
         active = np.flatnonzero(self.spikes)
