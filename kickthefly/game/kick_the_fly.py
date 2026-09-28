@@ -2376,7 +2376,7 @@ class Game:
                 self.update_stethoscope_target()
         elif key == "brain.arena":
             name = c[key]
-            if self.is_larva:
+            if getattr(self, "is_larva", False):
                 from kickthefly.game.larva import is_arena_allowed_for_larva
                 allowed, reason = is_arena_allowed_for_larva(name)
                 if not allowed:
