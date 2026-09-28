@@ -433,6 +433,7 @@ class Menu:
     def _page_pause(self, surf, rect) -> None:
         cfg = self.host.cfg
         self.text(surf, tr("PAUSED"), (rect.centerx, rect.y + 22), INK, self.f_title, "midtop")
+        lab = cfg.lab
         mode = cfg.get("brain.mode", "play")
         mode_title = "Pet" if mode == "pet" else "Lab" if mode == "lab" else "Play"
         self.text(surf, f"Kick the Fly {__version__}   ·   {mode_title} mode", (rect.centerx, rect.y + 76),

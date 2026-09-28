@@ -301,29 +301,26 @@ Cell types, gene names and citations are never translated.
 Real-science popups (Settings > Brain) are OFF by default in Play and Lab from 2.10; configs from before migrate to
 off once, and turning them on afterwards sticks.
 
-Drosophila larva connectome (2.11; Winding et al. 2023, Science 379:eadd9330, CC BY-NC-SA 4.0).
-Selected with --brain adult|larva and Settings > Brain > Brain (default adult).
-- CONNECTOME: complete synaptic-resolution connectome of the larva brain (2,952 neurons, 352,611 synapses).
-  Tools map to real larval sensory neurons: touch drives chordotonal (mechano-Ch) and sub-threshold
-  mechanosensory neurons (mechano-II/III); blowtorch drives annotated class IV multi-dendritic nociceptors
-  (A00c ascending / noci); sugar drives external and pharyngeal gustatory neurons; cold drives thermo-cold.
-  Unlike the adult, the larva connectome has annotated nociceptors, so the pain meter reads them directly
-  and is tagged CONNECTOME. Noxious stimulation reaches Basin interneurons and triggers rolling escape via
-  Goro command neurons (_telegoro-1, DN-VNC).
-- GAME RULE: Segmented crawler ragdoll physics (LarvaBody: 10 segments), peristaltic forward crawling wave,
-  lateral head-casting / turning, and rolling escape corkscrew motion. Inappropriate arenas (open field,
-  orchard, fan, escape room) are gated with explanatory messages.
+Drosophila larva connectome (2.11; Winding et al. 2023, Science 379:eadd9330; docs/larva.md).
+Selected with --brain adult|larva and Settings > Brain > Brain (default adult). Headless only in 2.11: the windowed
+game runs the adult brain (playable_brain) because LarvaBody does not implement the Fly interface yet.
+- CONNECTOME: the brain+SEZ connectome (2,952 neurons, 352,611 synapses) from Data S1, built locally, not shipped
+  (no license stated). Groups by exact annotation (larva_loader.larva_groups): touch -> mechano-Ch / mechano-II/III
+  ascending neurons, blowtorch -> nociceptive ascending neurons ('noci', incl. A00c; the class IV md sensory neurons
+  are not in the dataset), sugar -> gustatory, cold -> thermo-cold. The pain meter reads the 'noci' group.
+- GAME RULE: transmitter signs (Data S1 has none: LN and MBON inhibitory, the rest excitatory), soma layout, the
+  segmented body, crawling, head casting and rolling. Neither larva validation test passes, so ROLL is a rule.
 
 Fly individuality (2.11; Kain et al. 2012, Linneweber et al. 2020).
 - GAME RULE: Per-fly variation, deterministic from each fly's seed, implemented as per-neuron scaling
   so the shared weight matrix is unchanged: W_fly = D_post · W · D_pre, where D_pre and D_post are
-  diagonal per-neuron gains drawn from a lognormal distribution. Default sigma is 0.15 (subtle) and
-  0.30 (strong); the range is documented in Lab > Parameters. Signs of weights are strictly preserved.
+  diagonal per-neuron gains drawn from a lognormal distribution. Sigma is 0.05 (subtle) and 0.15 (strong),
+  both in Lab > Parameters. Signs of weights are strictly preserved. Not implemented on gl (logged, runs off).
   Plastic KC->MBON weights learn normally on top. Shared weight matrix structure preserves streaming
-  SpMM on batched GPU backends. NumPy, Numba and torch-cpu remain bit-exact. Settings > Brain > Individuality
+  SpMM on batched torch backends. NumPy and Numba stay bit-exact; torch-cpu only with it off. Settings > Brain > Individuality
   (off / subtle / strong, default subtle in Play). Forced OFF for --validate.
-- Personality cards: short, measured profiles per fly (temperament, steering bias, feeding drive, learning)
-  computed from assay metrics with published thresholds shown. Displayed in fly picker (F), pet mode, and
+- Personality cards: short profiles per fly (temperament, steering bias, feeding drive, learning) with their
+  thresholds shown. Known issue: without assay metrics (the game's case) the metrics are seeded draws, not measured. Displayed in fly picker (F), pet mode, and
   neuron inspector header.
 
 Pet mode (2.11; core/pet.py).
@@ -559,7 +556,9 @@ class Brain:
         # hot and cold antennal neurons (V, VP2 and VP3 projection neurons; each pathway validated).
         add_detail("song", (sc == "vnc_motor") & (types == "ps1 MN"))
         add_detail("aggression", np.isin(types, ("AVLP727m",)) | (np.char.startswith(types, "pC1") & (sc == "cb_intrinsic")))
-        add_detail("sleep", np.char.startswith(types, "FB6") | np.char.startswith(types, "FB7"))
+        # pet mode's sleep-pressure coupling (core/pet.py) drives these, so they are also a stimulus site
+        self.sense[("sleep", None)] = np.flatnonzero(
+            add_detail("sleep", np.char.startswith(types, "FB6") | np.char.startswith(types, "FB7")))
         add_detail("co2", np.isin(types, ("V_ilPN", "V_l2PN")))
         add_detail("hot_pn", np.isin(types, ("VP2_adPN", "VP2_l2PN", "VP2+_adPN", "VP1m+VP2_lvPN1", "VP1m+VP2_lvPN2")))
         add_detail("cold_pn", np.isin(types, ("VP3+_l2PN", "VP3+_vPN", "VP1l+VP3_ilPN", "VP3+VP1l_ivPN", "VP5+VP3_l2PN")))
@@ -585,13 +584,15 @@ class Brain:
         if self.is_larva:
             # Annotated larval sensory and motor groups (Winding et al. 2023)
             # Class IV md nociceptors
-            noci_idx = np.flatnonzero(np.isin(self.subclass, ["A00c_a4; noci", "A00c_a5; noci", "A00c_a6; noci", "noci"]) | np.char.startswith(self.subclass, "A00c") | (np.char.find(self.subclass, "noci") >= 0))
-            chord_idx = np.flatnonzero(self.subclass == "mechano-Ch")
-            mech_idx = np.flatnonzero(np.char.find(self.subclass, "mechano-") >= 0)
+            from kickthefly.sim.connectome.larva_loader import larva_groups
+            lg = larva_groups(self.subclass)          # exact annotation tags, so 2nd-order PNs are not counted as input
+            noci_idx, chord_idx, mech_idx = lg["noci"], lg["chordo"], lg["mechano"]
+            # its own detail group, so the pain meter below can read the nociceptive neurons' rates
+            add_detail("noci", np.isin(np.arange(g.n), noci_idx))
             gust_idx = np.flatnonzero(np.char.find(self.subclass, "gustatory-") >= 0)
             cold_idx = np.flatnonzero(np.char.find(self.subclass, "thermo-cold") >= 0)
             olf_idx = np.flatnonzero(np.char.find(self.subclass, "olfactory") >= 0)
-            goro_idx = np.flatnonzero(np.char.find(self.subclass, "_telegoro-1") >= 0)
+            goro_idx = lg["goro"]
 
             self.noci_idx = noci_idx
             self.chord_idx = chord_idx
@@ -1902,7 +1903,7 @@ REACTION_SOURCE = {
     "DODGE": "real", "FLY AWAY": "real", "TAKE OFF": "real", "RUN": "real", "KICK": "real", "BACK UP": "real",
     "WALK": "real", "TURN": "real", "SHOOT": "real", "GROOM": "real", "PROBOSCIS": "real",
     "SONG": "real", "CO2": "real", "HEAT": "real", "COLD": "real",
-    "ROLL": "real", "ROLLING": "real", "PAIN (LARVA)": "real",
+    "ROLL": "rule", "ROLLING": "rule", "PAIN (LARVA)": "rule",   # larva pathways not validated (docs/larva.md)
     "CRAWL": "rule", "HEAD CAST": "rule",
     "EATING": "rule", "TO LIGHT": "rule", "AVOID": "rule", "APPROACH": "rule", "FLEE": "rule", "WRAPPED": "rule",
     "BROKE FREE": "rule", "DIED": "rule", "HIT YOU": "rule", "YOU DIED": "rule", "AUTOPILOT": "rule",
@@ -1910,7 +1911,7 @@ REACTION_SOURCE = {
     "TO FRUIT": "rule", "LOST": "rule", "RECALL": "rule", "LUNGE": "rule", "FIGHT": "rule", "SLEEP": "rule",
     "cVA PUFF": "rule", "DECOY FEMALE": "rule", "COURTSHIP": "rule",
 }
-POPUP_SOURCE = {"DODGE!": "real", "YIKES!": "real", "ROLL!": "real", "NOPE!": "rule", "RUN AWAY!": "rule", "YUM!": "rule",
+POPUP_SOURCE = {"DODGE!": "real", "YIKES!": "real", "ROLL!": "rule", "NOPE!": "rule", "RUN AWAY!": "rule", "YUM!": "rule",
                 "SWEET!": "rule", "NOM NOM": "rule", "K.O.!": "rule", "BROKE FREE!": "rule", "FLY WINS!": "rule",
                 "GOTCHA!": "rule", "PEW PEW!": "rule", "TAKE THAT!": "rule", "AUTOPILOT": "rule", "SPECTATOR": "rule",
                 "PHOTO MODE": "rule", "*HIC*": "rule", "SIP...": "rule", "GLUG!": "rule", "STUMBLE!": "rule",
@@ -2404,7 +2405,9 @@ class Game:
                 sim = slot.brain.sim
                 sim.p.individuality = mode
                 from kickthefly.core.individuality import compute_fly_gains
-                sim.d_pre, sim.d_post = compute_fly_gains(slot.seed, sim.n, mode=mode, sigma=float(sim.p.individuality_sigma))
+                sim.d_pre, sim.d_post = compute_fly_gains(slot.seed, sim.n, mode=mode, sigma=sim.p.individuality_sigma)
+                sim.backend.sync_to_host()      # device backends keep their own copy of the gains
+                sim.backend.sync_from_host()
         elif key == "brain.mode":
             mode = c[key]
             if mode == "pet" and not getattr(self, "pet", None):
@@ -2436,8 +2439,8 @@ class Game:
             self.make_fonts()
         elif key == "brain.mirror_weights":
             from kickthefly.core import simcore
-            mirror = bool(c[key])
-            g, orig_w, _ = simcore.pack()
+            mirror = bool(c[key]) and not self.is_larva       # mirroring pairs adult L/R instances only
+            g, orig_w, _ = simcore.pack(brain=self.brain_type)
             w_new = simcore.symmetrize_weights(g, orig_w) if mirror else orig_w
             self.weights = w_new
             w_csr = w_new.astype(np.float32).tocsr()
@@ -2802,7 +2805,7 @@ class Game:
 
     @property
     def is_larva(self) -> bool:
-        return getattr(self, "brain_type", "adult") == "larva" or bool(getattr(self.cfg, "larva", False))
+        return getattr(self, "brain_type", "adult") == "larva"      # the brain loaded, not the setting (playable_brain)
 
     def _new_primary_fly(self) -> Fly:
         """Overridden by Game3D to build a Fly3D positioned in front of the player instead."""
@@ -2944,6 +2947,7 @@ class Game:
         if hasattr(self, "cfg") and self.cfg:
             lif_params.backend = str(self.cfg.get("brain.backend", "auto"))
             lif_params.dtype = str(self.cfg.get("brain.dtype", "float32"))
+            lif_params.individuality = str(self.cfg.get("brain.individuality", "off"))
         sim = LIFSim(None, lif_params, W_in=self.weights, seed=seed)
         lab.apply_to_sim(sim, self.lab_params)
         new_brain = Brain(self.graph, sim, seed=seed)
@@ -5171,7 +5175,7 @@ class Game:
             slot.brain.poke("sweet", None, t_gain, recruit=0.6)          # the sugar-pathway taste neurons (assays.py)
             slot.brain.poke("reward", None, r_gain)
             if self.pet:
-                self.pet.feed(amount=0.003, source="sugar")
+                self.pet.feed(amount=0.003, source="sugar", save=False)   # every eating frame: saved on quit
             fly.health = min(MAX_HEALTH, fly.health + 0.15)
             if s["left"] <= 0:
                 drop_item(self.sugars, s)
@@ -5455,7 +5459,7 @@ class Game:
             if self.pet and slot is self.flies[0]:
                 self.pet.update_live(dt=0.016, pam_rate=br.level("reward"), ppl1_rate=br.level("punish") if "punish" in br.col else 0.0)
                 sd = self.pet.get_dfb_sleep_drive()
-                if sd > 0.05 and "sleep" in br.col:
+                if sd > 0.05 and len(br.sense.get(("sleep", None), ())):
                     br.poke("sleep", None, sd)
                 if self.pet.real_stakes and self.pet.is_dead and not fly.dead:
                     slot.pending_damage = 999.0
@@ -6130,8 +6134,8 @@ class Game:
         word, col = (("MAXED OUT", S_CRIT) if p >= 99 else ("agony", S_CRIT) if p >= 70 else ("severe", (236, 131, 90))
                      if p >= 35 else ("mild", S_WARN) if p >= 10 else ("calm", S_GOOD))
         self._text(surf, "PAIN", (x + 12, y + 8), LABEL, self.f_small)
-        if getattr(self.brain, "is_larva", False):
-            self._text(surf, "CONNECTOME (md-IV)", (x + 46, y + 8), (50, 220, 100), self.f_small)
+        if "noci" in getattr(self.brain, "col", {}):
+            self._text(surf, "CONNECTOME (noci)", (x + 46, y + 8), (50, 220, 100), self.f_small)
         else:
             self._text(surf, "ESTIMATE (RULE)", (x + 46, y + 8), DIM, self.f_small)
         r = self._text(surf, f"{p:.0f}", (x + 12, y + 20), INK, self.f_title)
@@ -6704,12 +6708,22 @@ def now_wipe_armed(game) -> bool:
     return time.perf_counter() - game.wipe_armed < 3.0
 
 
+def playable_brain(cfg) -> str:
+    """The connectome the windowed game loads. The larva body (game/larva.py) does not implement the Fly interface
+    the game loop uses yet, so the windowed game runs the adult brain and says so; the larva brain is available
+    headless (--headless --validate --brain larva, protocols, benchmarks)."""
+    if cfg.get("brain.brain", "adult") == "larva":
+        log.warning("the larva brain is headless-only in this build (the windowed larva game is not finished); "
+                    "starting with the adult brain. Use --headless --validate --brain larva for the larva connectome.")
+    return "adult"
+
+
 def load_brain(out: dict) -> None:
     try:
         from kickthefly.sim import brainpack
         from kickthefly.sim.connectome.sim import LIFParams, LIFSim
 
-        brain_type = str(out.get("brain", "adult")).lower()
+        brain_type = str(out.get("brain_type", "adult")).lower()
         pack = brainpack.find(brain=brain_type)
         if pack is None:                             # source checkout: pack the connectome once (~30 s)
             out["stage"] = f"building the {brain_type} brain pack (first run only)"
@@ -6726,16 +6740,15 @@ def load_brain(out: dict) -> None:
             p.backend = out["backend"]
         if "dtype" in out:
             p.dtype = out["dtype"]
-        p.individuality = out.get("individuality", "subtle")
+        p.individuality = out.get("individuality", "off")   # callers that want individuality pass it (main, kick3d)
         sim = LIFSim(None, p, W_in=weights, seed=seed)
         brain = Brain(g, sim, seed=seed)
         brain.brain_type = brain_type
         out["stage"] = "placing neurons"
         if brain_type == "larva":
             pain_mask = np.zeros(g.n, bool)
-            t = getattr(g, "type", np.full(g.n, "", dtype=object)).astype(str)
-            noci_idx = np.flatnonzero(np.isin(t, ("noci", "A00c_a4", "A00c_a5", "A00c_a6")) | np.char.startswith(t, "noci"))
-            pain_mask[noci_idx] = True
+            from kickthefly.sim.connectome.larva_loader import larva_groups
+            pain_mask[larva_groups(g.subtype)["noci"]] = True
         else:
             pain_groups = [brain.col[n] for n in (*TOUCH, "heat", "cold", "smell", "taste", "body_extra")]
             pain_mask = np.isin(brain.det_id, pain_groups) | (brain.pop_id == [n for n, _ in POPS].index("ascending"))
@@ -6911,7 +6924,7 @@ def main(argv: list[str] | None = None) -> int:
     font = pygame.font.SysFont("segoeui,consolas", 22)
     state: dict = {"stage": "starting"}
     state["seed"] = seed
-    state["brain"] = cfg.get("brain.brain", "adult")
+    state["brain_type"] = playable_brain(cfg)   # not "brain": the loop below waits for that key
     state["individuality"] = cfg.get("brain.individuality", "subtle")
     state["mirror_weights"] = bool(cfg["brain.mirror_weights"])
     state["backend"] = getattr(args, "sim_backend", None) or cfg["brain.backend"]
@@ -6996,6 +7009,8 @@ def shutdown(game) -> None:
         slot.brain.stop()
         if slot.persist_memory and slot.brain.memory is not None:
             slot.brain.memory.save()
+    if getattr(game, "pet", None) is not None:      # live hunger/sleep/mood since the last meal
+        game.pet.save()
     if game.cfg.dirty:
         game.cfg.save()
     pygame.quit()
