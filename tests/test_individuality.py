@@ -6,7 +6,7 @@ from kickthefly.core import simcore
 from kickthefly.core.individuality import compute_fly_gains, compute_personality_card
 from kickthefly.lab import validation
 from kickthefly.sim.connectome.sim import LIFParams, LIFSim
-from kickthefly.sim.connectome import backends
+from kickthefly.sim.connectome import backends, larva_loader
 
 
 def test_individuality_determinism():
@@ -100,6 +100,7 @@ def test_individuality_forced_off_in_validation(monkeypatch):
 
     monkeypatch.setattr(simcore, "new_brain", spy)
     validation.run(brain="adult", seeds=(1000,), workers=1, include={"looming_escape"})
+    larva_loader.ensure_larva_brain_pack()      # CI builds only the adult pack, and test_larva.py runs after this file
     validation.run(brain="larva", seeds=(1000,), workers=1)
     assert built and all(d is None for d in built)
 
