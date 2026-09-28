@@ -65,5 +65,16 @@
   "CVA": "CVA",
   "DECOY": "KÖDER",
   "puffs cVA pheromone: activates Or67d/DA1 glomerulus": "stößt cVA-Pheromon aus: aktiviert Or67d/DA1-Glomerulus",
-  "spawns a decoy female target to evoke courtship": "erzeugt einen weiblichen Köder, um Balzverhalten hervorzurufen"
+  "spawns a decoy female target to evoke courtship": "erzeugt einen weiblichen Köder, um Balzverhalten hervorzurufen",
+  "Mode: Pet": "Modus: Haustier",
+  "Switch between Play (the game), Lab (research tools), and Pet (one persistent fly). Saved in your settings.": "Wechsel zwischen Spiel (das Spiel), Labor (Forschungswerkzeuge) und Haustier (eine persistente Fliege). In deinen Einstellungen gespeichert.",
+  "Larva": "Larve",
+  "Adult": "Adult",
+  "Individuality": "Individualität",
+  "Subtle": "Subtil",
+  "Strong": "Stark",
+  "Off": "Aus",
+  "Pet mode": "Haustiermodus",
+  "Real stakes": "Echter Einsatz",
+  "Immortal": "Unsterblich"
 }

@@ -60,6 +60,9 @@ backends, the Python API and the Lab's optional NWB export.
 
 ## What you can do
 
+- **Larval brain mode (2.11):** switch to the *Drosophila* larva connectome (2,952 neurons, 352,611 synapses; Winding et al. 2023) with `--brain larva` or `Settings > Brain > Brain`. Features segmented crawler ragdoll physics (10 segments), peristaltic crawling, head-casting, and rolling escape via Goro command neurons. Annotated Class IV md nociceptors are read directly by the pain meter (`CONNECTOME`). See [docs/larva.md](docs/larva.md).
+- **Fly individuality (2.11):** no two flies share an identical brain. Deterministic per-neuron scaling $W_{\text{fly}} = D_{\text{post}} \cdot W \cdot D_{\text{pre}}$ preserves the shared matrix for streaming GPU SpMM while staying bit-exact across CPU backends. Measured personality cards display in the fly focus picker (**F**), inspector, and HUD. See [docs/individuality.md](docs/individuality.md).
+- **Pet mode (2.11):** care for a persistent long-lived companion fly across real days in `Esc > Mode`. Strictly zero background processes or timers; deterministic elapsed wall-clock catch-up on launch. Hunger and sleep pressure couple directly to live connectome circuits. Casual HUD status widget. See [docs/pet.md](docs/pet.md).
 - **Hits fire real sensory neurons:**
   - head: head bristles and Johnston's organ
   - body: tactile neurons
@@ -519,6 +522,8 @@ files and command lines are unchanged.
 
 ## Credits
 
-The connectome data is Janelia FlyEM MaleCNS v1.0, a collaboration between HHMI Janelia, the University of Cambridge, the MRC Laboratory of Molecular Biology and Google Research. It is licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) and available at [male-cns.janelia.org](https://male-cns.janelia.org/download/).
+The adult connectome data is Janelia FlyEM MaleCNS v1.0, a collaboration between HHMI Janelia, the University of Cambridge, the MRC Laboratory of Molecular Biology and Google Research. It is licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) and available at [male-cns.janelia.org](https://male-cns.janelia.org/download/).
 
-The exe and AppImage bundle a compact pack derived from that data. The pack keeps the signed synapse counts, the neuron labels (type, superclass, subclass, instance), body IDs and the cell-body positions, and is otherwise unmodified.
+The Drosophila larva connectome data is from Winding, M., Pedigo, B.D., Barnes, C.L., et al. (2023). "The connectome of an insect brain." *Science*, 379(6636), eadd9330. DOI: [10.1126/science.add9330](https://doi.org/10.1126/science.add9330). It is licensed [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) and available at [github.com/brain-networks/larval-drosophila-connectome](https://github.com/brain-networks/larval-drosophila-connectome).
+
+The exe and AppImage bundle compact packs derived from those datasets. The packs keep the signed synapse counts, the neuron labels (type, superclass, subclass, instance), body IDs and cell-body positions, and are otherwise unmodified.

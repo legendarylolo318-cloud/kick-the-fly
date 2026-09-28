@@ -433,8 +433,9 @@ class Menu:
     def _page_pause(self, surf, rect) -> None:
         cfg = self.host.cfg
         self.text(surf, tr("PAUSED"), (rect.centerx, rect.y + 22), INK, self.f_title, "midtop")
-        lab = cfg.lab
-        self.text(surf, f"Kick the Fly {__version__}   ·   {'Lab' if lab else 'Play'} mode", (rect.centerx, rect.y + 76),
+        mode = cfg.get("brain.mode", "play")
+        mode_title = "Pet" if mode == "pet" else "Lab" if mode == "lab" else "Play"
+        self.text(surf, f"Kick the Fly {__version__}   ·   {mode_title} mode", (rect.centerx, rect.y + 76),
                   LABEL, self.f_small, "midtop")
         items = [("Resume", "resume", "primary", True, "Back to the fly (Esc)."),
                  ("Challenges" if not lab else "Lab tools", "challenges" if not lab else "lab", "normal", True,
@@ -445,8 +446,8 @@ class Menu:
                   "Save the whole simulation: every neuron's voltage, the learned synapses, surgery, the room and the "
                   "flies."),
                  ("Load State", "load_state", "normal", True, "Go back to a saved moment."),
-                 ("Mode: Lab" if lab else "Mode: Play", "toggle_mode", "normal", True,
-                  "Switch between Play (the game) and Lab (research tools). Saved in your settings."),
+                 (f"Mode: {mode_title}", "toggle_mode", "normal", True,
+                  "Switch between Play (the game), Lab (research tools), and Pet (one persistent fly). Saved in your settings."),
                  ("Quit", "quit", "danger", True, "Asks first. Training memory is saved.")]
         bw, bh, gap = 300, 50, 12
         y = rect.y + 116

@@ -301,6 +301,43 @@ Cell types, gene names and citations are never translated.
 Real-science popups (Settings > Brain) are OFF by default in Play and Lab from 2.10; configs from before migrate to
 off once, and turning them on afterwards sticks.
 
+Drosophila larva connectome (2.11; Winding et al. 2023, Science 379:eadd9330, CC BY-NC-SA 4.0).
+Selected with --brain adult|larva and Settings > Brain > Brain (default adult).
+- CONNECTOME: complete synaptic-resolution connectome of the larva brain (2,952 neurons, 352,611 synapses).
+  Tools map to real larval sensory neurons: touch drives chordotonal (mechano-Ch) and sub-threshold
+  mechanosensory neurons (mechano-II/III); blowtorch drives annotated class IV multi-dendritic nociceptors
+  (A00c ascending / noci); sugar drives external and pharyngeal gustatory neurons; cold drives thermo-cold.
+  Unlike the adult, the larva connectome has annotated nociceptors, so the pain meter reads them directly
+  and is tagged CONNECTOME. Noxious stimulation reaches Basin interneurons and triggers rolling escape via
+  Goro command neurons (_telegoro-1, DN-VNC).
+- GAME RULE: Segmented crawler ragdoll physics (LarvaBody: 10 segments), peristaltic forward crawling wave,
+  lateral head-casting / turning, and rolling escape corkscrew motion. Inappropriate arenas (open field,
+  orchard, fan, escape room) are gated with explanatory messages.
+
+Fly individuality (2.11; Kain et al. 2012, Linneweber et al. 2020).
+- GAME RULE: Per-fly variation, deterministic from each fly's seed, implemented as per-neuron scaling
+  so the shared weight matrix is unchanged: W_fly = D_post · W · D_pre, where D_pre and D_post are
+  diagonal per-neuron gains drawn from a lognormal distribution. Default sigma is 0.15 (subtle) and
+  0.30 (strong); the range is documented in Lab > Parameters. Signs of weights are strictly preserved.
+  Plastic KC->MBON weights learn normally on top. Shared weight matrix structure preserves streaming
+  SpMM on batched GPU backends. NumPy, Numba and torch-cpu remain bit-exact. Settings > Brain > Individuality
+  (off / subtle / strong, default subtle in Play). Forced OFF for --validate.
+- Personality cards: short, measured profiles per fly (temperament, steering bias, feeding drive, learning)
+  computed from assay metrics with published thresholds shown. Displayed in fly picker (F), pet mode, and
+  neuron inspector header.
+
+Pet mode (2.11; core/pet.py).
+- New mode in Esc > Mode alongside Play and Lab. One fly (adult or larva) persists across real days,
+  saved to XDG data dir / Documents\\Kick the Fly\\pet (pet.ktfsave with pet.ktfsave.bak backup).
+- NO background process, daemon, service, autostart entry or timer, ever. The simulation only runs
+  while the game window is open. Time advances upon next launch via a deterministic wall-clock catch-up rule.
+  Clock changes: negative jumps clamped to 0, jumps > 7 days clamped to 7 days, both logged.
+- GAME RULE needs feeding real neurons:
+  - Hunger rises over time; scales sugar taste sensory gain and PAM reward dopamine drive. Feeding lowers it.
+  - Sleep pressure rises while awake; drives dFB sleep neurons (FB6/FB7 in adult). The fly sleeps at night in
+    the day/night cycle.
+  - Death: off by default (immortal). Optional "real stakes" toggle allows starvation or trauma death with autopsy.
+
 Settings, time and saves: settings live in config.toml (config.py, menu.py). The game
 runs on a virtual clock (simclock.py): pause, 0.1-1x slow motion and single steps
 slow the room and every brain together. Save states (savestate.py) hold every
@@ -417,14 +454,20 @@ HIST = 1500                  # history samples, one per 20 ms = 30 s
 CALM_STEPS = 400             # 2 s without a touch before the baseline learns again
 
 
-def get_max_flies(backend: str | None = None) -> int:
+def get_max_flies(backend: str | None = None, brain: str = "adult") -> int:
     """How many flies N may spawn, dynamically adapted to the active backend (measured in docs/performance.md).
 
-    NumPy (cpu) and torch-cpu: 16; brains share Python's GIL.
-    Numba: one per core, between 16 and 32 (releases GIL).
-    PyTorch GPU (torch-cuda, torch-rocm): 32, or 64 with KICK_THE_FLY_EXPANDED_SWARM=1 (batched SpMM in VRAM).
-    gl: 32, one batch group (backends._GLGroup: a spike word holds 32 flies); measured 0.86x real time at 32 (2.10).
+    NumPy (cpu) and torch-cpu: 16 (adult) / 64 (larva); brains share Python's GIL.
+    Numba: 16 to 32 (adult) / 128 (larva) (releases GIL).
+    PyTorch GPU (torch-cuda, torch-rocm): 32/64 (adult) / 128 (larva).
+    gl: 32 (adult) / 128 (larva).
     Every spawn also needs free memory (BRAIN_MB each), checked when you press N."""
+    brain = str(brain).lower()
+    if brain == "larva":
+        backend_str = str(backend).lower() if backend else "cpu"
+        if backend_str in ("numba", "torch-cuda", "torch-rocm", "gl"):
+            return 128
+        return 64
     if backend is None or backend == "auto":
         from kickthefly.sim.connectome.backends import detect_available_backends
         avail = detect_available_backends()
@@ -534,31 +577,79 @@ class Brain:
         # PPL1 dopaminergic neurons (16) signal punishment; pain drives them (game rule), learning reads them
         self.sense[("punish", None)] = np.flatnonzero(add_detail("punish", np.char.startswith(types, "PPL1")))
         self.kc = np.flatnonzero(np.char.startswith(types, "KC"))        # Kenyon cells, the mushroom body
-        orn = self.sense[("smell", None)]
-        glom = np.array([t.split("_", 1)[1] for t in types[orn]])
-        order = np.random.default_rng(11).permutation(np.unique(glom))
-        for k, name in enumerate(TOOL_NAMES):        # each tool's scent: its own 5 of the 53 olfactory glomeruli
-            if name == "alcohol":
-                # Fermented fruit / ethanol odor activates canonical food attraction glomeruli (DM1, DM2, DP1m)
-                self.sense[("scent", name)] = orn[np.isin(glom, ["DM1", "DM2", "DP1m"])]
-            elif name == "laser":
-                self.sense[("scent", name)] = orn[:0]   # pure optical beam: carries no odor
-            elif name == "cva":
-                self.sense[("scent", name)] = orn[np.isin(glom, ["DA1"])]
-            elif name == "decoy":
-                self.sense[("scent", name)] = orn[np.isin(glom, ["DA1", "VA1v"])]
-            else:
-                self.sense[("scent", name)] = orn[np.isin(glom, order[k * 5:(k + 1) * 5])]
-        self.sense[("scent", "cva")] = orn[np.isin(glom, ["DA1"])]
-        self.sense[("pheromone", "foreleg")] = np.flatnonzero(np.isin(types, ["LgLG5", "LgLG6", "LgLG7", "LgLG8"]))
-        self.sense[("scent", "player")] = orn[np.isin(glom, order[50:])]   # you: the last 3 glomeruli
+        self.brain_type = getattr(g, "brain_type", "adult")
+        self.is_larva = (self.brain_type == "larva") or (g.n < 10000)
+        self.subclass = np.asarray(getattr(g, "subclass", np.full(g.n, ""))).astype(str)
         from kickthefly.lab import assays
-        self.lglg_indices = np.flatnonzero(np.isin(types, ["LgLG5", "LgLG6", "LgLG7", "LgLG8"]))
-        self.p1_indices = np.flatnonzero(np.isin(types, assays.P1_TYPES))
-        odor_order = np.random.default_rng(assays.ODOR_GLOMERULI_SEED).permutation(np.unique(glom))
-        self.sense[("scent", "odor_a")] = orn[np.isin(glom, odor_order[:6])]      # T-maze odors (game rule: which
-        self.sense[("scent", "odor_b")] = orn[np.isin(glom, odor_order[6:12])]    # glomeruli each one activates)
-        self.sense[("scent", "odor_c")] = orn[np.isin(glom, odor_order[12:18])]
+
+        if self.is_larva:
+            # Annotated larval sensory and motor groups (Winding et al. 2023)
+            # Class IV md nociceptors
+            noci_idx = np.flatnonzero(np.isin(self.subclass, ["A00c_a4; noci", "A00c_a5; noci", "A00c_a6; noci", "noci"]) | np.char.startswith(self.subclass, "A00c") | (np.char.find(self.subclass, "noci") >= 0))
+            chord_idx = np.flatnonzero(self.subclass == "mechano-Ch")
+            mech_idx = np.flatnonzero(np.char.find(self.subclass, "mechano-") >= 0)
+            gust_idx = np.flatnonzero(np.char.find(self.subclass, "gustatory-") >= 0)
+            cold_idx = np.flatnonzero(np.char.find(self.subclass, "thermo-cold") >= 0)
+            olf_idx = np.flatnonzero(np.char.find(self.subclass, "olfactory") >= 0)
+            goro_idx = np.flatnonzero(np.char.find(self.subclass, "_telegoro-1") >= 0)
+
+            self.noci_idx = noci_idx
+            self.chord_idx = chord_idx
+            self.goro_idx = goro_idx
+
+            # Touch -> chordotonal and mechanosensory neurons
+            touch_all = np.unique(np.concatenate([chord_idx, mech_idx])) if (len(chord_idx) or len(mech_idx)) else np.arange(min(12, g.n))
+            self.sense[("head", None)] = chord_idx if len(chord_idx) else touch_all
+            self.sense[("body", None)] = mech_idx if len(mech_idx) else touch_all
+            self.sense[("legs", None)] = mech_idx if len(mech_idx) else touch_all
+            self.sense[("wing", None)] = mech_idx if len(mech_idx) else touch_all
+            # Blowtorch / heat -> class IV md nociceptors
+            self.sense[("heat", None)] = noci_idx if len(noci_idx) else touch_all
+            self.sense[("cold", None)] = cold_idx if len(cold_idx) else touch_all
+            # Sugar -> gustatory neurons
+            self.sense[("taste", None)] = gust_idx if len(gust_idx) else np.arange(min(10, g.n))
+            self.sense[("punish", None)] = noci_idx
+            self.sense[("goro", None)] = goro_idx
+
+            for k, name in enumerate(TOOL_NAMES):
+                self.sense[("scent", name)] = olf_idx[:5] if len(olf_idx) >= 5 else olf_idx
+            self.sense[("scent", "player")] = olf_idx[-3:] if len(olf_idx) >= 3 else olf_idx
+            self.sense[("scent", "cva")] = olf_idx[:2] if len(olf_idx) >= 2 else olf_idx
+            self.sense[("pheromone", "foreleg")] = np.array([], dtype=int)
+            self.lglg_indices = np.array([], dtype=int)
+            self.p1_indices = np.array([], dtype=int)
+            self.sense[("scent", "odor_a")] = olf_idx[:4] if len(olf_idx) >= 4 else olf_idx
+            self.sense[("scent", "odor_b")] = olf_idx[4:8] if len(olf_idx) >= 8 else olf_idx
+            self.sense[("scent", "odor_c")] = olf_idx[8:12] if len(olf_idx) >= 12 else olf_idx
+        else:
+            self.noci_idx = np.array([], dtype=int)
+            self.chord_idx = np.array([], dtype=int)
+            self.goro_idx = np.array([], dtype=int)
+            orn = self.sense[("smell", None)]
+            glom = np.array([t.split("_", 1)[1] if "_" in t else t for t in types[orn]])
+            order = np.random.default_rng(11).permutation(np.unique(glom)) if len(glom) else np.array([])
+            for k, name in enumerate(TOOL_NAMES):        # each tool's scent: its own 5 of the 53 olfactory glomeruli
+                if name == "alcohol":
+                    # Fermented fruit / ethanol odor activates canonical food attraction glomeruli (DM1, DM2, DP1m)
+                    self.sense[("scent", name)] = orn[np.isin(glom, ["DM1", "DM2", "DP1m"])]
+                elif name == "laser":
+                    self.sense[("scent", name)] = orn[:0]   # pure optical beam: carries no odor
+                elif name == "cva":
+                    self.sense[("scent", name)] = orn[np.isin(glom, ["DA1"])]
+                elif name == "decoy":
+                    self.sense[("scent", name)] = orn[np.isin(glom, ["DA1", "VA1v"])]
+                else:
+                    self.sense[("scent", name)] = orn[np.isin(glom, order[k * 5:(k + 1) * 5])] if len(order) >= (k + 1) * 5 else orn[:5]
+            self.sense[("scent", "cva")] = orn[np.isin(glom, ["DA1"])]
+            self.sense[("pheromone", "foreleg")] = np.flatnonzero(np.isin(types, ["LgLG5", "LgLG6", "LgLG7", "LgLG8"]))
+            self.sense[("scent", "player")] = orn[np.isin(glom, order[50:])] if len(order) >= 53 else orn[:3]
+            from kickthefly.lab import assays
+            self.lglg_indices = np.flatnonzero(np.isin(types, ["LgLG5", "LgLG6", "LgLG7", "LgLG8"]))
+            self.p1_indices = np.flatnonzero(np.isin(types, assays.P1_TYPES))
+            odor_order = np.random.default_rng(assays.ODOR_GLOMERULI_SEED).permutation(np.unique(glom)) if len(glom) else np.array([])
+            self.sense[("scent", "odor_a")] = orn[np.isin(glom, odor_order[:6])] if len(odor_order) >= 6 else orn[:6]
+            self.sense[("scent", "odor_b")] = orn[np.isin(glom, odor_order[6:12])] if len(odor_order) >= 12 else orn[:6]
+            self.sense[("scent", "odor_c")] = orn[np.isin(glom, odor_order[12:18])] if len(odor_order) >= 18 else orn[:6]
         self.types, self.superclass = types, sc
         self.subclass = np.asarray(getattr(g, "subclass", np.full(g.n, ""))).astype(str)
         self.instance = np.array([i or "" for i in g.instance])
@@ -834,6 +925,14 @@ class Brain:
     def pain_parts(self, rates: np.ndarray, base: np.ndarray) -> np.ndarray:
         """(touch overload, thermal, chemical, DN alarm, body relay) in 0..1 per row of group rates. See the docstring."""
         rates = np.atleast_2d(rates)
+
+        if getattr(self, "is_larva", False) and "noci" in self.col:
+            ni = self.col["noci"]
+            noci_diff = rates[:, ni] - base[ni]
+            p_val = np.clip(noci_diff / 25.0, 0.0, 1.0)
+            d = self.col.get("descending")
+            alarm = (rates[:, d] / max(float(base[d]), 1.0) - 1.06) / 0.3 if d is not None else np.zeros(len(rates))
+            return np.clip(np.stack([p_val, p_val, p_val * 0.5, alarm, np.zeros(len(rates))], 1), 0, 1)
 
         def above(names, full):
             idx = [self.col[n] for n in names]
@@ -1456,6 +1555,8 @@ class FlySlot:
         self.fly, self.brain, self.seed, self.primary = fly, brain, seed, primary
         self.persist_memory = primary          # only the original fly's learning is saved to disk (see README)
         self.hue = (seed * 0.6180339887) % 1.0  # golden-ratio spread so several flies look visually distinct
+        from kickthefly.core.individuality import compute_personality_card
+        self.personality = compute_personality_card(seed)
         self.reset_episode()
 
     def reset_episode(self) -> None:
@@ -1548,6 +1649,10 @@ def draw_proboscis(surf: pygame.Surface, fly: Fly, now: float) -> None:
 
 
 def draw_fly(surf: pygame.Surface, fly: Fly, now: float) -> None:
+    from kickthefly.game.larva import LarvaBody, draw_larva
+    if isinstance(fly, LarvaBody):
+        draw_larva(surf, fly, now)
+        return
     if fly.dissolved_at is not None:
         draw_puddle(surf, fly, now)
         return
@@ -1797,13 +1902,15 @@ REACTION_SOURCE = {
     "DODGE": "real", "FLY AWAY": "real", "TAKE OFF": "real", "RUN": "real", "KICK": "real", "BACK UP": "real",
     "WALK": "real", "TURN": "real", "SHOOT": "real", "GROOM": "real", "PROBOSCIS": "real",
     "SONG": "real", "CO2": "real", "HEAT": "real", "COLD": "real",
+    "ROLL": "real", "ROLLING": "real", "PAIN (LARVA)": "real",
+    "CRAWL": "rule", "HEAD CAST": "rule",
     "EATING": "rule", "TO LIGHT": "rule", "AVOID": "rule", "APPROACH": "rule", "FLEE": "rule", "WRAPPED": "rule",
     "BROKE FREE": "rule", "DIED": "rule", "HIT YOU": "rule", "YOU DIED": "rule", "AUTOPILOT": "rule",
     "PHOTO MODE": "rule", "ALCOHOL": "rule", "INEBRIATED": "rule", "STUMBLE": "rule", "SIP": "rule", "DRINKING": "rule",
     "TO FRUIT": "rule", "LOST": "rule", "RECALL": "rule", "LUNGE": "rule", "FIGHT": "rule", "SLEEP": "rule",
     "cVA PUFF": "rule", "DECOY FEMALE": "rule", "COURTSHIP": "rule",
 }
-POPUP_SOURCE = {"DODGE!": "real", "YIKES!": "real", "NOPE!": "rule", "RUN AWAY!": "rule", "YUM!": "rule",
+POPUP_SOURCE = {"DODGE!": "real", "YIKES!": "real", "ROLL!": "real", "NOPE!": "rule", "RUN AWAY!": "rule", "YUM!": "rule",
                 "SWEET!": "rule", "NOM NOM": "rule", "K.O.!": "rule", "BROKE FREE!": "rule", "FLY WINS!": "rule",
                 "GOTCHA!": "rule", "PEW PEW!": "rule", "TAKE THAT!": "rule", "AUTOPILOT": "rule", "SPECTATOR": "rule",
                 "PHOTO MODE": "rule", "*HIC*": "rule", "SIP...": "rule", "GLUG!": "rule", "STUMBLE!": "rule",
@@ -2172,8 +2279,13 @@ class Game:
         self._spawning = False
         self._new_slot: FlySlot | None = None
         self._reset_gen = 0    # bumped by new_fly(), so a spawn_fly() build in flight during an R can't reappear after
+        self.brain_type = getattr(brain, "brain_type", self.cfg.get("brain.brain", "adult"))
         running = getattr(getattr(getattr(brain, "sim", None), "backend", None), "name", None)
-        self.max_flies = get_max_flies(running or self.cfg.get("brain.backend", "auto"))   # the backend that runs
+        self.max_flies = get_max_flies(running or self.cfg.get("brain.backend", "auto"), brain=self.brain_type)
+        from kickthefly.core.pet import PetManager
+        self.pet = PetManager() if self.cfg.pet else None
+        if self.pet:
+            self.pet.load_or_create(brain_type=self.brain_type)
         self._manual_focus_until = 0.0
         self.tool = 0
         self.kills = 0
@@ -2263,6 +2375,14 @@ class Game:
                 self.update_stethoscope_target()
         elif key == "brain.arena":
             name = c[key]
+            if self.is_larva:
+                from kickthefly.game.larva import is_arena_allowed_for_larva
+                allowed, reason = is_arena_allowed_for_larva(name)
+                if not allowed:
+                    self.note(f"ARENA    {name} not suitable for larva; staying in {ARENAS[self.arena_i]}")
+                    if hasattr(self, "menu"):
+                        self.menu.flash(reason, menu_ui.AMBER)
+                    return
             if not self.three_d and name in OUTDOOR_ARENAS:
                 self.note(f"ARENA    {name} needs the 3D game; staying in the room")
                 if hasattr(self, "menu"):
@@ -2278,6 +2398,22 @@ class Game:
                 self.on_arena_changed(self.clock.now)
                 if changed:
                     self.note(f"ARENA    {ARENAS[self.arena_i]}")
+        elif key == "brain.individuality":
+            mode = c[key]
+            for slot in getattr(self, "flies", []):
+                sim = slot.brain.sim
+                sim.p.individuality = mode
+                from kickthefly.core.individuality import compute_fly_gains
+                sim.d_pre, sim.d_post = compute_fly_gains(slot.seed, sim.n, mode=mode, sigma=float(sim.p.individuality_sigma))
+        elif key == "brain.mode":
+            mode = c[key]
+            if mode == "pet" and not getattr(self, "pet", None):
+                from kickthefly.core.pet import PetManager
+                self.pet = PetManager()
+                self.pet.load_or_create(brain_type=self.brain_type)
+        elif key == "brain.pet_real_stakes":
+            if getattr(self, "pet", None):
+                self.pet.real_stakes = bool(c[key])
         elif key == "brain.pain_level":
             self.pain_level = c[key]
             for slot in self.flies:
@@ -2385,8 +2521,10 @@ class Game:
             self.menu._saves_cache = None
             self.menu.show("load_state")
         elif name == "toggle_mode":
-            self.set_setting("brain.mode", "play" if self.cfg.lab else "lab")
-            self.menu.flash(f"{'Lab' if self.cfg.lab else 'Play'} mode", menu_ui.GOOD)
+            curr = self.cfg.get("brain.mode", "play")
+            next_mode = {"play": "lab", "lab": "pet", "pet": "play"}.get(curr, "play")
+            self.set_setting("brain.mode", next_mode)
+            self.menu.flash(f"{next_mode.capitalize()} mode", menu_ui.GOOD)
         else:
             self.menu.flash("coming soon", menu_ui.AMBER)
 
@@ -2662,12 +2800,22 @@ class Game:
     def pain_trace(self) -> list:
         return self.flies[self.focus].pain_trace
 
+    @property
+    def is_larva(self) -> bool:
+        return getattr(self, "brain_type", "adult") == "larva" or bool(getattr(self.cfg, "larva", False))
+
     def _new_primary_fly(self) -> Fly:
         """Overridden by Game3D to build a Fly3D positioned in front of the player instead."""
+        if self.is_larva:
+            from kickthefly.game.larva import LarvaBody
+            return LarvaBody(PLAY_W / 2)
         return Fly(PLAY_W / 2)
 
     def _new_spawn_fly(self) -> Fly:
         """Overridden by Game3D to build a Fly3D. Called on spawn_fly()'s background thread."""
+        if self.is_larva:
+            from kickthefly.game.larva import LarvaBody
+            return LarvaBody(random.uniform(120, PLAY_W - 120))
         return Fly(random.uniform(120, PLAY_W - 120))
 
     def new_fly(self) -> None:
@@ -2979,7 +3127,10 @@ class Game:
         if len(self.flies) > 1:
             self.focus = (self.focus + step) % len(self.flies)
             self._manual_focus_until = time.perf_counter() + 5.0
-            self.note(f"FOCUS    fly #{self.focus + 1}/{len(self.flies)}")
+            slot = self.flies[self.focus]
+            pers = getattr(slot, "personality", None)
+            pers_str = f" [{pers['title']}]" if pers else ""
+            self.note(f"FOCUS    fly #{self.focus + 1}/{len(self.flies)}{pers_str}")
 
     def _update_focus(self) -> None:
         """The brain panel (and whichever fly training/surgery act on) always follows the fly nearest to you,
@@ -4079,13 +4230,25 @@ class Game:
         i = info["i"]
         rate = float(br.sim.activity.rates()[i]) / 0.005
         calm = float(self.view.calm[i]) / 0.005
-        self._text(surf, info["type"], (x, y), INK, self.f_head)
-        inst_label = f"   {info['instance']}" if info.get("instance") else ""
-        self._text(surf, f"{info['pop']}{inst_label}", (x, y + 26), LABEL, self.f_small)
-        self._text(surf, f"firing {rate:5.1f} spikes/s   (calm {calm:4.1f})", (x, y + 44),
-                   (255, 170, 90) if rate > calm + 2 else TEXT, self.f_small)
-        self._text(surf, f"{info['n_in']} input partners, {info['n_out']} output partners", (x, y + 60), LABEL, self.f_small)
-        yy = y + 76
+        slot = self.flies[self.focus] if self.focus < len(self.flies) else None
+        pers = getattr(slot, "personality", None)
+        if pers:
+            self._text(surf, f"Fly #{self.focus + 1} · {pers['title']}", (x, y), ACCENT, self.f_small)
+            self._text(surf, info["type"], (x, y + 16), INK, self.f_head)
+            inst_label = f"   {info['instance']}" if info.get("instance") else ""
+            self._text(surf, f"{info['pop']}{inst_label}", (x, y + 38), LABEL, self.f_small)
+            self._text(surf, f"firing {rate:5.1f} spikes/s   (calm {calm:4.1f})", (x, y + 54),
+                       (255, 170, 90) if rate > calm + 2 else TEXT, self.f_small)
+            self._text(surf, f"{info['n_in']} input partners, {info['n_out']} output partners", (x, y + 68), LABEL, self.f_small)
+            yy = y + 84
+        else:
+            self._text(surf, info["type"], (x, y), INK, self.f_head)
+            inst_label = f"   {info['instance']}" if info.get("instance") else ""
+            self._text(surf, f"{info['pop']}{inst_label}", (x, y + 26), LABEL, self.f_small)
+            self._text(surf, f"firing {rate:5.1f} spikes/s   (calm {calm:4.1f})", (x, y + 44),
+                       (255, 170, 90) if rate > calm + 2 else TEXT, self.f_small)
+            self._text(surf, f"{info['n_in']} input partners, {info['n_out']} output partners", (x, y + 60), LABEL, self.f_small)
+            yy = y + 76
         nt, conf, src = self.transmitter_of(i)
         if nt:
             sign = {"acetylcholine": "excitatory (+)", "gaba": "inhibitory (-)", "glutamate": "inhibitory (-)",
@@ -5002,9 +5165,13 @@ class Game:
                 self.note("EATING   sugar: taste + PAM reward")
             fly.eating_until = now + 0.4
             s["left"] -= 1 / 240
-            slot.brain.poke("taste", None, 0.5)
-            slot.brain.poke("sweet", None, 0.5, recruit=0.6)          # the sugar-pathway taste neurons (assays.py)
-            slot.brain.poke("reward", None, 0.4)
+            t_gain = 0.5 * (self.pet.get_sugar_gain_multiplier() if self.pet else 1.0)
+            r_gain = 0.4 * (self.pet.get_pam_reward_multiplier() if self.pet else 1.0)
+            slot.brain.poke("taste", None, t_gain)
+            slot.brain.poke("sweet", None, t_gain, recruit=0.6)          # the sugar-pathway taste neurons (assays.py)
+            slot.brain.poke("reward", None, r_gain)
+            if self.pet:
+                self.pet.feed(amount=0.003, source="sugar")
             fly.health = min(MAX_HEALTH, fly.health + 0.15)
             if s["left"] <= 0:
                 drop_item(self.sugars, s)
@@ -5285,6 +5452,13 @@ class Game:
             slot.reward += (float(np.clip((br.level("reward") - 1.0) / 0.6, 0, 1)) * 100 - slot.reward) * 0.1
             if not fly.dead and slot.pain > 25 and self.frame % 3 == 0:
                 br.poke("punish", None, slot.pain / 100)    # pain drives the punishment dopamine neurons (game rule)
+            if self.pet and slot is self.flies[0]:
+                self.pet.update_live(dt=0.016, pam_rate=br.level("reward"), ppl1_rate=br.level("punish") if "punish" in br.col else 0.0)
+                sd = self.pet.get_dfb_sleep_drive()
+                if sd > 0.05 and "sleep" in br.col:
+                    br.poke("sleep", None, sd)
+                if self.pet.real_stakes and self.pet.is_dead and not fly.dead:
+                    slot.pending_damage = 999.0
             self._vision(slot, now, mouse)
             self._scents(slot, now, mouse)
             self._learn(slot, now)
@@ -5868,6 +6042,37 @@ class Game:
         surf.blit(card, box.topleft)
         surf.blit(rendered, (box.x + 10, box.y + 3))
         draw_source_chip(surf, (box.x + 16 + rendered.get_width(), box.y + 3), "real", self.f_small, anchor="topleft")
+        if getattr(self, "pet", None):
+            self._draw_pet_widget(surf)
+
+    def _draw_pet_widget(self, surf) -> None:
+        """Casual-friendly HUD widget for pet mode: hunger, sleep, mood, personality."""
+        if not getattr(self, "pet", None):
+            return
+        pet = self.pet
+        w, h = 236, 88
+        x, y = 10, 310
+        card = pygame.Surface((w, h), pygame.SRCALPHA)
+        pygame.draw.rect(card, (10, 12, 18, 180), card.get_rect(), border_radius=10)
+        surf.blit(card, (x, y))
+
+        card_p = pet.personality_card or {}
+        title = card_p.get("title", "Pet Fly")
+        self._text(surf, f"PET: {title}", (x + 12, y + 8), ACCENT, self.f_small)
+
+        bx, bw = x + 12, w - 24
+        self._text(surf, f"hunger {int(pet.hunger * 100)}%", (bx, y + 26), TEXT, self.f_small)
+        self._bar(surf, bx + 80, y + 29, bw - 80, float(pet.hunger), (240, 120, 80) if pet.hunger > 0.7 else (170, 176, 188))
+
+        self._text(surf, f"sleep {int(pet.sleep_pressure * 100)}%", (bx, y + 44), TEXT, self.f_small)
+        self._bar(surf, bx + 80, y + 47, bw - 80, float(pet.sleep_pressure), (120, 160, 240) if pet.sleep_pressure > 0.7 else (170, 176, 188))
+
+        mood_str = "content" if pet.mood > 0.6 else "happy" if pet.mood > 0.4 else "grumpy"
+        if pet.is_sleeping:
+            mood_str = "sleeping (ZZZ)"
+        self._text(surf, f"mood: {mood_str}", (bx, y + 64), LABEL, self.f_small)
+        age_days = (time.time() - pet.born_time) / 86400.0
+        self._text(surf, f"age {age_days:.1f}d", (bx + bw, y + 64), LABEL, self.f_small, "topright")
 
     def _draw_escaperoom_hud(self, surf, now: float) -> None:
         cw, ch = 380, 84
@@ -5925,6 +6130,10 @@ class Game:
         word, col = (("MAXED OUT", S_CRIT) if p >= 99 else ("agony", S_CRIT) if p >= 70 else ("severe", (236, 131, 90))
                      if p >= 35 else ("mild", S_WARN) if p >= 10 else ("calm", S_GOOD))
         self._text(surf, "PAIN", (x + 12, y + 8), LABEL, self.f_small)
+        if getattr(self.brain, "is_larva", False):
+            self._text(surf, "CONNECTOME (md-IV)", (x + 46, y + 8), (50, 220, 100), self.f_small)
+        else:
+            self._text(surf, "ESTIMATE (RULE)", (x + 46, y + 8), DIM, self.f_small)
         r = self._text(surf, f"{p:.0f}", (x + 12, y + 20), INK, self.f_title)
         self._text(surf, "/100", (r.right + 4, r.bottom - 22), LABEL, self.f_small)
         self._text(surf, word, (x + w - 12, y + 30), col, self.f_bold, "topright")
@@ -6500,13 +6709,14 @@ def load_brain(out: dict) -> None:
         from kickthefly.sim import brainpack
         from kickthefly.sim.connectome.sim import LIFParams, LIFSim
 
-        pack = brainpack.find()
+        brain_type = str(out.get("brain", "adult")).lower()
+        pack = brainpack.find(brain=brain_type)
         if pack is None:                             # source checkout: pack the connectome once (~30 s)
-            out["stage"] = "building the brain pack (first run only)"
-            pack = brainpack.build()
-        out["stage"] = "unpacking the fly's brain"
+            out["stage"] = f"building the {brain_type} brain pack (first run only)"
+            pack = brainpack.build(brain=brain_type)
+        out["stage"] = f"unpacking the {brain_type}'s brain"
         g, weights, soma = brainpack.load(pack)
-        if out.get("mirror_weights", False):
+        if out.get("mirror_weights", False) and brain_type == "adult":
             from kickthefly.core import simcore
             weights = simcore.symmetrize_weights(g, weights)
         out["stage"] = f"wiring {g.n:,} neurons"
@@ -6516,11 +6726,19 @@ def load_brain(out: dict) -> None:
             p.backend = out["backend"]
         if "dtype" in out:
             p.dtype = out["dtype"]
+        p.individuality = out.get("individuality", "subtle")
         sim = LIFSim(None, p, W_in=weights, seed=seed)
         brain = Brain(g, sim, seed=seed)
+        brain.brain_type = brain_type
         out["stage"] = "placing neurons"
-        pain_groups = [brain.col[n] for n in (*TOUCH, "heat", "cold", "smell", "taste", "body_extra")]
-        pain_mask = np.isin(brain.det_id, pain_groups) | (brain.pop_id == [n for n, _ in POPS].index("ascending"))
+        if brain_type == "larva":
+            pain_mask = np.zeros(g.n, bool)
+            t = getattr(g, "type", np.full(g.n, "", dtype=object)).astype(str)
+            noci_idx = np.flatnonzero(np.isin(t, ("noci", "A00c_a4", "A00c_a5", "A00c_a6")) | np.char.startswith(t, "noci"))
+            pain_mask[noci_idx] = True
+        else:
+            pain_groups = [brain.col[n] for n in (*TOUCH, "heat", "cold", "smell", "taste", "body_extra")]
+            pain_mask = np.isin(brain.det_id, pain_groups) | (brain.pop_id == [n for n, _ in POPS].index("ascending"))
         out["view"] = BrainView(soma, weights, pain_mask, regions=getattr(g, "region", None), graph=g)
         if getattr(g, "dan_mbon", None) is not None:
             from kickthefly.core import memory
@@ -6529,6 +6747,7 @@ def load_brain(out: dict) -> None:
         out["stage"] = "waking the fly up"
         brain.warmup()
         out["brain"] = brain
+        out["brain_type"] = brain_type
         out["graph"], out["weights"] = g, weights   # kept so spawning more flies never re-touches disk
     except Exception as e:  # shown on the loading screen
         out["error"] = f"{type(e).__name__}: {e}"
@@ -6542,6 +6761,9 @@ def parse_args(argv: list[str] | None = None):
     ap.add_argument("--fullscreen", action="store_true")
     from kickthefly.sim.connectome import backends as sim_backends
     ap.add_argument("--backend", help="Compute backend (auto, cpu, numba, torch-cuda, torch-rocm, torch-cpu, gl) or Linux display backend (wayland, x11)")
+    ap.add_argument("--brain", choices=("adult", "larva"), default=None, help="which connectome to simulate: adult or larva")
+    ap.add_argument("--individuality", choices=("off", "subtle", "strong"), default=None, help="fly individuality setting")
+    ap.add_argument("--pet", action="store_true", help="start in pet mode")
     ap.add_argument("--sim-backend", choices=sim_backends.BACKEND_NAMES, help="Simulation compute backend")
     ap.add_argument("--dtype", choices=("float32", "float64"), help="simulation state precision (default float32)")
     ap.add_argument("--seed", type=int, help="random seed for the brains and the game")
@@ -6634,6 +6856,12 @@ def main(argv: list[str] | None = None) -> int:
     args.sim_backend = sim_backend_choice
     if args.autopilot:
         cfg.set("brain.autopilot", True)
+    if getattr(args, "brain", None):
+        cfg.set("brain.brain", args.brain)
+    if getattr(args, "individuality", None):
+        cfg.set("brain.individuality", args.individuality)
+    if getattr(args, "pet", False):
+        cfg.set("brain.mode", "pet")
     if getattr(args, "arena", None):
         cfg.set("brain.arena", args.arena)
     if getattr(args, "mirror_weights", False):
@@ -6683,6 +6911,8 @@ def main(argv: list[str] | None = None) -> int:
     font = pygame.font.SysFont("segoeui,consolas", 22)
     state: dict = {"stage": "starting"}
     state["seed"] = seed
+    state["brain"] = cfg.get("brain.brain", "adult")
+    state["individuality"] = cfg.get("brain.individuality", "subtle")
     state["mirror_weights"] = bool(cfg["brain.mirror_weights"])
     state["backend"] = getattr(args, "sim_backend", None) or cfg["brain.backend"]
     state["dtype"] = cfg["brain.dtype"]

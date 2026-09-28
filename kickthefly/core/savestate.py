@@ -247,6 +247,8 @@ def save_game(game, path: Path) -> Path:
     meta = dict(
         format=FORMAT, format_version=FORMAT_VERSION, app_version=__version__, created=time.strftime("%Y-%m-%d %H:%M:%S"),
         platform=platform.system(), mode="3d" if game.three_d else "2d", seed=int(game.cfg["brain.seed"]),
+        brain=getattr(game, "brain_type", getattr(game, "cfg", {}).get("brain.brain", "adult")),
+        individuality=getattr(game, "cfg", {}).get("brain.individuality", "subtle"),
         backend=backend_name, device=device_name,
         signature=pack_signature(game), arena_i=int(game.arena_i), arena=_arena_name(game), tool=int(game.tool),
         focus=int(game.focus),
@@ -286,6 +288,10 @@ def compatible(meta: dict, game) -> str | None:
         return "unsupported save format"
     if meta.get("mode") != ("3d" if game.three_d else "2d"):
         return f"made in the {meta.get('mode', '?').upper()} game"
+    meta_brain = meta.get("brain", "adult")
+    curr_brain = getattr(game, "brain_type", getattr(game, "cfg", {}).get("brain.brain", "adult"))
+    if meta_brain != curr_brain:
+        return f"made for the {meta_brain} brain (currently using {curr_brain})"
     sig, mine = meta.get("signature", {}), pack_signature(game)
     if sig.get("n_neurons") != mine["n_neurons"] or sig.get("synapses") != mine["synapses"]:
         return "made with a different brain pack"

@@ -186,3 +186,35 @@ fly):
 Outdoors, scenery further than 38 m (grass beyond 16 m) or well behind the camera isn't drawn, static scenery is built
 once per arena, distant trees are skipped by the fly's collision checks, and distant ground fades into haze. Before
 those, the orchard starved the brain to 0.07x real time with a single fly.
+
+## 2.11 Larva Connectome Benchmarks & Individuality Scaling
+
+The Drosophila larva connectome (2,952 neurons, 110,677 synapse pairs, 352,611 synapses) exhibits dramatically lighter compute requirements than the adult connectome (139,255 neurons, 54.5M synapses).
+
+### Single-Fly Throughput (Uncapped Steps/Second)
+
+Measured on Linux, Python 3.14.7, 5-second runs:
+
+| Connectome | CPU (NumPy) | Numba JIT |
+|---|---|---|
+| **Adult** (139,255 neurons) | 829 steps/s (**4.14x realtime**) | 942 steps/s (**4.71x realtime**) |
+| **Larva** (2,952 neurons) | 9,698 steps/s (**161.6x realtime**) | 12,815 steps/s (**213.6x realtime**) |
+
+### Multi-Larva Concurrency & Maximum Fly Caps
+
+Because each larval step takes under 0.1 ms, the game supports substantially higher fly limits in larva mode without dropping frames:
+
+| Number of Larvae | CPU (NumPy) Paced / Uncapped | Numba JIT Paced / Uncapped |
+|---|---|---|
+| 1 larva | 1.00x / 161.6x | 1.00x / 213.6x |
+| 16 larvae | 1.00x / 10.45x | 1.00x / 13.82x |
+| 32 larvae | 1.00x / 5.21x | 1.00x / 6.88x |
+| 64 larvae | 1.00x / 2.40x | 1.00x / 3.39x |
+
+**Dynamic Fly Cap (`get_max_flies`)**:
+- **Adult**: 16 (CPU) / 32 (Numba) / 64 (GPU).
+- **Larva**: **64 (CPU)** / **128 (Numba / GPU)**.
+
+### Individuality Scaling Impact
+
+The $W_{\text{fly}} = D_{\text{post}} \cdot W \cdot D_{\text{pre}}$ scaling factor incurs zero overhead on the core sparse matrix multiplication $W \cdot s$ since $D_{\text{pre}}$ scales the binary/float spike vector before SpMM and $D_{\text{post}}$ scales the accumulated input vector after SpMM. In benchmarks across 1,000 steps with individuality `subtle` and `strong`, throughput differences versus `off` were $< 0.4\%$, remaining within measurement noise while preserving bit-exact reproducibility across all CPU backends.
