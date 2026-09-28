@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.11.0 (2026-09-28)
+
+### Fixed
+- **The decoy female was invisible in the 3D game** (the default): she was dropped and touched but never drawn. She
+  is now drawn as a female fly (rounder banded abdomen, no sex combs, slightly tinted) in every arena and in photo
+  mode; the 2D decoy is redrawn as a female fly too.
+
+### Added
+- Decoys: the hand picks one up and throws it, right-click with the hand removes it; reset (R) and changing arena
+  clear them; save states keep them; a 4th drop says "MAX 3 DECOYS".
+- While a fly touches a decoy, a HUD line shows the live firing of the foreleg taste neurons she drives (LgLG5-8,
+  putative ppk23/ppk25) and of P1 (REAL). COURTSHIP stays a game rule.
+- The cVA puff shows a short-lived cloud as far as it reaches (250 px, 2.5 m in 3D; game rule).
+- README screenshot of the decoy (docs/decoy.png).
+
 ## 2.10.0 (2026-09-27)
 
 ### Added
