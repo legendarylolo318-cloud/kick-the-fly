@@ -36,6 +36,12 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="2.11.0" date="2026-09-28">
+      <description>
+        <p>The decoy female is visible in the 3D game, can be picked up, thrown and removed, and is kept in save
+        states; a live readout of the neurons she drives; a visible cVA puff.</p>
+      </description>
+    </release>
     <release version="2.10.0" date="2026-09-27">
       <description>
         <p>A cVA pheromone tool and a decoy female; the OpenGL backend runs many flies together (16 in real time);

@@ -110,8 +110,10 @@ backends, the Python API and the Lab's optional NWB export.
 - **Aggression (new in 2.9):** with several flies, stimulate P1 (the male courtship and aggression cluster) in brain surgery and its aggression neurons fire and it lunges at the nearest fly. The neurons are real (AVLP727m, "TK-FruM", and the pC1 cluster); the lunge is a game rule (Settings > Brain > Aggression lunges). Flies bumping into each other don't fire them hard enough on their own.
 - **Brain search and path tracer (new in 2.9):** in the big brain view, search any neuron by type, instance or body ID, then trace the strongest paths (up to 3 synapses) between two neurons and watch live spikes run along them.
 - **Gamepad (new in 2.9, 3D):** sticks walk and look, the right trigger uses the tool, bumpers or a tool wheel (hold Y) pick tools. Rebind everything in Settings > Controls.
-- **cVA pheromone tool (new in 2.10):** puffs the male pheromone cVA, driving the fly's DA1 olfactory receptor neurons (the Or67d cVA sensors, 204). The next two stages are validated as activation: DA1 projection neurons (x2.58) and their lateral horn / aSP targets (x2.22). Nothing in play reads a cVA behavior from them; the puff's reach and strength are game rules.
-- **Decoy female (new in 2.10):** drops a female-shaped decoy (a game rule body; three at most). A fly's forelegs touching it drive LgLG5-8, the foreleg taste neurons MaleCNS v1.0 annotates as putative ppk23/ppk25. That reaches the P1 courtship neurons only weakly (x1.20, fails validation), so the COURTSHIP tag contact triggers is a game rule; SONG is still read from ps1 as before.
+- **cVA pheromone tool (new in 2.10):** puffs the male pheromone cVA, driving the fly's DA1 olfactory receptor neurons (the Or67d cVA sensors, 204). The next two stages are validated as activation: DA1 projection neurons (x2.58) and their lateral horn / aSP targets (x2.22). Nothing in play reads a cVA behavior from them; the puff's visible cloud, reach and strength are game rules.
+- **Decoy female (new in 2.10):** drops a female-shaped decoy (a game rule body; three at most; the hand picks one up and throws it, right-click with the hand removes it; R and changing arena clear them). A fly's forelegs touching it drive LgLG5-8, the foreleg taste neurons MaleCNS v1.0 annotates as putative ppk23/ppk25. A live HUD line reports real LgLG5-8 and P1 firing during contact (REAL). That reaches the P1 courtship neurons only weakly (x1.20, fails validation), so the COURTSHIP tag contact triggers is a game rule; SONG is still read from ps1 as before.
+
+  ![Decoy female](docs/decoy.png)
 - **Plume tracking assay (new in 2.10, Python API only):** `assays.plume_tracking_fly` models a plume downwind of a source and a fly that surges upwind in odor and casts crosswind without. All of it is a game rule computed from the geometry: the fly's ORN_DM1 are driven in odor but don't steer it. The open field has no plume.
 - **Extinction and second-order conditioning (new in 2.10, validation tests):** both run on the existing learning rule with nothing added, and neither emerges: re-exposing a trained odor without shock doesn't lower avoidance, and odor B paired with a trained odor A (no shock) gains no fear. Both are listed as FAILs.
 
@@ -489,7 +491,7 @@ Documents and Pictures on Windows come from the Known Folders API, so redirected
 - The day/night cycle, daylight driving the LNv clock neurons directly (real ones see light through the H-B eyelet and CRY), the scene darkening, and the SLEEP threshold on the dorsal fan-shaped body. The sim has no molecular clock or sleep pressure.
 - The HEAT, COLD and CO2 log thresholds (they log, the fly doesn't act on them).
 - Gamepad controls, and the brain view's search box and path drawing (display only).
-- The cVA puff's reach and strength.
+- The cVA puff's visible cloud, reach (250 px in 2D, 2.5 m in 3D), and strength.
 - The decoy female: its body, the contact distance, and the COURTSHIP tag contact triggers (no neuron is read for it).
 - The plume tracking assay, all of it: the plume and the surge/cast navigation (headless, Python API only).
 

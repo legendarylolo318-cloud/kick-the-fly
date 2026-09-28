@@ -270,11 +270,12 @@ cVA pheromone tool (2.10; mouse wheel or toolbar). CONNECTOME: the puff drives t
 neurons (ORN_DA1, 204; the Or67d cVA sensors, Kurtovic et al. 2007), which excite the DA1 projection neurons
 (DA1_lPN, DA1_vPN, M_lvPNm43/45: x2.58 vs x0.80, validated), which excite their lateral horn / aSP targets
 (LHAV4a4, LHAV4c1, LH008m = aSP-f: x2.22 vs x0.96, validated). Nothing reads a cVA behavior from them, and nothing
-ties cVA to aggression beyond the wiring. GAME RULE: the puff's reach (250 px, 2.5 m in 3D) and strength.
+ties cVA to aggression beyond the wiring. GAME RULE: the puff's visible cloud, reach (250 px, 2.5 m in 3D) and strength.
 
-Decoy female (2.10; mouse wheel or toolbar). GAME RULE: the decoy's body (it drops to the floor; three at most), the
+Decoy female (2.10; mouse wheel or toolbar). GAME RULE: the decoy's body (female morphology, drops to the floor; three at most), the
 contact distance, and COURTSHIP, a RULE tag contact triggers without reading any neuron. CONNECTOME: contact drives
 LgLG5-8, the 64 foreleg gustatory neurons MaleCNS v1.0 annotates as putative ppk23/ppk25 (prothoracic leg nerve).
+A live HUD readout reports real LgLG5-8 and P1 firing during contact (REAL).
 Their drive reaches P1 only weakly (x1.20 vs x0.92, FAIL); SONG is still read from ps1 as before.
 
 Plume tracking (2.10; assays.plume_tracking_fly, headless and Python only; the open field has no plume). GAME RULE,
@@ -552,6 +553,8 @@ class Brain:
         self.sense[("pheromone", "foreleg")] = np.flatnonzero(np.isin(types, ["LgLG5", "LgLG6", "LgLG7", "LgLG8"]))
         self.sense[("scent", "player")] = orn[np.isin(glom, order[50:])]   # you: the last 3 glomeruli
         from kickthefly.lab import assays
+        self.lglg_indices = np.flatnonzero(np.isin(types, ["LgLG5", "LgLG6", "LgLG7", "LgLG8"]))
+        self.p1_indices = np.flatnonzero(np.isin(types, assays.P1_TYPES))
         odor_order = np.random.default_rng(assays.ODOR_GLOMERULI_SEED).permutation(np.unique(glom))
         self.sense[("scent", "odor_a")] = orn[np.isin(glom, odor_order[:6])]      # T-maze odors (game rule: which
         self.sense[("scent", "odor_b")] = orn[np.isin(glom, odor_order[6:12])]    # glomeruli each one activates)
@@ -580,6 +583,10 @@ class Brain:
         self.g_size = np.maximum(np.array(sizes, float), 1)
         self.fast = np.zeros(G)                      # Hz per neuron, EMA ~150 ms
         self.base = np.zeros(G)                      # calm baseline, Hz per neuron
+        self.lglg_fast = 0.0
+        self.lglg_base = 0.0
+        self.p1_fast = 0.0
+        self.p1_base = 0.0
         self.k_fast = 1 - math.exp(-1 / 30)
         self.k_base = 1 - math.exp(-1 / 2000)
         self.hist = np.zeros((HIST, G), np.float32)
@@ -719,9 +726,19 @@ class Brain:
         counts[-1] = len(on)
         inst = counts / self.g_size / self.dt
         self.fast += (inst - self.fast) * self.k_fast
+        if len(self.lglg_indices) > 0:
+            lglg_cnt = int(np.count_nonzero(spikes[self.lglg_indices]))
+            lglg_inst = (lglg_cnt / len(self.lglg_indices)) / self.dt
+            self.lglg_fast += (lglg_inst - self.lglg_fast) * self.k_fast
+        if len(self.p1_indices) > 0:
+            p1_cnt = int(np.count_nonzero(spikes[self.p1_indices]))
+            p1_inst = (p1_cnt / len(self.p1_indices)) / self.dt
+            self.p1_fast += (p1_inst - self.p1_fast) * self.k_fast
         if (self.death_step is None and self.sedation == 0 and not self.surgery and not self.driving
                 and self.steps - self.last_poke > CALM_STEPS):
             self.base += (self.fast - self.base) * self.k_base
+            self.lglg_base += (self.lglg_fast - self.lglg_base) * self.k_base
+            self.p1_base += (self.p1_fast - self.p1_base) * self.k_base
         self.steps += 1
         if self.steps % 4 == 0:
             self.hist[self.hist_n % HIST] = self.fast
@@ -804,6 +821,15 @@ class Brain:
 
     def hz(self, name: str) -> float:
         return float(self.fast[self.col[name]])
+
+    def lglg_level(self) -> float:
+        return float(self.lglg_fast / max(self.lglg_base, 0.5))
+
+    def p1_level(self) -> float:
+        return float(self.p1_fast / max(self.p1_base, 0.5))
+
+    def step(self) -> None:
+        self._step()
 
     def pain_parts(self, rates: np.ndarray, base: np.ndarray) -> np.ndarray:
         """(touch overload, thermal, chemical, DN alarm, body relay) in 0..1 per row of group rates. See the docstring."""
@@ -2671,6 +2697,8 @@ class Game:
         self.clear_transients()
         self.sugars: list[dict] = []
         self.alcohols: list[dict] = []
+        self.decoys: list[dict] = []
+        self.grabbed_decoy = None
         self.surgery_modes = [0] * len(SURGERY)
         self.type_ops = {}
         if getattr(self, "arena_i", 0) < len(ARENAS) and ARENAS[self.arena_i] == "escaperoom":
@@ -2686,6 +2714,8 @@ class Game:
 
     def on_arena_changed(self, now: float) -> None:
         """Whatever a new arena needs set up. The 3D game overrides this to build its outdoor worlds."""
+        self.decoys = []
+        self.grabbed_decoy = None
         if ARENAS[self.arena_i] == "escaperoom":
             self.reset_escaperoom(now=now)
 
@@ -2820,11 +2850,18 @@ class Game:
         return dict(sugars=[dict(p=[float(x) for x in sg["p"]], v=float(sg.get("v", 0.0)), left=float(sg["left"]))
                             for sg in self.sugars],
                     alcohols=[dict(p=[float(x) for x in al["p"]], v=float(al.get("v", 0.0)), left=float(al["left"]))
-                              for al in self.alcohols])
+                              for al in self.alcohols],
+                    decoys=[dict(p=[float(x) for x in dec["p"]], v=[float(x) for x in dec.get("v", [0.0, 0.0])],
+                                 t=float(dec.get("t", now)))
+                            for dec in getattr(self, "decoys", [])])
 
     def load_extra(self, extra: dict, z, now: float) -> None:
         self.sugars = [dict(p=np.array(sg["p"]), v=sg["v"], left=sg["left"]) for sg in extra.get("sugars", [])]
         self.alcohols = [dict(p=np.array(al["p"]), v=al["v"], left=al["left"]) for al in extra.get("alcohols", [])]
+        self.decoys = [dict(p=np.array(dec["p"], float), v=np.array(dec.get("v", [0.0, 0.0]), float),
+                            t=float(dec.get("t", now)))
+                       for dec in extra.get("decoys", [])]
+        self.grabbed_decoy = None
 
     def prepare_load(self, n: int, seeds: list[int]) -> None:
         """Match the number of flies to a save (using brains built for it in the background) and clear effects."""
@@ -4652,6 +4689,23 @@ class Game:
         detail = detail if not extra else f"{detail} [{extra.get('source', '')}]".strip()
         job["rec"].log_event(kind, label, detail, value)
 
+    def _nearest_decoy(self, pos, radius: float = 45):
+        if not hasattr(self, "decoys") or not self.decoys:
+            return None
+        p = np.array(pos, float)
+        close = [d for d in self.decoys if float(np.hypot(*(d["p"] - p))) < radius]
+        if not close:
+            return None
+        return min(close, key=lambda d: float(np.hypot(*(d["p"] - p))))
+
+    def remove_decoy(self, dec) -> None:
+        if hasattr(self, "decoys") and dec in self.decoys:
+            drop_item(self.decoys, dec)
+            if getattr(self, "grabbed_decoy", None) is dec:
+                self.grabbed_decoy = None
+            self.popup(dec["p"], "DECOY REMOVED", (200, 180, 220))
+            self.sound.play("pop")
+
     # --- tools ---
     def use_tool(self, pos, now: float) -> None:
         if self.cfg["brain.autopilot"]:
@@ -4664,12 +4718,19 @@ class Game:
                 self._shatter(slot, now)
                 return
         if name == "hand":
+            dec = self._nearest_decoy(pos, 45)
             slot, i = self._nearest_fly(pos, 40)
+            if dec is not None and slot is None:
+                self.grabbed_decoy = dec
+                return
             if slot is not None and i is not None and slot.fly.frozen_at is None:
                 slot.fly.grabbed = i
                 slot.fly.last_hit_x = pos[0]
                 self.hit(slot, i, 0.25)
                 self.focus = self.flies.index(slot)
+            elif dec is not None:
+                self.grabbed_decoy = dec
+                return
         elif name == "flick":
             slot, _ = self._nearest_fly(pos, 60)
             if slot is not None:
@@ -4716,18 +4777,24 @@ class Game:
         elif name == "cva":
             self.sound.play("pop")
             self.popup(pos, "cVA PUFF", (255, 180, 100))
+            if not hasattr(self, "cva_puffs"):
+                self.cva_puffs = []
+            self.cva_puffs.append({"p": np.array(pos, float), "t": now, "duration": 0.65, "reach": 250.0})
             for slot in self.flies:
                 dist = float(np.hypot(*(slot.fly.p[HEAD] - pos)))
                 if dist < 250:
                     strength = 0.8 * (1.0 - dist / 250)
                     slot.brain.poke("scent", "cva", strength)
         elif name == "decoy":
-            self.sound.play("drop")
-            self.popup(pos, "DECOY FEMALE", (200, 180, 220))
             if not hasattr(self, "decoys"):
                 self.decoys = []
             if len(self.decoys) < 3:
+                self.sound.play("drop")
+                self.popup(pos, "DECOY FEMALE", (200, 180, 220))
                 self.decoys.append({"p": np.array(pos, float), "v": np.zeros(2), "t": now})
+            else:
+                self.popup(pos, "MAX 3 DECOYS", (200, 180, 220), force=True)
+                self.note("DECOY    limit reached (max 3)")
 
     def _spray(self, mouse, now: float, kind: str) -> None:
         """Mist toward the nearest fly, but drenches every fly it passes over. Brake cleaner soaks (dissolves; smell
@@ -4987,8 +5054,15 @@ class Game:
         if not hasattr(self, "decoys") or not self.decoys:
             return
         for dec in self.decoys:
-            if dec["p"][1] < FLOOR - 8:
-                dec["p"][1] = min(FLOOR - 8, dec["p"][1] + 2.0)
+            if getattr(self, "grabbed_decoy", None) is dec:
+                continue
+            if not isinstance(dec.get("v"), np.ndarray):
+                dec["v"] = np.array(dec.get("v", [0.0, 0.0]), float)
+            dec["v"][1] += 0.5  # gravity
+            dec["p"] += dec["v"]
+            if dec["p"][1] >= FLOOR - 8:
+                dec["p"][1] = FLOOR - 8
+                dec["v"][:] = 0.0
         for slot in self.flies:
             fly = slot.fly
             if fly.dead or fly.wrapped or fly.frozen_at is not None or fly.grabbed is not None:
@@ -4998,6 +5072,7 @@ class Game:
             if dist < 45:
                 # Forelegs contact the decoy: drives real putative ppk23/ppk25 foreleg GRNs
                 slot.brain.poke("pheromone", "foreleg", 0.6)
+                fly.decoy_contact_until = now + 0.35
                 if now >= getattr(fly, "court_until", 0.0):
                     fly.court_until = now + 0.5
                     self.note("COURTSHIP   foreleg contact (rule): drives the putative ppk23/ppk25 GRNs")
@@ -5174,6 +5249,9 @@ class Game:
             for slot in self.flies:
                 if len(getattr(slot.brain, "_laser_rows", [])):
                     self.laser_state.apply(slot.brain, now, is_hitting=False)
+        if getattr(self, "grabbed_decoy", None) is not None:
+            self.grabbed_decoy["p"] = np.array(mouse, float)
+            self.grabbed_decoy["v"] = np.zeros(2)
         self._effects(now)
         for sh in self.shards:
             sh[0] += sh[2]
@@ -5473,12 +5551,23 @@ class Game:
             r = int(9 * k_)
             aapoly(arena, [(x - r, y), (x, y - int(r * 0.8)), (x + r, y), (x, y + int(r * 0.8))], (215, 75, 125))
             aacircle(arena, (int(x), int(y)), r, (235, 90, 140))
-            aacircle(arena, (int(x - r * 0.3), int(y - r * 0.2)), max(1, int(r * 0.35)), (255, 180, 210))
         for d in getattr(self, "decoys", []):
             x, y = d["p"]
-            aacircle(arena, (int(x), int(y - 8)), 5, (160, 160, 180))
-            aacircle(arena, (int(x), int(y)), 7, (130, 130, 150))
-            gfxdraw.aaellipse(arena, int(x), int(y + 11), 8, 12, (110, 110, 130))
+            self._draw_decoy_female_2d(arena, float(x), float(y), now)
+        active_puffs = []
+        for pf in getattr(self, "cva_puffs", []):
+            dt = now - pf["t"]
+            if dt < pf.get("duration", 0.65):
+                active_puffs.append(pf)
+                progress = dt / pf.get("duration", 0.65)
+                reach_r = int(250.0 * (progress ** 0.5))
+                alpha = int(140.0 * (1.0 - progress))
+                px, py = int(pf["p"][0]), int(pf["p"][1])
+                if reach_r > 5:
+                    aacircle(arena, (px, py), reach_r, (255, 180, 100, alpha))
+                    aacircle(arena, (px, py), int(reach_r * 0.7), (255, 160, 80, int(alpha * 0.7)))
+                    aacircle(arena, (px, py), int(reach_r * 0.4), (255, 200, 120, int(alpha * 0.5)))
+        self.cva_puffs = active_puffs
         self._draw_arena_front(arena, now)
         self._clean_frame = arena.copy()
         if self.torching and TOOLS[self.tool][0] == "torch" and self.report is None and mouse[0] < PLAY_W:
@@ -5579,6 +5668,88 @@ class Game:
         for dx in (-3, 3):
             aacircle(surf, (x + dx, y - 12), 1.6, (230, 60, 60))
 
+    def _draw_decoy_female_2d(self, surf: pygame.Surface, x: float, y: float, now: float) -> None:
+        """Draw 2D decoy as a female fly: larger, rounder abdomen with the female band pattern across all
+        tergites without the dark male tip cap, no sex combs, clearly a fly, tinted slightly so it reads as a decoy."""
+        def tc(col):
+            k = 0.22
+            tr, tg, tb = 200, 180, 220
+            r = int(col[0] * (1 - k) + tr * k)
+            g = int(col[1] * (1 - k) + tg * k)
+            b = int(col[2] * (1 - k) + tb * k)
+            if len(col) == 4:
+                return (r, g, b, col[3])
+            return (r, g, b)
+
+        thx = np.array([x, y - 18], float)
+        # 1. Shadow on floor
+        gfxdraw.filled_ellipse(surf, int(x), int(y + 2), 24, 5, (20, 20, 30, 85))
+        # 2. Far legs (3 legs, no sex combs)
+        far_col = tc((58, 38, 18))
+        for hx, hy, kx, ky, fx, fy in [
+            (thx[0] + 10, thx[1] - 4, thx[0] + 18, thx[1] + 6, thx[0] + 26, y),
+            (thx[0] - 2, thx[1] - 4, thx[0] - 4, thx[1] + 8, thx[0] + 4, y),
+            (thx[0] - 12, thx[1] - 4, thx[0] - 22, thx[1] + 6, thx[0] - 28, y),
+        ]:
+            thick_line(surf, (hx, hy), (kx, ky), 3.5, far_col)
+            thick_line(surf, (kx, ky), (fx, fy), 2.5, far_col)
+
+        # 3. Wings resting along the back
+        w_base = (thx[0] - 4, thx[1] - 10)
+        w_tip = (thx[0] - 38, thx[1] - 4)
+        w_mid = ((w_base[0] + w_tip[0]) / 2, (w_base[1] + w_tip[1]) / 2)
+        w_span = math.hypot(w_tip[0] - w_base[0], w_tip[1] - w_base[1])
+        w_pts = ellipse_pts(w_mid, w_span / 2 + 5, 10, math.atan2(w_tip[1] - w_base[1], w_tip[0] - w_base[0]))
+        w_ip = [(int(px), int(py)) for px, py in w_pts]
+        gfxdraw.filled_polygon(surf, w_ip, tc((205, 218, 238, 65)))
+        gfxdraw.aapolygon(surf, w_ip, tc((230, 238, 250, 150)))
+        gfxdraw.line(surf, int(w_base[0]), int(w_base[1]), int(w_tip[0]), int(w_tip[1]), tc((170, 180, 200, 100)))
+
+        # 4. Abdomen: larger, rounder female abdomen (length 32, radius 21), full female banding, no dark male cap
+        ac = thx + np.array([-24.0, 1.0])
+        aang = 0.12
+        along = np.array([math.cos(aang), math.sin(aang)])
+        aapoly(surf, ellipse_pts(ac, 32, 21, aang), tc((180, 122, 48)))
+        # Female banded pattern across all tergites
+        for s in (-18, -10, -2, 6, 14):
+            aapoly(surf, ellipse_pts(ac + along * s, 3.5, 19, aang, 14), tc((82, 52, 24)))
+        # Sheen
+        aapoly(surf, ellipse_pts(ac + np.array([4.0, -7.0]), 16, 6, aang, 16), tc((218, 164, 88)))
+        # Pointed lighter ovipositor tip (female specific, replacing the dark male cap)
+        aapoly(surf, ellipse_pts(ac - along * 24, 7, 7, aang), tc((215, 188, 138)))
+
+        # 5. Thorax
+        aapoly(surf, ellipse_pts(thx, 22, 18, 0.0), tc((160, 106, 44)))
+        aapoly(surf, ellipse_pts(thx + np.array([0.0, -7.0]), 12, 6, 0.0, 16), tc((200, 145, 75)))
+        # Bristles on thorax
+        b_col = tc((60, 40, 18))
+        for bx in (-10, -4, 2, 8):
+            gfxdraw.line(surf, int(thx[0] + bx), int(thx[1] - 16), int(thx[0] + bx - 3), int(thx[1] - 22), b_col)
+
+        # 6. Head
+        hc = thx + np.array([24.0, -3.0])
+        aacircle(surf, hc, 14, tc((150, 100, 42)))
+        # Large compound eye with highlight
+        eye = hc + np.array([2.0, -2.0])
+        aapoly(surf, ellipse_pts(eye, 10, 11, 0.0), tc((196, 30, 26)))
+        for fx, fy in ((-3, 2), (0, 4), (3, 1), (-1, -1), (2, -2)):
+            gfxdraw.pixel(surf, int(eye[0] + fx), int(eye[1] + fy), tc((120, 16, 14)))
+        aacircle(surf, eye + (-2, -3), 3, (255, 185, 175))
+        # Antennae & proboscis
+        thick_line(surf, hc + (10, -6), hc + (18, -14), 2, tc((70, 45, 20)))
+        thick_line(surf, hc + (12, -4), hc + (21, -9), 2, tc((70, 45, 20)))
+        thick_line(surf, hc + (6, 8), hc + (12, 16), 3, tc((70, 45, 20)))
+
+        # 7. Near legs (3 legs, no sex combs on forelegs)
+        near_col = tc((86, 58, 26))
+        for hx, hy, kx, ky, fx, fy in [
+            (thx[0] + 12, thx[1] - 2, thx[0] + 24, thx[1] + 8, thx[0] + 34, y),
+            (thx[0], thx[1] - 2, thx[0] + 2, thx[1] + 10, thx[0] + 10, y),
+            (thx[0] - 10, thx[1] - 2, thx[0] - 18, thx[1] + 8, thx[0] - 22, y),
+        ]:
+            thick_line(surf, (hx, hy), (kx, ky), 4.5, near_col)
+            thick_line(surf, (kx, ky), (fx, fy), 3.0, near_col)
+
     def _fly_state(self, now: float) -> str:
         f = self.fly
         if f.shattered_at is not None:
@@ -5672,21 +5843,31 @@ class Game:
             pygame.draw.rect(surf, (15, 18, 26, 220), vbox, border_radius=6)
             pygame.draw.rect(surf, col, vbox, 1, border_radius=6)
             self._text(surf, rec_str, vbox.center, col, self.f_small, "center")
+        if now < getattr(fly, "decoy_contact_until", 0.0):
+            self._draw_decoy_contact_hud(surf, now)
         self._draw_pain(surf)
         self._draw_reward(surf)
         self._draw_memory(surf)
         if ARENAS[self.arena_i] == "escaperoom":
             self._draw_escaperoom_hud(surf, now)
-        if getattr(fly, "inebriation", 0.0) > 0.02:
-            ix, iy, iw, ih = 10, 452, 236, 40
-            if iy + ih < FLOOR:
-                icard = pygame.Surface((iw, ih), pygame.SRCALPHA)
-                pygame.draw.rect(icard, (36, 16, 26, 195), icard.get_rect(), border_radius=8)
-                surf.blit(icard, (ix, iy))
-                pct = int(fly.inebriation * 100)
-                st_str = "wobbly" if pct < 35 else "stumbling" if pct < 70 else "inebriated"
-                self._text(surf, f"ALCOHOL {pct}% ({st_str})", (ix + 10, iy + 4), (255, 140, 190), self.f_small)
-                self._text(surf, "[GAME RULE: motor degradation]", (ix + 10, iy + 20), (215, 160, 180), self.f_small)
+
+    def _draw_decoy_contact_hud(self, surf: pygame.Surface, now: float) -> None:
+        slot = self.flies[self.focus]
+        br = slot.brain
+        # LgLG5-8 are all but silent at rest, so a multiple of calm is meaningless (any contact read "x99"): their rate
+        # in spikes/s against calm; P1 fires at rest, so its multiple of calm is fine
+        p1_x = br.p1_level()
+        txt = f"DECOY  LgLG5-8 {br.lglg_fast:.0f}/s (calm {br.lglg_base:.1f})  P1 x{p1_x:.2f}"
+        rendered = self.f_small.render(txt, True, (230, 230, 240))
+        chip_pad = 48
+        total_w = rendered.get_width() + chip_pad + 20
+        box = pygame.Rect(PLAY_W // 2 - total_w // 2, 88, total_w, 24)
+        card = pygame.Surface(box.size, pygame.SRCALPHA)
+        pygame.draw.rect(card, (10, 14, 22, 215), card.get_rect(), border_radius=6)
+        pygame.draw.rect(card, (80, 95, 120, 190), card.get_rect(), 1, border_radius=6)
+        surf.blit(card, box.topleft)
+        surf.blit(rendered, (box.x + 10, box.y + 3))
+        draw_source_chip(surf, (box.x + 16 + rendered.get_width(), box.y + 3), "real", self.f_small, anchor="topleft")
 
     def _draw_escaperoom_hud(self, surf, now: float) -> None:
         cw, ch = 380, 84
@@ -6218,6 +6399,11 @@ class Game:
                 if r.collidepoint(ev.pos):
                     self.tool = k
                     return True
+            if ev.button == 3 and TOOLS[self.tool][0] == "hand" and ev.pos[0] < PLAY_W:
+                dec = self._nearest_decoy(ev.pos, 45)
+                if dec is not None:
+                    self.remove_decoy(dec)
+                    return True
             if ev.pos[0] < PLAY_W:
                 self.use_tool(ev.pos, now)
         elif ev.type == pygame.MOUSEBUTTONUP:
@@ -6242,6 +6428,9 @@ class Game:
                         self._inspect_at(ev.pos)
                 return True
             if ev.button == 1:
+                if getattr(self, "grabbed_decoy", None) is not None:
+                    self.grabbed_decoy["v"] = np.array([0.0, -3.0])
+                    self.grabbed_decoy = None
                 if not self.fly.wrapped:
                     self.fly.grabbed = None
                 self.torching = False
