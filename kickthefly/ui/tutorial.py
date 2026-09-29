@@ -164,8 +164,8 @@ class Tutorial:
                                                 "and eats."))
         return (tr("Choose your tools"), tr("Press {key} to open the loadout editor: pick which tools are on the hotbar "
                                             "and in what order. Esc closes it. Hold {wheel} for the tool wheel, which "
-                                            "reaches every tool.", key=keys["loadout"].upper(),
-                                            wheel=keys["tool_wheel"].upper()))
+                                            "reaches every tool.", key=loadout_ui.key_label(g.cfg, "loadout"),
+                                            wheel=loadout_ui.key_label(g.cfg, "tool_wheel")))
 
     # --- drawing ------------------------------------------------------------------------------------------------------
     def draw(self, surf) -> None:

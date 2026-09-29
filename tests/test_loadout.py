@@ -593,3 +593,31 @@ def test_the_wheel_can_be_pointed_at_with_a_free_mouse_in_3d():
     assert g.kwheel_vec == [0, -120]
     g.handle3d(key(pygame.K_BACKQUOTE, pygame.KEYUP), 1.0, lambda p: p)
     assert g.tool_name() == g._wheel_tools()[0]
+
+
+# --- regressions found in QA (Opus) ---------------------------------------------------------------------------------------
+def test_an_old_config_keeps_its_own_keys_when_a_new_actions_default_collides(tmp_path):
+    """A pre-2.13 config with Training on Q (the editor's new default) and Mute on ` (the wheel's): before the fix both
+    keys stayed bound twice (the conflict fix reset the new action to its default, the same key), so the editor and the
+    wheel were unreachable and Settings showed a conflict. Now the player's keys win and the new actions start unbound."""
+    path = tmp_path / "config.toml"
+    path.write_text('schema_version = 2\n[keys]\ntraining = "q"\nmute = "`"\n[gamepad]\nbig_view = "x"\n')
+    c = config.Config.load(path)
+    assert c.keys["training"] == "q" and c.keys["mute"] == "`" and c.pad["big_view"] == "x"
+    assert c.keys["loadout"] == "" and c.keys["tool_wheel"] == "" and c.pad["loadout"] == ""
+    assert not c.conflicts() and c.action_for("q") == "training" and c.action_for("") is None
+    assert any("unbound" in w for w in c.warnings)
+    assert c.save()
+    again = config.Config.load(path)
+    assert again.keys["loadout"] == "" and again.pad["loadout"] == "" and not again.conflicts() and not again.warnings
+    ok, _ = again.bind("loadout", "f9")
+    assert ok and again.keys["loadout"] == "f9" and not again.conflicts()
+
+
+def test_texts_name_the_players_key_or_say_where_to_bind_it():
+    from kickthefly.ui import loadout_ui
+
+    c = config.Config(None)
+    assert loadout_ui.key_label(c, "loadout") == "Q"
+    c.keys["loadout"] = ""
+    assert "Settings > Controls" in loadout_ui.key_label(c, "loadout")

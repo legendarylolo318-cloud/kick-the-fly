@@ -610,7 +610,7 @@ class Menu:
             active = self.capture == action
             dim = action in config.MOVEMENT_3D_ONLY and not self.host.three_d
             self.text(surf, label, (cx, ry + 16), DIM if dim else TEXT, self.f_small, "midleft")
-            name = "press a key..." if active else cfg.keys[action]
+            name = "press a key..." if active else (cfg.keys[action] or tr("unbound"))
             self.button(surf, (cx + col_w - 190, ry + 2, 170, 30), name, (lambda a=action: setattr(self, "capture", a)),
                         id=("key", action), active=active, style="danger" if action in conflicts else "normal",
                         font=self.f_small, tip=f"{label}: click, then press a key.")

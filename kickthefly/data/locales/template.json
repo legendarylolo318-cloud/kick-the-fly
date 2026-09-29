@@ -258,5 +258,7 @@
   "page {n}": "",
   "Report as copied": "",
   "Text in the issue link": "",
-  "The final text, exactly as it is copied, saved or put in the link.": ""
+  "The final text, exactly as it is copied, saved or put in the link.": "",
+  "(unbound: Settings > Controls)": "",
+  "The hotbar is now a loadout: a short list of tools on the number keys, with every other tool one gesture away on the tool wheel. So your keys keep working, this install was set to the All preset, which puts every tool on the hotbar (- and = turn the page). Press {key} any time to choose your own tools, or pick a smaller preset.": ""
 }

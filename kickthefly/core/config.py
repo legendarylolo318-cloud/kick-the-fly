@@ -363,6 +363,8 @@ class Config:
 
     # --- keys -------------------------------------------------------------------------------------------------------
     def action_for(self, key_name: str) -> str | None:
+        if not key_name:                                 # pygame names some keys ""; "" is also "unbound"
+            return None
         for a, k in self.keys.items():
             if k == key_name:
                 return a
@@ -399,7 +401,8 @@ class Config:
     def conflicts(self) -> dict[str, list[str]]:
         seen: dict[str, list[str]] = {}
         for a, k in self.keys.items():
-            seen.setdefault(k, []).append(a)
+            if k:                                            # "" is unbound, and any number of actions can be
+                seen.setdefault(k, []).append(a)
         return {k: v for k, v in seen.items() if len(v) > 1}
 
     # --- files ------------------------------------------------------------------------------------------------------
@@ -434,12 +437,29 @@ class Config:
                 b = _pad_binding(pad.get(a))
                 if b is not None:
                     cfg.pad[a] = b
+            # An action newer than this file (2.13: loadout on X) whose default is a button the player already gave to
+            # another action: the player's binding wins, the new action starts unbound (Settings > Controls binds it).
+            mine = {cfg.pad[a] for a, _, _ in PAD_ACTIONS if a in pad and cfg.pad[a]}
+            for a, _, _ in PAD_ACTIONS:
+                if a not in pad and cfg.pad[a] in mine:
+                    cfg.warnings.append(f"gamepad '{cfg.pad[a]}' is yours for another action; {a} is unbound")
+                    cfg.pad[a] = ""
         keys = data.get("keys")
         if isinstance(keys, dict):
             for a, _, _ in ACTIONS:
                 k = keys.get(a)
-                if isinstance(k, str) and k and k.lower() not in RESERVED_KEYS:
+                if isinstance(k, str) and k.lower() not in RESERVED_KEYS:      # "" = unbound
                     cfg.keys[a] = k.lower()
+            for k, acts in cfg.conflicts().items():
+                saved = [a for a in acts if a in keys]
+                if saved and len(saved) < len(acts):
+                    # A default of an action newer than this file (2.13: the hotbar, the editor on Q, the wheel on `)
+                    # on a key the player chose for something else: the player's binding wins, the new one is unbound.
+                    for a in acts:
+                        if a not in keys:
+                            cfg.keys[a] = ""
+                            cfg.warnings.append(f"key '{k}' is yours for {', '.join(saved)}; "
+                                                f"{ACTION_LABEL[a]} is unbound (Settings > Controls)")
             for k, acts in cfg.conflicts().items():          # a hand-edited file bound one key twice: keep the first
                 for a in acts[1:]:
                     cfg.keys[a] = next(d for x, _, d in ACTIONS if x == a)

@@ -43,6 +43,13 @@ def draw_tag(surf, font, pos, tag: str, cfg) -> pygame.Rect:
     return r
 
 
+def key_label(cfg, action: str) -> str:
+    """The key an action is on, as the player sees it, or where to bind it when it has none (an old config can leave
+    a newer action unbound: core/config.py)."""
+    k = cfg.keys.get(action, "")
+    return k.upper() if k else tr("(unbound: Settings > Controls)")
+
+
 def _k2():
     from kickthefly.game import kick_the_fly as k2
     return k2
@@ -366,8 +373,8 @@ def page_notice(menu, surf, rect, mouse) -> None:
     menu.text(surf, tr("Tool loadouts are new"), (cx, rect.y + 40), mu.INK, menu.f_head, "midtop")
     menu.wrapped(surf, tr("The hotbar is now a loadout: a short list of tools on the number keys, with every other tool "
                           "one gesture away on the tool wheel. So your keys keep working, this install was set to the "
-                          "All preset, which puts every tool on the hotbar (- and = turn the page). Press Q any time "
-                          "to choose your own tools, or pick a smaller preset."),
+                          "All preset, which puts every tool on the hotbar (- and = turn the page). Press {key} any time "
+                          "to choose your own tools, or pick a smaller preset.", key=key_label(menu.host.cfg, "loadout")),
                  (rect.x + 60, rect.y + 96), rect.w - 120, mu.TEXT, menu.f_text, max_lines=8)
     menu.button(surf, (cx - 250, rect.bottom - 90, 240, 50), tr("Open the editor"),
                 lambda: (menu.back(), menu.host.open_loadout_editor()), style="primary", id=("ln", "open"))

@@ -1,4 +1,4 @@
-# Handoff: 2.13 (written by Sonnet on branch `sonnet/2.12`; rebased and renumbered by Opus as `claude/2.13`)
+# Handoff: 2.13 (written by Sonnet on branch `sonnet/2.12`; merged into main and renumbered by Opus on `opus/2.13`)
 
 Written by Sonnet for Opus to test thoroughly and push. Everything below is what I did and measured; the last section is what I did **not** verify.
 
