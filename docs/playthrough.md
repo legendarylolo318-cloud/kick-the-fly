@@ -60,6 +60,21 @@ playthrough and the self-test to pass (`release.yml`); the nightly workflow runs
 the history ([ci.md](ci.md)). The larva pack isn't built on CI (it is built locally from Data S1, see [larva.md](larva.md)), so CI runs the adult brain and
 the bot records the larva combos as skipped when its pack is missing.
 
+## What a full run looked like (2.12, NumPy CPU backend, 24-core desktop)
+
+`--headless --playthrough all` took about 10 minutes and made 391 rows: 306 passed, 1 failed, 69 gated by design, 10 inconclusive (skipped). Every one
+of the 135 save-then-load checks restored its state, all 69 replays reproduced their spikes exactly, and 106 combos ended in a death whose autopsy
+report existed. The sim/real ratio was 2.8x to 46x (median 4.1x).
+
+- **Inconclusive (a skip, never a pass):** a documented group that stays silent is only a failure when the run could tell. It is recorded as a skip, with the
+  reason, when the tool's effect never reached the fly (the fly never ate or drank the item: sugar, fruit and alcohol in the pool, where it floats; alcohol
+  under the lamp) or the arena is already driving the same neurons (a light hand grab on a fly stuck to flypaper, in the pool or in the escape room, where the touch
+  neurons run 10-15x above rest). Each brain also starts every combo from the same saved calm state, because the PAM neurons' calm rate otherwise
+  drifted from about 30 Hz to about 55 Hz over a run of sugar combos.
+- **One real failure, kept as a finding:** in the 2D game's flypaper arena the spider kills the stuck fly, but the looming detectors LPLC2/LC4 barely rise
+  (4.4 Hz peak against 3.3 Hz calm). Looming is computed from how fast the spider grows in the fly's view within one frame; it is strong in every other arena
+  (40-49 Hz) and marginal in the 2D pool. Nothing was changed to make it pass.
+
 ## A failure is a finding
 
 The bot never loosens a criterion to pass. A tool whose documented neurons don't fire is reported with the numbers (peak, needed, calm mean and
