@@ -90,3 +90,38 @@ Modified: `.github/workflows/{release,tests}.yml`, `CHANGELOG.md`, `CONTRIBUTING
 - GPU backends other than `gl` (no CUDA/ROCm torch here), so their statistical comparison path is untested on hardware.
 
 The last edits after the serial run were: a `hasattr` guard in `apply_setting`, three test fixes (clipboard order, outdoors and i18n stand-ins), and the playthrough harness (snapshot reset, inconclusive skips, `rest` baselines). The full serial pytest was **not** repeated end to end after them; the shard re-run above covers every file they touch. Run it once (`python -m pytest`, about 33 min serial, or shard by file) before pushing.
+
+## Opus QA so far (local, 2026-09-28), to be finished in the cloud
+
+Branch `opus/2.13` = `main` + merge of `sonnet/2.12` + renumber to 2.13 + the fixes below. Release version is **2.13.0**
+(2.12.0 was already released from main with the 2.11 work). Nothing is tagged.
+
+Bugs found and fixed (each commit has a regression test):
+- `4d06313` an old config's own key on Q / ` / pad X collided with the new actions' defaults and stayed bound twice
+- `b0b52c6` a control character in a saved loadout name made config.toml unreadable on the next launch (all settings lost)
+- `c8d86f4` each launch overwrote kickthefly.log, so Report a bug lost the crashed session's log; test crash hook
+  `KICK_THE_FLY_DEBUG_CRASH=SECONDS`
+- `5fa9660` Esc on the tool wheel also opened the pause menu
+- `36de77a` docs: what brain-level vs game playthrough runs catch (planted-bug results); no-GL render skip is a test
+
+Verified locally (passed):
+- safety grep of the whole diff: no installs/sudo//etc/GPU env/autostart/telemetry; only CI-runner pip installs, the
+  documented GitHub issue URL via webbrowser, and the nightly workflow's `git push -f` to gh-pages with GITHUB_TOKEN (flag)
+- `--selftest` on cpu, numba, torch-cpu, gl (RX 9070 XT): all exit 0, CPU backends spike-identical, gl r=1.000
+- forced self-test failures: read-only home -> exit 1 (config/data FAIL, logs/screenshots WARN); no ffmpeg -> exit 3;
+  bit-flipped pack -> FAIL "corrupt"; truncated pack -> FAIL "not a zip"
+- playthrough catches planted bugs: 3D torch without heat -> FAIL; savestate not restoring v -> FAIL; replay dropping
+  pokes -> FAIL (all reverted). No-GL -> render SKIP.
+- crash hook end to end in the real 3D and 2D games (offscreen): exit 1, crash report written, --bugreport includes
+  crash trace and crashed-session log, home path scrubbed
+- loadout names: empty, 200 chars, unicode, quotes/backslash, duplicate, 6th refused; laser current never sticks when the
+  tool changes or Lab is left
+- tutorial all steps in pet, larva-selected (runs adult) and lab, with larger text
+- compat: 2D/3D save states made on main (laser in hand) load (laser put down in Play); a replay recorded on main
+  replays identically; protocols smoke, selftest_smoke, replay_check, cva_pheromone, looming-giant-fiber,
+  courtship_song exit 0; --benchmark cpu 1 fly 1.00x real time (3.74x uncapped), 2 flies 1.00x
+- validation on main: done (adult, larva). Validation on this branch: NOT finished locally. Must be re-run and diffed.
+
+Known, not fixed (flag in the PR): the 2D flypaper spider barely drives LPLC2/LC4 (playthrough FAIL, real finding);
+the default wheel key ` is on a different physical key on non-US layouts (rebindable); typing accented letters through
+dead keys/IME into loadout names doesn't work (the menu reads KEYDOWN, not TEXTINPUT); German catalog not extended.
