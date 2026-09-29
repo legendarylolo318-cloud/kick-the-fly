@@ -94,6 +94,8 @@ jobs:
           python kick_the_fly.py --selftest --sim-backend cpu --out results/selftest.json
           Write-Host "self-test exit code $LASTEXITCODE"
           if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne 3) { throw "self-test failed" }
+          # GitHub's pwsh wrapper ends every step with `exit $LASTEXITCODE`, which would turn a 3 into a failed step
+          exit 0
       - name: Validation suite
         env:
           KTF_VALIDATION_WORKERS: "4"

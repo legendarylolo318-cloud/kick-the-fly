@@ -65,3 +65,19 @@ def test_tests_and_release_require_the_selftest_and_the_playthrough():
     assert "--selftest" in rt and "--playthrough adult" in rt and "-eq 3" in rt, "exit 0 and 3 pass, 1 does not"
     assert rt.count("--selftest") >= 4, "linux tests, windows tests, the AppImage and the exe"
     assert "--playthrough-quick" not in r["jobs"]["selftest-playthrough"]["steps"][-2]["run"], "a release runs the full bot"
+
+
+def test_a_pwsh_step_that_accepts_exit_3_does_not_fail_on_it():
+    """GitHub runs a pwsh step as `$ErrorActionPreference='stop'; <script>; if (Test-Path variable:\\LASTEXITCODE) {
+    exit $LASTEXITCODE }`, so a script that checks $LASTEXITCODE for 0 or 3 and then just ends still fails the step
+    on 3 (the self-test's "warnings only", which every GPU-less, sound-less Windows runner gives)."""
+    found = 0
+    for f in WF.glob("*.yml"):
+        for name, job in yaml.safe_load(f.read_text(encoding="utf-8"))["jobs"].items():
+            for step in job.get("steps", []):
+                run = step.get("run", "")
+                if step.get("shell") in ("pwsh", "powershell") and "$LASTEXITCODE -ne 3" in run:
+                    found += 1
+                    last = [ln.strip() for ln in run.strip().splitlines() if ln.strip() and not ln.strip().startswith("#")][-1]
+                    assert last == "exit 0", f"{f.name} {name} '{step.get('name')}' ends with {last!r}, not exit 0"
+    assert found, "the Windows self-test step is gone"
