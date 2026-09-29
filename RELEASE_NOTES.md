@@ -19,6 +19,9 @@ tool. The hand is always in slot 1, and the laser is Lab-only. Every new key can
 the hotbar in the order the number keys always had. You see a one-time popup pointing at the editor. A fresh install
 starts on Base, with a short tutorial.
 
+**The 2D spider drops on its thread** before it hunts, as it always did in 3D, so the fly sees it coming (its
+looming detectors fire) even when it's stuck to flypaper or floating in the pool.
+
 **A fruit tool.** Drop ripe fruit. The fly eats it exactly as it eats sugar: same taste and reward neurons, same rules.
 
 **Settings > Help** has the tutorial, a **self-test** and **Report a bug**. The self-test checks this install (brain
@@ -43,8 +46,6 @@ placeholders. After a crash, the crash screen offers the same thing.
 
 ## Known issues
 
-- **The playthrough has one real failure, kept as a finding.** In the 2D flypaper arena the spider kills the stuck fly,
-  but its looming detectors LPLC2/LC4 barely respond. Because of it, the full playthrough exits 1.
 - The default tool wheel key ` sits on a different physical key on non-US keyboard layouts. Rebind it in Settings >
   Controls.
 - Accented letters typed through dead keys or an input method don't reach loadout names.

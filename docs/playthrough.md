@@ -86,9 +86,11 @@ report existed. The sim/real ratio was 2.8x to 46x (median 4.1x).
   under the lamp) or the arena is already driving the same neurons (a light hand grab on a fly stuck to flypaper, in the pool or in the escape room, where the touch
   neurons run 10-15x above rest). Each brain also starts every combo from the same saved calm state, because the PAM neurons' calm rate otherwise
   drifted from about 30 Hz to about 55 Hz over a run of sugar combos.
-- **One real failure, kept as a finding:** in the 2D game's flypaper arena the spider kills the stuck fly, but the looming detectors LPLC2/LC4 barely rise
-  (4.4 Hz peak against 3.3 Hz calm). Looming is computed from how fast the spider grows in the fly's view within one frame; it is strong in every other arena
-  (40-49 Hz) and marginal in the 2D pool. Nothing was changed to make it pass.
+- **One real failure, found by the bot and then fixed:** in the 2D game's flypaper arena the spider killed the stuck fly, but the looming detectors LPLC2/LC4
+  barely rose (4.4 Hz peak against 3.3 Hz calm), and the 2D pool was marginal. Looming is computed from how fast the spider grows in the fly's view; the 2D
+  spider appeared at the ceiling already crawling and stopped at the thorax, so a fly that couldn't move its head toward it never saw it grow fast. The 3D
+  spider drops on its thread first; the 2D one now does too (the same drop, in 2D pixels). The criterion was not changed. With the bot's own verdict, 3 runs
+  per indoor arena: 18/21 passed before the fix, 21/21 after, with LPLC2/LC4 at ~48 Hz as in 3D.
 
 ## A failure is a finding
 

@@ -43,11 +43,12 @@
 - The Windows release self-test step failed on exit code 3 (warnings only), which every GPU-less runner gives
   (b19bcef).
 - A digit rebound to the big brain view (a swap can put it there) opened the view but couldn't close it (9c673a8).
+- The 2D spider now drops on its thread before it hunts, as the 3D spider does (0.04 m a frame down to 0.12 m above
+  the floor; a game rule). It used to appear at the ceiling already crawling, so a fly that couldn't move toward it (stuck
+  to flypaper, floating in the pool) barely saw it loom: the playthrough's one failure. Measured with the bot, 3 runs
+  per indoor arena: 18/21 passed before, 21/21 after, LPLC2/LC4 now ~48 Hz as in 3D (21dc8f4).
 
 ### Known issues
-- The playthrough's one failure: in the 2D flypaper arena the spider kills the stuck fly but barely drives the looming
-  detectors LPLC2/LC4. It is kept as a finding, so the full playthrough exits 1, and the release workflow's
-  selftest-playthrough job (and the nightly) fail until it is fixed.
 - The default tool wheel key ` sits on a different physical key on non-US layouts (rebindable).
 - Accented letters typed through dead keys or an IME don't reach loadout names.
 - The German catalog doesn't have the 2.13 strings yet; they show in English.
