@@ -6691,7 +6691,9 @@ class Game:
         if self.tutorial_event(ev) or self.wheel_event(ev):
             return True
         if ev.type == pygame.KEYDOWN:
-            if self.big_view:
+            # 1/2/3/0 pick the big view's camera, unless the player bound that key to the big view itself (2.13: digits
+            # are rebindable), which must still close it
+            if self.big_view and self.cfg.action_for(pygame.key.name(ev.key)) != "big_view":
                 if ev.key in (pygame.K_1, pygame.K_KP1):
                     self.view.set_preset("front")
                     return True

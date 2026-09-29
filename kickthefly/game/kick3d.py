@@ -3189,7 +3189,8 @@ class Game3D(k2.Game):
         if self.tutorial_event(ev) or self.wheel_event(ev):
             return True
         if ev.type == pygame.KEYDOWN:
-            if self.big_view and ev.key in (pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_0, pygame.K_KP1, pygame.K_KP2, pygame.K_KP3, pygame.K_KP0):
+            if self.big_view and ev.key in (pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_0, pygame.K_KP1, pygame.K_KP2, pygame.K_KP3, pygame.K_KP0) \
+                    and self.cfg.action_for(pygame.key.name(ev.key)) != "big_view":
                 return k2.Game.handle(self, ev, now)
             if (ev.key == pygame.K_r and (ev.mod & pygame.KMOD_SHIFT)) or getattr(ev, "unicode", "") == "R":
                 self.toggle_video_recording()

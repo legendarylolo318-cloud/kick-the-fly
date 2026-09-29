@@ -652,3 +652,20 @@ def test_esc_on_the_tool_wheel_cancels_it_without_opening_the_pause_menu(three_d
     assert not g.kwheel_open and not g.menu.open and g.tool_name() == "sugar"
     press(g, pygame.K_ESCAPE)
     assert g.menu.open and g.menu.screen == "pause", "with the wheel closed, Esc opens the menu as before"
+
+
+@needs_pack
+@pytest.mark.parametrize("three_d", [False, True])
+def test_a_digit_rebound_to_the_big_view_still_closes_it(three_d):
+    """2.13 made the digits rebindable: binding slot 3 to B swaps the big view onto 3. In the big view, 1/2/3/0 pick
+    its camera, so 3 opened the view and then only turned it to the top camera; it must close it again."""
+    g = _game(three_d)
+    ok, msg = g.cfg.bind("slot3", "b")
+    assert ok and g.cfg.keys["big_view"] == "3", msg
+    press(g, pygame.K_3)
+    assert g.big_view
+    press(g, pygame.K_3)
+    assert not g.big_view, "the big view's own key closes it"
+    press(g, pygame.K_3)
+    press(g, pygame.K_2)
+    assert g.big_view and g.view.preset == "side", "the other digits still pick the camera"
