@@ -1,0 +1,13 @@
+# The 10-second headless smoke protocol `--selftest` runs (Settings > Help > Run self-test does the same). Ten seconds
+# of simulated time: a calm stretch, the looming detectors driven for two seconds, calm again. The self-test checks the
+# detectors fired while driven and that nothing raised.
+name: selftest_smoke
+seed: 7
+flies: 1
+warmup_s: 0.5
+duration_s: 10
+stimuli:
+  - {at_s: 3.0, for_s: 2.0, target: loom, mode: drive, amp: 0.5}
+recordings:
+  - {name: giant_fiber, neurons: dnp01}
+  - {name: looming_detectors, neurons: loom}
