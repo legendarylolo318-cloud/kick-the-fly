@@ -7216,6 +7216,7 @@ def main(argv: list[str] | None = None) -> int:
             break
         mouse = pygame.mouse.get_pos()
         ticks = game.clock.frame(real)
+        crash.maybe_debug_crash(real - t_game)
         for ev in pygame.event.get():
             if ev.type == pygame.KEYDOWN and (ev.key == pygame.K_F11 or
                                               (ev.key == pygame.K_RETURN and ev.mod & pygame.KMOD_ALT)):

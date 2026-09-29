@@ -20,6 +20,7 @@ from kickthefly.core.version import __version__
 
 log = logging.getLogger("kickthefly")
 CRASH_NAME = "KickTheFly-crash.txt"
+PREVIOUS_LOG = "kickthefly.previous.log"
 
 # filled in as the game starts up (seed, video driver, GL strings, 2D/3D)
 info: dict[str, str] = {}
@@ -37,7 +38,10 @@ def setup_logging(state_dir: Path | None = None, verbose: bool = False) -> None:
     if state_dir is not None:
         try:
             state_dir.mkdir(parents=True, exist_ok=True)
-            fh = logging.FileHandler(state_dir / "kickthefly.log", mode="w", encoding="utf-8")
+            cur = state_dir / "kickthefly.log"
+            if cur.exists() and cur.stat().st_size:          # keep the last session's log (the one that may have
+                os.replace(cur, state_dir / PREVIOUS_LOG)     # crashed) for Report a bug, instead of overwriting it
+            fh = logging.FileHandler(cur, mode="w", encoding="utf-8")
             fh.setFormatter(fmt)
             log.addHandler(fh)
         except OSError:
@@ -170,6 +174,23 @@ def write_crash_report(exc_text: str | None = None, state_dir: Path | None = Non
         except OSError:
             continue
     return written
+
+
+class DebugCrash(RuntimeError):
+    """The test crash KICK_THE_FLY_DEBUG_CRASH asks for (tests and QA of the crash screen and the bug report)."""
+
+
+def maybe_debug_crash(seconds_running: float) -> None:
+    """KICK_THE_FLY_DEBUG_CRASH=SECONDS: raise a test crash from the game loop after that long. Debug only; unset in
+    normal use, where this costs one environment lookup per frame."""
+    v = os.environ.get("KICK_THE_FLY_DEBUG_CRASH")
+    if v:
+        try:
+            after = float(v)
+        except ValueError:
+            return
+        if seconds_running >= after:
+            raise DebugCrash(f"test crash requested by KICK_THE_FLY_DEBUG_CRASH={v}")
 
 
 def handle_crash(exc_text: str | None = None) -> list[Path]:

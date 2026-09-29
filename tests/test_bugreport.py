@@ -209,3 +209,65 @@ def test_the_final_texts_are_previewable_exactly(state):
     assert br["sel"] == len(br["items"])
     full = bugreport.clipboard_text(br["items"], "it froze")
     assert "it froze" in full and "line 699" in full
+
+
+def test_the_log_of_the_session_that_crashed_survives_the_next_launch(tmp_path, monkeypatch):
+    """Each launch opened kickthefly.log with mode "w", so relaunching to report a crash (or running --bugreport) wiped
+    the crashed session's log. The previous log is now kept and the report reaches back into it."""
+    import logging
+
+    from kickthefly.core import crash, paths
+
+    d = paths.get().state_dir
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "kickthefly.log").write_text("12:00:00 INFO the session that crashed\n12:00:01 ERROR crashed; report written\n")
+    saved = list(crash.log.handlers)
+    crash.log.handlers.clear()
+    try:
+        crash.setup_logging(d)
+        crash.log.info("the next session")
+        for h in crash.log.handlers:
+            h.flush()
+        text = bugreport.tail_log()
+    finally:
+        for h in crash.log.handlers:
+            h.close()
+        crash.log.handlers[:] = saved
+    assert (d / crash.PREVIOUS_LOG).exists()
+    assert text.index("the session that crashed") < text.index("----- this session -----") < text.index("the next session")
+    (d / "kickthefly.log").write_text("".join(f"line {i}\n" for i in range(600)))
+    only = bugreport.tail_log()
+    assert only.count("\n") == 500 and "crashed" not in only, "a long current log is the last 500 of this session"
+
+
+def test_the_debug_crash_hook_only_fires_when_asked(monkeypatch):
+    from kickthefly.core import crash
+
+    monkeypatch.delenv("KICK_THE_FLY_DEBUG_CRASH", raising=False)
+    crash.maybe_debug_crash(1e9)                                  # unset: never
+    monkeypatch.setenv("KICK_THE_FLY_DEBUG_CRASH", "nonsense")
+    crash.maybe_debug_crash(1e9)                                  # unreadable: ignored
+    monkeypatch.setenv("KICK_THE_FLY_DEBUG_CRASH", "3")
+    crash.maybe_debug_crash(2.9)
+    with pytest.raises(crash.DebugCrash):
+        crash.maybe_debug_crash(3.0)
+
+
+def test_the_crash_screen_window_opens_the_bug_report_and_quits(state, monkeypatch):
+    """The real show() loop in a (dummy) window: a click on Report a bug opens the review page; closing ends it."""
+    from kickthefly.ui import crashscreen, help_ui
+
+    shown = []
+    real_page = help_ui.page_bugreport
+    monkeypatch.setattr(help_ui, "page_bugreport", lambda *a: (shown.append(True), real_page(*a))[1])
+    frames = iter([
+        [],
+        [pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=(310, 540))],
+        [pygame.event.Event(pygame.MOUSEBUTTONUP, button=1, pos=(310, 540))],
+        [],
+        [pygame.event.Event(pygame.QUIT)],
+    ])
+    monkeypatch.setattr(pygame.event, "get", lambda: next(frames, [pygame.event.Event(pygame.QUIT)]))
+    monkeypatch.setattr(pygame.mouse, "get_pos", lambda: (310, 540))
+    crashscreen.show([state / "KickTheFly-crash.txt"])
+    assert shown, "Report a bug on the crash screen opened the review page"

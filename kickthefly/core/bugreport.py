@@ -78,16 +78,29 @@ def _log_path() -> Path | None:
         return None
 
 
-def tail_log(n: int = LOG_LINES) -> str:
-    p = _log_path()
-    if p is None or not p.exists():
-        return ""
+def _read_lines(p: Path) -> list[str]:
     try:
         with open(p, "r", encoding="utf-8", errors="replace") as f:
-            lines = f.readlines()
+            return f.readlines()
     except OSError:
+        return []
+
+
+def tail_log(n: int = LOG_LINES) -> str:
+    """The last n lines of the log, reaching back into the previous session's log (the one a crash ended; each launch
+    starts a new log and keeps the last one as kickthefly.previous.log)."""
+    from kickthefly.core import crash
+
+    p = _log_path()
+    if p is None:
         return ""
-    return "".join(lines[-n:])
+    cur = _read_lines(p) if p.exists() else []
+    prev_p = p.with_name(crash.PREVIOUS_LOG)
+    prev = _read_lines(prev_p) if prev_p.exists() else []
+    if len(cur) >= n or not prev:
+        return "".join(cur[-n:])
+    room = n - len(cur) - 1
+    return "".join(prev[-room:] + ["----- this session -----\n"] + cur) if room > 0 else "".join(cur[-n:])
 
 
 def find_crash_report() -> Path | None:
