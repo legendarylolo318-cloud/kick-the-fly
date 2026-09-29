@@ -1,5 +1,42 @@
 # Changelog
 
+## 2.12.0 (unreleased)
+
+### Added
+- **Tool loadouts.** The hotbar is a loadout of up to 10 tools on keys 1-9 and 0 (the mouse wheel and gamepad bumpers step through it;
+  - and = turn the page of a longer one). Presets: Base (Play's default), Chaos, Chemist, Lab (Lab's default), All, Pet (Pet mode's
+  default) and your own, with up to five saved. The hand is always in and can't be removed; the laser only in Lab mode; larva mode hides
+  tools with no larval sensory mapping. The **loadout editor** (Q) lists every tool by category with its icon, a description and which
+  real neurons it drives (CONNECTOME or GAME RULE), with click-and-drag equipping and reordering. The **tool wheel** (hold `) reaches
+  every tool. New keys are rebindable (hotbar slots, page keys, editor, wheel); only Esc is fixed. Saved in `config.toml`, recorded as
+  `tool` events in replays, and in the Python API (`fly.loadout`, `fly.set_loadout`, `fly.use_tool`). docs/loadouts.md.
+- **Fruit tool:** drop ripe fruit; it is eaten exactly as sugar is (same taste and PAM neurons, same rules). In the Pet preset.
+- **`--selftest`** and Settings > Help > Self-test: build info, brain pack checksums, every compute backend (CPU backends compared spike for
+  spike, GPU backends statistically, GPU vendor, renderer and GL version reported), OpenGL 3.3, audio, ffmpeg, writable folders, disk and
+  memory against the per-fly estimate, Wayland or X11, and a 10-second smoke protocol. PASS / WARN / FAIL with a plain-English fix; exit
+  code 0, 1 or 3; JSON with `--out`. Never installs or configures anything.
+- **Report a bug** (Settings > Help, the crash screen, `--bugreport`): shows exactly what it would include (version, OS, backend, self-test,
+  the last 500 log lines, the crash report), lets you remove items, then copies it or opens a prefilled GitHub issue (long parts go to a file
+  to attach). Nothing is uploaded; there is no telemetry.
+- **First-launch tutorial** (about a minute, skippable at any step, replayable from Settings > Help, keyboard, mouse or gamepad, no flashing).
+- **Playthrough bot:** `--headless --playthrough [adult|larva|all] --out DIR` uses every tool in every arena on each brain and checks: no
+  exception, a sim/real floor, the documented neurons fire above baseline, ranges, death and autopsy, save-then-load, replay determinism on
+  the CPU backends; plus multi-fly, surgery, training, duel, pet catch-up, individuality and every loadout preset. JSON and Markdown report.
+  docs/playthrough.md.
+- **CI:** a Claude (Sonnet) review of pull requests against `.github/claude-review.md` (skipped cleanly without the `ANTHROPIC_API_KEY`
+  secret), a nightly workflow (full validation and playthrough, history table and trend charts on GitHub Pages, an issue when a validation
+  result flips or the playthrough fails), and releases now need the self-test and the full playthrough. docs/ci.md.
+
+### Changed
+- `config.toml` schema 3: a config from before 2.12 migrates to the **All** preset (the order the number keys always had) with a one-time
+  popup, and counts as already onboarded. A fresh install gets Base and the tutorial.
+- The number keys, - and = are rebindable actions now (they were fixed); - and = turn hotbar pages instead of picking alcohol and the laser.
+- The mouse wheel steps through the loadout in the 2D game as well; the gamepad's wheel lists every tool the mode allows.
+- Settings gains a Help tab.
+
+### Fixed
+- `tests/test_i18n.py` failed on 2.11 (a stand-in config without `get`, and `template.json` missing 11 keys of `en.json`).
+
 ## 2.11.0 (2026-09-28)
 
 ### Fixed
