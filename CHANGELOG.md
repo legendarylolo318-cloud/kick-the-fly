@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.13.0 (unreleased)
+## 2.13.0 (2026-09-29)
 
 ### Added
 - **Tool loadouts.** The hotbar is a loadout of up to 10 tools on keys 1-9 and 0 (the mouse wheel and gamepad bumpers step through it;
@@ -33,6 +33,24 @@
 - The number keys, - and = are rebindable actions now (they were fixed); - and = turn hotbar pages instead of picking alcohol and the laser.
 - The mouse wheel steps through the loadout in the 2D game as well; the gamepad's wheel lists every tool the mode allows.
 - Settings gains a Help tab.
+
+### Fixed (review of the 2.13 work, before release)
+- An old config's own binding on Q, ` or pad X collided with the new actions' defaults and stayed bound twice; the old
+  binding now wins and the new action takes a free key (4d06313).
+- A control character in a saved loadout's name made `config.toml` unreadable on the next launch (b0b52c6).
+- Each launch overwrote `kickthefly.log`, so Report a bug lost the crashed session's log (c8d86f4).
+- Esc on the tool wheel also opened the pause menu (5fa9660).
+- The Windows release self-test step failed on exit code 3 (warnings only), which every GPU-less runner gives
+  (b19bcef).
+- A digit rebound to the big brain view (a swap can put it there) opened the view but couldn't close it (9c673a8).
+
+### Known issues
+- The playthrough's one failure: in the 2D flypaper arena the spider kills the stuck fly but barely drives the looming
+  detectors LPLC2/LC4. It is kept as a finding, so the full playthrough exits 1, and the release workflow's
+  selftest-playthrough job (and the nightly) fail until it is fixed.
+- The default tool wheel key ` sits on a different physical key on non-US layouts (rebindable).
+- Accented letters typed through dead keys or an IME don't reach loadout names.
+- The German catalog doesn't have the 2.13 strings yet; they show in English.
 
 ## 2.12.0 (2026-09-28)
 
