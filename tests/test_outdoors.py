@@ -327,6 +327,7 @@ def test_the_2d_game_stays_indoors():
 
     class Host:
         three_d = False
+        is_larva = False                       # apply_setting reads it since 2.11
 
         def __init__(self):
             from kickthefly.core import config

@@ -114,6 +114,7 @@ def test_open_in_browser_hands_over_only_the_url(state, monkeypatch):
 
 
 def test_clipboard_falls_back_to_os_tools_and_says_when_there_is_none(monkeypatch):
+    monkeypatch.setattr(pygame.display, "get_init", lambda: False)      # earlier tests may have left a display up
     monkeypatch.setattr(bugreport.shutil, "which", lambda n: None)
     ok, msg = bugreport.copy_to_clipboard("hello")
     assert not ok and "no clipboard" in msg

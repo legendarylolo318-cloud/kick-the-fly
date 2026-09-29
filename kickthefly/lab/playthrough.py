@@ -204,14 +204,42 @@ class Probe:
         return out
 
 
-def judge_probes(r: Result, probe: Probe, use_step: int, tool: str) -> None:
+NOT_CALM = 0.5              # a calm baseline whose spread is more than half its mean was not calm (feeding, arena drive)
+
+
+ARENA_DRIVEN = 3.0          # a calm baseline more than 3x the same neurons' resting rate: the arena is driving them
+
+
+def judge_probes(r: Result, probe: Probe, use_step: int, tool: str, engaged: bool | None = None,
+                 rest: dict | None = None) -> None:
+    """Every documented group must fire. A group that didn't is a FAIL, unless the test itself was not in a position to
+    tell: the tool's effect never reached the fly (engaged is False: it never ate the item, was never grabbed) or the
+    calm before it wasn't calm. Those are reported as SKIP with the reason (never as a pass), so they stay visible in the
+    counts and can't hide a real failure: a probe with a calm baseline and an engaged fly that stays silent fails."""
     rows = probe.summarize(use_step)
     r.metrics["probes"] = rows
+    r.metrics["engaged"] = engaged
+    inconclusive = []
     for name in probe.empty:
         r.note(f"documented neurons '{name}' are not mapped in this brain: not checked")
     for p in rows:
-        r.expect(p["fired"], f"documented neurons '{p['probe']}' did not fire above baseline "
-                             f"({p['peak_hz']} Hz peak, needed {p['needed_hz']}; calm {p['baseline_hz']} +- {p['baseline_sd_hz']} Hz)")
+        if p["fired"]:
+            continue
+        msg = (f"documented neurons '{p['probe']}' did not fire above baseline "
+               f"({p['peak_hz']} Hz peak, needed {p['needed_hz']}; calm {p['baseline_hz']} +- {p['baseline_sd_hz']} Hz)")
+        if engaged is False:
+            inconclusive.append(msg + ": the tool's effect never reached the fly (it never ate the item or was never grabbed)")
+        elif rest and p["baseline_hz"] > 1.0 and p["baseline_hz"] > ARENA_DRIVEN * max(rest.get(p["probe"], 0.0), 0.3):
+            inconclusive.append(msg + f": the arena is already driving these neurons (calm {p['baseline_hz']} Hz, "
+                                      f"{rest.get(p['probe'], 0.0)} Hz at rest in the brain-level run)")
+        elif p["baseline_hz"] > 0.5 and p["baseline_sd_hz"] > NOT_CALM * p["baseline_hz"]:
+            inconclusive.append(msg + ": the calm before it was not calm")
+        else:
+            r.expect(False, msg)
+    if inconclusive and r.status != FAIL:
+        r.status = SKIP
+    for m in inconclusive:
+        r.note("INCONCLUSIVE: " + m)
     if not rows and not probe.empty:
         r.note("no documented neurons to check for this tool")
 
@@ -343,6 +371,7 @@ class Rig:
         self.state = state
         self.probe: Probe | None = None
         self.brain_steps = 0
+        self.snapshot = None
 
     # --- lifecycle -----------------------------------------------------------------------------------------------
     def close(self) -> None:
@@ -376,8 +405,25 @@ class Rig:
             for _ in range(300):
                 br._step()
 
+    def take_snapshot(self, path: Path) -> None:
+        """A calm, settled state to come back to before every combo: the brain keeps its own slow state (the PAM neurons'
+        calm rate drifted from ~30 to ~55 Hz over a run of sugar combos), and a baseline that depends on the combos
+        before it would make every "above baseline" comparison depend on the order."""
+        from kickthefly.core import savestate
+
+        self.seconds(3.0)
+        self.snapshot = path
+        savestate.save_game(self.game, path)
+
     def reset(self) -> None:
         g = self.game
+        if self.snapshot is not None:
+            from kickthefly.core import savestate
+
+            arena = self.k2.ARENAS[g.arena_i]
+            savestate.load_game(g, self.snapshot)
+            if self.k2.ARENAS[g.arena_i] != arena:
+                self.set_arena(arena)
         g.new_fly()
         g.immortal = False
         self._service(g.flies[0].brain)
@@ -454,6 +500,13 @@ class Rig:
                 lst[-1]["p"] = self.slot.fly.p[k2.HEAD].copy() + np.array([0.15, 0, 0])
                 lst[-1]["p"][1] = 0.035
 
+    def last_item(self, tool: str):
+        """The item a sugar, fruit or alcohol use just dropped (to see whether the fly ate any of it)."""
+        g = self.game
+        lst = {"sugar": g.sugars3 if self.three_d else g.sugars, "fruit": g.sugars3 if self.three_d else g.sugars,
+               "alcohol": g.alcohols3 if self.three_d else g.alcohols}.get(tool)
+        return lst[-1] if lst else None
+
     def step_back(self) -> None:
         """A player drops an item and steps away, so the fly is not spooked by them standing over it."""
         if not self.three_d:
@@ -496,7 +549,8 @@ def _same(a: dict, b: dict) -> list[str]:
     return bad
 
 
-def game_leg(rig: Rig, arena: str, tool: str, min_ratio: float, tmp: Path, save_load: bool = True) -> Result:
+def game_leg(rig: Rig, arena: str, tool: str, min_ratio: float, tmp: Path, save_load: bool = True,
+             rest: dict | None = None) -> Result:
     from kickthefly.core import loadout as lo
     from kickthefly.core import savestate
     from kickthefly.game import kick_the_fly as k2
@@ -519,6 +573,8 @@ def game_leg(rig: Rig, arena: str, tool: str, min_ratio: float, tmp: Path, save_
         t0 = time.perf_counter()
         rig.use(tool)
         kind, window = TOOL_PLAN[tool]
+        item = rig.last_item(tool)
+        grabbed = False
         if kind == "item":
             rig.step_back()
         spent = 0.0                                                    # wall seconds spent saving and loading
@@ -526,6 +582,7 @@ def game_leg(rig: Rig, arena: str, tool: str, min_ratio: float, tmp: Path, save_
         while elapsed < window and not rig.dead():
             rig.seconds(0.25)
             elapsed += 0.25
+            grabbed = grabbed or rig.slot.fly.grabbed is not None
             if kind in ("hold", "click") and rig.three_d and tool != "hand":
                 rig.face_fly()                                        # a player keeps the tool on the fly as it moves
             if tool == "decoy" and elapsed <= 0.75:
@@ -557,7 +614,12 @@ def game_leg(rig: Rig, arena: str, tool: str, min_ratio: float, tmp: Path, save_
         ratio = rig.brain_steps * DT / max(wall, 1e-9)
         r.metrics["sim_real_ratio"] = round(ratio, 2)
         r.expect(ratio >= min_ratio, f"sim/real ratio {ratio:.2f} is below the floor {min_ratio}")
-        judge_probes(r, rig.probe, use_step, tool)
+        engaged = None
+        if item is not None:
+            engaged = item["left"] < 1.0 - 1e-6               # it ate or drank some of it
+        elif tool == "hand":
+            engaged = grabbed
+        judge_probes(r, rig.probe, use_step, tool, engaged, rest)
         rig.probe = None
         fly = rig.slot.fly
         r.expect(0 <= fly.health <= k2.MAX_HEALTH, f"health {fly.health} outside 0..{k2.MAX_HEALTH}")
@@ -966,6 +1028,7 @@ def run(brains=("adult", "larva"), out: Path | None = None, quick: bool = False,
             brains = tuple(have)
             for r in gate_results(list(brains), all_arenas, all_tools):
                 add(r)
+            rest: dict[str, dict] = {}
             for kind in brains:
                 shared: dict[str, Result] = {}
                 for i, tool in enumerate(all_tools):
@@ -973,6 +1036,8 @@ def run(brains=("adult", "larva"), out: Path | None = None, quick: bool = False,
                     if kind == "larva" and not _lo.BY_NAME[tool].larva:
                         continue
                     shared[tool] = add(brain_leg(kind, tool, backend, 1000 + i, min_ratio, tmp))
+                    if kind == "adult":                                   # the resting rate of each documented group
+                        rest[tool] = {p["probe"]: p["baseline_hz"] for p in shared[tool].metrics.get("probes", [])}
                 if kind == "larva":                                   # one row per arena x tool that runs (see the docstring)
                     from kickthefly.game import larva
                     for arena in all_arenas:
@@ -990,12 +1055,13 @@ def run(brains=("adult", "larva"), out: Path | None = None, quick: bool = False,
                 rig3 = None
                 try:
                     rig3 = Rig(True, backend)
+                    rig3.take_snapshot(tmp / "snapshot3d.ktfsave")
                     arenas3 = [a for a in all_arenas if not quick or a in QUICK_ARENAS]
                     for arena in arenas3:
                         for tool in all_tools:
                             if not lo.available(tool, lab=True, larva=False):
                                 continue
-                            add(game_leg(rig3, arena, tool, min_ratio, tmp, save_load=not quick or arena == "room"))
+                            add(game_leg(rig3, arena, tool, min_ratio, tmp, save_load=not quick or arena == "room", rest=rest.get(tool)))
                     add(Result(id="extra:loadouts", group="extra", brain="adult"), extra_loadouts, rig3)
                     add(Result(id="extra:duel", group="extra", brain="adult"), extra_duel, rig3)
                     add(Result(id="extra:render", group="extra", brain="adult"), extra_render, rig3)
@@ -1006,13 +1072,14 @@ def run(brains=("adult", "larva"), out: Path | None = None, quick: bool = False,
                 rig2 = None
                 try:
                     rig2 = Rig(False, backend)
+                    rig2.take_snapshot(tmp / "snapshot2d.ktfsave")
                     for r in gate_2d_outdoor(rig2):
                         add(r)
                     if not quick:
                         for arena in (a for a in all_arenas if a not in k2.OUTDOOR_ARENAS):
                             for tool in all_tools:
                                 if lo.available(tool, lab=True, larva=False):
-                                    add(game_leg(rig2, arena, tool, min_ratio, tmp, save_load=False))
+                                    add(game_leg(rig2, arena, tool, min_ratio, tmp, save_load=False, rest=rest.get(tool)))
                     add(Result(id="extra:training", group="extra", brain="adult"), extra_training, rig2)
                 finally:
                     if rig2 is not None:

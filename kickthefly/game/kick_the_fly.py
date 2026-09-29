@@ -2444,9 +2444,11 @@ class Game:
                 sim.backend.sync_to_host()      # device backends keep their own copy of the gains
                 sim.backend.sync_from_host()
         elif key == "controls.loadout_preset":
-            self.refresh_loadout()
+            if hasattr(self, "loadout"):
+                self.refresh_loadout()
         elif key == "brain.mode":
-            self.refresh_loadout()
+            if hasattr(self, "loadout"):
+                self.refresh_loadout()
             mode = c[key]
             if mode == "pet" and not getattr(self, "pet", None):
                 from kickthefly.core.pet import PetManager
