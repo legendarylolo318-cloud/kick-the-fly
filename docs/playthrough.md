@@ -30,6 +30,21 @@ their tracebacks) in `--out`.
 - a **replay** of the run's brain-level leg reproduces its spikes exactly on the CPU backends (numpy, numba, torch-cpu) and is only
   reported on GPU backends. The recorded run includes the tool choice as a replay event.
 
+## What each kind of run can and can't catch
+
+Measured by planting bugs (2.13 QA; each was reverted):
+
+| planted bug | caught by |
+|---|---|
+| the 3D blowtorch no longer drives the heat neurons | the game run (`game3d:adult:room:torch`: "'heat' did not fire above baseline") |
+| loading a save state doesn't restore membrane potentials | the game run ("save then load did not restore: membrane potentials") |
+| replays drop every poke | the brain-level run ("replay did not reproduce the spikes on cpu") |
+
+The **brain-level** run drives each tool's documented neurons through `Brain.poke` from the catalog itself, so its "documented
+neurons fired" check only proves that poking those groups works; a game that stops driving them is caught by the **game**
+runs. That matters for the **larva**: it has no windowed game yet, so its rows (`brain:larva:*`, `larva:*`) check replay
+determinism and value ranges on the larval brain, not that a tool reaches the right larval neurons in play.
+
 ## What is gated by design (not run; the message a player gets is asserted)
 
 - the larva in an arena it can't use (`game/larva.py:is_arena_allowed_for_larva`);

@@ -145,3 +145,11 @@ def _rep(status):
     rep = pt.Report({})
     rep.add(pt.Result(id="x", group="g", status=status))
     return rep
+
+
+def test_no_opengl_marks_the_render_check_skipped_not_passed(monkeypatch):
+    moderngl = pytest.importorskip("moderngl")
+    monkeypatch.setattr(moderngl, "create_context", lambda **k: (_ for _ in ()).throw(RuntimeError("no GL (simulated)")))
+    r = pt.Result(id="extra:render", group="extra")
+    pt.guarded(r, pt.extra_render, None, r)
+    assert r.status == pt.SKIP and "render checks skipped" in r.notes[0]
