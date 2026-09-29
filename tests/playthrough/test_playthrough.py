@@ -191,3 +191,22 @@ def test_the_2d_spider_is_a_looming_threat_while_it_drops(tmp_path):
         assert sp["state"] == "hunt" and sp["p"][1] == pytest.approx(k2.SPIDER_DROP_TO)
     finally:
         rig.close()
+
+
+@needs_pack
+def test_a_decoy_the_fly_never_touched_is_inconclusive_not_a_failure(tmp_path):
+    """Under the 3D lamp the fly hovers at the light (~1.75 m up) and the dropped decoy lands on the floor, so there is
+    no foreleg contact and LgLG5-8 stay at ~3 Hz (57-64 Hz everywhere the fly touches it). That is the "effect never
+    reached the fly" case the bot already reports as a skip for food it never ate; it failed the full run instead."""
+    rig = pt.Rig(True, "cpu")
+    try:
+        rig.take_snapshot(tmp_path / "snapshot3d.ktfsave")
+        lamp = pt.game_leg(rig, "lamp", "decoy", 0.0, tmp_path, save_load=False)
+        room = pt.game_leg(rig, "room", "decoy", 0.0, tmp_path, save_load=False)
+    finally:
+        rig.close()
+    assert lamp.metrics["engaged"] is False, "the fly at the lamp never touched the decoy on the floor"
+    assert lamp.status != pt.FAIL, (lamp.failures, lamp.notes)           # a skip, or a pass if the noisy group spiked anyway
+    if lamp.status == pt.SKIP:
+        assert any("never reached the fly" in n for n in lamp.notes)
+    assert room.metrics["engaged"] is True and room.status == pt.PASS, (room.failures, room.metrics["probes"])

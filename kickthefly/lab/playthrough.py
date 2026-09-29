@@ -574,7 +574,7 @@ def game_leg(rig: Rig, arena: str, tool: str, min_ratio: float, tmp: Path, save_
         rig.use(tool)
         kind, window = TOOL_PLAN[tool]
         item = rig.last_item(tool)
-        grabbed = False
+        grabbed = touched = False
         if kind == "item":
             rig.step_back()
         spent = 0.0                                                    # wall seconds spent saving and loading
@@ -583,6 +583,7 @@ def game_leg(rig: Rig, arena: str, tool: str, min_ratio: float, tmp: Path, save_
             rig.seconds(0.25)
             elapsed += 0.25
             grabbed = grabbed or rig.slot.fly.grabbed is not None
+            touched = touched or getattr(rig.slot.fly, "decoy_contact_until", 0.0) > g.clock.now   # lasts 0.35 s > a sample
             if kind in ("hold", "click") and rig.three_d and tool != "hand":
                 rig.face_fly()                                        # a player keeps the tool on the fly as it moves
             if tool == "decoy" and elapsed <= 0.75:
@@ -619,6 +620,8 @@ def game_leg(rig: Rig, arena: str, tool: str, min_ratio: float, tmp: Path, save_
             engaged = item["left"] < 1.0 - 1e-6               # it ate or drank some of it
         elif tool == "hand":
             engaged = grabbed
+        elif tool == "decoy":                                          # only foreleg contact drives LgLG5-8
+            engaged = touched
         judge_probes(r, rig.probe, use_step, tool, engaged, rest)
         rig.probe = None
         fly = rig.slot.fly

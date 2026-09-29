@@ -83,7 +83,7 @@ report existed. The sim/real ratio was 2.8x to 46x (median 4.1x).
 
 - **Inconclusive (a skip, never a pass):** a documented group that stays silent is only a failure when the run could tell. It is recorded as a skip, with the
   reason, when the tool's effect never reached the fly (the fly never ate or drank the item: sugar, fruit and alcohol in the pool, where it floats; alcohol
-  under the lamp) or the arena is already driving the same neurons (a light hand grab on a fly stuck to flypaper, in the pool or in the escape room, where the touch
+  under the lamp; or never touched the decoy: under the 3D lamp the fly hovers at the light and the decoy lands on the floor) or the arena is already driving the same neurons (a light hand grab on a fly stuck to flypaper, in the pool or in the escape room, where the touch
   neurons run 10-15x above rest). Each brain also starts every combo from the same saved calm state, because the PAM neurons' calm rate otherwise
   drifted from about 30 Hz to about 55 Hz over a run of sugar combos.
 - **One real failure, found by the bot and then fixed:** in the 2D game's flypaper arena the spider killed the stuck fly, but the looming detectors LPLC2/LC4
