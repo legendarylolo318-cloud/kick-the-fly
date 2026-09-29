@@ -118,8 +118,8 @@ class Tutorial:
         if ev.type == pygame.KEYDOWN and ev.key == pygame.K_BACKSPACE:
             self.finish(skipped=True)
             return True
-        if ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
-            pos = getattr(ev, "pos", (0, 0))
+        if ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1 and not getattr(self.game, "look", False):
+            pos = getattr(ev, "pos", (0, 0))           # (while the 3D mouse is captured for looking, a click uses the tool)
             for r, what in self.buttons:
                 if r.collidepoint(pos):
                     self.next() if what == "next" else self.finish(skipped=True)

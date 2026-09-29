@@ -255,5 +255,8 @@
   "{mode} mode": "{mode} mode",
   "{p} passed, {w} warnings, {f} failed": "{p} passed, {w} warnings, {f} failed",
   "page": "page",
-  "page {n}": "page {n}"
+  "page {n}": "page {n}",
+  "Report as copied": "Report as copied",
+  "Text in the issue link": "Text in the issue link",
+  "The final text, exactly as it is copied, saved or put in the link.": "The final text, exactly as it is copied, saved or put in the link."
 }

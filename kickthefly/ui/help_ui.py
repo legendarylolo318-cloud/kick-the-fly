@@ -8,6 +8,7 @@ The same pages run on the crash screen (ui/crashscreen.py) with a small stand-in
 from __future__ import annotations
 
 import threading
+from urllib.parse import unquote
 
 import pygame
 
@@ -145,6 +146,10 @@ def page_bugreport(menu, surf, rect, mouse) -> None:
     menu.text_field(surf, (rect.x + 150, rect.y + 70, rect.w - 176, 30), br["note"],
                     lambda v: br.__setitem__("note", v), id=("br", "note"), limit=240,
                     tip=tr("A sentence about what you were doing. It goes into the report text below the items."))
+    full = bugreport.clipboard_text(items, br["note"])
+    title, body, attach = bugreport.compose_issue(items, br["note"], "the file it saves")
+    url = bugreport.issue_url(title, body)
+    views = [(tr("Report as copied"), full), (tr("Text in the issue link"), unquote(url.split("&body=", 1)[1]))]
     # item list
     left = pygame.Rect(rect.x + 16, rect.y + 112, 300, rect.h - 112 - 132)
     y = left.y
@@ -162,11 +167,24 @@ def page_bugreport(menu, surf, rect, mouse) -> None:
                     enabled=bool(it.text.strip()),
                     tip=tr("Include this item in the report. It is empty when there is nothing to include."))
         y += 64
+    for j, (vt, vtext) in enumerate(views):          # view-only: the two final texts that leave, exactly
+        i = len(items) + j
+        row = pygame.Rect(left.x, y, left.w, 40)
+        on_sel = i == br["sel"]
+        pygame.draw.rect(surf, (30, 36, 50) if on_sel else (22, 26, 34), row, border_radius=8)
+        pygame.draw.rect(surf, mu.ACCENT if on_sel else mu.BORDER, row, 1, border_radius=8)
+        menu._register(row, "button", id=("br-row", i), click=lambda i=i: br.__setitem__("sel", i),
+                       tip=tr("The final text, exactly as it is copied, saved or put in the link."))
+        menu.text(surf, vt, (row.x + 10, row.y + 10), mu.INK, menu.f_bold)
+        y += 46
     # exact text
     view = pygame.Rect(left.right + 12, left.y, rect.right - 16 - left.right - 12, left.h)
     pygame.draw.rect(surf, (10, 12, 18), view, border_radius=8)
     pygame.draw.rect(surf, mu.BORDER, view, 1, border_radius=8)
-    it = items[br["sel"]]
+    if br["sel"] >= len(items):
+        it = bugreport.Item("view", "", views[br["sel"] - len(items)][1])
+    else:
+        it = items[br["sel"]]
     text = it.text if it.text.strip() else tr("(nothing to show: no data for this item on this computer)")
     font = getattr(menu, "f_mono", None)
     if font is None:
@@ -189,9 +207,6 @@ def page_bugreport(menu, surf, rect, mouse) -> None:
         menu.text(surf, tr("left out"), (view.right - 10, view.y + 6), mu.AMBER, menu.f_small, "topright")
     # actions
     fy = rect.bottom - 116
-    full = bugreport.clipboard_text(items, br["note"])
-    title, body, attach = bugreport.compose_issue(items, br["note"], "the file it saves")
-    url = bugreport.issue_url(title, body)
     menu.text(surf, tr("Report text: {n:,} characters. Opening the issue puts about {u:,} characters in the link; long items go to a file you attach.",
                        n=len(full), u=len(url)), (rect.x + 24, fy - 4), mu.LABEL, menu.f_small)
     if br.get("saved"):

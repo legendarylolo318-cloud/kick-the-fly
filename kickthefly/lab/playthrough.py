@@ -283,6 +283,8 @@ def brain_leg(kind: str, tool: str, backend: str, seed: int, min_ratio: float, t
         r.expect(r.metrics["sim_real_ratio"] >= min_ratio,
                  f"sim/real ratio {r.metrics['sim_real_ratio']} is below the floor {min_ratio}")
         judge_probes(r, probe, use_step, tool)
+        if kind == "larva" and tool != "laser":
+            r.expect(bool(probe.parts), f"{tool} is offered in larva mode but none of its documented neurons are mapped in the larval brain")
         check_ranges(r, br)
         rec.detach()
         path = tmp / f"{kind}-{tool}.ktfreplay"

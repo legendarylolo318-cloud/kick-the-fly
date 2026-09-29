@@ -388,7 +388,6 @@ def test_the_wheel_is_reachable_in_3d_and_the_mouse_points_instead_of_looking():
     assert g.player.yaw == yaw and g.kwheel_vec[0] > 0, "mouse movement points, the view stays put"
     g.handle3d(key(pygame.K_BACKQUOTE, pygame.KEYUP), 1.0, lambda p: p)
     assert not g.kwheel_open
-    g.draw3d if False else None
     g.kwheel_open = True
     hud = pygame.Surface((k2.W, k2.H), pygame.SRCALPHA)
     g._draw_tool_wheel(hud)

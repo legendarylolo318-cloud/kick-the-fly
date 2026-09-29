@@ -187,3 +187,24 @@ def test_bugreport_command_prints_and_saves_and_sends_nothing(state, tmp_path, m
     out = capsys.readouterr().out
     assert "Kick the Fly 2.12.0" in out and "nothing was sent" in out
     assert (tmp_path / "o" / "bugreport.md").read_text().startswith("### Summary")
+
+
+def test_the_final_texts_are_previewable_exactly(state):
+    from kickthefly.ui import crashscreen, help_ui, menu as mu
+
+    pygame.init()
+    host = crashscreen._Host()
+    m = mu.Menu(host)
+    help_ui.install(m)
+    m.show("bugreport")
+    surf = pygame.Surface((1280, 760))
+    m.draw(surf, (0, 0))
+    br = m.br
+    br["note"] = "it froze"
+    rows = [d for _, _, d in m.hits if isinstance(d["id"], tuple) and d["id"][0] == "br-row"]
+    assert len(rows) == len(br["items"]) + 2, "two view-only rows after the items"
+    rows[-2]["click"]()
+    m.draw(surf, (0, 0))
+    assert br["sel"] == len(br["items"])
+    full = bugreport.clipboard_text(br["items"], "it froze")
+    assert "it froze" in full and "line 699" in full
