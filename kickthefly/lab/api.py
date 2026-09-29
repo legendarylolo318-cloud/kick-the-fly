@@ -63,8 +63,8 @@ class Fly:
     """One simulated brain (MaleCNS v1.0, 166,700 LIF neurons), stepped on demand. See the module docstring."""
 
     def __init__(self, seed: int = 0, *, backend: str | None = None, params: dict | None = None,
-                 warmup_s: float = 3.0, learn: bool = True, surgery: dict | None = None):
-        from kickthefly.core import simcore
+                 warmup_s: float = 3.0, learn: bool = True, surgery: dict | None = None, mode: str = "play"):
+        from kickthefly.core import loadout, simcore
         from kickthefly.lab import assays
 
         self.seed = int(seed)
@@ -73,6 +73,55 @@ class Fly:
         assays.apply_surgery(self.brain, surgery)
         self._recording: Recording | None = None
         self._exports: list[Path] = []
+        self.mode = mode if mode in ("play", "lab", "pet") else "play"
+        self._loadout = loadout.build("auto", None, lab=self.mode == "lab", larva=False, mode=self.mode)
+        self._tool = loadout.HAND
+
+    # --- tool loadouts (2.13) --------------------------------------------------------------------------------------------
+    @property
+    def loadout(self):
+        """The hotbar: a core.loadout.Loadout ("base" in Play, "lab" in Lab, "pet" in Pet mode by default). `.tools` is
+        the list of tool names in slot order (the hand always first), `.page_tools()` one page of ten."""
+        return self._loadout
+
+    def set_loadout(self, preset_or_tools) -> "Fly":
+        """A preset name ("base", "chaos", "chemist", "lab", "all", "pet", "auto") or your own list of tool names."""
+        from kickthefly.core import loadout
+
+        lab = self.mode == "lab"
+        if isinstance(preset_or_tools, str):
+            if preset_or_tools not in loadout.CHOICES or preset_or_tools == "custom":
+                raise ValueError(f"unknown preset {preset_or_tools!r}: use one of {loadout.CHOICES[:-1]}")
+            self._loadout = loadout.build(preset_or_tools, None, lab=lab, larva=False, mode=self.mode)
+        else:
+            bad = [t for t in preset_or_tools if t not in loadout.BY_NAME]
+            if bad:
+                raise ValueError(f"unknown tools {bad}: use names from kickthefly.core.loadout.TOOL_NAMES")
+            self._loadout = loadout.build("custom", list(preset_or_tools), lab=lab, larva=False, mode=self.mode)
+        if self._tool not in self._loadout:
+            self._tool = loadout.HAND
+        return self
+
+    @property
+    def tool(self) -> str:
+        """The tool in hand (set by use_tool)."""
+        return self._tool
+
+    def use_tool(self, name: str, strength: float = 0.8) -> "Fly":
+        """Take a tool in hand and use it once on this brain: its documented sensory neurons are driven through
+        Brain.poke, as the game's tools drive them (no body, no room). A tool the mode doesn't allow raises ValueError
+        (the laser outside Lab, which is `Fly(mode="lab")`). Tools that need a body to do anything else (moving the
+        fly, an item the fly eats) are only their sensory drive here."""
+        from kickthefly.core import loadout
+
+        if name not in loadout.BY_NAME or not loadout.available(name, lab=self.mode == "lab", larva=False):
+            raise ValueError(f"tool {name!r} is not available in {self.mode} mode")
+        self._tool = name
+        if name == "laser":
+            self.drive("type:DNp01", amp=0.5)
+        else:
+            loadout.use(self.brain, name, strength)
+        return self
 
     # --- who is who ------------------------------------------------------------------------------------------------
     @property

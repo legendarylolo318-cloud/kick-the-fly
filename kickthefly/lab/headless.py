@@ -321,6 +321,9 @@ def main(args) -> int:
             from kickthefly.lab import protocol
             return protocol.record_replay(Path(args.protocol), Path(args.record_replay),
                                           Path(args.out) if args.out else None)
+        if getattr(args, "playthrough", None):
+            from kickthefly.lab import playthrough
+            return playthrough.main(args)
         if getattr(args, "benchmark", False):
             return run_benchmark(args)
         if getattr(args, "audit_asymmetry", False):
@@ -341,7 +344,7 @@ def main(args) -> int:
     except FileNotFoundError as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
-    print("nothing to do: use --validate, --protocol FILE, --replay FILE, --audit-asymmetry, --benchmark, "
+    print("nothing to do: use --validate, --protocol FILE, --playthrough, --replay FILE, --audit-asymmetry, --benchmark, "
           "--threshold-sweep, --signflip-test or --critical-path TARGET", file=sys.stderr)
     return 2
 

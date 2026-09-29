@@ -1,0 +1,60 @@
+# Reviews every pull request with Claude (Sonnet) against .github/claude-review.md.
+#
+# Setup (also in CONTRIBUTING.md): add a repository secret named ANTHROPIC_API_KEY (Settings > Secrets and variables >
+# Actions > New repository secret). If the secret is missing, or the pull request comes from a fork (GitHub doesn't give
+# forks the secret), the job says so and finishes green: nothing else waits on it. It never blocks a merge by itself;
+# it comments.
+name: claude-review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  id-token: write
+
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - name: Is there an API key for this run?
+        id: key
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -n "$ANTHROPIC_API_KEY" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Claude review skipped::no ANTHROPIC_API_KEY secret is available to this run (not set, or a pull request from a fork). See CONTRIBUTING.md > Claude review."
+          fi
+      - uses: actions/checkout@v4
+        if: steps.key.outputs.present == 'true'
+        with:
+          fetch-depth: 0
+      - uses: anthropics/claude-code-action@v1
+        if: steps.key.outputs.present == 'true'
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ github.token }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            Review this pull request. Read .github/claude-review.md and check the diff (git diff origin/${{ github.base_ref }}...HEAD)
+            against every item in it, plus CONTRIBUTING.md and the docstring at the top of kickthefly/game/kick_the_fly.py.
+            Post your findings as one comment on the pull request (gh pr comment), most serious first, each with the file and
+            line. Say plainly which checklist items hold. You are read-only: do not push, edit files, or change anything else.
+          claude_args: |
+            --model claude-sonnet-5-5
+            --max-turns 20
+            --allowedTools "Read,Grep,Glob,Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*)"

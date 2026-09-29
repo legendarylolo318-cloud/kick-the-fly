@@ -15,12 +15,13 @@ Two rules matter more than anything else here:
 kick_the_fly.py            launcher shim: keeps `python kick_the_fly.py ...` working, points at the canonical docstring
 kickthefly/
   __main__.py              entry point (`python -m kickthefly`)
-  core/                    simclock, simcore, memory, savestate, paths, platform_env, version, config, crash
+  core/                    simclock, simcore, memory, savestate, paths, platform_env, version, config, crash, loadout (the tool
+                           catalog and presets), selftest, bugreport
   sim/                     brainpack, connectome/ (loader + LIF simulator), neuron and synapse state
   game/                    kick_the_fly (2D game + Brain + brain panel), kick3d, render3d, outdoors (open field,
                            orchard, day/night), gamepad: physics, tools, arenas, input
-  ui/                      menu framework and the settings screens
-  lab/                     lab, labjobs, labstats, validation, assays, challenges, protocol, recorder, nwbexport,
+  ui/                      menu framework and the settings screens; the loadout editor and tool wheel (loadout_ui), the first-launch tutorial, Settings > Help (help_ui) and the crash screen
+  lab/                     lab, labjobs, labstats, validation, playthrough (the bot), assays, challenges, protocol, recorder, nwbexport,
                            headless, benchmark, api (`from kickthefly import Fly`), neurosearch (brain view search and
                            path tracer), and the Lab-only manipulations (threshold, signflip, criticalpath, clamp,
                            diffmode, lesions)
@@ -93,10 +94,32 @@ quantized (the script does it); `docs/` isn't bundled into the exe or AppImage.
 ## Before you open a PR
 
 ```bash
-python -m pytest -m "not validation"     # fast suite
+python -m pytest -m "not validation"     # fast suite (includes tests/playthrough, a slice of the bot)
 python kick_the_fly.py --headless --protocol smoke.yaml --out /tmp/smoke
 python kick_the_fly.py --smoke 3         # the 3D room actually opens
+python kick_the_fly.py --selftest        # exit 0, or 3 when only warnings (no sound card, no GPU...)
+python kick_the_fly.py --headless --playthrough adult --playthrough-quick --out /tmp/pt
+python tools/i18n_sync.py --check        # every new UI string is in the localization catalog
 ```
+
+A change to what the simulation does needs `--headless --validate --out before.json` on `main` and `after.json` on your branch, and the
+two must be identical unless the PR says why not. New tools, arenas or reactions also get a `ToolInfo` (with its `probes`) in
+`kickthefly/core/loadout.py`, so the loadout editor lists which neurons they drive and the playthrough bot checks that they fire.
+
+## Continuous integration and the Claude review
+
+Pull requests run `tests.yml` (fast tests, validation, and the self-test plus the quick playthrough) and `checks.yml`; the nightly
+workflow runs the full validation and the full playthrough, publishes a history table and trend charts to GitHub Pages, and opens an issue if
+a validation result flips or the playthrough fails; a release needs all of it plus the full playthrough. See [docs/ci.md](docs/ci.md).
+
+Every non-draft pull request is also reviewed by Claude (Sonnet) against `.github/claude-review.md`: GPU safety, CONNECTOME / GAME RULE
+tagging, no tuning to pass, validation numbers matching a real run, migrations tested, strings localized. Set it up once:
+
+1. Repository Settings > Secrets and variables > Actions > **New repository secret**, name `ANTHROPIC_API_KEY`, value an Anthropic API key.
+2. That's all. Without the secret (or on a pull request from a fork, which never gets it) the job prints a notice and finishes green; it
+   only comments and is not a required check. Edit `.github/claude-review.md` to change what it looks for.
+
+For the nightly history page: Settings > Pages > Source: *Deploy from a branch*, branch `gh-pages`, folder `/ (root)`. No secret is needed.
 
 The release workflow (`.github/workflows/release.yml`) builds the brain pack from the public connectome, runs the
 full suite including validation on Linux and Windows, and builds the AppImage and the exe. It can be run by hand

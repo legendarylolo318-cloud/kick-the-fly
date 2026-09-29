@@ -311,6 +311,22 @@ game runs the adult brain (playable_brain) because LarvaBody does not implement 
 - GAME RULE: transmitter signs (Data S1 has none: LN and MBON inhibitory, the rest excitatory), soma layout, the
   segmented body, crawling, head casting and rolling. Neither larva validation test passes, so ROLL is a rule.
 
+Tool loadouts (2.13; core/loadout.py, ui/loadout_ui.py, docs/loadouts.md). GAME RULE, all of it, and none of it read by
+any neuron: the hotbar (keys 1-9 and 0, wheel, gamepad; - and = turn the page of a loadout longer than 10), the presets (Base,
+Chaos, Chemist, Lab, All, Pet, custom), the loadout editor (Q), the tool wheel (hold `), the hand always being in, the laser
+only in Lab mode, and larva mode hiding tools with no larval sensory mapping. A loadout only decides which tools are one key
+away; validation and replays don't depend on it. Every tool's ToolInfo says which neurons it drives and whether that is
+CONNECTOME or GAME RULE, and its `probes` are what the playthrough bot checks fire.
+- fruit tool. CONNECTOME: exactly what sugar drives, the sugar-pathway taste neurons and the PAM reward neurons. GAME RULE: the
+  item, the fly walking to it and eating it (the same rules as sugar; it even smells like sugar).
+
+First-launch tutorial, self-test, bug report (2.13; ui/tutorial.py, core/selftest.py, core/bugreport.py). Interface and
+diagnostics; nothing touches the simulation. The self-test only looks (it never installs or configures anything) and the bug
+report never sends anything: it hands a URL to the player's own browser when asked.
+
+Playthrough bot (2.13; lab/playthrough.py). Drives the real games headless; asserts, per tool, that the neurons the tool
+documents fire above their own calm baseline. It changes no rule and tunes nothing.
+
 Fly individuality (2.11; Kain et al. 2012, Linneweber et al. 2020).
 - GAME RULE: Per-fly variation, deterministic from each fly's seed, implemented as per-neuron scaling
   so the shared weight matrix is unchanged: W_fly = D_post · W · D_pre, where D_pre and D_post are
@@ -362,11 +378,13 @@ from pygame import gfxdraw
 
 from kickthefly.core import config
 from kickthefly.core import crash
+from kickthefly.core import loadout as loadout_mod
 from kickthefly.ui import menu as menu_ui
 from kickthefly.core import paths
 from kickthefly.core import platform_env
 from kickthefly.core.simclock import SimClock
 from kickthefly.core.crash import log
+from kickthefly.core.i18n import tr
 from kickthefly.core.version import __version__
 from kickthefly.lab.assays import P1_TYPES
 
@@ -445,7 +463,7 @@ PAIN_LEVELS = (  # name, share of a region's neurons a light touch recruits, how
     ("normal", 0.3, 0.0), ("more", 0.6, 0.5), ("max", 1.0, 1.0),
 )
 SURGERY_CURRENT = {-1: -0.6, 0: 0.0, 1: 0.12}   # x ext_gain 4: silenced -2.4 per step (beats any touch), stimulated +0.48
-TOOL_NAMES = ("hand", "flick", "swatter", "bomb", "torch", "cleaner", "zapper", "freeze", "spider", "sugar", "alcohol", "laser", "cva", "decoy")
+TOOL_NAMES = ("hand", "flick", "swatter", "bomb", "torch", "cleaner", "zapper", "freeze", "spider", "sugar", "alcohol", "laser", "cva", "decoy", "fruit")
 STIM_AMP = 0.5              # x ext_gain 4 = 2.0 per step: a driven neuron fires every refractory cycle
 HIST = 1500                  # history samples, one per 20 ms = 30 s
 CALM_STEPS = 400             # 2 s without a touch before the baseline learns again
@@ -1854,6 +1872,11 @@ def draw_icon(surf, name: str, c, col) -> None:
         aapoly(surf, [(x - 8, y - 4), (x + 2, y - 9), (x + 11, y - 4), (x + 1, y + 1)], (250, 250, 255))
         aapoly(surf, [(x - 8, y - 4), (x + 1, y + 1), (x + 1, y + 12), (x - 8, y + 7)], (215, 215, 225))
         aapoly(surf, [(x + 1, y + 1), (x + 11, y - 4), (x + 11, y + 7), (x + 1, y + 12)], (190, 190, 205))
+    elif name == "fruit":
+        aacircle(surf, (x, y + 2), 9, (214, 64, 48))
+        aacircle(surf, (x - 3, y - 1), 3, (245, 150, 130))
+        thick_line(surf, (x, y - 6), (x + 2, y - 12), 2, (90, 60, 30))
+        aapoly(surf, [(x + 2, y - 10), (x + 10, y - 13), (x + 7, y - 6)], (90, 170, 80))
     elif name == "cleaner":
         aapoly(surf, [(x - 8, y - 6), (x + 2, y - 6), (x + 2, y + 13), (x - 8, y + 13)], col)
         aapoly(surf, [(x - 6, y - 11), (x, y - 11), (x, y - 6), (x - 6, y - 6)], col)
@@ -1894,7 +1917,8 @@ TOOLS = (("hand", "HAND", "drag the fly and throw it"), ("flick", "FLICK", "clic
          ("alcohol", "ALCOHOL", "click: drop alcohol, sweet PAM reward but escalating drunkenness"),
          ("laser", "LASER", "targeted laser: hold/click to stimulate or silence cell types in real time"),
          ("cva", "CVA", "puffs cVA pheromone: activates Or67d/DA1 glomerulus"),
-         ("decoy", "DECOY", "spawns a decoy female target to evoke courtship"))
+         ("decoy", "DECOY", "spawns a decoy female target to evoke courtship"),
+         ("fruit", "FRUIT", "click: drop ripe fruit, eaten like sugar (as in the orchard)"))
 assert tuple(t[0] for t in TOOLS) == TOOL_NAMES
 # Real vs rule (the on-screen tags, Settings > Brain): which reactions are triggered by the connectome sim's own neurons
 # and which by a rule the game adds. REAL means live descending-neuron firing crossed a threshold; how the body then
@@ -1944,6 +1968,8 @@ def draw_source_chip(surf, pos, source: str, font, anchor: str = "midtop", alpha
 
 
 # cVA and the decoy have no key: [ and ] are slow motion (and photo mode's field of view). Wheel or toolbar.
+# 2.13: the number keys are the rebindable actions slot1..slot10 (config.py) and the hotbar is a loadout (core/loadout.py);
+# TOOL_KEYS stays only as the default 1-9, 0 key codes for code that still wants them
 TOOL_KEYS = (pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5, pygame.K_6, pygame.K_7, pygame.K_8, pygame.K_9, pygame.K_0, pygame.K_MINUS, pygame.K_EQUALS)
 TOOL_KEY_LABELS = ("1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=", "", "")      # what the toolbar shows for each
 TORCH_KEYS = (("head", None), ("body", None), ("legs", "L"), ("legs", "R"), ("wing", "L"), ("wing", "R"), ("heat", None))
@@ -2257,6 +2283,9 @@ class Game:
         from kickthefly.lab import lab
         lab.install(self.menu)
         self.menu.pages["load_state"] = page_load_state
+        from kickthefly.ui import help_ui, loadout_ui
+        loadout_ui.install(self.menu)
+        help_ui.install(self.menu)
         from kickthefly.lab import challenges
         from kickthefly.lab import validation
         self.menu.pages["challenges"] = challenges.page_challenges
@@ -2289,6 +2318,12 @@ class Game:
             self.pet.load_or_create(brain_type=self.brain_type)
         self._manual_focus_until = 0.0
         self.tool = 0
+        self.tool_uses = 0                # counted for the tutorial (ui/tutorial.py)
+        self.last_tool_used = ""
+        self.tutorial = None              # ui/tutorial.py, while the first-launch tutorial runs
+        self.kwheel_open = False          # the keyboard/mouse tool wheel (hold the wheel key); the pad has its own
+        self.kwheel_vec = [0.0, 0.0]
+        self.loadout = loadout_mod.resolve(self.cfg, larva=self.is_larva)
         self.kills = 0
         self.make_fonts()
         self.bg = make_background()
@@ -2408,7 +2443,12 @@ class Game:
                 sim.d_pre, sim.d_post = compute_fly_gains(slot.seed, sim.n, mode=mode, sigma=sim.p.individuality_sigma)
                 sim.backend.sync_to_host()      # device backends keep their own copy of the gains
                 sim.backend.sync_from_host()
+        elif key == "controls.loadout_preset":
+            if hasattr(self, "loadout"):
+                self.refresh_loadout()
         elif key == "brain.mode":
+            if hasattr(self, "loadout"):
+                self.refresh_loadout()
             mode = c[key]
             if mode == "pet" and not getattr(self, "pet", None):
                 from kickthefly.core.pet import PetManager
@@ -2496,10 +2536,144 @@ class Game:
         self.cfg.set("graphics.fullscreen", self.is_fullscreen())
         self.cfg.save()
 
+    def hotbar_click(self, pos) -> bool:
+        for r, d in getattr(self, "page_rects", []):
+            if r.collidepoint(pos):
+                self.turn_page(d)
+                return True
+        for k, r in enumerate(getattr(self, "tool_rects", [])):
+            if r.collidepoint(pos):
+                self.select_slot(k)
+                return True
+        return False
+
+    def tutorial_event(self, ev) -> bool:
+        tut = getattr(self, "tutorial", None)
+        return bool(tut is not None and tut.active and tut.handle(ev))
+
     def open_menu(self, screen: str = "pause") -> None:
         self.torching = False
+        self.kwheel_open = False
         self.menu.show(screen)
         self.clock.menu_paused = True
+
+    # --- tool loadout, hotbar and wheel (2.13; core/loadout.py, ui/loadout_ui.py) ---------------------------------------
+    def tool_name(self) -> str:
+        return TOOLS[self.tool][0]
+
+    def refresh_loadout(self) -> None:
+        """Rebuild the hotbar from the config and the current mode and brain (a preset, mode or brain change).
+        A tool that is no longer allowed (the laser after leaving Lab) is put down for the hand."""
+        prev = self.tool_name()
+        self.loadout = loadout_mod.resolve(self.cfg, larva=self.is_larva)
+        if not loadout_mod.available(prev, lab=self.cfg.lab, larva=self.is_larva):
+            self.tool = TOOL_NAMES.index("hand")
+            self.torching = False
+        else:
+            self.loadout.show(prev)
+
+    def select_tool(self, name: str) -> bool:
+        """Take a tool in hand by name, from the hotbar, the wheel, the mouse wheel or the gamepad."""
+        if name not in TOOL_NAMES or not loadout_mod.available(name, lab=self.cfg.lab, larva=self.is_larva):
+            return False
+        self.tool = TOOL_NAMES.index(name)
+        self.loadout.show(name)
+        self.torching = False
+        return True
+
+    def select_slot(self, slot: int) -> bool:
+        """Hotbar slot 0-9 (keys 1-9, 0) on the page showing."""
+        name = self.loadout.slot_tool(slot)
+        return self.select_tool(name) if name else False
+
+    def cycle_tool(self, d: int) -> None:
+        """Mouse wheel and gamepad bumpers: the next (+1) or previous (-1) tool of the loadout."""
+        self.select_tool(self.loadout.neighbor(self.tool_name(), 1 if d > 0 else -1))
+
+    def turn_page(self, d: int) -> None:
+        if self.loadout.turn_page(d):
+            self.note_loadout(f"{tr('Hotbar page')} {self.loadout.page + 1}/{self.loadout.n_pages}")
+
+    def note_loadout(self, text: str) -> None:
+        self.saved_msg = (text, time.perf_counter())
+
+    def open_loadout_editor(self) -> None:
+        from kickthefly.ui import loadout_ui
+        loadout_ui.install(self.menu)
+        self.open_menu("loadout")
+
+    def apply_loadout_setting(self) -> None:
+        self.refresh_loadout()
+
+    def _wheel_tools(self) -> list[str]:
+        return loadout_mod.available_tools(lab=self.cfg.lab, larva=self.is_larva)
+
+    def open_wheel(self) -> None:
+        if self.menu.open or self._overlay_open() or getattr(self, "photo_mode", False):
+            return
+        self.kwheel_open = True
+        self.kwheel_vec = [0.0, 0.0]
+        self.torching = False
+
+    def close_wheel(self, apply: bool = True) -> None:
+        """Let go of the wheel key: take the tool the pointer is on (nothing if it never left the middle)."""
+        if not self.kwheel_open:
+            return
+        self.kwheel_open = False
+        if apply:
+            from kickthefly.ui import loadout_ui
+            pick = loadout_ui.wheel_pick(self.kwheel_vec, len(self._wheel_tools()))
+            if pick is not None:
+                self.select_tool(self._wheel_tools()[pick])
+        self.kwheel_vec = [0.0, 0.0]
+
+    def wheel_event(self, ev) -> bool:
+        """Events while the keyboard/mouse wheel is open. Returns True if consumed. In 2D the pointer's place picks;
+        the 3D game feeds mouse movement in through wheel_move() instead (the mouse is captured for looking)."""
+        if not self.kwheel_open:
+            return False
+        if ev.type == pygame.KEYUP and self.cfg.action_for(pygame.key.name(ev.key)) == "tool_wheel":
+            self.close_wheel(True)
+            return True
+        if ev.type == pygame.KEYDOWN and ev.key == pygame.K_ESCAPE:
+            self.close_wheel(False)
+            return True
+        if ev.type == pygame.MOUSEMOTION and (not self.three_d or not getattr(self, "look", False)):
+            from kickthefly.ui import loadout_ui
+            cx, cy = loadout_ui.wheel_center(self)
+            self.kwheel_vec = [ev.pos[0] - cx, ev.pos[1] - cy]
+            return True
+        if ev.type == pygame.MOUSEBUTTONDOWN:
+            self.close_wheel(True)
+            return True
+        return ev.type in (pygame.MOUSEBUTTONUP, pygame.MOUSEWHEEL, pygame.MOUSEMOTION)
+
+    def wheel_move(self, rel) -> None:
+        """3D: mouse movement while the wheel is open moves the pointer instead of turning the view."""
+        v = self.kwheel_vec
+        v[0] += rel[0]
+        v[1] += rel[1]
+        m = math.hypot(*v)
+        if m > 150:
+            v[0], v[1] = v[0] * 150 / m, v[1] * 150 / m
+
+    def show_first_run_notices(self) -> None:
+        """Once per install, from the run loops (never from Game.__init__, so tests and headless runs skip them): the
+        loadout notice a migrated config gets, else the first-launch tutorial."""
+        fr = self.cfg.first_run
+        if fr.get("loadout_notice"):
+            fr["loadout_notice"] = False
+            self.cfg.dirty = True
+            self.cfg.save()
+            from kickthefly.ui import loadout_ui
+            loadout_ui.install(self.menu)
+            self.open_menu("loadout_notice")
+        elif not fr.get("tutorial_done"):
+            self.start_tutorial()
+
+    def start_tutorial(self, replay: bool = False) -> None:
+        from kickthefly.ui import tutorial
+        self.tutorial = tutorial.Tutorial(self, replay=replay)
 
     def menu_action(self, name: str) -> None:
         if name == "resume":
@@ -3417,7 +3591,7 @@ class Game:
     def _threats(self, slot: "FlySlot", now: float, mouse) -> list:
         out = []
         name = TOOLS[self.tool][0]
-        if not self.cfg["brain.autopilot"] and not self._overlay_open() and mouse[0] < PLAY_W and mouse[1] < FLOOR and name not in ("hand", "sugar", "alcohol"):
+        if not self.cfg["brain.autopilot"] and not self._overlay_open() and mouse[0] < PLAY_W and mouse[1] < FLOOR and name not in ("hand", "sugar", "fruit", "alcohol"):
             out.append(("cursor", np.array(mouse, float), CURSOR_SIZE.get(name, 16)))
         for sw in self.swats:
             ph = (now - sw[1]) / 0.55
@@ -3467,6 +3641,7 @@ class Game:
         if fly.dead:
             return
         name = TOOLS[self.tool][0]
+        name = "sugar" if name == "fruit" else name           # fruit smells like sugar: same glomeruli, same memory
         near = np.hypot(*(np.array(mouse, float) - fly.p[HEAD])) < SCENT_RANGE
         if not self._overlay_open() and mouse[0] < PLAY_W and near:
             slot.scent_now = name
@@ -4878,6 +5053,8 @@ class Game:
         if self.cfg["brain.autopilot"]:
             return
         name = TOOLS[self.tool][0]
+        self.tool_uses += 1
+        self.last_tool_used = name
         self.record_event("tool", name, f"x={pos[0]:.0f} y={pos[1]:.0f}")
         if name in ("hand", "flick", "swatter", "zapper"):
             slot, _ = self._nearest_fly(pos, 60)
@@ -4929,8 +5106,9 @@ class Game:
             self.spider = {"p": np.array([pos[0], CEIL + 4.0]), "state": "hunt", "bite_at": 0.0, "bites": 0, "t": now}
             self.sound.play("drop")
             self.popup((pos[0], CEIL + 70), "A SPIDER!", (200, 200, 210))
-        elif name == "sugar" and len(self.sugars) < 3:
-            self.sugars.append({"p": np.array(pos, float), "v": 0.0, "left": 1.0})
+        elif name in ("sugar", "fruit") and len(self.sugars) < 3:
+            # fruit is eaten exactly as sugar is (same neurons, same rules): only the item and its look differ
+            self.sugars.append({"p": np.array(pos, float), "v": 0.0, "left": 1.0, "fruit": name == "fruit"})
             self.sound.play("pop")
         elif name == "alcohol" and len(self.alcohols) < 3:
             self.alcohols.append({"p": np.array(pos, float), "v": 0.0, "left": 1.0})
@@ -5720,6 +5898,10 @@ class Game:
             k_ = max(0.35, s["left"])
             x, y = s["p"]
             e = 11 * k_
+            if s.get("fruit"):
+                aacircle(arena, (x, y), e * 0.8, (214, 64, 48))
+                aacircle(arena, (x - e * 0.25, y - e * 0.25), e * 0.25, (245, 150, 130))
+                continue
             aapoly(arena, [(x - e, y - e * 0.4), (x, y - e), (x + e, y - e * 0.4), (x, y + e * 0.2)], (250, 250, 255))
             aapoly(arena, [(x - e, y - e * 0.4), (x, y + e * 0.2), (x, y + e), (x - e, y + e * 0.5)], (215, 215, 228))
             aapoly(arena, [(x, y + e * 0.2), (x + e, y - e * 0.4), (x + e, y + e * 0.5), (x, y + e)], (185, 185, 205))
@@ -5815,6 +5997,11 @@ class Game:
         self._draw_brain(now)
         self.draw_time_indicator(scr, PLAY_W // 2, 92)
         self.draw_recording(scr, PLAY_W // 2, 130)
+        if self.kwheel_open and not self.menu.open:
+            from kickthefly.ui import loadout_ui
+            loadout_ui.draw_wheel(self, scr)
+        if self.tutorial is not None and self.tutorial.active and not self.menu.open:
+            self.tutorial.draw(scr)
         if self.menu.open:
             self.menu.draw(scr, pygame.mouse.get_pos(), now)
 
@@ -6166,25 +6353,46 @@ class Game:
     def _draw_toolbar(self, surf) -> None:
         if self.cfg["brain.autopilot"] and self.cfg["brain.autopilot_hide_hud"]:
             self.tool_rects = []
+            self.page_rects = []
             return
+        lo = self.loadout
+        tools = lo.page_tools()
         bw, gap = 58, 4
-        x0 = (PLAY_W - bw * len(TOOLS) - gap * (len(TOOLS) - 1)) // 2
+        x0 = (PLAY_W - bw * len(tools) - gap * (len(tools) - 1)) // 2
         self.tool_rects = []
-        name, label, hint = TOOLS[self.tool]
-        key = TOOL_KEY_LABELS[self.tool] if self.tool < len(TOOL_KEY_LABELS) else str(self.tool + 1)
-        self._text(surf, f"{key}  {label}: {hint}", (PLAY_W // 2, FLOOR + 10), INK, self.f_bold, "midtop")
-        for k, (name, label, hint) in enumerate(TOOLS):
+        cur = self.tool_name()
+        _, label, hint = TOOLS[self.tool]
+        slot = lo.slot_of(cur)
+        if slot is not None:
+            key = self.cfg.keys.get(f"slot{slot + 1}", "")
+        elif cur in lo.tools:                               # on the other page of a long loadout
+            key = f"{tr('page')} {lo.tools.index(cur) // loadout_mod.PAGE_SIZE + 1}"
+        else:
+            key = tr("wheel")                               # picked from the tool wheel: not on the hotbar
+        self._text(surf, f"{key.upper()}  {label}: {hint}", (PLAY_W // 2, FLOOR + 10), INK, self.f_bold, "midtop")
+        for k, name in enumerate(tools):
+            _, label, _ = TOOLS[TOOL_NAMES.index(name)]
             r = pygame.Rect(x0 + k * (bw + gap), FLOOR + 38, bw, 64)
             self.tool_rects.append(r)
-            on = k == self.tool
+            on = name == cur
             card = pygame.Surface(r.size, pygame.SRCALPHA)
             pygame.draw.rect(card, (60, 46, 22, 230) if on else (16, 18, 24, 210), card.get_rect(), border_radius=10)
             surf.blit(card, r)
             pygame.draw.rect(surf, AMBER if on else BORDER, r, 2, border_radius=10)
             draw_icon(surf, name, (r.centerx, r.y + 24), AMBER if on else TEXT)
-            k_lbl = TOOL_KEY_LABELS[k] if k < len(TOOL_KEY_LABELS) else ""
+            k_lbl = self.cfg.keys.get(f"slot{k + 1}", "").upper()
             self._text(surf, k_lbl, (r.x + 7, r.y + 4), LABEL, self.f_small)
-            self._text(surf, label, (r.centerx, r.y + 44), AMBER if on else INK, self.f_small, "midtop")
+            self._text(surf, label[:9], (r.centerx, r.y + 44), AMBER if on else INK, self.f_small, "midtop")
+        self.page_rects = []
+        if lo.n_pages > 1:                                     # page arrows either side, and which page this is
+            y = FLOOR + 38 + 18
+            for d, x, sym in ((-1, x0 - 30, "<"), (1, x0 + len(tools) * (bw + gap) + 2, ">")):
+                r = pygame.Rect(x, y, 28, 28)
+                self.page_rects.append((r, d))
+                pygame.draw.rect(surf, (16, 18, 24, 210), r, border_radius=8)
+                pygame.draw.rect(surf, BORDER, r, 1, border_radius=8)
+                self._text(surf, sym, r.center, INK, self.f_bold, "center")
+            self._text(surf, f"{lo.page + 1}/{lo.n_pages}", (x0 - 16, y + 34), LABEL, self.f_small, "center")
 
     def _draw_brain(self, now: float) -> None:
         scr, br = self.screen, self.brain
@@ -6399,7 +6607,9 @@ class Game:
             self.menu.handle(ev, getattr(ev, "pos", mouse_pos))
             return True
         if ev.type == pygame.KEYDOWN and ev.key == pygame.K_ESCAPE:
-            if self._overlay_open() and self.report is None:          # Esc closes an overlay first
+            if getattr(self, "kwheel_open", False):                   # Esc cancels the tool wheel, and only that
+                self.close_wheel(False)
+            elif self._overlay_open() and self.report is None:        # Esc closes an overlay first
                 self.help_open = self.surgery_open = self.big_view = self.training_open = False
             else:
                 self.open_menu("pause")
@@ -6408,7 +6618,18 @@ class Game:
 
     def do_action(self, action: str, now: float) -> None:
         """Hotkeys shared by the 2D and 3D games. Settings hotkeys go through set_setting so the menu stays in sync."""
-        if action == "help":
+        if action.startswith("slot") and action[4:].isdigit():
+            self.select_slot(int(action[4:]) - 1)
+        elif action == "page_prev":
+            self.turn_page(-1)
+        elif action == "page_next":
+            self.turn_page(1)
+        elif action == "loadout":
+            if not getattr(self, "photo_mode", False):        # in photo mode Q flies the camera down
+                self.open_loadout_editor()
+        elif action == "tool_wheel":
+            self.open_wheel()
+        elif action == "help":
             self.help_open = not self.help_open
         elif action == "training":
             self.training_open = not self.training_open
@@ -6467,8 +6688,12 @@ class Game:
             return True
         if self.menu_first(ev, pygame.mouse.get_pos()):
             return not self.want_quit
+        if self.tutorial_event(ev) or self.wheel_event(ev):
+            return True
         if ev.type == pygame.KEYDOWN:
-            if self.big_view:
+            # 1/2/3/0 pick the big view's camera, unless the player bound that key to the big view itself (2.13: digits
+            # are rebindable), which must still close it
+            if self.big_view and self.cfg.action_for(pygame.key.name(ev.key)) != "big_view":
                 if ev.key in (pygame.K_1, pygame.K_KP1):
                     self.view.set_preset("front")
                     return True
@@ -6487,9 +6712,6 @@ class Game:
             if ev.key == pygame.K_s and self.cfg.action_for("s") in (None, *config.MOVEMENT_3D_ONLY):
                 self.save_png()                          # S has always saved a screenshot in the 2D game
                 return True
-            if ev.key in TOOL_KEYS or ev.key == pygame.K_KP_MINUS:
-                self.tool = 10 if ev.key == pygame.K_KP_MINUS else TOOL_KEYS.index(ev.key)
-                return True
             action = self.cfg.action_for(pygame.key.name(ev.key))
             if action is not None:
                 self.do_action(action, now)
@@ -6499,6 +6721,9 @@ class Game:
             if getattr(self, "big_rect", None) and self.big_rect.collidepoint(mpos):
                 self.view.zoom_by(1.15 if ev.y > 0 else 0.87)
                 return True
+        if ev.type == pygame.MOUSEWHEEL and not self._overlay_open() and ev.y:
+            self.cycle_tool(-ev.y)                       # the wheel steps through the loadout, as in the 3D game
+            return True
         if ev.type == pygame.MOUSEMOTION and self.big_view and getattr(self, "big_drag", None):
             start_pos, btn, y0, p0, px0, py0 = self.big_drag
             dx = ev.pos[0] - start_pos[0]
@@ -6608,10 +6833,8 @@ class Game:
                     self.big_drag = (ev.pos, ev.button, self.view.yaw, self.view.pitch, self.view.pan_x, self.view.pan_y)
                     return True
                 return True
-            for k, r in enumerate(getattr(self, "tool_rects", [])):
-                if r.collidepoint(ev.pos):
-                    self.tool = k
-                    return True
+            if self.hotbar_click(ev.pos):
+                return True
             if ev.button == 3 and TOOLS[self.tool][0] == "hand" and ev.pos[0] < PLAY_W:
                 dec = self._nearest_decoy(ev.pos, 45)
                 if dec is not None:
@@ -6817,6 +7040,18 @@ def parse_args(argv: list[str] | None = None):
     ap.add_argument("--record-video", dest="record_video", nargs="?", const="default", metavar="PATH",
                     help="start recording a video at launch, to PATH or the screenshots folder (MP4/WebM with ffmpeg, else GIF)")
     ap.add_argument("--replay", metavar="FILE", help="with --headless: run a .ktfreplay again and compare its spikes")
+    ap.add_argument("--selftest", action="store_true",
+                    help="check this install (build, brain packs, backends, OpenGL, audio, folders, memory, a 10 s smoke "
+                         "run) and exit: 0 all pass, 1 any FAIL, 3 warnings only; --out FILE.json also writes the JSON")
+    ap.add_argument("--selftest-child", dest="selftest_child", nargs=2, metavar=("WHAT", "STEPS"), help=argparse.SUPPRESS)
+    ap.add_argument("--playthrough", nargs="?", const="all", choices=("adult", "larva", "all"), metavar="BRAIN",
+                    help="with --headless: the playthrough bot: every arena x tool x brain (adult, larva or all), report "
+                         "into --out DIR")
+    ap.add_argument("--playthrough-quick", dest="playthrough_quick", action="store_true",
+                    help="with --playthrough: fewer combos (each tool once, two arenas), for CI on pull requests")
+    ap.add_argument("--bugreport", action="store_true",
+                    help="print exactly what Settings > Help > Report a bug would include, and write it to --out DIR; "
+                         "nothing is ever sent")
     ap.add_argument("--record-replay", dest="record_replay", metavar="FILE",
                     help="with --protocol: record the protocol's first fly as a .ktfreplay")
     args, unknown = ap.parse_known_args(argv)
@@ -6837,6 +7072,17 @@ def main(argv: list[str] | None = None) -> int:
     log.info("Kick the Fly %s on %s", __version__, crash.os_description())
     for n in p.notes:
         log.info(n)
+    if getattr(args, "selftest_child", None):
+        from kickthefly.core import selftest
+        return selftest.child_main(args.selftest_child[0], int(args.selftest_child[1]))
+    if getattr(args, "selftest", False):
+        from kickthefly.core import selftest
+        return selftest.main(args)
+    if getattr(args, "bugreport", False):
+        from kickthefly.core import bugreport
+        return bugreport.main(args)
+    if getattr(args, "playthrough", None):
+        args.headless = True
     if (args.headless or args.validate or args.protocol or getattr(args, "audit_asymmetry", False)
             or getattr(args, "benchmark", False) or getattr(args, "threshold_sweep", False)
             or getattr(args, "signflip_test", False) or getattr(args, "critical_path", None)
@@ -6949,6 +7195,8 @@ def main(argv: list[str] | None = None) -> int:
     brain = state["brain"]
     brain.start()
     game = Game(screen, brain, state["view"], state.get("graph"), state.get("weights"), cfg=cfg)
+    if not smoke:
+        game.show_first_run_notices()
     if cfg["brain.autopilot"]:
         game.big_view = True
     if getattr(args, "record_video", None):
@@ -6972,6 +7220,7 @@ def main(argv: list[str] | None = None) -> int:
             break
         mouse = pygame.mouse.get_pos()
         ticks = game.clock.frame(real)
+        crash.maybe_debug_crash(real - t_game)
         for ev in pygame.event.get():
             if ev.type == pygame.KEYDOWN and (ev.key == pygame.K_F11 or
                                               (ev.key == pygame.K_RETURN and ev.mod & pygame.KMOD_ALT)):
@@ -7024,6 +7273,5 @@ if __name__ == "__main__":
     except SystemExit:
         raise
     except Exception:
-        written = crash.write_crash_report()
-        log.error("crashed; report written to %s", ", ".join(map(str, written)) or "nowhere (no writable folder)")
+        crash.handle_crash()
         raise
