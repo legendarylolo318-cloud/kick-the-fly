@@ -77,7 +77,7 @@ the bot records the larva combos as skipped when its pack is missing.
 
 ## What a full run looked like (2.13, NumPy CPU backend, 24-core desktop)
 
-`--headless --playthrough all` took about 10 minutes and made 391 rows: 306 passed, 1 failed, 69 gated by design, 10 inconclusive (skipped). Every one
+`--headless --playthrough all` took about 10 minutes and made 386 rows: 306 passed, 1 failed, 69 gated by design, 10 inconclusive (skipped). Every one
 of the 135 save-then-load checks restored its state, all 69 replays reproduced their spikes exactly, and 106 combos ended in a death whose autopsy
 report existed. The sim/real ratio was 2.8x to 46x (median 4.1x).
 
