@@ -487,8 +487,10 @@ class Config:
         if isinstance(sec, dict):
             self.loadout["custom"] = names(sec.get("custom"))
             for item in (sec.get("saved") if isinstance(sec.get("saved"), list) else [])[:lo.MAX_SAVED]:
-                if isinstance(item, dict) and isinstance(item.get("name"), str) and item["name"].strip():
-                    self.loadout["saved"].append({"name": item["name"].strip()[:24], "tools": names(item.get("tools"))})
+                name = item.get("name") if isinstance(item, dict) else None
+                name = " ".join("".join(ch if ch.isprintable() else " " for ch in name).split()) if isinstance(name, str) else ""
+                if name:                                     # one line of printable text, as the editor's text box allows
+                    self.loadout["saved"].append({"name": name[:24], "tools": names(item.get("tools"))})
         fr = data.get("first_run")
         if isinstance(fr, dict):
             for k in FIRST_RUN_DEFAULTS:
@@ -579,6 +581,8 @@ def _toml_value(v) -> str:
     if isinstance(v, float):
         return repr(v)
     s = str(v).replace("\\", "\\\\").replace('"', '\\"')
+    # control characters are not allowed raw in a TOML string: escape them, or the next launch can't read the file
+    s = "".join(f"\\u{ord(ch):04x}" if ord(ch) < 0x20 or ord(ch) == 0x7F else ch for ch in s)
     return f'"{s}"'
 
 

@@ -621,3 +621,19 @@ def test_texts_name_the_players_key_or_say_where_to_bind_it():
     assert loadout_ui.key_label(c, "loadout") == "Q"
     c.keys["loadout"] = ""
     assert "Settings > Controls" in loadout_ui.key_label(c, "loadout")
+
+
+def test_a_control_character_in_a_loadout_name_never_makes_config_toml_unreadable(tmp_path):
+    """A hand-edited name with a TOML escape (\\n, \\t) used to be written back raw: the next launch couldn't parse the
+    file and every setting fell back to defaults (fullscreen lost here)."""
+    path = tmp_path / "config.toml"
+    path.write_text('schema_version = 3\n[graphics]\nfullscreen = true\n[[loadout.saved]]\nname = "two\\nlines\\ttab"\n'
+                    'tools = ["hand"]\n')
+    c = config.Config.load(path)
+    assert c.loadout["saved"][0]["name"] == "two lines tab"
+    assert config._toml_value("a\nb\x07c\x7f") == '"a\\u000ab\\u0007c\\u007f"'
+    c.save_loadout("raw\ttab", ["hand"])          # even if something hands save_loadout a control character
+    assert c.save()
+    again = config.Config.load(path)
+    assert again["graphics.fullscreen"] is True and not again.warnings and not (tmp_path / "config.toml.bad").exists()
+    assert [i["name"] for i in again.loadout["saved"]] == ["two lines tab", "raw tab"]
