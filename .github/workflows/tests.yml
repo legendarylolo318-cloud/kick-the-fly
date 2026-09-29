@@ -1,5 +1,5 @@
 # Every pull request into main (and every push to main): the fast suite and the validation suite on Linux.
-# main's branch protection requires both jobs ("fast tests", "validation") to pass before a PR can merge. (2.12) A third,
+# main's branch protection requires both jobs ("fast tests", "validation") to pass before a PR can merge. (2.13) A third,
 # "selftest and playthrough", runs --selftest and the quick playthrough bot on CPU; add it to the required checks too.
 # The release workflow (release.yml) still does the full Linux + Windows run and the builds on a tag.
 name: tests

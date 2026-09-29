@@ -28,7 +28,7 @@
   result flips or the playthrough fails), and releases now need the self-test and the full playthrough. docs/ci.md.
 
 ### Changed
-- `config.toml` schema 3: a config from before 2.12 migrates to the **All** preset (the order the number keys always had) with a one-time
+- `config.toml` schema 3: a config from before 2.13 migrates to the **All** preset (the order the number keys always had) with a one-time
   popup, and counts as already onboarded. A fresh install gets Base and the tutorial.
 - The number keys, - and = are rebindable actions now (they were fixed); - and = turn hotbar pages instead of picking alcohol and the laser.
 - The mouse wheel steps through the loadout in the 2D game as well; the gamepad's wheel lists every tool the mode allows.

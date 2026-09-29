@@ -1,4 +1,4 @@
-# Tool loadouts (2.12)
+# Tool loadouts (2.13)
 
 The game has fifteen tools. A **loadout** is the short list of them that sits on the hotbar, on the number keys. Every other
 tool stays one gesture away on the tool wheel. A loadout is a convenience: it decides which tools you can reach with one
@@ -13,7 +13,7 @@ loadout (nothing in `kickthefly/lab/` reads it).
   showing. With 10 tools or fewer those two keys do nothing. The little arrows beside the hotbar turn the page with the
   mouse.
 - Every key is rebindable in Settings > Controls (Hotbar slot 1-10, previous/next page, loadout editor, tool wheel), except
-  Esc. A key that is taken swaps with the action that had it, as before. Before 2.12 the number keys, - and = were fixed.
+  Esc. A key that is taken swaps with the action that had it, as before. Before 2.13 the number keys, - and = were fixed.
 - The **hand** is in every loadout, in slot 1, and can't be removed or moved.
 - **Lab-only tools** (the laser) only appear in Lab mode. Switching to Play puts the laser down for the hand.
 - **Larva mode** hides the tools that have no larval sensory mapping (bomb, spider, alcohol, cVA, decoy, laser): the larva has no
@@ -60,7 +60,7 @@ and its look differ. It is in the Pet preset so a pet can be fed the orchard's f
 
 ## Migration and first launch
 
-- A `config.toml` from before 2.12 (schema 2 or older) migrates to the **All** preset, in the order the number keys always had,
+- A `config.toml` from before 2.13 (schema 2 or older) migrates to the **All** preset, in the order the number keys always had,
   so nobody's muscle memory breaks. One popup, shown once, says so and points at the editor. It also counts as already
   onboarded: no first-launch tutorial (Settings > Help replays it). The rest of the file is kept. Test: `tests/test_loadout.py`.
 - A fresh install gets Base and the tutorial.

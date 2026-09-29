@@ -1,4 +1,4 @@
-"""The first-launch tutorial (2.12): once per install, skippable at any step, replayable, keyboard and pad, no flashing."""
+"""The first-launch tutorial (2.13): once per install, skippable at any step, replayable, keyboard and pad, no flashing."""
 from __future__ import annotations
 
 import pygame

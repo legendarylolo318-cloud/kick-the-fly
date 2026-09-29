@@ -82,7 +82,7 @@ For many flies or seeds at once, protocols (`python kick_the_fly.py --headless -
 worker processes.
 
 
-## Tool loadouts (2.12)
+## Tool loadouts (2.13)
 
 ```python
 fly = Fly(seed=1, mode="lab")          # mode: "play" (default), "lab" (the laser is allowed) or "pet"

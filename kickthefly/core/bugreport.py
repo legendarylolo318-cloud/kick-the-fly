@@ -1,4 +1,4 @@
-"""Bug report (2.12): Settings > Help > Report a bug, the crash screen, and `--bugreport`.
+"""Bug report (2.13): Settings > Help > Report a bug, the crash screen, and `--bugreport`.
 
 What it does: collects a few text items about this install, shows the player EXACTLY what would be included (the text
 on screen is the text that is copied, saved or put in the URL, after the scrubbing below), lets them remove any item,

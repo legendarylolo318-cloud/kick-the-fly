@@ -1,6 +1,6 @@
 # Tag push (v*): build the brain pack, test on Linux and Windows, run checks.yml (gl on llvmpipe, the Flatpak build,
 # docs links, replay determinism), build the AppImage and the exe, then publish a release with both files and
-# SHA256SUMS. The release job only runs if every test, every check, the self-test and the full playthrough (2.12) and both
+# SHA256SUMS. The release job only runs if every test, every check, the self-test and the full playthrough (2.13) and both
 # builds passed.
 # Run it by hand (workflow_dispatch) to test and build without publishing.
 name: release
@@ -100,7 +100,7 @@ jobs:
         run: python -m pytest -m validation -v -rs
 
   selftest-playthrough:
-    # 2.12: a release needs the self-test and the whole playthrough (every arena x tool, CPU) to pass. Exit code 3 of the
+    # 2.13: a release needs the self-test and the whole playthrough (every arena x tool, CPU) to pass. Exit code 3 of the
     # self-test (warnings only: a runner has no sound card and no GPU) is a pass; 1 is not.
     needs: brainpack
     runs-on: ubuntu-22.04

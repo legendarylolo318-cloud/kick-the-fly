@@ -100,7 +100,7 @@ def test_pad_in_the_3d_game(monkeypatch):
     fake = FakePad()
     game.pad.pads = {0: kick3d.gamepad.Pad(fake)}
     game.tool = 0
-    fake.buttons[5] = 1                                       # RB: next tool of the loadout (2.12: not of every tool)
+    fake.buttons[5] = 1                                       # RB: next tool of the loadout (2.13: not of every tool)
     game.pad_tick(1 / 60, game.clock.now)
     assert game.tool_name() == game.loadout.tools[1]
     fake.buttons[5] = 0
@@ -134,7 +134,7 @@ def test_pad_in_the_3d_game(monkeypatch):
 
 @needs_pack
 def test_pad_x_opens_the_loadout_editor_and_the_default_binding_is_free():
-    """2.12: a pad-only player can reach the loadout editor (the tutorial's last step) without the Q key."""
+    """2.13: a pad-only player can reach the loadout editor (the tutorial's last step) without the Q key."""
     assert config.Config(None).pad["loadout"] == "x" and len({b for b in config.Config(None).pad.values() if b}) == \
         len([b for b in config.Config(None).pad.values() if b]), "no two pad actions share a button"
     pygame.init()

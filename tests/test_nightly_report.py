@@ -16,7 +16,7 @@ spec.loader.exec_module(nr)
 
 
 def validation(passed: dict, ratio=5.0):
-    return dict(app_version="2.12.0", backend="cpu", seconds=600.0,
+    return dict(app_version="2.13.0", backend="cpu", seconds=600.0,
                 tests=[dict(id=i, passed=p, measured=dict(drive_ratio_mean=ratio)) for i, p in passed.items()])
 
 

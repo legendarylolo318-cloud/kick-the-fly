@@ -311,7 +311,7 @@ game runs the adult brain (playable_brain) because LarvaBody does not implement 
 - GAME RULE: transmitter signs (Data S1 has none: LN and MBON inhibitory, the rest excitatory), soma layout, the
   segmented body, crawling, head casting and rolling. Neither larva validation test passes, so ROLL is a rule.
 
-Tool loadouts (2.12; core/loadout.py, ui/loadout_ui.py, docs/loadouts.md). GAME RULE, all of it, and none of it read by
+Tool loadouts (2.13; core/loadout.py, ui/loadout_ui.py, docs/loadouts.md). GAME RULE, all of it, and none of it read by
 any neuron: the hotbar (keys 1-9 and 0, wheel, gamepad; - and = turn the page of a loadout longer than 10), the presets (Base,
 Chaos, Chemist, Lab, All, Pet, custom), the loadout editor (Q), the tool wheel (hold `), the hand always being in, the laser
 only in Lab mode, and larva mode hiding tools with no larval sensory mapping. A loadout only decides which tools are one key
@@ -320,11 +320,11 @@ CONNECTOME or GAME RULE, and its `probes` are what the playthrough bot checks fi
 - fruit tool. CONNECTOME: exactly what sugar drives, the sugar-pathway taste neurons and the PAM reward neurons. GAME RULE: the
   item, the fly walking to it and eating it (the same rules as sugar; it even smells like sugar).
 
-First-launch tutorial, self-test, bug report (2.12; ui/tutorial.py, core/selftest.py, core/bugreport.py). Interface and
+First-launch tutorial, self-test, bug report (2.13; ui/tutorial.py, core/selftest.py, core/bugreport.py). Interface and
 diagnostics; nothing touches the simulation. The self-test only looks (it never installs or configures anything) and the bug
 report never sends anything: it hands a URL to the player's own browser when asked.
 
-Playthrough bot (2.12; lab/playthrough.py). Drives the real games headless; asserts, per tool, that the neurons the tool
+Playthrough bot (2.13; lab/playthrough.py). Drives the real games headless; asserts, per tool, that the neurons the tool
 documents fire above their own calm baseline. It changes no rule and tunes nothing.
 
 Fly individuality (2.11; Kain et al. 2012, Linneweber et al. 2020).
@@ -1968,7 +1968,7 @@ def draw_source_chip(surf, pos, source: str, font, anchor: str = "midtop", alpha
 
 
 # cVA and the decoy have no key: [ and ] are slow motion (and photo mode's field of view). Wheel or toolbar.
-# 2.12: the number keys are the rebindable actions slot1..slot10 (config.py) and the hotbar is a loadout (core/loadout.py);
+# 2.13: the number keys are the rebindable actions slot1..slot10 (config.py) and the hotbar is a loadout (core/loadout.py);
 # TOOL_KEYS stays only as the default 1-9, 0 key codes for code that still wants them
 TOOL_KEYS = (pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5, pygame.K_6, pygame.K_7, pygame.K_8, pygame.K_9, pygame.K_0, pygame.K_MINUS, pygame.K_EQUALS)
 TOOL_KEY_LABELS = ("1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=", "", "")      # what the toolbar shows for each
@@ -2557,7 +2557,7 @@ class Game:
         self.menu.show(screen)
         self.clock.menu_paused = True
 
-    # --- tool loadout, hotbar and wheel (2.12; core/loadout.py, ui/loadout_ui.py) ---------------------------------------
+    # --- tool loadout, hotbar and wheel (2.13; core/loadout.py, ui/loadout_ui.py) ---------------------------------------
     def tool_name(self) -> str:
         return TOOLS[self.tool][0]
 

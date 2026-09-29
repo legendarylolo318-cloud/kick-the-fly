@@ -1,4 +1,4 @@
-"""The workflow files and the review checklist (2.12): they parse, and say what CONTRIBUTING.md says they do."""
+"""The workflow files and the review checklist (2.13): they parse, and say what CONTRIBUTING.md says they do."""
 from __future__ import annotations
 
 import yaml

@@ -239,7 +239,7 @@ ACTIONS: tuple[tuple[str, str, str], ...] = (
     ("page_next", "Hotbar next page", "="),
 )
 ACTION_LABEL = {a: label for a, label, _ in ACTIONS}
-RESERVED_KEYS = {"escape"}                                # the pause menu can't be rebound (2.12: the tool keys can)
+RESERVED_KEYS = {"escape"}                                # the pause menu can't be rebound (2.13: the tool keys can)
 SLOT_ACTIONS = tuple(f"slot{i + 1}" for i in range(10))     # hotbar slots: keys 1-9, 0 by default
 MOVEMENT_3D_ONLY = {"forward", "back", "left", "right", "sprint", "crouch", "free_mouse", "duel", "panel", "menu_size"}
 # gamepad bindings (game/gamepad.py): action, label, default. A binding is one of SDL's standard controller names
@@ -292,8 +292,8 @@ def _coerce(s: Setting, v):
 
 
 SCHEMA_VERSION = 3
-# 2.12 (schema 3): [loadout] custom slots and up to five saved loadouts, and [first_run] flags. A config from before
-# 2.12 (schema < 3) had players on keys 1-9, 0, - and =, which then reached every tool, so it migrates to the All
+# 2.13 (schema 3): [loadout] custom slots and up to five saved loadouts, and [first_run] flags. A config from before
+# 2.13 (schema < 3) had players on keys 1-9, 0, - and =, which then reached every tool, so it migrates to the All
 # preset (nobody's muscle memory breaks) with a one-time notice pointing at the loadout editor, and it counts as
 # already onboarded (no first-launch tutorial; Settings > Help replays it). A fresh install gets Base and the tutorial.
 FIRST_RUN_DEFAULTS = {"tutorial_done": False, "loadout_notice": False}

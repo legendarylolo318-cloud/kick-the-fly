@@ -1,4 +1,4 @@
-# Self-test, bug report and the tutorial (2.12)
+# Self-test, bug report and the tutorial (2.13)
 
 All three are in **Settings > Help**.
 
@@ -53,4 +53,4 @@ About a minute, on the first launch of a fresh install, skippable at any step (B
 Settings > Help. Five steps: moving, using a tool, watching the brain panel light up, sugar as a reward (it puts sugar in your hand), and the loadout
 editor. Enter (or the Next button, or A on a pad) skips one step. It runs on keyboard and mouse or a gamepad, its highlight never flashes (with
 Reduced flashing on it doesn't even swell), and it uses the Larger text and colorblind palette settings. Whether it has been shown is a flag in
-`config.toml` (`[first_run] tutorial_done`). A config migrated from before 2.12 counts as already shown.
+`config.toml` (`[first_run] tutorial_done`). A config migrated from before 2.13 counts as already shown.

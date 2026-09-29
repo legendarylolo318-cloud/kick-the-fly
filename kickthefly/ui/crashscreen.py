@@ -1,4 +1,4 @@
-"""The crash screen (2.12): after a crash in the windowed game, a small window says where the crash report went and
+"""The crash screen (2.13): after a crash in the windowed game, a small window says where the crash report went and
 offers "Report a bug" (the same review screen as Settings > Help, ui/help_ui.py) before the process ends.
 
 It opens its own window (the game's may be gone with its OpenGL context), draws nothing of the game, and does not send

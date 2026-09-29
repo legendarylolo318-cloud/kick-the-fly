@@ -1,4 +1,4 @@
-"""The loadout editor (default key Q), the tool wheel and the one-time notice for migrated configs (2.12).
+"""The loadout editor (default key Q), the tool wheel and the one-time notice for migrated configs (2.13).
 
 The editor is a menu page (`Menu.pages["loadout"]`) so it pauses the game like the Settings do and Esc closes it. It shows
 every tool grouped by category with its icon, name, a one-line description and which real neurons it drives (tagged
@@ -361,7 +361,7 @@ def page_editor(menu, surf, rect, mouse) -> None:
 
 
 def page_notice(menu, surf, rect, mouse) -> None:
-    """The one-time popup for a config from before 2.12: keys 1-9, 0, - and = still reach every tool."""
+    """The one-time popup for a config from before 2.13: keys 1-9, 0, - and = still reach every tool."""
     cx = rect.centerx
     menu.text(surf, tr("Tool loadouts are new"), (cx, rect.y + 40), mu.INK, menu.f_head, "midtop")
     menu.wrapped(surf, tr("The hotbar is now a loadout: a short list of tools on the number keys, with every other tool "

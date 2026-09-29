@@ -1,4 +1,4 @@
-"""Self-test (2.12): `--selftest [--out FILE.json]` and Settings > Help > Run self-test.
+"""Self-test (2.13): `--selftest [--out FILE.json]` and Settings > Help > Run self-test.
 
 Each check ends PASS, WARN or FAIL, with a plain-English "fix" for anything that isn't a PASS. Nothing here installs,
 downloads, removes or configures anything: it only looks, and says what you could do. It runs from source, from the

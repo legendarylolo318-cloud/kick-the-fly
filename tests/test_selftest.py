@@ -1,4 +1,4 @@
-"""--selftest and the in-game self-test (2.12): every check, the verdicts, the JSON, the exit codes."""
+"""--selftest and the in-game self-test (2.13): every check, the verdicts, the JSON, the exit codes."""
 from __future__ import annotations
 
 import json

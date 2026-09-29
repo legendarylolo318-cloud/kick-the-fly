@@ -1,4 +1,4 @@
-"""Report a bug (2.12): shows exactly what is included, lets you remove items, copies or opens a prefilled issue, never sends."""
+"""Report a bug (2.13): shows exactly what is included, lets you remove items, copies or opens a prefilled issue, never sends."""
 from __future__ import annotations
 
 import ast
@@ -27,7 +27,7 @@ def state(tmp_path, monkeypatch):
     (d / "KickTheFly-crash.txt").write_text(f"Kick the Fly crash report\nTraceback...\n  File \"{Path.home()}/x.py\"\nValueError: boom\n")
     monkeypatch.setattr(socket.socket, "connect", lambda *a, **k: (_ for _ in ()).throw(AssertionError("network!")))
     selftest.LAST = selftest.summarize([Check("a", "Adult brain pack", "PASS", "ok"), Check("b", "ffmpeg", "WARN", "missing", "install it")],
-                                       app_version="2.12.0")
+                                       app_version="2.13.0")
     yield d
     selftest.LAST = None
 
@@ -183,10 +183,10 @@ def test_crash_handler_writes_the_report_and_only_opens_a_window_in_windowed_run
 
 def test_bugreport_command_prints_and_saves_and_sends_nothing(state, tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(bugreport, "collect", lambda selftest_report=None, run_selftest=False: [
-        bugreport.Item("summary", "Summary", "Kick the Fly 2.12.0"), bugreport.Item("log", "Log", "a\nb", long=True)])
+        bugreport.Item("summary", "Summary", "Kick the Fly 2.13.0"), bugreport.Item("log", "Log", "a\nb", long=True)])
     assert bugreport.main(SimpleNamespace(out=str(tmp_path / "o"))) == 0
     out = capsys.readouterr().out
-    assert "Kick the Fly 2.12.0" in out and "nothing was sent" in out
+    assert "Kick the Fly 2.13.0" in out and "nothing was sent" in out
     assert (tmp_path / "o" / "bugreport.md").read_text().startswith("### Summary")
 
 

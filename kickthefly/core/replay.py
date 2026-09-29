@@ -7,7 +7,7 @@ built with, the brain pack's SHA-256, and every input it received, at the step i
             which the replay reproduces by poking in the same order)
   drive     changes to Brain.drive_cur (a held current: assays, protocol "drive" stimuli)
   override  changes to Brain.override (brain surgery's per-neuron current)
-  tool      (2.12) which tool the run used, at the step it was taken in hand: informational, the tool's effect is
+  tool      (2.13) which tool the run used, at the step it was taken in hand: informational, the tool's effect is
             already in the pokes, drives and overrides above, so playing it back does nothing and an older version
             that doesn't know the type skips it
 It also holds the SHA-256 of every step's spikes, so a replay can say whether it reproduced the recording.

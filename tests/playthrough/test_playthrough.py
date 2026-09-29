@@ -79,7 +79,7 @@ def test_a_failed_expectation_marks_the_result_and_an_exception_keeps_its_traceb
 
 
 def test_the_report_has_json_and_a_markdown_table_and_the_exit_verdict(tmp_path):
-    rep = pt.Report(dict(app_version="2.12.0", created="now", backend="cpu", brains="adult", quick=True))
+    rep = pt.Report(dict(app_version="2.13.0", created="now", backend="cpu", brains="adult", quick=True))
     rep.add(pt.Result(id="a", group="brain", status=pt.PASS, seconds=1.0))
     rep.add(pt.Result(id="b", group="gate", status=pt.GATED, notes=['gate message: "Lab mode only"']))
     assert not rep.failed()

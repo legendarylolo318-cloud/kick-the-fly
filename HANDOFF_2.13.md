@@ -1,11 +1,11 @@
-# Handoff: 2.12 (branch `sonnet/2.12`, not pushed, no PR)
+# Handoff: 2.13 (written by Sonnet on branch `sonnet/2.12`; rebased and renumbered by Opus as `claude/2.13`)
 
 Written by Sonnet for Opus to test thoroughly and push. Everything below is what I did and measured; the last section is what I did **not** verify.
 
 ## Read this first
 
 - **Base.** I branched from `claude/2.11` (94f6a18), not from `main`. It is a descendant of `main` and carries the five 2.11 review commits (startup and menu crash fixes, pet-save safety, docs) that `main` doesn't have. If you want it on bare `main`, rebase and expect the 2.11 review fixes to be missing.
-- **Version not bumped** (`kickthefly/core/version.py` still says 2.11.0; CHANGELOG has a "2.12.0 (unreleased)" entry). Bump when releasing; the release workflow checks `RELEASE_NOTES.md` against the tag.
+- **Version not bumped** (`kickthefly/core/version.py` still says 2.12.0; CHANGELOG has a "2.13.0 (unreleased)" entry). Bump when releasing; the release workflow checks `RELEASE_NOTES.md` against the tag.
 - **Validation is identical before and after.** `--headless --validate` on 2.11 vs this branch: all 21 tests, every measured value and per-seed number equal (ignoring only timestamps, worker count, version). Nothing in the simulation changed; the new fruit tool is appended to the tool list and eaten through sugar's own code.
 - **GPU/driver safety.** Nothing installed, removed or configured; no sudo, no system env vars, pip untouched. The self-test and `test_backends` ran the app's own `gl` backend and an EGL context on the RX 9070 XT (normal app usage, child process with a time limit); no GPU failure occurred.
 - **Pre-existing failures I fixed in tests** (they failed on 2.11, not caused by this work): `tests/test_i18n.py` (a stand-in config without `get`; `template.json` missing 11 keys of `en.json`) and `tests/test_outdoors.py::test_the_2d_game_stays_indoors` (a stand-in host without `is_larva`, read since 2.11).
@@ -62,7 +62,7 @@ Only Esc is reserved now (0-9, - and = were reserved before, and bound to tools 
 
 ## Files changed (48)
 
-Added: `.github/claude-review.md`, `.github/workflows/{claude-review,nightly}.yml`, `docs/{ci,loadouts,playthrough,selftest-and-bugreport}.md`, `kickthefly/core/{bugreport,loadout,selftest}.py`, `kickthefly/lab/playthrough.py`, `kickthefly/ui/{crashscreen,help_ui,loadout_ui,tutorial}.py`, `protocols/selftest_smoke.yaml`, `tests/playthrough/{README.md,test_playthrough.py}`, `tests/test_{bugreport,loadout,nightly_report,selftest,tutorial,workflows}.py`, `tools/{i18n_sync,nightly_report}.py`, `HANDOFF_2.12.md`.
+Added: `.github/claude-review.md`, `.github/workflows/{claude-review,nightly}.yml`, `docs/{ci,loadouts,playthrough,selftest-and-bugreport}.md`, `kickthefly/core/{bugreport,loadout,selftest}.py`, `kickthefly/lab/playthrough.py`, `kickthefly/ui/{crashscreen,help_ui,loadout_ui,tutorial}.py`, `protocols/selftest_smoke.yaml`, `tests/playthrough/{README.md,test_playthrough.py}`, `tests/test_{bugreport,loadout,nightly_report,selftest,tutorial,workflows}.py`, `tools/{i18n_sync,nightly_report}.py`, `HANDOFF_2.13.md`.
 Modified: `.github/workflows/{release,tests}.yml`, `CHANGELOG.md`, `CONTRIBUTING.md`, `README.md`, `docs/api.md`, `kick_the_fly.py`, `kickthefly/__main__.py`, `kickthefly/core/{config,crash,replay,savestate}.py`, `kickthefly/data/locales/{en,template}.json`, `kickthefly/game/{kick3d,kick_the_fly}.py`, `kickthefly/lab/{api,headless}.py`, `kickthefly/ui/menu.py`, `tests/{test_gamepad,test_i18n,test_outdoors}.py`.
 
 ## Known issues and limits

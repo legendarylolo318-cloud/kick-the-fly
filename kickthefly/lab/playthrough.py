@@ -1,4 +1,4 @@
-"""The playthrough bot (2.12): scripted runs that use every tool in every arena on every brain and check what should hold.
+"""The playthrough bot (2.13): scripted runs that use every tool in every arena on every brain and check what should hold.
 
     python kick_the_fly.py --headless --playthrough [adult|larva|all] --out DIR [--playthrough-quick] [--sim-backend cpu]
     python -m pytest tests/playthrough          # a quick subset, as pytest tests

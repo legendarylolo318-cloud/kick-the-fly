@@ -1,4 +1,4 @@
-"""Tool loadouts (2.12): the catalog, the presets, the hotbar, the wheel, the editor, config migration, replays, the API.
+"""Tool loadouts (2.13): the catalog, the presets, the hotbar, the wheel, the editor, config migration, replays, the API.
 
 The first half needs no brain pack. The second half drives the real 2D and 3D games (marked needs_pack)."""
 from __future__ import annotations
@@ -554,7 +554,7 @@ def test_new_ui_strings_are_in_the_catalogs():
 
 
 def test_tr_is_used_for_the_editors_user_facing_text():
-    """No bare string literal is drawn by the 2.12 pages: every text the pages draw is a tr() call, a variable, or an
+    """No bare string literal is drawn by the 2.13 pages: every text the pages draw is a tr() call, a variable, or an
     f-string of variables."""
     root = Path(__file__).resolve().parent.parent / "kickthefly" / "ui"
     for name in ("loadout_ui.py", "tutorial.py", "help_ui.py", "crashscreen.py"):

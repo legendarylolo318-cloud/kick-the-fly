@@ -3,7 +3,7 @@
     python tools/i18n_sync.py            # add what is missing (en.json: text -> text, template.json: text -> "")
     python tools/i18n_sync.py --check    # exit 1 if anything is missing (what tests/test_i18n_coverage.py does)
 
-Collected from: every tr("...") call with a literal in the 2.12 UI modules, the labels and tips of the settings and
+Collected from: every tr("...") call with a literal in the 2.13 UI modules, the labels and tips of the settings and
 keybinding actions, the tool catalog (kickthefly/core/loadout.py) and the fixed strings the menus pass to tr() as
 variables. Existing entries are never changed, so translations made in de.json stay valid.
 """

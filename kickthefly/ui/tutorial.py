@@ -1,4 +1,4 @@
-"""The first-launch tutorial (2.12): about a minute, skippable at any step, replayable from Settings > Help.
+"""The first-launch tutorial (2.13): about a minute, skippable at any step, replayable from Settings > Help.
 
 Five short steps on top of the running game, none of which changes the simulation:
   1 move       walk (3D: WASD or the left stick) or sweep the mouse across the room (2D)
@@ -11,7 +11,7 @@ Keyboard and mouse: Enter or the Next button skips a step, Backspace or the Skip
 Gamepad: A skips a step, Back/Select ends it. The card is a still panel: with Accessibility > Reduced flashing on, its
 highlight around the brain panel does not pulse either way (it never flashes, it only breathes slowly when allowed).
 "Shown once per install": Config.first_run["tutorial_done"] is set when it ends or is skipped; a config migrated from
-before 2.12 counts as already onboarded. The game starts it from its run loop (Game.show_first_run_notices), never from
+before 2.13 counts as already onboarded. The game starts it from its run loop (Game.show_first_run_notices), never from
 Game.__init__, so tests, headless runs and the playthrough bot never see it.
 """
 from __future__ import annotations

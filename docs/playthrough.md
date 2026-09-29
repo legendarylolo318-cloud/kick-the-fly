@@ -1,4 +1,4 @@
-# The playthrough bot (2.12)
+# The playthrough bot (2.13)
 
 ```bash
 python kick_the_fly.py --headless --playthrough all --out playthrough-report            # adult and larva, the full matrix
@@ -60,7 +60,7 @@ playthrough and the self-test to pass (`release.yml`); the nightly workflow runs
 the history ([ci.md](ci.md)). The larva pack isn't built on CI (it is built locally from Data S1, see [larva.md](larva.md)), so CI runs the adult brain and
 the bot records the larva combos as skipped when its pack is missing.
 
-## What a full run looked like (2.12, NumPy CPU backend, 24-core desktop)
+## What a full run looked like (2.13, NumPy CPU backend, 24-core desktop)
 
 `--headless --playthrough all` took about 10 minutes and made 391 rows: 306 passed, 1 failed, 69 gated by design, 10 inconclusive (skipped). Every one
 of the 135 save-then-load checks restored its state, all 69 replays reproduced their spikes exactly, and 106 combos ended in a death whose autopsy

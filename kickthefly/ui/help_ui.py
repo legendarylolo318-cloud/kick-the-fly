@@ -1,4 +1,4 @@
-"""Settings > Help (2.12): replay the tutorial, run the self-test, report a bug. Also the pages behind those buttons.
+"""Settings > Help (2.13): replay the tutorial, run the self-test, report a bug. Also the pages behind those buttons.
 
 Pages (menu.pages): "selftest" runs core/selftest.py on a background thread and lists each check with its verdict and
 fix; "bugreport" is the review screen of core/bugreport.py: every item that would be included, shown in full, each

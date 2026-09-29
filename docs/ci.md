@@ -2,7 +2,7 @@
 
 | workflow | when | what |
 |---|---|---|
-| `tests.yml` | every pull request into `main`, every push to `main` | the fast suite, the validation suite, and (2.12) `--selftest` plus the quick playthrough on CPU |
+| `tests.yml` | every pull request into `main`, every push to `main` | the fast suite, the validation suite, and (2.13) `--selftest` plus the quick playthrough on CPU |
 | `checks.yml` | pull requests, pushes to `main`, and from `release.yml` | gl on llvmpipe, the Flatpak build, docs links, replay determinism |
 | `claude-review.yml` | every non-draft pull request | a Claude (Sonnet) review against `.github/claude-review.md`; skipped cleanly without the secret |
 | `nightly.yml` | every night at 03:17 UTC, and by hand | full validation and the full playthrough (CPU, ubuntu-22.04), a history table and trend charts on GitHub Pages, an issue if something flipped or failed |

@@ -1,4 +1,4 @@
-"""Tool loadouts (2.12): which of the game's tools are on the hotbar, in which slots.
+"""Tool loadouts (2.13): which of the game's tools are on the hotbar, in which slots.
 
 Pure data and logic, no pygame: the game, the loadout editor, the tool wheel, the Python API (`Fly.loadout`), the
 playthrough bot and the tests all read this one module.

@@ -77,7 +77,7 @@ class Fly:
         self._loadout = loadout.build("auto", None, lab=self.mode == "lab", larva=False, mode=self.mode)
         self._tool = loadout.HAND
 
-    # --- tool loadouts (2.12) --------------------------------------------------------------------------------------------
+    # --- tool loadouts (2.13) --------------------------------------------------------------------------------------------
     @property
     def loadout(self):
         """The hotbar: a core.loadout.Loadout ("base" in Play, "lab" in Lab, "pet" in Pet mode by default). `.tools` is
