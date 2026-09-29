@@ -81,3 +81,11 @@ def test_a_pwsh_step_that_accepts_exit_3_does_not_fail_on_it():
                     last = [ln.strip() for ln in run.strip().splitlines() if ln.strip() and not ln.strip().startswith("#")][-1]
                     assert last == "exit 0", f"{f.name} {name} '{step.get('name')}' ends with {last!r}, not exit 0"
     assert found, "the Windows self-test step is gone"
+
+
+def test_the_fast_suite_has_time_for_the_2_13_tests():
+    """The fast suite grew by ~20 min in 2.13 (main: 27 min on CI; 2.13 was at 78% after 32 min) and the job's old
+    40-minute limit cancelled it on the first 2.13 pull request."""
+    fast = load("tests.yml")["jobs"]["fast"]
+    assert fast["name"] == "fast tests", "branch protection requires this check by name"
+    assert fast["timeout-minutes"] >= 60

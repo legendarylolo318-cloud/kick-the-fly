@@ -55,7 +55,9 @@ jobs:
     name: fast tests
     needs: brainpack
     runs-on: ubuntu-22.04
-    timeout-minutes: 40
+    # 2.13's tests (loadouts, tutorial, playthrough slice, self-test) add ~20 min: main's suite took 27 min, 2.13's was at
+    # 78% after 32 min when the old 40-minute limit cancelled it
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
