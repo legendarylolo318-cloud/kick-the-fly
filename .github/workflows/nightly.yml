@@ -1,0 +1,130 @@
+# Every night: the full validation suite and the playthrough bot (CPU) on ubuntu-22.04, results published to GitHub
+# Pages as a history table and trend charts (one static HTML file made by tools/nightly_report.py: no scripts, no
+# trackers), and an issue opened automatically when a validation result flips or the playthrough fails.
+#
+# One-time setup: Settings > Pages > Build and deployment > Source: "Deploy from a branch", branch gh-pages, folder / (root).
+# The workflow creates the gh-pages branch itself on its first run. Nothing here needs a secret.
+name: nightly
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write        # push the report to the gh-pages branch
+  issues: write          # open (or comment on) the failure issue
+
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  brainpack:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        id: cache
+        with:
+          path: data/kick_brain.npz
+          key: brainpack-v2-${{ hashFiles('kickthefly/sim/connectome/loader.py', 'kickthefly/sim/brainpack.py') }}
+      - uses: actions/setup-python@v5
+        if: steps.cache.outputs.cache-hit != 'true'
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Build the brain pack
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          python -m pip install numpy scipy pyarrow
+          python -m kickthefly.sim.connectome.loader build
+          python -m kickthefly.sim.brainpack build
+          rm -f data/*.feather data/graph.pkl
+      - uses: actions/upload-artifact@v4
+        with:
+          name: brainpack-nightly
+          path: data/kick_brain.npz
+          retention-days: 1
+
+  run:
+    needs: brainpack
+    runs-on: ubuntu-22.04
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: {name: brainpack-nightly, path: data}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+      - name: Full validation (CPU backend; results are the same on every CPU backend)
+        env:
+          KTF_VALIDATION_WORKERS: "4"
+        run: >-
+          python kick_the_fly.py --headless --backend cpu --validate --out results/validation.json
+      - name: Playthrough bot, every arena x tool (CPU)
+        id: playthrough
+        continue-on-error: true            # a failure is reported below, with its traceback, not by a red X alone
+        run: >-
+          python kick_the_fly.py --headless --playthrough adult --sim-backend cpu --out results/playthrough
+      - name: Self-test
+        continue-on-error: true
+        run: python kick_the_fly.py --selftest --sim-backend cpu --out results/selftest.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nightly-results
+          path: results
+          retention-days: 30
+      - name: Load the history from the gh-pages branch
+        if: always()
+        run: |
+          mkdir -p site
+          if git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
+            git fetch --depth=1 origin gh-pages
+            git --work-tree=site checkout FETCH_HEAD -- . || true
+            git reset -q
+          fi
+      - name: History table, trend charts, and the issue text
+        if: always()
+        id: report
+        run: >-
+          python tools/nightly_report.py
+          --validation results/validation.json --playthrough results/playthrough/playthrough.json
+          --history site/history.json --site site --issue-body issue.md --issue-title issue-title.txt
+          --commit "$GITHUB_SHA" --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+      - name: Publish to GitHub Pages (the gh-pages branch)
+        if: always()
+        run: |
+          cd site
+          touch .nojekyll
+          git init -q -b gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "nightly $(date -u +%F)"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" gh-pages
+      - name: Open an issue if a validation result flipped or the playthrough failed
+        if: always() && steps.report.outputs.open_issue == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          title="$(cat issue-title.txt)"
+          existing="$(gh issue list --state open --label nightly --json number --jq '.[0].number' || true)"
+          gh label create nightly --description "found by the nightly run" --color B3261E 2>/dev/null || true
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body-file issue.md
+          else
+            gh issue create --title "$title" --body-file issue.md --label nightly
+          fi
+      - name: Fail the job if the playthrough failed
+        if: steps.playthrough.outcome == 'failure'
+        run: |
+          echo "the playthrough failed: see the issue and results/playthrough/playthrough.md in the artifacts"
+          exit 1

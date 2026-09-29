@@ -49,6 +49,7 @@ backends, the Python API and the Lab's optional NWB export.
 - [Download](#download)
 - [What you can do](#what-you-can-do)
 - [Controls](#controls) and [Settings](#settings)
+- [Tool loadouts](#tool-loadouts) and [Help: tutorial, self-test and bug report](#help-tutorial-self-test-and-bug-report)
 - [Play: challenges and real-science cards](#play-challenges-and-real-science-cards)
 - [Screenshots](#screenshots)
 - [Lab mode](#lab-mode), [Validation](#validation), [Performance](#performance), [Python API](#python-api)
@@ -60,6 +61,9 @@ backends, the Python API and the Lab's optional NWB export.
 
 ## What you can do
 
+- **Tool loadouts (2.12):** the hotbar is a short list of tools on keys 1-9 and 0 (Base, Chaos, Chemist, Lab, All, Pet or your own, up to five saved), with a loadout editor (Q) and a tool wheel (hold `) that reaches every tool. See [Tool loadouts](#tool-loadouts) and [docs/loadouts.md](docs/loadouts.md). A new **fruit** tool is eaten exactly as sugar is.
+- **Self-test, bug report and tutorial (2.12):** `--selftest` (also Settings > Help) checks your install and says how to fix what it finds; Report a bug shows exactly what a report would contain and never sends anything; a one-minute tutorial runs on the first launch. See [docs/selftest-and-bugreport.md](docs/selftest-and-bugreport.md).
+- **Playthrough bot and CI (2.12):** `--headless --playthrough` uses every tool in every arena on both brains and checks the documented neurons fired; it runs nightly with the full validation and its history is published. See [docs/playthrough.md](docs/playthrough.md) and [docs/ci.md](docs/ci.md).
 - **Larval brain (2.11, headless):** the *Drosophila* larva brain connectome (2,952 neurons, 352,611 synapses; Winding et al. 2023) for `--headless --validate --brain larva` and Python use. It is built on your machine from the paper's Data S1 on first use. The windowed larva game is not finished: with `--brain larva` the game still runs the adult. Neither larva validation test passes. See [docs/larva.md](docs/larva.md).
 - **Fly individuality (2.11):** per-fly variation as per-neuron scaling $W_{\text{fly}} = D_{\text{post}} \cdot W \cdot D_{\text{pre}}$ with the shared matrix unchanged (Settings > Brain > Individuality: off / subtle / strong). NumPy and Numba stay bit-exact; torch-cpu only with it off; not implemented on gl. Forced off for validation. Personality cards show their thresholds, but in the game their metrics are seeded, not yet measured. See [docs/individuality.md](docs/individuality.md).
 - **Pet mode (2.11):** one persistent fly across real days in `Esc > Mode`. No background process, service, autostart or timer: time is caught up deterministically at launch, clamped to 0-7 days. Hunger and sleep pressure (GAME RULE, in Lab > Parameters) scale real taste, PAM reward and dFB sleep neurons. Death is off by default. See [docs/pet.md](docs/pet.md).
@@ -123,14 +127,16 @@ backends, the Python API and the Lab's optional NWB export.
 
 ## Controls
 
-Every key below can be rebound in Settings > Controls (a key that's already taken swaps with that action). Esc and the tool keys (1-9, 0, - and =) are fixed.
+Every key below can be rebound in Settings > Controls (a key that's already taken swaps with that action). Only Esc is fixed (before 2.12 the tool keys were too).
 
 | key | what it does |
 |---|---|
 | Esc | close a panel, or open the pause menu: Resume, Challenges (Play) or Lab tools (Lab), Settings, Save State, Load State, Mode, Quit |
 | WASD | walk (Shift sprint, Ctrl or C crouch); walk into the fly to kick it |
 | Mouse | look around; left click uses the tool in your hand |
-| 1-9, 0, -, = or mouse wheel (cVA and decoy: wheel or toolbar) | pick a tool: hand, flick, swatter, bomb, blowtorch, brake cleaner, zapper, freeze spray, spider, sugar, alcohol, laser, cVA pheromone, decoy female |
+| 1-9, 0 or mouse wheel | pick a hotbar tool (your loadout: Base by default in Play; the wheel steps through it). - and = turn the page of a loadout longer than 10 tools |
+| Q | the loadout editor: which tools are on the hotbar, in what order, and your saved loadouts (Esc closes it) |
+| ` (hold) | the tool wheel: every tool, whether or not it is on the hotbar (point, then let go) |
 | Tab | free the mouse to click the brain panel and menus (click the room to look again) |
 | B | big live brain view; click a neuron to inspect it, search neurons, trace paths between two |
 | O | brain surgery |
@@ -157,9 +163,9 @@ Every key below can be rebound in Settings > Controls (a key that's already take
 | . | single step while paused (1/60 s of the room and the matching brain steps) |
 | H | controls help |
 
-**Gamepad (3D):** left stick walks, right stick looks, right trigger uses the tool (pull it to start looking around), LB / RB pick the previous / next tool, hold Y for the tool wheel (point with the right stick, release to pick), B crouches, left-stick click sprints, Start opens the menu, Back the big brain view. Button names are the pad's own labels (on a Switch Pro: ZR uses, L / R pick tools, + is Start and − is Back). Pads SDL knows (Xbox, PlayStation, Switch Pro and many more) work without setup; every button and stick can still be rebound in Settings > Controls (click a binding, then press the button or push the stick). Keyboard and mouse work as always alongside it. The 2D game has no gamepad support.
+**Gamepad (3D):** left stick walks, right stick looks, right trigger uses the tool (pull it to start looking around), LB / RB pick the previous / next tool of your loadout, hold Y for the tool wheel (every tool; point with the right stick, release to pick), X opens the loadout editor, B crouches, left-stick click sprints, Start opens the menu, Back the big brain view. Button names are the pad's own labels (on a Switch Pro: ZR uses, L / R pick tools, + is Start and − is Back). Pads SDL knows (Xbox, PlayStation, Switch Pro and many more) work without setup; every button and stick can still be rebound in Settings > Controls (click a binding, then press the button or push the stick). Keyboard and mouse work as always alongside it. The 2D game has no gamepad support.
 
-Command line: `--2d`, `--fullscreen`, `--backend NAME` (a simulation backend: `auto`, `cpu`, `numba`, `gl`, `torch-cpu`, `torch-cuda`, `torch-rocm`; or, on Linux, the display backend `wayland` or `x11` as before), `--sim-backend NAME` (the simulation backend only, same choices), `--dtype float32|float64`, `--record-video [PATH]`, `--seed N`, `--arena NAME` (room, fan, flypaper, pool, lamp, escaperoom, thermo, field, orchard), `--flies N` (start with N flies), and for headless runs `--headless`, `--protocol FILE --record-replay OUT` and `--replay FILE --out DIR` (replay files), `--validate`, `--protocol FILE`, `--nwb`, `--out PATH`, `--workers N`, `--seeds 1000-1009`, `--strict`, `--threshold-sweep`, `--signflip-test`, `--critical-path TARGET`, `--benchmark`.
+Command line: `--2d`, `--fullscreen`, `--backend NAME` (a simulation backend: `auto`, `cpu`, `numba`, `gl`, `torch-cpu`, `torch-cuda`, `torch-rocm`; or, on Linux, the display backend `wayland` or `x11` as before), `--sim-backend NAME` (the simulation backend only, same choices), `--dtype float32|float64`, `--record-video [PATH]`, `--seed N`, `--arena NAME` (room, fan, flypaper, pool, lamp, escaperoom, thermo, field, orchard), `--flies N` (start with N flies), and for headless runs `--headless`, `--protocol FILE --record-replay OUT` and `--replay FILE --out DIR` (replay files), `--validate`, `--protocol FILE`, `--nwb`, `--out PATH`, `--workers N`, `--seeds 1000-1009`, `--strict`, `--threshold-sweep`, `--signflip-test`, `--critical-path TARGET`, `--benchmark`, and (2.12) `--selftest [--out FILE.json]`, `--bugreport [--out DIR]` and `--headless --playthrough [adult|larva|all] [--playthrough-quick] --out DIR`.
 
 ## Settings
 
@@ -168,8 +174,23 @@ Esc > Settings. Changes apply right away and are saved to `config.toml`; hover a
 - **Graphics:** fullscreen, resolution scale (3D drawn smaller and stretched, for weak GPUs), FPS cap, VSync (restart), display backend (Linux only, restart), brain panel style, menu size, UI scale.
 - **Audio:** master, wing buzz and sound effects volume, brain stethoscope (spike sonification clicks, hotkey K), mute.
 - **Brain:** Play/Lab mode, arena, pain neurons, immortal, sim speed, random seed (applies on R), real vs rule tags, real-science popups (default OFF; see below), courtship song buzz, aggression lunges, day/night cycle (outdoors), compute backend (see [Optional: faster simulation](#optional-faster-simulation-with-numba-pytorch-or-opengl)) and state precision (float32, the default, or float64). Brain settings are tagged **Connectome** (changes how the simulation runs) or **Game rule** (a rule the game adds on top).
-- **Controls:** mouse sensitivity, invert Y, field of view, key bindings, and the gamepad: on/off, look speed, dead zone, invert Y and every button binding.
+- **Controls:** the tool loadout (see below), mouse sensitivity, invert Y, field of view, key bindings (the hotbar keys, the editor and the tool wheel included), and the gamepad: on/off, look speed, dead zone, invert Y and every button binding.
+- **Help (2.12):** replay the tutorial, open the loadout editor, run the self-test, report a bug.
 - **Accessibility:** language (English, or German, machine-translated and incomplete; so far the pause menu and the Settings labels are translated, see [docs/translating.md](docs/translating.md)), colorblind-safe brain view colors (blue/yellow) and a high-contrast palette, reduced flashing (no screen shake, flashes, sparkles, scanning band or blinking), larger text.
+
+## Tool loadouts
+
+The fifteen tools don't all fit on ten keys, and most players use a few. The hotbar (keys 1-9 and 0, the mouse wheel, the gamepad bumpers) shows your **loadout**; the **tool wheel** (hold `` ` ``) reaches every tool. Presets: **Base** (hand, swatter, blowtorch, freeze spray, sugar; the Play default), **Chaos** (bomb, blowtorch, brake cleaner, zapper, spider, alcohol), **Chemist** (brake cleaner, alcohol, cVA, sugar, freeze spray), **Lab** (everything, the laser included; the Lab default), **All**, **Pet** (Base plus fruit) and **Custom**. The hand is in every loadout and can't be removed; the laser only appears in Lab mode; larva mode hides tools with no larval sensory mapping. A loadout longer than ten tools has pages: - and = turn them.
+
+The editor (**Q**, Esc closes it) lists every tool by category with its icon, a one-line description and which real neurons it drives, tagged **CONNECTOME** or **GAME RULE**. Click a card to equip it, drag to reorder, **Reset to preset**, and save up to five named loadouts. A loadout only decides which tools are one key away; it never changes what a tool does, so validation and every replay are unaffected. Existing configs move to the **All** preset (the order the number keys always had) with a one-time popup pointing at the editor; a fresh install gets Base. Details, the presets table and the migration are in [docs/loadouts.md](docs/loadouts.md).
+
+## Help: tutorial, self-test and bug report
+
+- **First-launch tutorial:** about a minute, skippable at any step, replayable from Settings > Help: moving, using a tool, watching the brain panel light up, sugar as a reward, the loadout editor. Keyboard, mouse or gamepad; it never flashes. Shown once per install.
+- **Self-test:** `--selftest [--out FILE.json]` or Settings > Help > Run. Checks the app and Python, the brain packs' checksums, every compute backend that can run here (CPU backends must match NumPy spike for spike, GPU backends are compared statistically; the GPU vendor, renderer and GL version the app sees are reported), OpenGL 3.3, audio, ffmpeg, writable folders, disk and memory against the per-fly estimate, Wayland or X11, and a 10-second smoke protocol. Each check is PASS, WARN or FAIL with a plain-English fix, and it changes nothing on your system. Exit code 0 all pass, 1 any FAIL, 3 warnings only.
+- **Report a bug:** Settings > Help (and the crash screen) collects the version, OS, backend, the self-test, the last 500 log lines and any crash report, shows you exactly what would be included and lets you remove items, then copies it or opens a prefilled GitHub issue in your browser (long parts go to a file you attach). Nothing is uploaded automatically and there is no telemetry.
+
+More in [docs/selftest-and-bugreport.md](docs/selftest-and-bugreport.md).
 
 ## Play: challenges and real-science cards
 
@@ -407,6 +428,7 @@ Releases are built by `.github/workflows/release.yml` on a tag push: the brain p
 | screenshots, GIFs and videos | `Pictures\Kick the Fly` | `<xdg-user-dir PICTURES>/Kick the Fly` (`~/Pictures/Kick the Fly`) |
 | neuPrint skeleton cache | `Documents\Kick the Fly\skeletons` | `~/.local/share/kickthefly/skeletons` (from source: `data/skeletons/`) |
 | crash reports and log | `%LOCALAPPDATA%\Kick the Fly` | `$XDG_STATE_HOME/kickthefly` (`~/.local/state/kickthefly`) |
+| bug report files you saved (2.12) | `%LOCALAPPDATA%\Kick the Fly\bugreports` | `~/.local/state/kickthefly/bugreports` |
 
 Documents and Pictures on Windows come from the Known Folders API, so redirected and OneDrive folders work. On Linux, versions before 2.6 used `~/Documents/Kick the Fly/memory` and `~/Pictures/Kick the Fly`; on first launch the memory and any screenshots are copied to the new locations and the originals are left alone. A broken or missing `config.toml` falls back to default settings with a warning (a broken one is kept as `config.toml.bad`). `KICK_THE_FLY_HOME=/some/folder` keeps everything in one folder (portable use, tests).
 
@@ -446,6 +468,8 @@ Documents and Pictures on Windows come from the Known Folders API, so redirected
 - **Search and path tracer (2.9):** the paths are the connectome's own synapses, ranked by their weights.
 - **cVA (2.10):** the DA1 olfactory receptor neurons the tool drives, and everything after them: the DA1 projection neurons and their lateral horn / aSP targets (LHAV4a4, LHAV4c1, LH008m), validated as activation.
 - **Decoy female (2.10):** the foreleg taste neurons contact drives (LgLG5-8, putative ppk23/ppk25) and whatever they reach (P1 only weakly).
+- **Fruit tool (2.12):** the sugar-pathway taste neurons and PAM reward neurons its eating drives, exactly as sugar does.
+- **Tool catalog (2.12):** the neurons each tool drives, as the loadout editor lists them (`ToolInfo.probes`); the playthrough bot checks they fire.
 - **Extinction and second-order conditioning (2.10):** tested on the existing learning rule and the connectome's own dopamine neurons, with no rule added; neither emerges.
 
 **Game rules**
@@ -496,6 +520,7 @@ Documents and Pictures on Windows come from the Known Folders API, so redirected
 - Gamepad controls, and the brain view's search box and path drawing (display only).
 - The cVA puff's visible cloud, reach (250 px in 2D, 2.5 m in 3D), and strength.
 - The decoy female: its body, the contact distance, and the COURTSHIP tag contact triggers (no neuron is read for it).
+- Tool loadouts (2.12): the hotbar, the presets, the pages, the wheel and the editor are interface; no neuron reads them. The fruit item, and the fly walking to it and eating it, are game rules (the same ones sugar has).
 - The plume tracking assay, all of it: the plume and the surge/cast navigation (headless, Python API only).
 
 The full mapping is in the docstring at the top of `kickthefly/game/kick_the_fly.py` (the `kick_the_fly.py` shim in the repo root points at it), and per assay in `kickthefly/lab/assays.py`.

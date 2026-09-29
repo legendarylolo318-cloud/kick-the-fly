@@ -56,7 +56,8 @@ class Menu:
         self.hits: list[tuple[pygame.Rect, str, object]] = []
         self.pressed: object = None
         self.drag: dict | None = None
-        self.edit: dict | None = None             # typed value: {id, text, commit}
+        self.edit: dict | None = None             # typed value: {id, text, commit}; "alpha": True takes any printable text
+        self.item_drag: dict | None = None        # a card being dragged (kind "dragsrc" regions): {payload, start, pos, moved}
         self.capture: str | None = None           # action waiting for a key press
         self.message: tuple[str, float, tuple] | None = None
         self.hover_id: object = None
@@ -144,14 +145,40 @@ class Menu:
                 self.drag = dict(data, rect=rect)
                 self._drag_to(pos[0])
             elif kind == "edit":
-                self.edit = dict(id=data["id"], text=data["text"], commit=data["commit"], fresh=True)
+                self.edit = dict(id=data["id"], text=data["text"], commit=data["commit"], fresh=True,
+                                 alpha=bool(data.get("alpha")), limit=int(data.get("limit", 12)))
+            elif kind == "dragsrc":
+                self.item_drag = dict(data, start=tuple(pos), pos=tuple(pos), moved=False)
+                self.pressed = data["id"]
             else:
                 self.pressed = data["id"]
             return True
         if ev.type == pygame.MOUSEMOTION and self.drag is not None:
             self._drag_to(pos[0])
             return True
+        if ev.type == pygame.MOUSEMOTION and self.item_drag is not None:
+            d = self.item_drag
+            d["pos"] = tuple(pos)
+            if abs(pos[0] - d["start"][0]) + abs(pos[1] - d["start"][1]) > 8:
+                d["moved"] = True
+            return True
         if ev.type == pygame.MOUSEBUTTONUP and ev.button == 1:
+            if self.item_drag is not None:
+                d, self.item_drag = self.item_drag, None
+                self.pressed = None
+                if not d["moved"]:
+                    if d.get("click") and d.get("enabled", True):
+                        self.host.menu_action("click_sound")
+                        d["click"]()
+                    return True
+                target = next((data for rect, kind, data in reversed(self.hits)
+                               if kind == "drop" and rect.collidepoint(pos)
+                               and (data.get("accept") is None or data["accept"](d["payload"]))), None)
+                if target is not None:
+                    target["drop"](d["payload"], pos)
+                elif d.get("release_outside"):
+                    d["release_outside"](d["payload"], pos)
+                return True
             if self.drag is not None:
                 d, self.drag = self.drag, None
                 if d.get("release"):
@@ -207,7 +234,8 @@ class Menu:
                 self.edit = None
             elif ev.key == pygame.K_BACKSPACE:
                 self.edit["text"] = "" if self.edit.pop("fresh", False) else self.edit["text"][:-1]
-            elif ev.unicode and ev.unicode in "0123456789.-" and len(self.edit["text"]) < 12:
+            elif ev.unicode and (ev.unicode.isprintable() if self.edit.get("alpha") else ev.unicode in "0123456789.-") \
+                    and len(self.edit["text"]) < self.edit.get("limit", 12):
                 if self.edit.pop("fresh", False):        # typing replaces the old value
                     self.edit["text"] = ""
                 self.edit["text"] += ev.unicode
@@ -218,6 +246,9 @@ class Menu:
 
     def _commit_edit(self) -> None:
         e, self.edit = self.edit, None
+        if e.get("alpha"):
+            e["commit"](e["text"])
+            return
         try:
             e["commit"](float(e["text"]))
         except ValueError:
@@ -356,6 +387,16 @@ class Menu:
         pygame.draw.rect(surf, (10, 12, 18) if editing else (30, 34, 44), rect, border_radius=6)
         pygame.draw.rect(surf, ACCENT if editing else BORDER, rect, 1, border_radius=6)
         shown = self.edit["text"] + ("|" if int(time.perf_counter() * 2) % 2 else "") if editing else str(value)
+        self.text(surf, shown, (rect.x + 10, rect.centery), INK, self.f_small, "midleft")
+
+    def text_field(self, surf, rect, value: str, commit, *, id, tip=None, limit: int = 24) -> None:
+        """A one-line text box (names). Click, type, Enter commits, Esc cancels."""
+        rect = pygame.Rect(rect)
+        editing = self.edit is not None and self.edit["id"] == id
+        self._register(rect, "edit", id=id, text=value, commit=commit, tip=tip, alpha=True, limit=limit)
+        pygame.draw.rect(surf, (10, 12, 18) if editing else (30, 34, 44), rect, border_radius=6)
+        pygame.draw.rect(surf, ACCENT if editing else BORDER, rect, 1, border_radius=6)
+        shown = self.edit["text"] + ("|" if int(time.perf_counter() * 2) % 2 else "") if editing else value
         self.text(surf, shown, (rect.x + 10, rect.centery), INK, self.f_small, "midleft")
 
     def chip(self, surf, pos, label: str) -> pygame.Rect:
@@ -528,6 +569,10 @@ class Menu:
             y += 48
         if self.tab == "Controls":
             y = self._keybinds(surf, body, y + 8)
+        if self.tab == "Help":
+            from kickthefly.ui import help_ui
+
+            y = help_ui.help_tab(self, surf, body, y + 4)
         self.content_h[key] = max(0, y + off - body.bottom + 12)
         surf.set_clip(prev_clip)
         self.clip = None
@@ -537,8 +582,9 @@ class Menu:
             by = body.y + int((body.h - bar_h) * (off / max(1, self.content_h[key])))
             pygame.draw.rect(surf, (60, 66, 80), (body.right - 6, by, 4, bar_h), border_radius=2)
         fy = rect.bottom - 58
-        self.button(surf, (rect.x + 24, fy, 200, 42), "Reset to defaults", lambda: self._reset_tab(),
-                    id=("reset", self.tab), tip=f"Put every {self.tab} setting back to how the game ships.")
+        if self.tab != "Help":
+            self.button(surf, (rect.x + 24, fy, 200, 42), "Reset to defaults", lambda: self._reset_tab(),
+                        id=("reset", self.tab), tip=f"Put every {self.tab} setting back to how the game ships.")
         self.button(surf, (rect.right - 164, fy, 140, 42), tr("Back"), self.back, style="primary", id=("settings", "back"))
         self.text(surf, "Changes apply right away and are saved.", (rect.centerx, fy + 21), LABEL, self.f_small,
                   "center")

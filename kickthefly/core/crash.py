@@ -170,3 +170,21 @@ def write_crash_report(exc_text: str | None = None, state_dir: Path | None = Non
         except OSError:
             continue
     return written
+
+
+def handle_crash(exc_text: str | None = None) -> list[Path]:
+    """Write the crash report, log where it went and, in a windowed run, show the crash screen (ui/crashscreen.py) with
+    "Report a bug" on it. Headless runs (validation, CI) only get the report. Never raises."""
+    written: list[Path] = []
+    try:
+        written = write_crash_report(exc_text)
+        log.error("crashed; report written to %s", ", ".join(map(str, written)) or "nowhere (no writable folder)")
+    except Exception:
+        pass
+    if info.get("mode") in ("2d", "3d") and not os.environ.get("KICK_THE_FLY_NO_CRASH_SCREEN"):
+        try:
+            from kickthefly.ui import crashscreen
+            crashscreen.show(written)
+        except Exception:
+            log.exception("the crash screen itself failed")
+    return written

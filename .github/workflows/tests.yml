@@ -1,5 +1,6 @@
 # Every pull request into main (and every push to main): the fast suite and the validation suite on Linux.
-# main's branch protection requires both jobs ("fast tests", "validation") to pass before a PR can merge.
+# main's branch protection requires both jobs ("fast tests", "validation") to pass before a PR can merge. (2.12) A third,
+# "selftest and playthrough", runs --selftest and the quick playthrough bot on CPU; add it to the required checks too.
 # The release workflow (release.yml) still does the full Linux + Windows run and the builds on a tag.
 name: tests
 
@@ -91,4 +92,33 @@ jobs:
         with:
           name: validation-results
           path: data/validation_results.json
+          retention-days: 14
+
+  selftest-playthrough:
+    name: selftest and playthrough
+    needs: brainpack
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: {name: brainpack, path: data}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+      - name: "Self-test (exit 0 all pass, 3 warnings only: a runner has no sound card and no GPU; 1 is a failure)"
+        run: |
+          rc=0
+          python kick_the_fly.py --selftest --sim-backend cpu --out results/selftest.json || rc=$?
+          echo "self-test exit code $rc"
+          [ "$rc" -eq 0 ] || [ "$rc" -eq 3 ]
+      - name: Playthrough bot, quick (every tool in the room and the orchard, CPU; the larva pack isn't built here)
+        run: python kick_the_fly.py --headless --playthrough adult --playthrough-quick --sim-backend cpu --out results/playthrough
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: selftest-playthrough
+          path: results
           retention-days: 14
