@@ -637,3 +637,18 @@ def test_a_control_character_in_a_loadout_name_never_makes_config_toml_unreadabl
     again = config.Config.load(path)
     assert again["graphics.fullscreen"] is True and not again.warnings and not (tmp_path / "config.toml.bad").exists()
     assert [i["name"] for i in again.loadout["saved"]] == ["two lines tab", "raw tab"]
+
+
+@needs_pack
+@pytest.mark.parametrize("three_d", [False, True])
+def test_esc_on_the_tool_wheel_cancels_it_without_opening_the_pause_menu(three_d):
+    """Found in QA: the pause menu's Esc handling ran before the wheel saw the key, so Esc cancelled the wheel and also
+    opened the pause menu."""
+    g = _game(three_d)
+    g.select_tool("sugar")
+    press(g, pygame.K_BACKQUOTE)
+    g.kwheel_vec = [0, -120]
+    press(g, pygame.K_ESCAPE)
+    assert not g.kwheel_open and not g.menu.open and g.tool_name() == "sugar"
+    press(g, pygame.K_ESCAPE)
+    assert g.menu.open and g.menu.screen == "pause", "with the wheel closed, Esc opens the menu as before"

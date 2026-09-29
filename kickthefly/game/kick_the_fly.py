@@ -6607,7 +6607,9 @@ class Game:
             self.menu.handle(ev, getattr(ev, "pos", mouse_pos))
             return True
         if ev.type == pygame.KEYDOWN and ev.key == pygame.K_ESCAPE:
-            if self._overlay_open() and self.report is None:          # Esc closes an overlay first
+            if getattr(self, "kwheel_open", False):                   # Esc cancels the tool wheel, and only that
+                self.close_wheel(False)
+            elif self._overlay_open() and self.report is None:        # Esc closes an overlay first
                 self.help_open = self.surgery_open = self.big_view = self.training_open = False
             else:
                 self.open_menu("pause")
