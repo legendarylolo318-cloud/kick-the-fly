@@ -32,6 +32,5 @@ if __name__ == "__main__":
     except SystemExit:
         raise
     except Exception:
-        written = crash.write_crash_report()
-        crash.log.error("crashed; report written to %s", ", ".join(map(str, written)) or "nowhere (no writable folder)")
+        crash.handle_crash()
         raise

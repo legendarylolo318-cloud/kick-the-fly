@@ -100,9 +100,9 @@ def test_pad_in_the_3d_game(monkeypatch):
     fake = FakePad()
     game.pad.pads = {0: kick3d.gamepad.Pad(fake)}
     game.tool = 0
-    fake.buttons[5] = 1                                       # RB: next tool
+    fake.buttons[5] = 1                                       # RB: next tool of the loadout (2.12: not of every tool)
     game.pad_tick(1 / 60, game.clock.now)
-    assert game.tool == 1
+    assert game.tool_name() == game.loadout.tools[1]
     fake.buttons[5] = 0
     fake.axes[5] = 1.0                                        # trigger while not looking: starts looking
     game.pad_tick(1 / 60, game.clock.now)
@@ -125,10 +125,32 @@ def test_pad_in_the_3d_game(monkeypatch):
     fake.buttons[3] = 0
     fake.axes[4] = 0.0
     game.pad_tick(1 / 60, game.clock.now)
-    assert not game.pad.wheel_open and game.tool == len(k2.TOOL_NAMES) // 2
+    wheel_tools = game._wheel_tools()                         # every tool the mode allows, not only the hotbar's
+    assert not game.pad.wheel_open and game.tool_name() == wheel_tools[len(wheel_tools) // 2]
     fake.buttons[7] = 1                                       # Start: the pause menu
     game.pad_tick(1 / 60, game.clock.now)
     assert game.menu.open
+
+
+@needs_pack
+def test_pad_x_opens_the_loadout_editor_and_the_default_binding_is_free():
+    """2.12: a pad-only player can reach the loadout editor (the tutorial's last step) without the Q key."""
+    assert config.Config(None).pad["loadout"] == "x" and len({b for b in config.Config(None).pad.values() if b}) == \
+        len([b for b in config.Config(None).pad.values() if b]), "no two pad actions share a button"
+    pygame.init()
+    from kickthefly.game import kick3d
+    from kickthefly.game import kick_the_fly as k2
+
+    state = {"seed": 4}
+    k2.load_brain(state)
+    game = kick3d.Game3D(pygame.Surface((k2.W, k2.H), pygame.SRCALPHA), state["brain"], state["view"],
+                         state["graph"], state["weights"], cfg=config.Config(None))
+    fake = FakePad()
+    game.pad.pads = {0: kick3d.gamepad.Pad(fake)}
+    fake.buttons[2] = 1                                       # X
+    game.pad_tick(1 / 60, game.clock.now)
+    assert game.menu.open and game.menu.screen == "loadout"
+    game.view_stop = True
 
 
 def test_keyboards_listed_as_joysticks_are_not_pads():

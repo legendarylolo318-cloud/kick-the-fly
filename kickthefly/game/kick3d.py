@@ -141,8 +141,10 @@ def set_world(arena: str, trees=()) -> None:
 HELP3D = (
     ("WASD", "walk (Shift sprint, Ctrl crouch)"),
     ("Mouse", "look; left click uses the tool in your hand"),
-    ("1-9, 0, -, = / wheel", "pick a tool (= is the laser)"),
-    ("Gamepad", "sticks walk and look, RT/ZR uses, LB/RB or hold Y (wheel) pick tools, Start/+ menu"),
+    ("1-9, 0 / wheel", "pick a hotbar tool; - and = turn the page of a long loadout"),
+    ("Q", "loadout editor: choose which tools are on the hotbar"),
+    ("` (hold)", "tool wheel: every tool, one gesture away"),
+    ("Gamepad", "sticks walk and look, RT/ZR uses, LB/RB cycle the loadout, hold Y (wheel) pick any tool, Start/+ menu"),
     ("Tab", "free the mouse to click the brain panel and menus"),
     ("B", "big live brain view; click a neuron to inspect it"),
     ("O", "brain surgery"),
@@ -668,19 +670,26 @@ class Game3D(k2.Game):
             self.handle3d(esc, now, lambda q: q)
         if self.menu.open:
             return {}, (0.0, 0.0)
+        tut = self.tutorial
+        if tut is not None and tut.active and tut.pad_event(down):
+            down = [d for d in down if d not in ("big_view", "up")]
+        if "loadout" in down and not self.photo_mode:
+            self.open_loadout_editor()
+            return {}, (0.0, 0.0)
         if "big_view" in down:
             self.do_action("big_view", now)
         if "tool_next" in down:
-            self.tool = (self.tool + 1) % len(TOOLS)
+            self.cycle_tool(1)
         if "tool_prev" in down:
-            self.tool = (self.tool - 1) % len(TOOLS)
+            self.cycle_tool(-1)
         rel = (0.0, 0.0)
+        wheel_tools = self._wheel_tools()
         if pad.was.get("tool_wheel"):                   # held: the right stick points at a tool instead of looking
             pad.wheel_open = True
-            pad.wheel(len(TOOLS))
+            pad.wheel(len(wheel_tools))
         else:
             if pad.wheel_open and pad.wheel_pick is not None:
-                self.tool = pad.wheel_pick
+                self.select_tool(wheel_tools[pad.wheel_pick % len(wheel_tools)])
             pad.wheel_open, pad.wheel_pick = False, None
             c = self.cfg
             speed = float(c["controls.pad_look_speed"]) * dt / 0.0024 / max(0.1, float(c["controls.mouse_sensitivity"]))
@@ -703,18 +712,8 @@ class Game3D(k2.Game):
         return keys, rel
 
     def _draw_tool_wheel(self, hud) -> None:
-        cx, cy, r = k2.PLAY_W // 2, self.hud_h // 2, 150
-        card = pygame.Surface((2 * r + 120, 2 * r + 80), pygame.SRCALPHA)
-        pygame.draw.circle(card, (8, 10, 16, 190), (r + 60, r + 40), r + 50)
-        hud.blit(card, (cx - r - 60, cy - r - 40))
-        n = len(TOOLS)
-        for i, t in enumerate(TOOLS):
-            a = i / n * 2 * math.pi
-            x, y = cx + r * math.sin(a), cy - r * math.cos(a)
-            on = i == self.pad.wheel_pick or (self.pad.wheel_pick is None and i == self.tool)
-            pygame.draw.circle(hud, (70, 120, 200) if on else (30, 36, 48), (int(x), int(y)), 30)
-            self._text(hud, t[0], (int(x), int(y)), k2.INK if on else k2.TEXT, self.f_small, "center")
-        self._text(hud, "release to pick", (cx, cy), k2.LABEL, self.f_small, "center")
+        from kickthefly.ui import loadout_ui
+        loadout_ui.draw_wheel(self, hud)
 
     # --- settings -------------------------------------------------------------------------------------------------
     def save_extra(self, arrays: dict, now: float) -> dict:
@@ -797,7 +796,9 @@ class Game3D(k2.Game):
             c = self.cfg
             sens = c["controls.mouse_sensitivity"]
             rel = (rel[0] * sens, rel[1] * sens * (-1 if c["controls.invert_y"] else 1))
-            if self.photo_mode and self.free_cam is not None:
+            if self.kwheel_open:
+                self.wheel_move(rel)                 # the tool wheel is open: the mouse points at a tool
+            elif self.photo_mode and self.free_cam is not None:
                 self.free_cam.update(dt, keys, rel)
             else:
                 self.player.update(dt, keys, rel)
@@ -984,7 +985,7 @@ class Game3D(k2.Game):
         """Your body or the tool in your hand, whichever is closer to the fly's head, in fly lengths (0.55 m)."""
         head = slot.fly.p[HEAD]
         d = float(np.linalg.norm((self.player.eye - head)[[0, 2]]))          # your body: distance along the floor
-        if TOOLS[self.tool][0] not in ("hand", "sugar", "alcohol"):
+        if TOOLS[self.tool][0] not in ("hand", "sugar", "fruit", "alcohol"):
             d = min(d, float(np.linalg.norm(self.tool_tip() - head)))
         return d / 0.55
 
@@ -1030,6 +1031,8 @@ class Game3D(k2.Game):
         if self.cfg["brain.autopilot"]:
             return
         name = TOOLS[self.tool][0]
+        self.tool_uses += 1
+        self.last_tool_used = name
         eye, d = self.aim()
         self.record_event("tool", name, f"eye=({eye[0]:.2f},{eye[1]:.2f},{eye[2]:.2f})")
         if name in ("hand", "flick", "swatter", "zapper"):
@@ -1097,9 +1100,10 @@ class Game3D(k2.Game):
                                 bites=0, anchor=pt.copy())
             self.spider = self.spider3
             self.sound.play("drop")
-        elif name == "sugar" and len(self.sugars3) < 3 and now - self.throw_t > 0.3:
+        elif name in ("sugar", "fruit") and len(self.sugars3) < 3 and now - self.throw_t > 0.3:
             self.throw_t = now
-            self.sugars3.append(dict(p=self.tool_tip(), v=d * 0.07 + np.array([0, 0.02, 0]), left=1.0, landed=False))
+            self.sugars3.append(dict(p=self.tool_tip(), v=d * 0.07 + np.array([0, 0.02, 0]), left=1.0, landed=False,
+                                     fruit=name == "fruit"))
             self.sound.play("pop")
         elif name == "alcohol" and len(self.alcohols3) < 3 and now - self.throw_t > 0.3:
             self.throw_t = now
@@ -1297,7 +1301,7 @@ class Game3D(k2.Game):
             eye = self.player.eye
             out.append(("player", eye - (0, 0.35, 0), 0.28))
             name = TOOLS[self.tool][0]
-            if name not in ("hand", "sugar", "alcohol"):
+            if name not in ("hand", "sugar", "fruit", "alcohol"):
                 out.append(("tool", self.tool_tip(), TOOL_SIZE.get(name, 0.08)))
             ph = now - self.swing_t
             if ph < 0.14:
@@ -1343,7 +1347,7 @@ class Game3D(k2.Game):
             return
         head = fly.p[HEAD]
         if not self._overlay_open() and np.linalg.norm(self.tool_tip() - head) < 2.5:
-            slot.scent_now = TOOLS[self.tool][0]
+            slot.scent_now = "sugar" if TOOLS[self.tool][0] == "fruit" else TOOLS[self.tool][0]   # fruit smells like sugar
             slot.brain.poke("scent", slot.scent_now, 0.3)
         if any(np.linalg.norm((s["p"] - head)[[0, 2]]) < 2.4 for s in self.sugars3):
             slot.sugar_scent = True
@@ -2734,6 +2738,9 @@ class Game3D(k2.Game):
             self._shadow(rd, b["p"], 0.09)
         for s in self.sugars3:
             e = max(0.35, s["left"]) * 0.07
+            if s.get("fruit"):
+                rd.add("sphere", trs(s["p"], None, (e, e, e)), (0.84, 0.25, 0.19), P_NONE, 0.1)
+                continue
             rd.add("cube", trs(s["p"], rot_y(0.5), (e, e, e)), (0.98, 0.98, 1.0), P_NONE, 0.1)
         for a in self.alcohols3:                             # a shallow pink puddle of fermented fruit juice
             e = max(0.35, a["left"]) * 0.09
@@ -2869,6 +2876,10 @@ class Game3D(k2.Game):
         elif name == "sugar":
             if now - self.throw_t > 0.3:
                 rd.add("cube", trs(base + (0, 0.05, -0.05), rot_y(0.5), (0.055, 0.055, 0.055)), (0.98, 0.98, 1.0), layer="view")
+            hand(base, 0.6)
+        elif name == "fruit":
+            if now - self.throw_t > 0.3:
+                rd.add("sphere", trs(base + (0, 0.05, -0.05), None, (0.05, 0.05, 0.05)), (0.84, 0.25, 0.19), layer="view")
             hand(base, 0.6)
         elif name == "laser":
             rd.add("cylinder", segment(base + (0, 0, 0.05), base + (0, 0.05, -0.22), 0.025), (0.2, 0.22, 0.26), layer="view")
@@ -3109,7 +3120,7 @@ class Game3D(k2.Game):
                 badge = f"LASER: {ls.target_type} ({'STIM' if ls.mode == 'activate' else 'SILENCE'})"
                 self._text(hud, badge, (cx + 18, cy - 18), col_b, self.f_small)
         self._draw_toolbar(hud)
-        if self.pad.wheel_open and not self._overlay_open():
+        if (self.pad.wheel_open or self.kwheel_open) and not self._overlay_open():
             self._draw_tool_wheel(hud)
         self._draw_hud(hud, now)
         if self.duel:
@@ -3140,6 +3151,8 @@ class Game3D(k2.Game):
         self.draw_science_card(hud, now)
         self.draw_time_indicator(hud, k2.PLAY_W // 2, 92)
         self.draw_recording(hud, k2.PLAY_W // 2, 130)
+        if self.tutorial is not None and self.tutorial.active and not self.menu.open:
+            self.tutorial.draw(hud)
         if self.menu.open:
             self.menu.draw(hud, self.mouse_logical, now)
 
@@ -3173,12 +3186,11 @@ class Game3D(k2.Game):
             return True
         if self.menu_first(ev, self.mouse_logical):
             return not self.want_quit
+        if self.tutorial_event(ev) or self.wheel_event(ev):
+            return True
         if ev.type == pygame.KEYDOWN:
             if self.big_view and ev.key in (pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_0, pygame.K_KP1, pygame.K_KP2, pygame.K_KP3, pygame.K_KP0):
                 return k2.Game.handle(self, ev, now)
-            if ev.key in k2.TOOL_KEYS:
-                self.tool = k2.TOOL_KEYS.index(ev.key)
-                return True
             if (ev.key == pygame.K_r and (ev.mod & pygame.KMOD_SHIFT)) or getattr(ev, "unicode", "") == "R":
                 self.toggle_video_recording()
                 return True
@@ -3245,8 +3257,8 @@ class Game3D(k2.Game):
                 if getattr(self, "big_rect", None) and self.big_rect.collidepoint(mpos):
                     self.view.zoom_by(1.15 if ev.y > 0 else 0.87)
                     return True
-            if self.look:
-                self.tool = (self.tool - ev.y) % len(TOOLS)
+            if self.look and ev.y:
+                self.cycle_tool(-ev.y)
                 return True
         if ev.type == pygame.MOUSEMOTION and not self.look and self.big_view and getattr(self, "big_drag", None):
             return k2.Game.handle(self, ev, now)
@@ -3279,10 +3291,8 @@ class Game3D(k2.Game):
                 return True
             if self.surgery_open or self.help_open or self.report is not None or self.big_view or self.training_open:
                 return k2.Game.handle(self, ev, now)
-            for kk, r in enumerate(getattr(self, "tool_rects", [])):
-                if r.collidepoint(pos):
-                    self.tool = kk
-                    return True
+            if self.hotbar_click(pos):
+                return True
             if self.view_rect.collidepoint(pos):
                 self.big_view = True
             return True
@@ -3636,6 +3646,8 @@ def run(smoke: float = 0.0, shot: str | None = None, fullscreen: bool = False, s
     brain.start()
     hud = pygame.Surface((k2.W, k2.H), pygame.SRCALPHA)
     game = Game3D(hud, brain, state["view"], state.get("graph"), state.get("weights"), cfg=cfg)
+    if not smoke:
+        game.show_first_run_notices()
     if cfg["brain.autopilot"]:
         game.big_view = True
     if record_video:
