@@ -153,3 +153,41 @@ def test_no_opengl_marks_the_render_check_skipped_not_passed(monkeypatch):
     r = pt.Result(id="extra:render", group="extra")
     pt.guarded(r, pt.extra_render, None, r)
     assert r.status == pt.SKIP and "render checks skipped" in r.notes[0]
+
+
+def test_the_2d_spider_drops_like_the_3d_one():
+    """The 2D spider drops on its thread at the 3D spider's speed and to its height (kick3d._spider3d: 0.04 m a frame
+    down to 0.12 m above the floor), converted with the games' shared scale of kick3d.S meters per 2D pixel."""
+    from kickthefly.game import kick3d
+    from kickthefly.game import kick_the_fly as k2
+
+    assert k2.SPIDER_DROP * kick3d.S == pytest.approx(0.04)
+    assert (k2.FLOOR - k2.SPIDER_DROP_TO) * kick3d.S == pytest.approx(0.12)
+
+
+@needs_pack
+def test_the_2d_spider_is_a_looming_threat_while_it_drops(tmp_path):
+    """The one full-playthrough failure of 2.13 (game2d:adult:flypaper:spider): the 2D spider appeared at the ceiling
+    already crawling, so a fly stuck to flypaper, which can't move its head toward it, saw it grow at ~4 rad/s at most
+    and LPLC2/LC4 barely rose. The 3D spider drops on its thread first and looms while it drops; the 2D one now does too."""
+    from kickthefly.game import kick_the_fly as k2
+
+    rig = pt.Rig(False, "cpu")
+    try:
+        g = rig.game
+        rig.set_arena("flypaper")
+        rig.use("spider")
+        sp = g.spider
+        assert sp["state"] == "drop" and sp["p"][1] == k2.CEIL + 4.0
+        slot = rig.slot
+        y0 = sp["p"][1]
+        g._spider(g.clock.now)
+        assert sp["p"][1] == pytest.approx(y0 + k2.SPIDER_DROP)
+        assert any(key == "spider" for key, _, _ in g._threats(slot, g.clock.now, (0, 0))), "it looms while it drops"
+        for _ in range(200):
+            if sp["state"] != "drop":
+                break
+            g._spider(g.clock.now)
+        assert sp["state"] == "hunt" and sp["p"][1] == pytest.approx(k2.SPIDER_DROP_TO)
+    finally:
+        rig.close()
