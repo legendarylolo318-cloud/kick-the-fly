@@ -80,3 +80,18 @@ Everything runs in lockstep on your thread: the same seed, backend family and ca
 `numba` and `torch-cpu` are bit-exact with each other; GPU backends agree statistically (README: Deterministic runs).
 For many flies or seeds at once, protocols (`python kick_the_fly.py --headless --protocol FILE`) already run seeds in
 worker processes.
+
+
+## Tool loadouts (2.12)
+
+```python
+fly = Fly(seed=1, mode="lab")          # mode: "play" (default), "lab" (the laser is allowed) or "pet"
+fly.loadout.tools                      # ['hand', 'swatter', 'torch', 'freeze', 'sugar'] in Play (Base)
+fly.loadout.page_tools()               # one page of ten
+fly.set_loadout("chaos")               # a preset: base, chaos, chemist, lab, all, pet, auto
+fly.set_loadout(["swatter", "cva"])    # or your own list (the hand is added first)
+fly.use_tool("sugar")                  # drives the tool's documented sensory neurons once (Brain.poke); fly.tool == "sugar"
+```
+
+`fly.use_tool` is the sensory drive only: no body, no room. A tool the mode doesn't allow raises `ValueError`. The presets and the
+tool catalog (`ToolInfo`: category, description, the neurons it drives, CONNECTOME or GAME RULE) are in `kickthefly.core.loadout`.

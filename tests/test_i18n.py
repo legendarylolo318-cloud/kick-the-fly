@@ -80,7 +80,7 @@ def test_the_pause_menu_is_translated(monkeypatch):
     surf = pygame.Surface((1280, 760))
 
     class Host:
-        cfg = type("Cfg", (), {"lab": False})()
+        cfg = type("Cfg", (), {"lab": False, "get": lambda self, key, default=None: default})()
 
         def menu_action(self, a):
             pass

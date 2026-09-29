@@ -17,7 +17,7 @@ from pathlib import Path
 
 from kickthefly.core.crash import log
 
-TABS = ("Graphics", "Audio", "Brain", "Controls", "Accessibility")
+TABS = ("Graphics", "Audio", "Brain", "Controls", "Accessibility", "Help")
 CONNECTOME, GAME_RULE = "Connectome", "Game rule"
 
 
@@ -181,9 +181,15 @@ SETTINGS: tuple[Setting, ...] = (
     S("controls.invert_y", "Controls", "Invert Y", "bool", False, "Moving the mouse up looks down.", only="3d"),
     S("controls.fov", "Controls", "Field of view", "float", 70.0,
       "How wide your view of the room is, in degrees.", lo=50, hi=110, step=1, only="3d", fmt="{:.0f}°"),
+    S("controls.loadout_preset", "Controls", "Tool loadout", "choice", "auto",
+      "Which tools are on the hotbar (keys 1-9, 0). Automatic is Base in Play, Lab in Lab mode and Pet in Pet mode. "
+      "Hotbar order and your own loadouts are made in the editor (default key Q). The tool wheel still reaches every "
+      "tool. A loadout is a convenience: it never changes what a tool does to the fly.",
+      options=("auto", "base", "chaos", "chemist", "lab", "all", "pet", "custom"),
+      labels=("Automatic", "Base", "Chaos", "Chemist", "Lab", "All", "Pet", "Custom")),
     S("controls.gamepad", "Controls", "Gamepad", "bool", True,
       "Use a connected gamepad in the 3D game alongside keyboard and mouse: left stick walks, right stick looks, "
-      "right trigger uses the tool, bumpers cycle tools, hold Y for the tool wheel. Rebind below.", only="3d"),
+      "right trigger uses the tool, bumpers cycle your loadout, hold Y for the tool wheel. Rebind below.", only="3d"),
     S("controls.pad_look_speed", "Controls", "Gamepad look speed", "float", 2.5,
       "How fast the right stick turns your view, in radians per second at full tilt.", lo=0.5, hi=6.0, step=0.1,
       only="3d", fmt="{:.1f}"),
@@ -226,9 +232,15 @@ ACTIONS: tuple[tuple[str, str, str], ...] = (
     ("timelapse", "Time-lapse record", "l"),
     ("recall", "Recall a lost fly (outdoors)", "j"),
     ("cycle_fly", "Cycle focused fly", "f"),
+    ("loadout", "Loadout editor", "q"),
+    ("tool_wheel", "Tool wheel (hold)", "`"),
+    *((f"slot{i + 1}", f"Hotbar slot {i + 1}", str((i + 1) % 10)) for i in range(10)),
+    ("page_prev", "Hotbar previous page", "-"),
+    ("page_next", "Hotbar next page", "="),
 )
 ACTION_LABEL = {a: label for a, label, _ in ACTIONS}
-RESERVED_KEYS = {"escape", *"0123456789", "-", "="}      # the pause menu and the tool keys can't be rebound
+RESERVED_KEYS = {"escape"}                                # the pause menu can't be rebound (2.12: the tool keys can)
+SLOT_ACTIONS = tuple(f"slot{i + 1}" for i in range(10))     # hotbar slots: keys 1-9, 0 by default
 MOVEMENT_3D_ONLY = {"forward", "back", "left", "right", "sprint", "crouch", "free_mouse", "duel", "panel", "menu_size"}
 # gamepad bindings (game/gamepad.py): action, label, default. A binding is one of SDL's standard controller names
 # (the same on Xbox, PlayStation, Switch Pro...; button names follow the pad's printed labels), a raw "axisN" or
@@ -240,7 +252,7 @@ PAD_ACTIONS: tuple[tuple[str, str, str], ...] = (
     ("move_x", "Walk left / right (stick)", "leftx"), ("move_y", "Walk forward / back (stick)", "lefty"),
     ("look_x", "Look left / right (stick)", "rightx"), ("look_y", "Look up / down (stick)", "righty"),
     ("use", "Use the tool", "righttrigger"), ("tool_next", "Next tool", "rightshoulder"),
-    ("tool_prev", "Previous tool", "leftshoulder"), ("tool_wheel", "Tool wheel (hold)", "y"),
+    ("tool_prev", "Previous tool", "leftshoulder"), ("tool_wheel", "Tool wheel (hold)", "y"), ("loadout", "Loadout editor", "x"),
     ("sprint", "Sprint", "leftstick"), ("crouch", "Crouch / fly down", "b"), ("up", "Fly up (photo mode)", "a"),
     ("menu", "Menu (Esc)", "start"), ("big_view", "Big brain view", "back"),
 )
@@ -279,7 +291,12 @@ def _coerce(s: Setting, v):
     raise ValueError(s.kind)
 
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
+# 2.12 (schema 3): [loadout] custom slots and up to five saved loadouts, and [first_run] flags. A config from before
+# 2.12 (schema < 3) had players on keys 1-9, 0, - and =, which then reached every tool, so it migrates to the All
+# preset (nobody's muscle memory breaks) with a one-time notice pointing at the loadout editor, and it counts as
+# already onboarded (no first-launch tutorial; Settings > Help replays it). A fresh install gets Base and the tutorial.
+FIRST_RUN_DEFAULTS = {"tutorial_done": False, "loadout_notice": False}
 
 
 class Config:
@@ -290,6 +307,9 @@ class Config:
         self.pad: dict[str, str] = {a: b for a, _, b in PAD_ACTIONS}
         self.warnings: list[str] = []
         self.dirty = False
+        self.loadout: dict = {"custom": [], "saved": []}     # custom: tool names; saved: [{"name", "tools"}] (max 5)
+        self.first_run: dict = dict(FIRST_RUN_DEFAULTS)
+        self.migrated_from: int | None = None                # the schema version this file was migrated from
 
     # --- values -----------------------------------------------------------------------------------------------------
     def __getitem__(self, key: str):
@@ -352,7 +372,7 @@ class Config:
         """Rebind an action. A key another action already uses swaps the two bindings. Returns (ok, message)."""
         key_name = key_name.lower()
         if key_name in RESERVED_KEYS:
-            return False, f"'{key_name}' is reserved (Esc opens the menu, 0-9 pick tools)"
+            return False, f"'{key_name}' is reserved (Esc opens the menu)"
         other = self.action_for(key_name)
         old = self.keys[action]
         self.keys[action] = key_name
@@ -425,6 +445,9 @@ class Config:
                     cfg.keys[a] = next(d for x, _, d in ACTIONS if x == a)
                     cfg.warnings.append(f"key '{k}' was bound twice; {a} reset to its default")
         schema = data.get("schema_version", 1)
+        if not isinstance(schema, int) or isinstance(schema, bool):
+            schema = 1
+        cfg._load_loadout(data, schema)
         if schema < 2:
             if cfg.values.get("brain.science_popups") is True:
                 cfg.values["brain.science_popups"] = False
@@ -433,6 +456,58 @@ class Config:
         for w in cfg.warnings:
             log.warning(w)
         return cfg
+
+    def _load_loadout(self, data: dict, schema: int) -> None:
+        from kickthefly.core import loadout as lo
+
+        def names(v):
+            return [n for n in v if isinstance(n, str) and n in lo.BY_NAME] if isinstance(v, list) else []
+
+        sec = data.get("loadout")
+        if isinstance(sec, dict):
+            self.loadout["custom"] = names(sec.get("custom"))
+            for item in (sec.get("saved") if isinstance(sec.get("saved"), list) else [])[:lo.MAX_SAVED]:
+                if isinstance(item, dict) and isinstance(item.get("name"), str) and item["name"].strip():
+                    self.loadout["saved"].append({"name": item["name"].strip()[:24], "tools": names(item.get("tools"))})
+        fr = data.get("first_run")
+        if isinstance(fr, dict):
+            for k in FIRST_RUN_DEFAULTS:
+                if isinstance(fr.get(k), bool):
+                    self.first_run[k] = fr[k]
+        if schema < 3:
+            self.migrated_from = schema
+            if self.values["controls.loadout_preset"] == "auto" and "loadout_preset" not in (data.get("controls") or {}):
+                self.values["controls.loadout_preset"] = "all"
+            self.first_run["loadout_notice"] = True         # shown once, then cleared (Game.show_loadout_notice)
+            self.first_run["tutorial_done"] = True
+            self.dirty = True
+            self.warnings.append("migrated to schema 3: hotbar loadout set to All so keys 1-9, 0, - and = still reach "
+                                 "every tool (Settings > Controls > Tool loadout, or the editor on Q)")
+
+    def custom_loadout(self, tools) -> None:
+        self.loadout["custom"] = list(tools)
+        self.dirty = True
+
+    def save_loadout(self, name: str, tools) -> bool:
+        """Store a named loadout (replacing one of the same name). False if all five slots are taken."""
+        from kickthefly.core import loadout as lo
+
+        name = name.strip()[:24] or "Loadout"
+        saved = self.loadout["saved"]
+        for item in saved:
+            if item["name"] == name:
+                item["tools"] = list(tools)
+                self.dirty = True
+                return True
+        if len(saved) >= lo.MAX_SAVED:
+            return False
+        saved.append({"name": name, "tools": list(tools)})
+        self.dirty = True
+        return True
+
+    def delete_loadout(self, name: str) -> None:
+        self.loadout["saved"] = [i for i in self.loadout["saved"] if i["name"] != name]
+        self.dirty = True
 
     def to_toml(self) -> str:
         from kickthefly.core.version import __version__
@@ -453,6 +528,10 @@ class Config:
         out.append("")
         out.append("[gamepad]")
         out += [f"{a} = {_toml_value(b)}" for a, b in self.pad.items()]
+        out += ["", "[loadout]", f"custom = {_toml_value(self.loadout['custom'])}"]
+        for item in self.loadout["saved"]:
+            out += ["", "[[loadout.saved]]", f"name = {_toml_value(item['name'])}", f"tools = {_toml_value(item['tools'])}"]
+        out += ["", "[first_run]"] + [f"{k} = {_toml_value(bool(self.first_run[k]))}" for k in FIRST_RUN_DEFAULTS]
         return "\n".join(out) + "\n"
 
     def save(self) -> bool:
@@ -475,6 +554,8 @@ def _toml_value(v) -> str:
         return "true" if v else "false"
     if isinstance(v, int):
         return str(v)
+    if isinstance(v, (list, tuple)):
+        return "[" + ", ".join(_toml_value(x) for x in v) + "]"
     if isinstance(v, float):
         return repr(v)
     s = str(v).replace("\\", "\\\\").replace('"', '\\"')

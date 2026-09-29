@@ -327,7 +327,9 @@ def load_game(game, path: Path) -> dict:
         restore_object(slot, fm["slot"], z, now)
         slot.pending_hits, slot.loom_prev = {}, {}
         slot.seed = int(fm["seed"])
-    game.tool = int(meta["tool"])
+    game.tool = min(max(int(meta["tool"]), 0), len(k2.TOOLS) - 1)      # by index: the tool list only ever grows
+    if hasattr(game, "refresh_loadout"):
+        game.refresh_loadout()                                # a tool this mode doesn't allow is put down for the hand
     game.focus = min(int(meta["focus"]), len(game.flies) - 1)
     game.kills = int(meta["kills"])
     game.set_setting("brain.immortal", bool(meta["immortal"]), save=False)
