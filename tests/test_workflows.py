@@ -89,3 +89,5 @@ def test_the_fast_suite_has_time_for_the_2_13_tests():
     fast = load("tests.yml")["jobs"]["fast"]
     assert fast["name"] == "fast tests", "branch protection requires this check by name"
     assert fast["timeout-minutes"] >= 60
+    linux = load("release.yml")["jobs"]["test-linux"]            # the same fast suite, then the validation suite
+    assert linux["timeout-minutes"] >= 120, "fast (62 min on CI) + validation (~28 min) must fit"

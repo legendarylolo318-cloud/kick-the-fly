@@ -48,7 +48,8 @@ jobs:
   test-linux:
     needs: brainpack
     runs-on: ubuntu-22.04
-    timeout-minutes: 90
+    # the fast suite took 62 min on the 2.13 pull request and the validation suite ~28: 90 no longer fits both
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
