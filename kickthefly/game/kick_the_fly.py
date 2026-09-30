@@ -392,6 +392,10 @@ W, H = 1280, 760
 PLAY_W = 890                 # left part is the arena, right part the brain panel
 FLOOR = 640
 CEIL = 40
+# the spider drops on its thread as in the 3D game (0.04 m a frame down to 0.12 m above the floor, at kick3d's 0.006 m a
+# pixel), so it looms the same way in both: game rules, like its hunting
+SPIDER_DROP = 0.04 / 0.006
+SPIDER_DROP_TO = FLOOR - 0.12 / 0.006
 BG = (9, 11, 15)
 PANEL_BG = (13, 16, 22)
 CARD = (20, 24, 32)
@@ -3601,7 +3605,7 @@ class Game:
                 d = pos - pivot
                 ang = math.atan2(d[1], d[0]) - 0.9 * (1 - (ph / 0.3) ** 2)
                 out.append((("swat", id(sw)), pivot + np.array([math.cos(ang), math.sin(ang)]) * float(np.hypot(*d)), 80.0))
-        if self.spider is not None and self.spider["state"] == "hunt":
+        if self.spider is not None and self.spider["state"] in ("drop", "hunt"):     # as in the 3D game
             out.append(("spider", self.spider["p"].copy(), 22.0))
         for b in self.bombs:
             out.append((("bomb", id(b)), b["p"].copy(), 16.0))
@@ -5103,7 +5107,8 @@ class Game:
         elif name == "zapper" and now >= self.zap_ready:
             self._zap(pos, now)
         elif name == "spider" and self.spider is None and any(not s.fly.dead for s in self.flies):
-            self.spider = {"p": np.array([pos[0], CEIL + 4.0]), "state": "hunt", "bite_at": 0.0, "bites": 0, "t": now}
+            # it drops on its thread to the floor under the click, then hunts: the 3D spider's drop (kick3d._spider3d)
+            self.spider = {"p": np.array([pos[0], CEIL + 4.0]), "state": "drop", "bite_at": 0.0, "bites": 0, "t": now}
             self.sound.play("drop")
             self.popup((pos[0], CEIL + 70), "A SPIDER!", (200, 200, 210))
         elif name in ("sugar", "fruit") and len(self.sugars) < 3:
@@ -5270,6 +5275,11 @@ class Game:
     def _spider(self, now: float) -> None:
         sp = self.spider
         if sp is None:
+            return
+        if sp["state"] == "drop":                          # the 3D drop in 2D pixels: 0.04 m a frame to 0.12 m up
+            sp["p"][1] += SPIDER_DROP
+            if sp["p"][1] >= SPIDER_DROP_TO:
+                sp["p"][1], sp["state"] = SPIDER_DROP_TO, "hunt"
             return
         candidates = [s for s in self.flies if not (s.fly.dead or s.fly.dissolved_at is not None or s.fly.shattered_at is not None)]
         if sp["state"] == "hunt":
