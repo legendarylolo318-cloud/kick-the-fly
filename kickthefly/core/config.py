@@ -133,6 +133,19 @@ SETTINGS: tuple[Setting, ...] = (
       "in Play.", options=("auto", "on", "off"), labels=("Auto", "On", "Off")),
     S("brain.science_popups", "Brain", "Real-science popups", "bool", False,
       "Show a short card when the fly does something real flies were shown to do."),
+    S("brain.neurodex", "Brain", "Neurodex discoveries", "bool", True,
+      "Collect cell types in the Neurodex (default key D): a type is discovered the first time its neurons fire well "
+      "above their own calm rate while you play. The numbers in an entry come from the dataset (Connectome); what counts "
+      "as discovered, and the collection, are game rules. Off stops collecting; what you found stays.",
+      tag=GAME_RULE),
+    S("brain.killcam", "Brain", "Kill cam offer", "bool", True,
+      "When the fly dies, offer a slow-motion replay of the last 6 seconds of its brain and highlight the neurons whose "
+      "firing rose most. The firing is the real simulated rate of each neuron (Connectome); the offer, the window and the "
+      "slow motion are game rules. Skippable; can be saved as a video or GIF.", tag=GAME_RULE),
+    S("brain.neuron_of_day", "Brain", "Neuron of the day", "bool", True,
+      "A small card at launch with one curated cell type, a fact with its citation (from the literature, not measured "
+      "here) and a Try it button that sets up a one-click experiment. Separate from the real-science popups. Which type, "
+      "the card and Try it are game rules.", tag=GAME_RULE),
     S("brain.autopilot", "Brain", "Autopilot / spectator", "bool", False,
       "Hands-off mode where only environmental inputs reach the fly. Hotkey Y.", tag=GAME_RULE),
     S("brain.autopilot_orbit", "Brain", "Autopilot brain orbit", "bool", True,
@@ -233,6 +246,8 @@ ACTIONS: tuple[tuple[str, str, str], ...] = (
     ("recall", "Recall a lost fly (outdoors)", "j"),
     ("cycle_fly", "Cycle focused fly", "f"),
     ("loadout", "Loadout editor", "q"),
+    ("neurodex", "Neurodex", "d"),
+    ("killcam", "Kill cam (after the fly dies)", ";"),
     ("tool_wheel", "Tool wheel (hold)", "`"),
     *((f"slot{i + 1}", f"Hotbar slot {i + 1}", str((i + 1) % 10)) for i in range(10)),
     ("page_prev", "Hotbar previous page", "-"),
@@ -255,6 +270,7 @@ PAD_ACTIONS: tuple[tuple[str, str, str], ...] = (
     ("tool_prev", "Previous tool", "leftshoulder"), ("tool_wheel", "Tool wheel (hold)", "y"), ("loadout", "Loadout editor", "x"),
     ("sprint", "Sprint", "leftstick"), ("crouch", "Crouch / fly down", "b"), ("up", "Fly up (photo mode)", "a"),
     ("menu", "Menu (Esc)", "start"), ("big_view", "Big brain view", "back"),
+    ("neurodex", "Neurodex", "dpup"), ("killcam", "Kill cam / skip it", "dpdown"),
 )
 PAD_LABEL = {a: label for a, label, _ in PAD_ACTIONS}
 
@@ -289,6 +305,15 @@ def _coerce(s: Setting, v):
         v = min(max(v, s.lo), s.hi)
         return int(round(v)) if s.kind == "int" else float(v)
     raise ValueError(s.kind)
+
+
+# Pairs that may share a key on purpose (3.0): the Neurodex key is D, which is also walk right in the 3D game. The 3D game
+# opens the Neurodex on D only while the mouse is free, so walking is never taken away. Rebind either and it is gone.
+OVERLAP_OK = ({"right", "neurodex"},)
+
+
+def _allowed_overlap(actions: list[str]) -> bool:
+    return any(set(actions) <= pair for pair in OVERLAP_OK)
 
 
 SCHEMA_VERSION = 3
@@ -398,12 +423,19 @@ class Config:
             return True, f"{b} was used by {other}; swapped, that is now {old or 'unbound'}"
         return True, ""
 
+    def actions_for(self, key_name: str) -> list[str]:
+        """Every action bound to a key (action_for returns only the first). D is walk-right and the Neurodex key at once
+        by design (3.0): in the 3D game it opens the Neurodex only when the mouse is free (Tab)."""
+        if not key_name:
+            return []
+        return [a for a, k in self.keys.items() if k == key_name]
+
     def conflicts(self) -> dict[str, list[str]]:
         seen: dict[str, list[str]] = {}
         for a, k in self.keys.items():
             if k:                                            # "" is unbound, and any number of actions can be
                 seen.setdefault(k, []).append(a)
-        return {k: v for k, v in seen.items() if len(v) > 1}
+        return {k: v for k, v in seen.items() if len(v) > 1 and not _allowed_overlap(v)}
 
     # --- files ------------------------------------------------------------------------------------------------------
     @classmethod

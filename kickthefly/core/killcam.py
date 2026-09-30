@@ -140,7 +140,7 @@ class Replay:
         risers = self.top_risers(k)
         types = np.asarray(brain_types).astype(str)
         for r in risers:
-            r["type"] = types[r["index"]] or "(no type)"
+            r["type"] = str(types[r["index"]]) or "(no type)"
             if brain_super is not None:
                 r["superclass"] = str(brain_super[r["index"]])
         counts: dict[str, int] = {}

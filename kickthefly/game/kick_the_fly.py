@@ -2287,9 +2287,11 @@ class Game:
         from kickthefly.lab import lab
         lab.install(self.menu)
         self.menu.pages["load_state"] = page_load_state
-        from kickthefly.ui import help_ui, loadout_ui
+        from kickthefly.ui import help_ui, loadout_ui, neurodex_ui, share_ui
         loadout_ui.install(self.menu)
         help_ui.install(self.menu)
+        neurodex_ui.install(self.menu)                # 3.0: the Neurodex panel and Esc > Share
+        share_ui.install(self.menu)
         from kickthefly.lab import challenges
         from kickthefly.lab import validation
         self.menu.pages["challenges"] = challenges.page_challenges
@@ -2380,6 +2382,8 @@ class Game:
         for s in config.SETTINGS:                   # settings from config.toml take effect before the first frame
             if s.key != "graphics.fullscreen":
                 self.apply_setting(s.key)
+        from kickthefly.game import extras3
+        self.x3 = extras3.Extras(self)               # 3.0: Neurodex tracking, kill cam, Neuron of the Day
         threading.Thread(target=self._view_loop, name="brain-view", daemon=True).start()
 
     # --- settings, menu and time ----------------------------------------------------------------------------------
@@ -2674,6 +2678,8 @@ class Game:
             self.open_menu("loadout_notice")
         elif not fr.get("tutorial_done"):
             self.start_tutorial()
+        else:
+            self.x3.maybe_show_notd()                 # 3.0: the Neuron of the Day card (its own setting, default on)
 
     def start_tutorial(self, replay: bool = False) -> None:
         from kickthefly.ui import tutorial
@@ -2696,6 +2702,10 @@ class Game:
             self.menu.show("lab")
         elif name == "challenges":
             self.menu.show("challenges")
+        elif name == "neurodex":
+            self.x3.open_neurodex()
+        elif name == "share":
+            self.menu.show("share")
         elif name == "save_state":
             self.save_state()
         elif name == "load_state":
@@ -2758,6 +2768,11 @@ class Game:
         return pygame.Rect(PLAY_W // 2 - 300, H - 250, 600, 104)
 
     def draw_science_card(self, surf, now: float) -> None:
+        """Both games call this last: the 3.0 overlays (Neurodex toasts, the kill cam, the launch card) draw with it."""
+        self.x3.draw(surf, now)
+        self._draw_science_card(surf, now)
+
+    def _draw_science_card(self, surf, now: float) -> None:
         if self.science_card is None:
             return
         test, t0 = self.science_card
@@ -3336,7 +3351,11 @@ class Game:
             calm = not br.dead and br.sedation == 0 and br.steps - br.last_poke > CALM_STEPS
             raster = br.sim.activity.raster()
             spiked = raster[-1] if raster else np.zeros(0, np.int64)
-            self.view_surf[key] = self.view.render(key, br.sim.activity.rates(), spiked, t0 - self.born_view, learn=calm)
+            replay = self.x3.view_rates()            # 3.0: while the kill cam plays, the recorded frame, not the live brain
+            if replay is not None:
+                self.view_surf[key] = self.view.render(key, replay[0], replay[1], t0 - self.born_view, learn=False)
+            else:
+                self.view_surf[key] = self.view.render(key, br.sim.activity.rates(), spiked, t0 - self.born_view, learn=calm)
             time.sleep(max(0.005, 0.05 - (time.perf_counter() - t0)))
 
     def _view_surface(self, key: str) -> pygame.Surface:
@@ -3381,6 +3400,7 @@ class Game:
         self.big_rect = rect
         surf.blit(self._view_surface("big"), rect)
         self._hud_overlay(surf, rect, now, small=False)
+        self.x3.draw_killcam_rings(surf, rect, "big", now)
         self._clean_frame = surf.copy()
         if getattr(self, "photo_mode", False):
             b_txt = self.f_small.render("PHOTO MODE  |  S / F12: Clean Snap  |  F10: Exit", True, (240, 240, 240))
@@ -3590,7 +3610,7 @@ class Game:
         ch = getattr(self, "challenge", None)
         if ch is not None and ch.overlay:
             return True
-        return self.report is not None or self.big_view or self.surgery_open or self.help_open
+        return self.report is not None or self.big_view or self.surgery_open or self.help_open or self.x3.kc_playing()
 
     def _threats(self, slot: "FlySlot", now: float, mouse) -> list:
         out = []
@@ -5746,6 +5766,7 @@ class Game:
         self._update_focus()
         self._training_tick(now)
         self._sound_update(now)
+        self.x3.tick(now)
 
     def _fly_collisions(self, now: float) -> None:
         """Two flies that bump: a soft push-apart always, and if the impact is hard enough, a real touch-neuron poke
@@ -5786,6 +5807,7 @@ class Game:
         fly.dead_at = now
         fly.grabbed = None
         self.kills += 1
+        self.x3.on_die(slot)                         # 3.0: keep the last seconds for the kill cam (before the drive is cut)
         slot.brain.kill()
         self.sound.play("death")
         self.note("DIED     brain drive cut, activity fading")
@@ -6425,13 +6447,15 @@ class Game:
         else:
             scr.blit(self._panel_image(self._view_surface("panel")), (x, 54))
             self._hud_overlay(scr, self.view_rect, now, small=True)
+            self.x3.draw_killcam_rings(scr, self.view_rect, "panel", now)
             self._text(scr, "B: big view", (x + nw - 6, 54 + nh - 16), LABEL, self.f_small, "topright")
         y = 54 + nh + 12
 
         bw = W - x - 12
         y = self._card(scr, x, y, bw, "TOUCH NEURONS", "spikes/s per neuron", 4)
+        fast, base = self.x3.panel_fast(br)          # the recorded group rates while the kill cam plays
         for region, label in (("head", "head BM/JO"), ("body", "body SNta"), ("legs", "legs SNpp"), ("wing", "wing WG")):
-            hz = br.hz(region)
+            hz = float(fast[br.col[region]])
             self._text(scr, label, (x + 8, y - 3), TEXT, self.f_small)
             self._bar(scr, x + 104, y, bw - 150, hz / 60.0, (90, 200, 120))
             self._text(scr, f"{hz:4.0f}", (x + bw - 8, y - 3), TEXT, self.f_small, "topright")
@@ -6439,7 +6463,7 @@ class Game:
         y += 10
         y = self._card(scr, x, y, bw, "DESCENDING NEURONS", "x calm baseline", len(MOTOR))
         for name, _, _, label in MOTOR:
-            lvl = br.level(name)
+            lvl = float(fast[br.col[name]] / max(base[br.col[name]], 2.0))
             th = THRESH.get(name)
             over = th is not None and lvl > th
             self._text(scr, label, (x + 8, y - 3), AMBER if over else TEXT, self.f_small)
@@ -6511,6 +6535,11 @@ class Game:
         self._text(surf, "NEW FLY  (R)", r_btn.center, (30, 20, 8), self.f_bold, "center")
         self.new_fly_rect = r_btn
         self.save_rects = []
+        if self.x3.kc_available():                   # 3.0: the kill cam, offered on the autopsy card
+            r = pygame.Rect(card.right - 196, card.y + 102, 198, 26)
+            pygame.draw.rect(surf, (40, 110, 150), r, border_radius=7)
+            self._text(surf, "KILL CAM (slow motion)", r.center, INK, self.f_small, "center")
+            self.save_rects.append((r, "killcam"))
         for k, (label, what) in enumerate((("SAVE IMAGE", "png"), ("SAVE DEATH GIF", "gif"))):
             r = pygame.Rect(card.right - 196 + k * 88 - (0 if k == 0 else 4), card.y + 70, 84 if k == 0 else 110, 26)
             pygame.draw.rect(surf, (44, 50, 64), r, border_radius=7)
@@ -6700,6 +6729,8 @@ class Game:
             return not self.want_quit
         if self.tutorial_event(ev) or self.wheel_event(ev):
             return True
+        if self.x3.handle_event(ev):                 # 3.0: kill cam keys and clicks, the launch card, the Neurodex key
+            return True
         if ev.type == pygame.KEYDOWN:
             # 1/2/3/0 pick the big view's camera, unless the player bound that key to the big view itself (2.13: digits
             # are rebindable), which must still close it
@@ -6771,7 +6802,10 @@ class Game:
                     self.new_fly()
                 for r, what in getattr(self, "save_rects", []):
                     if r.collidepoint(ev.pos):
-                        self.save_png() if what == "png" else self.save_gif(self.death_frames)
+                        if what == "killcam":
+                            self.x3.kc_start()
+                        else:
+                            self.save_png() if what == "png" else self.save_gif(self.death_frames)
                 return True
             if self.view_rect.collidepoint(ev.pos):
                 self.big_view = not self.big_view
@@ -7280,6 +7314,8 @@ def shutdown(game) -> None:
             slot.brain.memory.save()
     if getattr(game, "pet", None) is not None:      # live hunger/sleep/mood since the last meal
         game.pet.save()
+    if getattr(game, "x3", None) is not None and game.x3.progress is not None and game.x3.progress.dirty:
+        game.x3.progress.save()                     # 3.0: the Neurodex is saved at each discovery; this is the backstop
     if game.cfg.dirty:
         game.cfg.save()
     pygame.quit()

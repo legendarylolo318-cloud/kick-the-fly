@@ -669,6 +669,10 @@ class Game3D(k2.Game):
             esc = pygame.event.Event(pygame.KEYDOWN, key=pygame.K_ESCAPE, mod=0, unicode="\x1b", scancode=0)
             self.handle3d(esc, now, lambda q: q)
         if self.menu.open:
+            from kickthefly.ui import neurodex_ui
+            neurodex_ui.pad_nav(self, down)          # 3.0: the Neurodex panel can be browsed with the pad
+            return {}, (0.0, 0.0)
+        if self.x3.pad_event(down):                  # 3.0: Neurodex button, kill cam button / skip
             return {}, (0.0, 0.0)
         tut = self.tutorial
         if tut is not None and tut.active and tut.pad_event(down):
@@ -979,7 +983,7 @@ class Game3D(k2.Game):
     def _overlay_open(self) -> bool:
         ch = getattr(self, "challenge", None)
         return (self.report is not None or self.big_view or self.surgery_open or self.help_open or self.training_open
-                or (ch is not None and ch.overlay))
+                or (ch is not None and ch.overlay) or self.x3.kc_playing())
 
     def sneak_distance(self, slot) -> float:
         """Your body or the tool in your hand, whichever is closer to the fly's head, in fly lengths (0.55 m)."""
@@ -1986,6 +1990,7 @@ class Game3D(k2.Game):
         fly.dead_at = now
         fly.grabbed = None
         self.kills += 1
+        self.x3.on_die(slot)                         # 3.0: keep the last seconds for the kill cam (before the drive is cut)
         slot.brain.kill()
         self.sound.play("death")
         self.note("DIED     brain drive cut, activity fading")
@@ -2271,6 +2276,7 @@ class Game3D(k2.Game):
         self._update_focus()
         self._training_tick(now)
         self._sound_update(now)
+        self.x3.tick(now)
 
     # --- world drawing --------------------------------------------------------------------------------------------------------
     def _build_room(self) -> list:
@@ -3187,6 +3193,8 @@ class Game3D(k2.Game):
         if self.menu_first(ev, self.mouse_logical):
             return not self.want_quit
         if self.tutorial_event(ev) or self.wheel_event(ev):
+            return True
+        if self.x3.handle_event(ev):                 # 3.0: kill cam keys and clicks, the launch card, the Neurodex key
             return True
         if ev.type == pygame.KEYDOWN:
             if self.big_view and ev.key in (pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_0, pygame.K_KP1, pygame.K_KP2, pygame.K_KP3, pygame.K_KP0) \

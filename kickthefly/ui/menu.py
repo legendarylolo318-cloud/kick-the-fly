@@ -43,7 +43,8 @@ GOOD = (90, 200, 120)
 BAD = (230, 90, 80)
 TAG_COLORS = {config.CONNECTOME: (60, 170, 220), config.GAME_RULE: (220, 150, 50), "CONNECTOME": (60, 170, 220),
               "GAME RULE": (220, 150, 50), "RESTART": (110, 118, 136),
-              "3D ONLY": (110, 118, 136), "REAL": (60, 170, 220), "RULE": (220, 150, 50)}
+              "3D ONLY": (110, 118, 136), "REAL": (60, 170, 220), "RULE": (220, 150, 50),
+              "LITERATURE": (110, 190, 130), "REFUSED": (200, 70, 60)}
 
 
 class Menu:
@@ -146,7 +147,8 @@ class Menu:
                 self._drag_to(pos[0])
             elif kind == "edit":
                 self.edit = dict(id=data["id"], text=data["text"], commit=data["commit"], fresh=True,
-                                 alpha=bool(data.get("alpha")), limit=int(data.get("limit", 12)))
+                                 alpha=bool(data.get("alpha")), limit=int(data.get("limit", 12)),
+                                 compact=bool(data.get("compact")))
             elif kind == "dragsrc":
                 self.item_drag = dict(data, start=tuple(pos), pos=tuple(pos), moved=False)
                 self.pressed = data["id"]
@@ -234,6 +236,14 @@ class Menu:
                 self.edit = None
             elif ev.key == pygame.K_BACKSPACE:
                 self.edit["text"] = "" if self.edit.pop("fresh", False) else self.edit["text"][:-1]
+            elif ev.key == pygame.K_v and (ev.mod & (pygame.KMOD_CTRL | pygame.KMOD_META)) and self.edit.get("alpha"):
+                from kickthefly.core import clipboard
+
+                pasted = clipboard.get_text()                 # only when the player presses Ctrl+V in a text box
+                if pasted:
+                    text = "".join(pasted.split()) if self.edit.get("compact") else " ".join(pasted.split())
+                    self.edit["text"] = ("" if self.edit.pop("fresh", False) else self.edit["text"]) + text
+                    self.edit["text"] = self.edit["text"][:self.edit.get("limit", 12)]
             elif ev.unicode and (ev.unicode.isprintable() if self.edit.get("alpha") else ev.unicode in "0123456789.-") \
                     and len(self.edit["text"]) < self.edit.get("limit", 12):
                 if self.edit.pop("fresh", False):        # typing replaces the old value
@@ -389,11 +399,12 @@ class Menu:
         shown = self.edit["text"] + ("|" if int(time.perf_counter() * 2) % 2 else "") if editing else str(value)
         self.text(surf, shown, (rect.x + 10, rect.centery), INK, self.f_small, "midleft")
 
-    def text_field(self, surf, rect, value: str, commit, *, id, tip=None, limit: int = 24) -> None:
-        """A one-line text box (names). Click, type, Enter commits, Esc cancels."""
+    def text_field(self, surf, rect, value: str, commit, *, id, tip=None, limit: int = 24, compact: bool = False) -> None:
+        """A one-line text box (names). Click, type, Enter commits, Esc cancels. Ctrl+V pastes (compact: drops all
+        whitespace, for share codes that arrive wrapped over several lines)."""
         rect = pygame.Rect(rect)
         editing = self.edit is not None and self.edit["id"] == id
-        self._register(rect, "edit", id=id, text=value, commit=commit, tip=tip, alpha=True, limit=limit)
+        self._register(rect, "edit", id=id, text=value, commit=commit, tip=tip, alpha=True, limit=limit, compact=compact)
         pygame.draw.rect(surf, (10, 12, 18) if editing else (30, 34, 44), rect, border_radius=6)
         pygame.draw.rect(surf, ACCENT if editing else BORDER, rect, 1, border_radius=6)
         shown = self.edit["text"] + ("|" if int(time.perf_counter() * 2) % 2 else "") if editing else value
@@ -422,7 +433,7 @@ class Menu:
         if page is None:
             self.screen = "pause"
             page = self._page_pause
-        pw, ph = (440, 560) if self.screen in ("pause", "confirm_quit") else (min(980, W - 40), min(680, H - 30))
+        pw, ph = (440, min(650, H - 20)) if self.screen in ("pause", "confirm_quit") else (min(980, W - 40), min(680, H - 30))
         if self.screen == "confirm_quit":
             ph = 250
         rect = pygame.Rect((W - pw) // 2, (H - ph) // 2, pw, ph)
@@ -482,7 +493,12 @@ class Menu:
                  ("Challenges" if not lab else "Lab tools", "challenges" if not lab else "lab", "normal", True,
                   "Games with a goal and a score." if not lab else
                   "Validation results, assays, repeated trials, data export and protocol files."),
+                 ("Neurodex", "neurodex", "normal", True,
+                  "The cell types you have discovered, with what the dataset says about each. Default key D."),
                  ("Settings", "settings", "normal", True, "Graphics, audio, brain, controls and accessibility."),
+                 ("Share", "share", "normal", True,
+                  "Make a short code for your surgery, loadout, protocol, challenge setup or Lab parameters, or import one "
+                  "and see what it would change first."),
                  ("Save State", "save_state", "normal", True,
                   "Save the whole simulation: every neuron's voltage, the learned synapses, surgery, the room and the "
                   "flies."),
@@ -490,8 +506,8 @@ class Menu:
                  (f"Mode: {mode_title}", "toggle_mode", "normal", True,
                   "Switch between Play (the game), Lab (research tools), and Pet (one persistent fly). Saved in your settings."),
                  ("Quit", "quit", "danger", True, "Asks first. Training memory is saved.")]
-        bw, bh, gap = 300, 50, 12
-        y = rect.y + 116
+        bw, bh, gap = 300, 44, 9
+        y = rect.y + 108
         for label, action, style, enabled, tip in items:
             self.button(surf, (rect.centerx - bw // 2, y, bw, bh), tr(label),
                         (lambda a=action: self.host.menu_action(a)), style=style, enabled=enabled, tip=tr(tip),
