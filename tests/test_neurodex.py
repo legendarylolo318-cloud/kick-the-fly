@@ -304,3 +304,68 @@ def test_selftest_warns_about_a_corrupt_progress_file(isolated_home):
     p.write_text("{oops", encoding="utf-8")
     c = selftest.check_neurodex()
     assert c.status == selftest.WARN and "neurodex.json.bad" in c.fix
+
+
+# --- the larva dex (its pack is built locally from Winding et al. 2023; these tests use it only when it is there) ------------------
+def test_larval_transmitters_are_the_games_rule_so_no_transmitter_is_shown():
+    arrays = dict(type=np.array(["KC", "KC", "LN"]), superclass=np.array(["mushroom_body"] * 2 + ["local_interneuron"]),
+                  region=np.array(["Mushroom Body", "Mushroom Body", "Antennal Lobe"]), nt=np.array(["acetylcholine", "acetylcholine", "GABA"]),
+                  nt_conf=np.array([0.8, 0.8, 0.8], np.float32), nt_source=np.array(["inferred"] * 3))
+    t = nd.build_table(arrays, "larva", partners=False)
+    for name in ("KC", "LN"):
+        e = nd.entry(t, name)
+        assert e["transmitter"] is None and e["transmitter_confidence"] is None
+    # the same arrays as an adult pack's own calls would show
+    arrays["nt_source"] = np.array(["predicted_nt"] * 3)
+    assert nd.entry(nd.build_table(arrays, "adult", partners=False), "LN")["transmitter"] == "GABA"
+
+
+def test_unassigned_neurons_are_not_a_larval_type():
+    arrays = dict(type=np.array(["KC", "unassigned", "unassigned"]), superclass=np.array(["a", "b", "b"]))
+    assert list(nd.build_table(arrays, "larva", partners=False).names) == ["KC"]
+    assert list(nd.build_table(arrays, "adult", partners=False).names) == ["KC", "unassigned"]       # only the larva's label is special
+
+
+def test_the_real_larva_pack_gives_its_own_dex():
+    from kickthefly.sim import brainpack
+
+    p = brainpack.find(brain="larva")
+    if p is None:
+        pytest.skip("the larva pack is built locally (docs/larva.md)")
+    t = nd.table_from_pack(p, "larva")
+    assert t.brain == "larva" and 10 <= len(t) <= 20 and "unassigned" not in set(map(str, t.names))
+    assert {"KC", "MBON", "sensory"} <= set(map(str, t.names))
+    assert all(nd.entry(t, str(n))["transmitter"] is None for n in t.names)
+    assert all(nd.fact_for(str(n), "larva") is None for n in t.names)
+    kc = nd.entry(t, "KC")
+    assert kc["count"] == 144 and kc["superclass"] == "mushroom_body" and kc["inputs"] and kc["outputs"]
+
+
+def test_larva_dex_discovers_by_stimulation_on_the_real_larval_brain(tmp_path, monkeypatch):
+    from kickthefly.sim import brainpack
+
+    if brainpack.find(brain="larva") is None:
+        pytest.skip("the larva pack is built locally (docs/larva.md)")
+    from kickthefly.core import simcore
+
+    simcore.pack.cache_clear()
+    try:
+        br = simcore.new_brain(seed=11, brain="larva", memory=False, warmup=600)
+        tab = nd.table_from_pack(brainpack.find(brain="larva"), "larva")
+        prog = nd.Progress(tmp_path / "dex.json")
+        tr = nd.Tracker(tab, prog)
+        for i in range(1300):
+            br._step()
+            if i % 10 == 0:
+                tr.observe("l", br.sim.activity.rates(), br.dt, True)
+        assert prog.n_discovered("larva") == 0
+        rows = tab.rows("KC")
+        simcore.drive(br, rows, 0.5)
+        for i in range(600):
+            br._step()
+            if i % 10 == 0:
+                tr.observe("l", br.sim.activity.rates(), br.dt, False, True)
+        assert prog.types("larva").get("KC", {}).get("how") == "stimulated"
+        assert prog.n_discovered("adult") == 0                       # the adult list is separate
+    finally:
+        simcore.pack.cache_clear()

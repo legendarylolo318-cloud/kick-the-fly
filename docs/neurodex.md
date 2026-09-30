@@ -35,8 +35,12 @@ dopamine synapses, are not in it), and the share is of that type's total input o
   overwritten. Settings > Brain > **Neurodex discoveries** turns collecting off (what you found stays); **Reset Neurodex** in the panel
   erases it after a second click.
 - The larva has its own list inside the same file. The windowed game runs the adult brain (docs/larva.md), so the larva dex fills only
-  from code that steps a larval brain (the playthrough bot and the Python API can). Larval entries carry no transmitter (the dataset has
-  none) and no curated facts (they are about the adult).
+  from code that steps a larval brain (the playthrough bot and tests do; `tests/test_neurodex.py` discovers KC on the real larval brain).
+  Its "types" are the 17 cell classes of Winding et al. 2023's annotation table (KC, MBON, MBIN, LN, PN, LHN, DN-SEZ, DN-VNC, sensory...);
+  the 346 neurons the dataset leaves "unassigned" are not a type and are skipped. Larval entries carry **no transmitter**: the larva pack's
+  transmitter is the game's own sign rule (acetylcholine, or GABA for LN and MBON, at a constant 0.8), not the dataset's, so it is not
+  shown as data. The larval superclass and region labels are also the larva loader's mapping from the class, not neuropil annotations.
+  No curated facts (they are about the adult).
 - Discovery runs only in the windowed game. It never runs in `--validate`, assays, protocols or tests, and never touches the network.
 - Python: `fly.collect()` starts collecting during `fly.step()` into a throwaway collection (your own file only if you pass its path),
   `fly.neurodex("DNp01")` returns an entry, `kickthefly.core.neurodex` has the table, tracker and facts loader.

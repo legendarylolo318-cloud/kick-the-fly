@@ -232,7 +232,8 @@ def _draw_entry(m, surf, box: pygame.Rect, tab, prog, st, brain: str) -> None:
         t += f", {meas:.0%} {tr('measured')}" if meas else ""
         lines.append(t)
     else:
-        lines.append(tr("transmitter") + ": " + tr("not in this dataset"))
+        lines.append(tr("transmitter") + ": " + tr("not in this dataset")
+                     + (" (" + tr("the game assigns signs by a rule") + ")" if brain == "larva" else ""))
     for ln in lines:
         y = m.wrapped(surf, ln, (x, y), box.w, ui.TEXT, m.f_small, 2) + 2
     # partners

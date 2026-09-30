@@ -290,3 +290,30 @@ def test_a_code_contains_no_executable_content(monkeypatch):
     text = sc.encode("surgery", evil)
     got = sc.decode(text)
     assert sc.validate(got, ctx()) is not None          # refused: no such switch, and nothing was executed
+
+
+def test_share_decode_command_line(capsys):
+    import subprocess
+    import sys
+
+    from kickthefly.game import kick_the_fly as k
+
+    code = sc.encode("lab", payloads()["lab"])
+    args = k.parse_args(["--share-decode", code])
+    assert args.share_decode == code
+    assert sc.main_decode(code) == 0
+    out = capsys.readouterr().out
+    assert "Lab parameters" in out and "accepted" in out and "noise_std = 0.06" in out
+    assert sc.main_decode(code[:-3] + "AAA") == 2
+    assert "refused" in capsys.readouterr().err
+    assert sc.main_decode("KTF1-LDT-" + sc.encode("loadout", {"tools": ["hand", "no_such_tool"]}).split("-", 2)[2]) == 2
+    assert "tools this version doesn't have" in capsys.readouterr().out
+
+
+def test_new_command_line_flags_parse():
+    from kickthefly.game import kick_the_fly as k
+
+    a = k.parse_args(["--headless", "--rerun-bundle", "x.zip", "--out", "d"])
+    assert a.rerun_bundle == "x.zip" and a.out == "d"
+    a = k.parse_args(["--protocol", "p.yaml", "--bundle", "b.zip"])
+    assert a.bundle == "b.zip"

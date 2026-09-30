@@ -49,6 +49,12 @@ CALM_K_QUIET, CALM_K_BUSY = 0.02, 0.0005     # calm-rate tracking, as core/memor
 
 TOP_PARTNERS = 6
 UNNAMED = "(no type)"
+# Transmitter sources that are the dataset's own (adult pack: measured, consensus or predicted). The larva pack's "inferred"
+# (acetylcholine, or GABA for local interneurons and MBONs, at a constant 0.8) is the GAME's sign rule, so a larval entry shows
+# no transmitter rather than passing a rule off as data.
+DATASET_NT_SOURCES = ("ground_truth", "consensus_nt", "predicted_nt")
+# Labels that mean "the dataset has no cell type here", per brain (the larva pack calls 346 unannotated neurons "unassigned").
+NOT_A_TYPE = {"larva": ("unassigned",)}
 
 
 # --- the type table (CONNECTOME) ------------------------------------------------------------------------------------------
@@ -154,7 +160,7 @@ def build_table(arrays: dict, brain: str = "adult", partners: bool = True) -> Ty
 
     types = np.asarray(arrays["type"]).astype(str)
     n = len(types)
-    named = types != ""
+    named = (types != "") & ~np.isin(types, NOT_A_TYPE.get(brain, ()))
     names, inv = np.unique(types[named], return_inverse=True)
     tid = np.full(n, -1, np.int32)
     tid[named] = inv
@@ -165,6 +171,8 @@ def build_table(arrays: dict, brain: str = "adult", partners: bool = True) -> Ty
     nt = np.asarray(arrays["nt"]).astype(str) if arrays.get("nt") is not None else None
     conf = np.asarray(arrays["nt_conf"], np.float32) if arrays.get("nt_conf") is not None else None
     src = np.asarray(arrays["nt_source"]).astype(str) if arrays.get("nt_source") is not None else None
+    if nt is not None and src is not None:                      # only the dataset's own calls count as a transmitter
+        nt = np.where(np.isin(src, DATASET_NT_SOURCES), nt, "")
 
     order = np.argsort(tid, kind="stable")
     start = np.searchsorted(tid[order], np.arange(T + 1))
