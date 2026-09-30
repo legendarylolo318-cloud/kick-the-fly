@@ -88,7 +88,12 @@ class Buffer:
         if n < 8:
             return None
         order = (np.arange(self.count - n, self.count)) % self.cap
-        return Replay(self.q[order].copy(), self.steps[order].copy(), [self.extras[i] for i in order])
+        steps = self.steps[order].copy()
+        keep = np.flatnonzero((steps[-1] - steps) * DT <= WINDOW_S + 1e-9)          # never more than the window
+        order, steps = order[keep], steps[keep]
+        if len(order) < 8:
+            return None
+        return Replay(self.q[order].copy(), steps, [self.extras[i] for i in order])
 
 
 @dataclass
@@ -103,7 +108,14 @@ class Replay:
 
     @property
     def seconds(self) -> float:
-        return (self.n_frames - 1) * SAMPLE_STEPS * DT if self.n_frames > 1 else 0.0
+        """Brain time from the first frame to the last, from the recorded step numbers (frames are about SAMPLE_STEPS
+        apart, but a frame boundary can make a sample a few steps later, so the count of frames is not the time)."""
+        return float(self.steps[-1] - self.steps[0]) * DT if self.n_frames > 1 else 0.0
+
+    def frame_at(self, t: float) -> int:
+        """The frame showing at t seconds into the replay."""
+        rel = (self.steps - self.steps[0]).astype(np.float64) * DT
+        return int(np.clip(np.searchsorted(rel, t + 1e-9, side="right") - 1, 0, self.n_frames - 1))
 
     def hz(self, frame: int) -> np.ndarray:
         return decode_hz(self.q[int(np.clip(frame, 0, self.n_frames - 1))])
@@ -117,9 +129,9 @@ class Replay:
         baseline is the first BASE_S of the window and the tail the last TAIL_S, both clipped to a third of the window
         for a short replay. Ties break by neuron index, so the answer is deterministic."""
         n = self.n_frames
-        per_s = 1.0 / (SAMPLE_STEPS * DT)
-        nb = int(np.clip(round(BASE_S * per_s), 1, max(1, n // 3)))
-        nt = int(np.clip(round(TAIL_S * per_s), 1, max(1, n // 3)))
+        rel = (self.steps - self.steps[0]).astype(np.float64) * DT
+        nb = int(np.clip(np.count_nonzero(rel < BASE_S), 1, max(1, n // 3)))
+        nt = int(np.clip(np.count_nonzero((rel[-1] - rel) <= TAIL_S), 1, max(1, n // 3)))
         before = decode_hz(self.q[:nb]).mean(axis=0)
         after = decode_hz(self.q[-nt:]).mean(axis=0)
         rise = after - before
@@ -163,7 +175,7 @@ class Player:
 
     @property
     def frame(self) -> int:
-        return min(self.replay.n_frames - 1, int(self.t / (SAMPLE_STEPS * DT)))
+        return self.replay.frame_at(self.t)
 
     @property
     def progress(self) -> float:

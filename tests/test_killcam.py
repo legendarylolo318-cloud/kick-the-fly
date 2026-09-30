@@ -125,3 +125,32 @@ def test_skip_ends_at_once_and_advancing_after_done_is_harmless():
 
 def test_reduced_flashing_default_is_slower():
     assert kc.SPEED_REDUCED < kc.SPEED <= 0.5
+
+
+def test_replay_time_comes_from_step_numbers_not_frame_counts():
+    """Frames land a few steps late when a frame boundary falls in between: 10 steps apart here, not 8."""
+    frames = 120
+    rep = kc.Replay(kc.encode_rates(np.zeros((frames, 4)) + 0.01), np.arange(frames) * 10)
+    assert rep.seconds == pytest.approx((frames - 1) * 10 * kc.DT)
+    assert rep.frame_at(0.0) == 0 and rep.frame_at(0.049) == 0 and rep.frame_at(0.05) == 1
+    assert rep.frame_at(1000.0) == frames - 1
+    p = kc.Player(rep, speed=0.25)
+    p.advance(4.0)                                                       # 1.0 s of brain time
+    assert p.t == pytest.approx(1.0) and p.frame == 20
+
+
+def test_freeze_keeps_at_most_the_window_even_with_widely_spaced_samples():
+    b = kc.Buffer(2)
+    for i in range(150):
+        b.push(i * 13, np.zeros(2))                                      # 13 steps apart: 150 frames span 9.75 s
+    rep = b.freeze()
+    assert rep.seconds <= kc.WINDOW_S + 1e-6 and rep.n_frames < 150 and rep.steps[-1] == 149 * 13
+
+
+def test_risers_windows_follow_time_when_spacing_is_uneven():
+    frames, hz = 100, np.full((100, 3), 2.0, np.float32)
+    hz[-20:, 1] = 80.0
+    steps = np.cumsum(np.r_[0, np.full(99, 12)])
+    rep = kc.Replay(kc.encode_rates(hz * kc.DT), steps)
+    got = rep.top_risers()
+    assert [r["index"] for r in got] == [1] and got[0]["rise_hz"] > 60

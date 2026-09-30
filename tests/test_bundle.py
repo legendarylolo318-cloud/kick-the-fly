@@ -29,15 +29,17 @@ def made(tmp_path_factory):
     mp.setenv("KICK_THE_FLY_HOME", str(root / "home"))
     mp.setenv("KICK_THE_FLY_SIM_BACKEND", "cpu")
     mp.setattr(brainpack, "find", lambda brain="adult": pack)
-    from kickthefly.core import paths
+    from kickthefly.core import paths, simcore
     paths.reset_cache()
     neurodex.reset_cache()
+    simcore.pack.cache_clear()
     p = protocol.check(dict(PROTO), "test")
     folder = protocol.run(p, root / "run", workers=1)
     z = bundle.create(folder, root / "exp.zip")
     yield dict(root=root, folder=folder, zip=z, pack=pack)
     mp.undo()
     paths.reset_cache()
+    simcore.pack.cache_clear()
 
 
 @pytest.fixture
@@ -49,7 +51,10 @@ def env(made, monkeypatch):
     monkeypatch.setenv("KICK_THE_FLY_SIM_BACKEND", "cpu")
     monkeypatch.setattr(brainpack, "find", lambda brain="adult": made["pack"])
     paths.reset_cache()
-    return made
+    from kickthefly.core import simcore
+    simcore.pack.cache_clear()
+    yield made
+    simcore.pack.cache_clear()
 
 
 def rewrite(src: Path, dst: Path, edit_meta=None, edit_files=None, drop=()):
