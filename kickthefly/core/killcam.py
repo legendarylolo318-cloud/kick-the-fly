@@ -66,6 +66,10 @@ class Buffer:
     def __len__(self) -> int:
         return min(self.count, self.cap)
 
+    def due(self, step: int) -> bool:
+        """Would push() store a sample at this step? (Lets the caller skip computing the rates on the frames in between.)"""
+        return self.last_step is None or step < self.last_step or step - self.last_step >= self.sample_steps
+
     def push(self, step: int, rates_per_step: np.ndarray, extra=None) -> bool:
         """Store a sample if the brain has advanced SAMPLE_STEPS since the last one. Returns True if it stored one. A step
         count that goes backwards (a save state was loaded, the fly was replaced) clears the buffer first."""

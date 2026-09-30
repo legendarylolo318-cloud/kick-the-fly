@@ -451,3 +451,25 @@ def test_the_new_model_assumption_cards_fit_their_two_lines_and_carry_a_tag():
     for title, cat, sim, bio, docs in new:
         assert cat in ("GAME RULE", "DATASET") and docs
         assert len(sim) <= 250 and len(bio) <= 250, title
+
+
+def test_kill_cam_ring_colors_follow_the_colorblind_palettes(synthetic_pack):
+    from kickthefly.game import extras3
+
+    seen = {}
+    for pal in ("default", "blue-yellow", "high-contrast"):
+        g = make_game(access__palette=pal)
+        seen[pal] = g.x3.RISER_COLORS
+        assert len(seen[pal]) >= 6
+    assert seen["blue-yellow"] != seen["default"] and seen["high-contrast"] != seen["default"]
+    # no red/orange next to green in the blue-yellow set: every color is blue-ish, yellow-ish or white
+    for r, gr, b in seen["blue-yellow"]:
+        assert b >= 120 or (r >= 200 and gr >= 180) 
+    assert set(extras3.Extras.PALETTES) == {"default", "blue-yellow", "high-contrast"}
+
+
+def test_the_buffer_skips_reading_rates_between_samples():
+    b = killcam.Buffer(3)
+    assert b.due(0)
+    b.push(0, np.zeros(3))
+    assert not b.due(5) and b.due(8) and b.due(-1)

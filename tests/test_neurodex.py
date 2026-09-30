@@ -369,3 +369,24 @@ def test_larva_dex_discovers_by_stimulation_on_the_real_larval_brain(tmp_path, m
         assert prog.n_discovered("adult") == 0                       # the adult list is separate
     finally:
         simcore.pack.cache_clear()
+
+
+def test_every_curated_fact_matches_a_type_in_the_real_adult_pack():
+    """Runs only where the real adult brain pack is built: the curated names must exist in the dataset's own type list, or the
+    fact silently never shows. (The synthetic pack can't answer this.)"""
+    from conftest import brain_pack
+    from kickthefly.sim import brainpack
+
+    if brain_pack() is None:
+        pytest.skip("the adult brain pack is not built here")
+    tab = nd.table_from_pack(brainpack.find("adult"), "adult")
+    names = {str(n) for n in tab.names}
+    unmatched = []
+    for f in nd.facts():
+        if not any(f.matches(n) for n in names):
+            unmatched.append(f.id)
+        for t in f.types:
+            if t not in names and f.id != "epg":                       # EPG / E-PG: either spelling may be the pack's
+                unmatched.append(f"{f.id}:{t}")
+    assert not unmatched, f"curated facts whose types are not in the pack: {unmatched}"
+    assert any(n in names for n in ("EPG", "E-PG")), "neither EPG nor E-PG is a type in the pack: the E-PG fact never shows"

@@ -331,3 +331,35 @@ def test_lab_bundle_button_bundles_the_last_protocol_run_and_the_last_recording(
     assert b.verify() == []
     path, msg = lab.make_bundle(SimpleNamespace(last_export=None), SimpleNamespace())
     assert path is None and "Nothing to bundle" in msg
+
+
+def test_an_assay_protocol_bundles_and_reruns_bit_exact(env, tmp_path):
+    p = protocol.check({"name": "assay-b", "assay": "sugar", "seed": 5, "flies": 2,
+                        "assay_options": {"doses": [0.0, 0.5], "repeats": 1}}, "t")
+    folder = protocol.run(p, tmp_path / "run", workers=1)
+    z = bundle.create(folder, tmp_path / "a.zip")
+    b = bundle.inspect(z)
+    assert b.meta["kind"] == "assay" and b.meta["rerunnable"] and b.meta["backend"] == "cpu" and b.verify() == []
+    rep = bundle.rerun(z, tmp_path / "rr", workers=1)
+    assert rep["match"] and rep["mode"] == "bit-exact" and len(rep["details"]) == 4
+    def first_mean(x):
+        if isinstance(x, dict):
+            if "mean" in x and "n" in x:
+                return x
+            for v in x.values():
+                r = first_mean(v)
+                if r is not None:
+                    return r
+        if isinstance(x, list):
+            for v in x:
+                r = first_mean(v)
+                if r is not None:
+                    return r
+
+    def shift(data):
+        s = json.loads(data)
+        first_mean(s["treated"])["mean"] += 99
+        return json.dumps(s).encode()
+
+    bad = rewrite(z, tmp_path / "bad.zip", edit_files={"results/summary.json": shift})
+    assert not bundle.rerun(bad, tmp_path / "rr2", workers=1)["match"]

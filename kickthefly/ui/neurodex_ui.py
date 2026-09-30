@@ -44,6 +44,8 @@ class _State:
         self.skel = None
         self.wipe_armed = 0.0
         self.notd = None
+        self.rows_key = None
+        self.rows = []
 
 
 def _state(m) -> _State:
@@ -87,7 +89,10 @@ def page_neurodex(m, surf, rect, mouse) -> None:
 
     # --- left: regions with progress
     colx, top = rect.x + 24, rect.y + 76
-    rows = nd.region_progress(tab, prog)
+    rkey = (got, brain)
+    if getattr(st, "rows_key", None) != rkey:                   # the progress rows loop over every type: only when it changes
+        st.rows_key, st.rows = rkey, nd.region_progress(tab, prog)
+    rows = st.rows
     y = top
     m.text(surf, tr("REGIONS"), (colx, y), ui.LABEL, m.f_small)
     y += 20

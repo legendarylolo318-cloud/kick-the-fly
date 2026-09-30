@@ -16,12 +16,14 @@ kick_the_fly.py            launcher shim: keeps `python kick_the_fly.py ...` wor
 kickthefly/
   __main__.py              entry point (`python -m kickthefly`)
   core/                    simclock, simcore, memory, savestate, paths, platform_env, version, config, crash, loadout (the tool
-                           catalog and presets), selftest, bugreport
+                           catalog and presets), selftest, bugreport,
+                           neurodex, killcam, neuron_of_day, sharecode, clipboard (3.0; all pure logic, no pygame)
   sim/                     brainpack, connectome/ (loader + LIF simulator), neuron and synapse state
-  game/                    kick_the_fly (2D game + Brain + brain panel), kick3d, render3d, outdoors (open field,
+  game/                    kick_the_fly (2D game + Brain + brain panel), kick3d, render3d, extras3 (Neurodex / kill cam / Neuron of the Day in the running game), outdoors (open field,
                            orchard, day/night), gamepad: physics, tools, arenas, input
-  ui/                      menu framework and the settings screens; the loadout editor and tool wheel (loadout_ui), the first-launch tutorial, Settings > Help (help_ui) and the crash screen
-  lab/                     lab, labjobs, labstats, validation, playthrough (the bot), assays, challenges, protocol, recorder, nwbexport,
+  ui/                      menu framework and the settings screens; the loadout editor and tool wheel (loadout_ui), the first-launch tutorial, Settings > Help (help_ui), the crash screen,
+                           the Neurodex panel (neurodex_ui) and Esc > Share (share_ui)
+  lab/                     lab, labjobs, labstats, validation, playthrough (the bot), assays, challenges, protocol, recorder, bundle (3.0), nwbexport,
                            headless, benchmark, api (`from kickthefly import Fly`), neurosearch (brain view search and
                            path tracer), and the Lab-only manipulations (threshold, signflip, criticalpath, clamp,
                            diffmode, lesions)
@@ -55,7 +57,7 @@ Don't add new modules to the repo root.
   clear message, never an import error at startup.
 - User-facing file names, config keys, save-state formats and data paths are a compatibility surface. Existing saves
   and training memory must keep loading; `tests/test_compat.py` guards that.
-- Tests: `python -m pytest -m "not validation"` for the fast suite, `python -m pytest` for everything. New Lab
+- Tests: `python -m pytest -m "not validation"` for the fast suite, `python -m pytest` for everything. `tests/synthetic_pack.py` is a tiny random-wiring stand-in for the brain pack (real type names, no biology) for plumbing tests that need a Brain without `data/`; never use it for a result. New Lab
   features need at least a headless round-trip test.
 - Real vs rule tags: if you add a reaction, tag it in `REACTION_SOURCE` and say which it is in the README table and
   in the `kickthefly/game/kick_the_fly.py` docstring. Both are part of the change, not follow-up work.

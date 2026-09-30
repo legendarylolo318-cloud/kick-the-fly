@@ -162,7 +162,8 @@ class Extras:
             return
         if self.buf is None or self.buf_brain is not br or self.buf.n != br.n:
             self.buf, self.buf_brain = kc.Buffer(br.n), br
-        self.buf.push(br.steps, br.sim.activity.rates(), {"fast": br.fast.copy()})
+        if self.buf.due(br.steps):                      # the rates are only read on the frames that store a sample
+            self.buf.push(br.steps, br.sim.activity.rates(), {"fast": br.fast.copy()})
 
     def on_die(self, slot) -> None:
         """A fly died. If it is the one being sampled, keep its last seconds for the offer."""
@@ -359,7 +360,8 @@ class Extras:
             return
         y = 8
         for text, t0 in self.toasts:
-            a = int(255 * min(1.0, (TOAST_S - (wall - t0)) / 0.6, (wall - t0) / 0.15 + 0.2))
+            rise = 0.6 if self.calm_fx else 0.15             # Reduced flashing: a slower fade-in
+            a = int(255 * min(1.0, (TOAST_S - (wall - t0)) / 0.6, (wall - t0) / rise + (0.0 if self.calm_fx else 0.2)))
             self._banner(surf, text, y, (90, 200, 120), a)
             y += 34
         if self.offer is not None and g.report is None and wall < self.kc_prompt_until:
@@ -437,7 +439,17 @@ class Extras:
         return lines + [line]
 
     # kill cam overlay -----------------------------------------------------------------------------------------------------------------
-    RISER_COLORS = ((255, 150, 60), (86, 214, 255), (130, 230, 130), (240, 110, 200), (250, 220, 90), (170, 140, 255))
+    # Ring and trace colors. The rank number is drawn beside every ring, so color is never the only cue; the colorblind and
+    # high-contrast palettes (Settings > Accessibility) switch to colors that stay apart without red versus green.
+    PALETTES = {
+        "default": ((255, 150, 60), (86, 214, 255), (130, 230, 130), (240, 110, 200), (250, 220, 90), (170, 140, 255)),
+        "blue-yellow": ((255, 204, 20), (60, 120, 255), (255, 255, 255), (120, 170, 255), (255, 235, 130), (40, 70, 190)),
+        "high-contrast": ((255, 31, 217), (255, 255, 255), (255, 31, 217), (255, 255, 255), (255, 31, 217), (255, 255, 255)),
+    }
+
+    @property
+    def RISER_COLORS(self):
+        return self.PALETTES.get(self.g.cfg["access.palette"], self.PALETTES["default"])
 
     def draw_killcam(self, surf, wall: float) -> None:
         g = self.g
