@@ -109,13 +109,13 @@ def test_ffmpeg_audio_disk_and_memory_verdicts(monkeypatch):
     assert next(c for c in selftest.check_resources() if c.id == "disk").status == PASS
 
 
-@pytest.mark.skipif(hasattr(os, "geteuid") and os.geteuid() == 0, reason="root can write anywhere")
 def test_unwritable_folders_fail_with_a_fix(tmp_path, monkeypatch):
     from kickthefly.core import paths
 
+    # a file where the folders should go: no folder can be made under it on any OS, even as root or admin
+    # (chmod can't make a folder read-only on Windows)
     home = tmp_path / "ro"
-    home.mkdir()
-    home.chmod(0o500)
+    home.write_text("not a folder")
     try:
         monkeypatch.setenv("KICK_THE_FLY_HOME", str(home / "sub"))
         paths.reset_cache()
@@ -123,7 +123,6 @@ def test_unwritable_folders_fail_with_a_fix(tmp_path, monkeypatch):
         assert cs["dir_config"].status == FAIL and "KICK_THE_FLY_HOME" in cs["dir_config"].fix
         assert cs["dir_screenshots"].status == WARN
     finally:
-        home.chmod(0o700)
         paths.reset_cache()
 
 

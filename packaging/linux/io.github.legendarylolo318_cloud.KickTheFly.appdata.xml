@@ -36,6 +36,12 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="2.13.1" date="2026-09-30">
+      <description>
+        <p>The 2.13.0 features (tool loadouts, a fruit tool, a self-test, a bug report that sends nothing, a
+        first-launch tutorial) with a test fix; 2.13.0 itself was never published with files.</p>
+      </description>
+    </release>
     <release version="2.13.0" date="2026-09-29">
       <description>
         <p>Tool loadouts: a hotbar of your chosen tools with presets, an editor and a tool wheel; a fruit tool; a
