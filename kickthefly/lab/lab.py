@@ -453,6 +453,45 @@ ASSUMPTIONS = (
      "In real flies extinction forms a parallel opposing memory through reward dopamine neurons (Felsenberg et al. "
      "2018), and second-order conditioning needs MBON-to-dopamine-neuron feedback.",
      "kickthefly/lab/assays.py:extinction_fly, second_order_fly · kickthefly/core/memory.py"),
+
+    ("Neurodex: what counts as discovered (3.0)",
+     "GAME RULE",
+     "Discovered = the type's mean firing is at least 6 spikes/s and 3x its own calm rate for 150 ms, after 5 s of "
+     "settling (fixed before play, not tuned). An entry's numbers are the dataset's, not the game's.",
+     "Nothing in a real fly is 'discovered'. The rule reads the MEAN rate, so sparse big types (Kenyon cells) are "
+     "mostly found by stimulating them, and the entry says so.",
+     "kickthefly/core/neurodex.py · docs/neurodex.md"),
+
+    ("Neurodex literature facts (3.0)",
+     "DATASET",
+     "One sentence and a citation for about 30 curated types, written from the paper's abstract or full text and checked "
+     "against it. Every other type shows dataset data only.",
+     "A fact is what the paper reported in a real fly, not what this simulation does. That a dataset type is the paper's "
+     "named neuron is the dataset's annotation (aDN1/aDN2 = DNg62/DNge078).",
+     "kickthefly/data/neurodex_facts.yaml"),
+
+    ("Kill cam (3.0)",
+     "GAME RULE",
+     "On death, the last 6 s of each neuron's own firing rate is replayed at 0.25x on the brain panel, with the 12 neurons "
+     "that rose most highlighted. Frames in memory: nothing feeds back, the body is not re-simulated.",
+     "Death is a game rule (the drive is cancelled over 1.5 s), so the replay ends at that cut-off. A rising rate shows "
+     "what was active, not what caused the death.",
+     "kickthefly/core/killcam.py · docs/killcam.md"),
+
+    ("Share codes and experiment bundles (3.0)",
+     "GAME RULE",
+     "Containers for settings and results the game already has; they add nothing to the simulation. A bundle rerun is "
+     "bit-exact on CPU backends, and statistical (three numbers fixed beforehand) on a GPU backend.",
+     "A matching rerun shows the software is deterministic on that backend. It does not show the result is biologically "
+     "true.",
+     "kickthefly/core/sharecode.py · kickthefly/lab/bundle.py · docs/share-codes.md · docs/bundles.md"),
+
+    ("Neuron of the Day (3.0)",
+     "GAME RULE",
+     "A launch card picks one curated type by date and shows its fact. Try it stimulates that type in brain surgery or "
+     "the Lab laser. Its own setting, default on; nothing is sent or remembered about you.",
+     "Constant current is not how a real neuron is activated in a fly, and experimental driver lines are not modelled.",
+     "kickthefly/core/neuron_of_day.py · docs/neurodex.md"),
 )
 
 
@@ -1132,6 +1171,45 @@ def resolve_group(br, spec: str):
     return simcore.rows_of(br, spec)
 
 
+def make_bundle(host, st) -> tuple[str | None, str]:
+    """Lab > Record and export > Bundle (also on the Protocols page): zip the last protocol run (rerunnable with
+    --rerun-bundle), or else the last live recording (a record, not rerunnable: the stimuli were delivered by hand).
+    Returns (path, message). See kickthefly/lab/bundle.py for what is in it."""
+    import json
+    import time
+    from pathlib import Path
+
+    from kickthefly.lab import bundle, recorder
+
+    out_dir = recorder.exports_dir() / "bundles"
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    try:
+        job = getattr(st, "proto_job", None)
+        folder = job.get("folder") if job else None
+        if folder and (Path(folder) / "protocol.json").exists():
+            z = bundle.create(Path(folder), out_dir / f"{stamp}-{Path(folder).name}.zip")
+            return str(z), "Bundled the last protocol run: it can be rerun with --headless --rerun-bundle."
+        last = getattr(host, "last_export", None)
+        if last and Path(last).is_dir():
+            files = [f for f in sorted(Path(last).iterdir()) if f.is_file()]
+            meta_file = next((f for f in files if f.name.endswith("-metadata.json")), None)
+            meta = json.loads(meta_file.read_text(encoding="utf-8")) if meta_file else {}
+            sim = host.brain.sim
+            extra = dict(seeds=[meta.get("seed", getattr(host.brain, "seed", 0))], arena=meta.get("arena"),
+                         parameters=meta.get("lab_params_modified", {}), surgery=meta.get("surgery", {}),
+                         surgery_by_type=meta.get("surgery_by_type", {}), backend=sim.backend.name,
+                         dtype=str(sim.p.dtype), individuality=str(host.cfg["brain.individuality"]))
+            z = bundle.create_live(files, extra, out_dir / f"{stamp}-{Path(last).name}.zip",
+                                   {"name": "live-recording", "note": "recorded live in the Lab; stimuli by hand"})
+            return str(z), "Bundled the last live recording (a record: it can't be rerun, and says why)."
+        return None, "Nothing to bundle yet: run a protocol or make a recording first."
+    except Exception as e:                        # a bundle is never worth a crash
+        from kickthefly.core.crash import log
+
+        log.exception("bundling failed")
+        return None, f"Couldn't make the bundle: {e}"
+
+
 def page_export(m: ui.Menu, surf, rect, mouse) -> None:
     from kickthefly.lab import recorder
 
@@ -1189,6 +1267,21 @@ def page_export(m: ui.Menu, surf, rect, mouse) -> None:
     last = getattr(host, "last_export", None)
     if last:
         m.text(surf, f"Last: {short(last, 110)}", (rect.x + 24, y + 76), ui.GOOD, m.f_small)
+
+    def bundle_now():
+        path, msg = make_bundle(host, st)
+        st.bundle_msg = (msg, path)
+
+    m.button(surf, (rect.x + 24, y + 98, 200, 40), "Bundle", bundle_now, id="export_bundle",
+             tip="One zip with the protocol YAML, results, raw exports, metadata (version, backend, precision, seeds, brain "
+                 "pack checksum, parameters, surgery, individuality, arena) and an RO-Crate description. Bundles the "
+                 "last protocol run, or else the last recording. A protocol run's bundle can be rerun with "
+                 "--headless --rerun-bundle ZIP --out DIR.")
+    bm = getattr(st, "bundle_msg", None)
+    if bm:
+        m.text(surf, bm[0], (rect.x + 236, y + 103), ui.GOOD if bm[1] else ui.AMBER, m.f_small)
+        if bm[1]:
+            m.text(surf, short(bm[1], 120), (rect.x + 236, y + 121), ui.LABEL, m.f_small)
     m.button(surf, (rect.right - 164, rect.bottom - 58, 140, 42), "Back", m.back, style="primary", id=("export", "back"))
 
 
@@ -1267,4 +1360,14 @@ def page_protocols(m: ui.Menu, surf, rect, mouse) -> None:
             m.text(surf, job["error"], (rect.x + 24, rect.bottom - 90), ui.BAD, m.f_small)
         elif job["folder"]:
             m.text(surf, f"Done: {short(job['folder'], 110)}", (rect.x + 24, rect.bottom - 90), ui.GOOD, m.f_small)
+
+            def bundle_run():
+                path, msg = make_bundle(m.host, st)
+                st.bundle_msg = (msg, path)
+
+            m.button(surf, (rect.right - 320, rect.bottom - 58, 140, 42), "Bundle", bundle_run, id=("proto", "bundle"),
+                     tip="Zip this run with its protocol, metadata and an RO-Crate description, so it can be rerun and checked.")
+            bm = getattr(st, "bundle_msg", None)
+            if bm:
+                m.text(surf, bm[0], (rect.x + 24, rect.bottom - 70), ui.GOOD if bm[1] else ui.AMBER, m.f_small)
     m.button(surf, (rect.right - 164, rect.bottom - 58, 140, 42), "Back", m.back, style="primary", id=("proto", "back"))

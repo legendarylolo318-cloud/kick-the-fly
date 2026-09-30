@@ -412,3 +412,42 @@ def test_the_overlays_never_change_the_brain(game):
     game.draw(time.perf_counter(), (10, 10))
     after = (game.brain.sim.v, game.brain.override, game.brain.steps)
     assert np.array_equal(before[0], after[0]) and np.array_equal(before[1], after[1]) and before[2] == after[2]
+
+
+# --- the Python API ------------------------------------------------------------------------------------------------------------
+def test_api_collect_discovers_by_stimulation_and_never_touches_the_players_dex(synthetic_pack, isolated_home):
+    from kickthefly import Fly
+
+    fly = Fly(seed=3, warmup_s=0.5)
+    prog = fly.collect()
+    fly.step(6.0)
+    assert prog.n_discovered("adult") == 0
+    fly.drive("type:DNp01", amp=0.5)                              # the validation suite's activation current
+    fly.step(3.0)
+    assert [(n, how) for _, n, how in fly.discoveries] == [("DNp01", "stimulated")]
+    assert prog.path.parent != nd.progress_path().parent and not nd.progress_path().exists()
+    e = fly.neurodex("DNp01")
+    assert e["discovered"] and e["curated"]["doi"] == "10.1038/nn.3741" and fly.neurodex("Nope") is None
+
+
+def test_api_killcam(synthetic_pack):
+    from kickthefly import Fly
+
+    fly = Fly(seed=4, warmup_s=0.5).killcam()
+    fly.step(3.0)
+    fly.stimulate("type:MDN")
+    fly.step(3.0)
+    fly.kill()
+    rep = fly.killcam_replay()
+    assert rep is not None and rep.top_risers()[0]["index"] in fly.neurons("type:MDN")
+
+
+def test_the_new_model_assumption_cards_fit_their_two_lines_and_carry_a_tag():
+    """The Model Assumptions page shows two lines of each text; a longer one is cut with an ellipsis."""
+    from kickthefly.lab import lab
+
+    new = [a for a in lab.ASSUMPTIONS if "(3.0)" in a[0]]
+    assert len(new) == 5
+    for title, cat, sim, bio, docs in new:
+        assert cat in ("GAME RULE", "DATASET") and docs
+        assert len(sim) <= 250 and len(bio) <= 250, title

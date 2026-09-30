@@ -365,6 +365,29 @@ def check_ffmpeg() -> Check:
                  "yourself; the game never installs anything.")
 
 
+@_timed
+def check_neurodex() -> Check:
+    """3.0: the Neurodex's curated facts load and are valid (PyYAML and the data file), and the progress file, if there is
+    one, is readable. The game runs without either; only the curated facts and your collection would be missing."""
+    from kickthefly.core import neurodex as nd
+
+    try:
+        facts = nd.load_facts()
+    except ImportError as e:
+        return Check("neurodex", "Neurodex facts", WARN, f"PyYAML is missing ({e})",
+                     "The Neurodex still works but shows data only. Install the requirements into the game's own venv: "
+                     "pip install -r requirements.txt (the game never installs anything itself).")
+    except (nd.FactsError, OSError) as e:
+        return Check("neurodex", "Neurodex facts", WARN, f"the curated facts can't be used: {e}",
+                     "Entries show data only until kickthefly/data/neurodex_facts.yaml is restored (reinstall the game).")
+    prog = nd.Progress()
+    note = f"; {prog.warnings[0]}" if prog.warnings else ""
+    return Check("neurodex", "Neurodex facts", WARN if prog.warnings else PASS,
+                 f"{len(facts)} curated facts, all with a citation{note}",
+                 "The unreadable progress file was kept aside as neurodex.json.bad; the Neurodex starts empty."
+                 if prog.warnings else "")
+
+
 def _writable(d: Path) -> str | None:
     try:
         d.mkdir(parents=True, exist_ok=True)
@@ -492,7 +515,7 @@ def run(*, backends_only: list[str] | None = None, smoke: bool = True, graphics:
     steps = [check_build, check_brainpack_adult, check_brainpack_larva, lambda: check_backends(backends_only)]
     if graphics:
         steps.append(check_graphics)
-    steps += [check_audio, check_ffmpeg, check_folders, check_resources, check_display]
+    steps += [check_audio, check_ffmpeg, check_folders, check_neurodex, check_resources, check_display]
     if smoke:
         steps.append(check_smoke)
     checks: list[Check] = []

@@ -76,6 +76,8 @@ class Fly:
         self.mode = mode if mode in ("play", "lab", "pet") else "play"
         self._loadout = loadout.build("auto", None, lab=self.mode == "lab", larva=False, mode=self.mode)
         self._tool = loadout.HAND
+        self._dex = None                              # 3.0: Fly.collect() attaches a Neurodex tracker
+        self._kc = None                               # 3.0: Fly.killcam() attaches a kill cam buffer
 
     # --- tool loadouts (2.13) --------------------------------------------------------------------------------------------
     @property
@@ -198,9 +200,75 @@ class Fly:
     def step(self, seconds: float | None = None, *, steps: int | None = None) -> np.ndarray:
         """Advance the brain (5 ms per step). Returns the last step's spikes (a bool array over all neurons)."""
         n = int(steps) if steps is not None else int(round((DT if seconds is None else seconds) / DT))
+        br = self.brain
         for _ in range(max(0, n)):
-            self.brain._step()
-        return self.brain.sim.spikes.copy()
+            br._step()
+            if self._dex is not None or self._kc is not None:
+                self._observe()
+        return br.sim.spikes.copy()
+
+    # --- Neurodex and kill cam (3.0) --------------------------------------------------------------------------------
+    def _observe(self) -> None:
+        from kickthefly.core import neurodex as nd
+
+        br = self.brain
+        if self._dex is not None and br.steps % nd.CHECK_STEPS == 0 and not br.dead:
+            calm = br.sedation == 0 and not br.surgery and not br.driving and br.steps - br.last_poke > 400
+            driven = bool(br.surgery or br.driving)
+            tracker, prog = self._dex
+            for name in tracker.observe("fly", br.sim.activity.rates(), br.dt, calm, driven):
+                self.discoveries.append((self.t, name, prog.types(tracker.tab.brain)[name]["how"]))
+        if self._kc is not None and not br.dead:
+            self._kc.push(br.steps, br.sim.activity.rates())
+
+    @property
+    def discoveries(self) -> list:
+        """[(brain time s, type, "play" | "stimulated")] for what collect() has discovered during step()."""
+        if not hasattr(self, "_discoveries"):
+            self._discoveries: list = []
+        return self._discoveries
+
+    def collect(self, progress=None):
+        """Start collecting Neurodex discoveries while you step(). It uses the game's rule (kickthefly/core/neurodex.py) and
+        by default an empty, throwaway collection that is never saved: your own Neurodex is only touched if you pass its
+        path (progress=neurodex.progress_path()). Returns the neurodex.Progress. A discovery needs the first 5 s of
+        brain time to settle, like in the game."""
+        import tempfile
+        from pathlib import Path as _P
+
+        from kickthefly.core import neurodex as nd
+
+        tab = nd.table("adult")
+        prog = nd.Progress(progress) if progress is not None else nd.Progress(_P(tempfile.mkdtemp(prefix="ktf-dex-")) / "neurodex.json")
+        self._dex = (nd.Tracker(tab, prog), prog)
+        return prog
+
+    def neurodex(self, type_name: str) -> dict | None:
+        """The Neurodex entry for a type: dataset facts (CONNECTOME), curated fact and citation (LITERATURE) if there is
+        one, and whether this collection has discovered it. None for a type that isn't in the brain."""
+        from kickthefly.core import neurodex as nd
+
+        prog = self._dex[1] if self._dex is not None else None
+        return nd.entry(nd.table("adult"), type_name, prog)
+
+    def killcam(self, on: bool = True):
+        """Keep the last 6 s of per-neuron firing while you step(). After fly.kill(), killcam_replay() returns the
+        killcam.Replay (risers, traces, summary)."""
+        from kickthefly.core import killcam as kc
+
+        self._kc = kc.Buffer(self.brain.n) if on else None
+        return self
+
+    def kill(self) -> "Fly":
+        """Kill the fly the way the game does (the drive is cancelled over 1.5 s of further steps)."""
+        if self._kc is not None:
+            self._replay = self._kc.freeze()
+            self._kc.reset()
+        self.brain.kill()
+        return self
+
+    def killcam_replay(self):
+        return getattr(self, "_replay", None)
 
     # --- recording and export ------------------------------------------------------------------------------------
     def record(self, groups) -> Recording:

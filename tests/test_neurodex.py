@@ -283,3 +283,24 @@ def test_skeleton_points_come_only_from_the_cache(tab, tmp_path, monkeypatch):
     (tmp_path / f"{int(tab.body_id[row])}.swc").write_text(swc, encoding="utf-8")
     pts = nd.skeleton_points(tab, "DNp01", 20)
     assert pts is not None and pts.shape == (20, 3)
+
+
+# --- the self-test ---------------------------------------------------------------------------------------------------------------
+def test_selftest_checks_the_neurodex_facts(isolated_home, monkeypatch):
+    from kickthefly.core import selftest
+
+    c = selftest.check_neurodex()
+    assert c.status == selftest.PASS and "curated facts" in c.detail
+    monkeypatch.setattr(nd, "load_facts", lambda *a: (_ for _ in ()).throw(nd.FactsError("bad file")))
+    c = selftest.check_neurodex()
+    assert c.status == selftest.WARN and "bad file" in c.detail and c.fix
+
+
+def test_selftest_warns_about_a_corrupt_progress_file(isolated_home):
+    from kickthefly.core import selftest
+
+    p = nd.progress_path()
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text("{oops", encoding="utf-8")
+    c = selftest.check_neurodex()
+    assert c.status == selftest.WARN and "neurodex.json.bad" in c.fix

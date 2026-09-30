@@ -303,3 +303,31 @@ def test_protocol_cli_writes_a_bundle(env, tmp_path, capsys):
     rc = protocol.run_file(f, tmp_path / "runs", workers=1, bundle_to=tmp_path / "cli.zip")
     assert rc == 0 and bundle.inspect(tmp_path / "cli.zip").meta["protocol_name"] == "via-cli"
     assert "bundle written" in capsys.readouterr().out
+
+
+# --- the Lab page -----------------------------------------------------------------------------------------------------------------
+def test_lab_bundle_button_bundles_the_last_protocol_run_and_the_last_recording(env, tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    from kickthefly.lab import lab
+
+    monkeypatch.setenv("KICK_THE_FLY_HOME", str(tmp_path / "home2"))
+    from kickthefly.core import paths
+    paths.reset_cache()
+    st = SimpleNamespace(proto_job={"folder": env["folder"]})
+    path, msg = lab.make_bundle(SimpleNamespace(last_export=None), st)
+    assert path and "protocol run" in msg and bundle.inspect(Path(path)).meta["rerunnable"]
+    # no protocol run: the last live recording is bundled as a record that says it can't be rerun
+    rec_dir = tmp_path / "rec"
+    rec_dir.mkdir()
+    (rec_dir / "recording-spikes.csv").write_text("time_ms,row\n", encoding="utf-8")
+    (rec_dir / "recording-metadata.json").write_text(json.dumps({"seed": 4, "arena": "room", "lab_params_modified": {},
+                                                                 "surgery": {"Touch neurons": -1}}), encoding="utf-8")
+    brain = SimpleNamespace(seed=4, sim=SimpleNamespace(backend=SimpleNamespace(name="cpu"), p=SimpleNamespace(dtype="float32")))
+    host = SimpleNamespace(last_export=str(rec_dir), brain=brain, cfg={"brain.individuality": "off"})
+    path, msg = lab.make_bundle(host, SimpleNamespace())
+    b = bundle.inspect(Path(path))
+    assert path and not b.meta["rerunnable"] and b.meta["surgery"] == {"Touch neurons": -1} and b.meta["arena"] == "room"
+    assert b.verify() == []
+    path, msg = lab.make_bundle(SimpleNamespace(last_export=None), SimpleNamespace())
+    assert path is None and "Nothing to bundle" in msg

@@ -18,8 +18,9 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 LOCALES = ROOT / "kickthefly" / "data" / "locales"
 MODULES = ("kickthefly/ui/loadout_ui.py", "kickthefly/ui/tutorial.py", "kickthefly/ui/help_ui.py",
-           "kickthefly/ui/crashscreen.py", "kickthefly/game/kick_the_fly.py", "kickthefly/game/kick3d.py")
-NEW_SETTINGS = ("controls.loadout_preset",)
+           "kickthefly/ui/crashscreen.py", "kickthefly/game/kick_the_fly.py", "kickthefly/game/kick3d.py",
+           "kickthefly/ui/neurodex_ui.py", "kickthefly/ui/share_ui.py", "kickthefly/game/extras3.py")
+NEW_SETTINGS = ("controls.loadout_preset", "brain.neurodex", "brain.killcam", "brain.neuron_of_day")
 
 
 def literals(path: Path) -> set[str]:
@@ -42,11 +43,15 @@ def wanted() -> set[str]:
         s = config.BY_KEY[key]
         out |= {s.label, s.tip, *s.labels}
     for a, label, _ in config.ACTIONS:
-        if a in ("loadout", "tool_wheel", "page_prev", "page_next") or a.startswith("slot"):
+        if a in ("loadout", "tool_wheel", "page_prev", "page_next", "neurodex", "killcam") or a.startswith("slot"):
             out.add(label)
     for t in lo.CATALOG:
         out |= {t.label, t.category, t.desc, t.neurons, t.tag, t.larva_note} - {""}
     out |= set(lo.PRESET_LABELS.values()) | set(lo.PRESET_TIPS.values()) | {"Play", "Lab", "Pet", "Help"}
+    # the pause menu's 3.0 entries (their labels and tips are passed to tr() as variables)
+    out |= {"Neurodex", "Share", "The cell types you have discovered, with what the dataset says about each. Default key D.",
+            "Make a short code for your surgery, loadout, protocol, challenge setup or Lab parameters, or import one "
+            "and see what it would change first."}
     return {x for x in out if x.strip()}
 
 

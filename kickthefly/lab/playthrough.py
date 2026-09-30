@@ -27,6 +27,11 @@ indoor arenas), stepped in lockstep from the calling thread, frame by frame. The
 game's tools make. Every tool also gets a brain-level run on both brains, which is the one that is recorded and
 replayed.
 
+Also covered (3.0): the Neurodex (a calm fly discovers nothing, stimulating a curated type discovers it, tagged as
+stimulated, saved under the temporary home), the kill cam (an offer with a full window whose risers include the
+stimulated type, playback that ends and skips), share codes (a surgery and a loadout round trip through the real game,
+a damaged code is refused) and an experiment bundle (a tiny protocol is bundled and rerun: bit-exact on the CPU backends).
+
 Also covered: multi-fly spawn and despawn up to 8, brain surgery on and off, training with 5 pairings, a duel start and
 end, pet mode catch-up over a simulated 3-day gap, individuality off / subtle / strong, and every loadout preset in
 every mode. The 3D renderer runs offscreen where OpenGL is available; with no GL its checks are SKIPPED, never failed.
@@ -791,6 +796,151 @@ def extra_training(rig: Rig, r: Result) -> None:
         r.expect(mem.weakened_share() > 0, "no KC -> MBON synapse was weakened")
 
 
+def extra_neurodex(rig: Rig, r: Result) -> None:
+    """3.0: a calm fly discovers nothing; stimulating a curated type discovers exactly it, tagged as stimulated, and the
+    progress file is written under this run's temporary home (never the player's)."""
+    g = rig.game
+    rig.reset()
+    x3 = g.x3
+    t_end = time.time() + 120
+    while x3.table_state in ("idle", "building") and time.time() < t_end:
+        rig.frames(1)
+        time.sleep(0.05)
+    r.expect(x3.table_state == "ready", f"the Neurodex table is '{x3.table_state}' {x3.table_error}")
+    if x3.table_state != "ready":
+        return
+    rig.seconds(6.0)                                                   # settle: the discovery rule's first 5 s
+    prog = x3.progress
+    calm_found = prog.n_discovered(x3.brain_name)
+    r.metrics["types"] = len(x3.table)
+    r.expect(calm_found == 0, f"a calm fly discovered {calm_found} types: {sorted(prog.types(x3.brain_name))[:5]}")
+    target = next((t for t in ("DNp01", "MDN", "DNp09") if x3.table.index(t) is not None), None)
+    r.expect(target is not None, "none of DNp01, MDN, DNp09 is in this brain")
+    if target is None:
+        return
+    g.type_ops[target] = 1
+    g._apply_surgery()
+    rig.seconds(5.0)
+    rec = prog.types(x3.brain_name).get(target)
+    r.metrics["stimulated_type"] = target
+    r.expect(rec is not None, f"stimulating {target} for 5 s did not discover it")
+    if rec:
+        r.expect(rec["how"] == "stimulated", f"{target} was tagged '{rec['how']}', not 'stimulated'")
+        r.metrics["peak_x"] = rec["x"]
+    r.expect(nd_path_under(tmp_home(), prog.path), f"the Neurodex was saved outside the temporary home: {prog.path}")
+    g.type_ops.clear()
+    g._apply_surgery()
+
+
+def tmp_home() -> Path:
+    from kickthefly.core import paths
+
+    return Path(os.environ.get("KICK_THE_FLY_HOME", paths.get().data_dir)).resolve()
+
+
+def nd_path_under(home: Path, p: Path) -> bool:
+    try:
+        Path(p).resolve().relative_to(home)
+        return True
+    except ValueError:
+        return False
+
+
+def extra_killcam(rig: Rig, r: Result) -> None:
+    """3.0: stimulate, kill the fly, and check the kill cam: an offer with a full window, risers that include what was
+    stimulated, playback that ends at the moment of death, skip, and a second start after a skip."""
+    from kickthefly.core import killcam
+
+    g = rig.game
+    rig.reset()
+    x3 = g.x3
+    x3.offer = None
+    rig.seconds(3.0)
+    target = next((t for t in ("DNp01", "MDN", "DNp09") if t in set(rig.brain.types)), None)
+    r.expect(target is not None, "no stimulable type found")
+    if target is None:
+        return
+    g.type_ops[target] = 1
+    g._apply_surgery()
+    rig.seconds(4.0)
+    g._die(rig.slot, g.clock.now)
+    off = x3.offer
+    r.expect(off is not None, "death did not produce a kill cam offer")
+    if off is None:
+        return
+    rep = off["replay"]
+    r.metrics.update(frames=rep.n_frames, seconds=round(rep.seconds, 2))
+    r.expect(killcam.WINDOW_S - 0.5 <= rep.seconds <= killcam.WINDOW_S, f"the replay is {rep.seconds:.2f} s, not about {killcam.WINDOW_S:g}")
+    types = [x["type"] for x in off["summary"]["risers"]]
+    r.metrics["risers"] = types[:6]
+    r.expect(target in types, f"{target} was stimulated for 4 s before death but is not among the risers {types[:6]}")
+    x3.kc_start()
+    x3.player.speed = 1000.0
+    for _ in range(10):
+        rig.frames(1)
+        time.sleep(0.01)
+    r.expect(not x3.kc_playing(), "the kill cam did not end by itself")
+    x3.kc_start()
+    r.expect(x3.kc_playing(), "it could not be started a second time")
+    x3.kc_stop()
+    r.expect(not x3.kc_playing() and x3.view_rates() is None, "skip did not return the panel to the live brain")
+    g.type_ops.clear()
+    g._apply_surgery()
+    rig.reset()
+
+
+def extra_share(rig: Rig, r: Result) -> None:
+    """3.0: share codes round trip through the real game: surgery, loadout, Lab parameters; damage is refused."""
+    from kickthefly.core import sharecode as sc
+    from kickthefly.ui import share_ui
+
+    g = rig.game
+    rig.reset()
+    g.surgery_modes[9] = -1
+    g.type_ops["DNp01"] = 1
+    g._apply_surgery()
+    want = sc.payload_for_surgery(g)
+    code = sc.encode("surgery", want)
+    g.surgery_modes[9] = 0
+    g.type_ops.clear()
+    g._apply_surgery()
+    got = sc.decode(code)
+    why = sc.validate(got, share_ui.make_context(g))
+    r.expect(why is None, f"a surgery code from this very game was refused: {why}")
+    sc.apply(got, g)
+    r.expect(sc.payload_for_surgery(g) == want, "the imported surgery differs from the exported one")
+    bad = code[:-2] + ("AA" if code[-2:] != "AA" else "BB")
+    try:
+        sc.decode(bad)
+        r.expect(False, "a damaged code was accepted")
+    except sc.ShareError:
+        pass
+    lc = sc.encode("loadout", {"name": "bot", "tools": list(g.loadout.tools)})
+    r.expect(sc.validate(sc.decode(lc), share_ui.make_context(g)) is None, "the current loadout's code was refused")
+    g.surgery_modes[9] = 0
+    g.type_ops.clear()
+    g._apply_surgery()
+
+
+def extra_bundle(backend: str, r: Result, tmp: Path) -> None:
+    """3.0: run a tiny protocol, bundle it, rerun the bundle: bit-exact on the CPU backends, statistical on GPU."""
+    from kickthefly.lab import bundle, protocol
+
+    p = protocol.check({"name": "playthrough-bundle", "seed": 1000, "flies": 2, "warmup_s": 0.2, "duration_s": 1.0,
+                        "stimuli": [{"at_s": 0.2, "for_s": 0.4, "target": "loom", "strength": 0.8}],
+                        "recordings": [{"name": "loom", "neurons": "loom"}, {"name": "gf", "neurons": "dnp01"}]}, "bot")
+    folder = protocol.run(p, tmp / "bundle-run", workers=1)
+    z = bundle.create(folder, tmp / "bot.zip")
+    b = bundle.inspect(z)
+    r.expect(b.verify() == [], f"the bundle failed its own integrity check: {b.verify()[:2]}")
+    b.close()
+    rep = bundle.rerun(z, tmp / "bundle-rerun", workers=1)
+    r.metrics.update(mode=rep["mode"], verdict=rep["verdict"], backend=rep["rerun_backend"])
+    r.expect(rep["match"], f"the rerun did not match: {rep['verdict']}")
+    if backend in bundle.BIT_EXACT_BACKENDS:
+        r.expect(rep["mode"] == "bit-exact", f"{backend} must be judged bit-exact, was {rep['mode']}")
+
+
 def extra_duel(rig: Rig, r: Result) -> None:
     g = rig.game
     rig.reset()
@@ -1084,10 +1234,14 @@ def run(brains=("adult", "larva"), out: Path | None = None, quick: bool = False,
                                 if lo.available(tool, lab=True, larva=False):
                                     add(game_leg(rig2, arena, tool, min_ratio, tmp, save_load=False, rest=rest.get(tool)))
                     add(Result(id="extra:training", group="extra", brain="adult"), extra_training, rig2)
+                    add(Result(id="extra:neurodex", group="extra", brain="adult"), extra_neurodex, rig2)
+                    add(Result(id="extra:killcam", group="extra", brain="adult"), extra_killcam, rig2)
+                    add(Result(id="extra:share-codes", group="extra", brain="adult"), extra_share, rig2)
                 finally:
                     if rig2 is not None:
                         rig2.close()
                 add(Result(id="extra:surgery", group="extra", brain="adult"), extra_surgery, backend)
+                add(Result(id="extra:bundle-rerun", group="extra", brain="adult"), extra_bundle, backend, tmp)
                 add(Result(id="extra:individuality", group="extra", brain="adult"), extra_individuality, backend)
             add(Result(id="extra:pet-catch-up", group="extra"), extra_pet, tmp)
         finally:
