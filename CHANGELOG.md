@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.13.1 (2026-09-30)
+
+2.13.0 was tagged, but its release run stopped before publishing any files, so 2.13.0 ships as 2.13.1. Nothing in the
+game or the simulation changed.
+
+### Fixed
+- The self-test's unwritable-folder test failed on Windows: it made its folder read-only with chmod, which does nothing
+  to a folder there. It now puts a file where the folders go, which no OS can create a folder under, so it also runs
+  as root where it used to be skipped.
+
 ## 2.13.0 (2026-09-29)
 
 ### Added

@@ -1,8 +1,10 @@
-# Kick the Fly 2.13.0: tool loadouts, a self-test and a bug report that sends nothing
+# Kick the Fly 2.13.1: tool loadouts, a self-test and a bug report that sends nothing
 
 Downloads: **KickTheFly.exe** (Windows) and **KickTheFly-x86_64.AppImage** (Linux). Check them against `SHA256SUMS`.
 Your saves, settings and your fly's training memory carry over. Everything in
 [2.12.0](https://github.com/legendarylolo318-cloud/kick-the-fly/releases/tag/v2.12.0) is in this build.
+
+2.13.1 is 2.13.0 with one test fix: 2.13.0 was tagged, but its release run stopped before publishing any files.
 
 Nothing in the simulation changed: the validation results are identical to 2.12.0's.
 

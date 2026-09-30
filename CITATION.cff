@@ -8,8 +8,8 @@ authors:
   - alias: legendarylolo318-cloud
 repository-code: "https://github.com/legendarylolo318-cloud/kick-the-fly"
 license: MIT
-version: 2.13.0
-date-released: "2026-09-29"
+version: 2.13.1
+date-released: "2026-09-30"
 keywords:
   - connectome
   - Drosophila
