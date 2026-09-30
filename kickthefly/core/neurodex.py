@@ -6,11 +6,18 @@ What is what (the canonical map is the docstring of kickthefly/game/kick_the_fly
   CONNECTOME   every number in an entry: the type's neuron count, superclass and regions as the brain pack annotates
                them, the transmitter the dataset predicts (with the dataset's own confidence), and the strongest
                partner types by synapse count. Nothing is measured by the game; nothing is estimated.
-  GAME RULE    "discovered". A type is discovered the first time the mean firing of its neurons is at least
-               DISCOVER_MIN_HZ and at least DISCOVER_FACTOR x its own calm rate (never below DISCOVER_CALM_FLOOR_HZ),
-               for DISCOVER_SUSTAIN consecutive checks (50 ms apart), after the brain has settled. Those four numbers
-               are the game's choice; they were fixed before anything was played and are not tuned. The collection, its
-               progress bars and the "discovered by stimulation" tag are game rules too. Discovery only runs in the
+  GAME RULE    "discovered". Every 50 ms the game counts each type's spikes over the last 150 ms (WINDOW_STEPS). A type
+               is discovered when, for DISCOVER_SUSTAIN consecutive checks, its mean firing is at least DISCOVER_MIN_HZ
+               and at least DISCOVER_FACTOR x its own calm rate (never below DISCOVER_CALM_FLOOR_HZ), AND that many
+               spikes would be a one-sided Poisson event of probability below DISCOVER_ALPHA if the type were firing at
+               its calm rate, after the brain has settled. The collection, its progress bars and the "discovered by
+               stimulation" and "at rest" tags are game rules too.
+               History, so nobody re-tunes it by taste: Day 1 had only the first two conditions (fixed a priori). On the
+               real pack a calm, untouched fly then "discovered" 190 types a minute, nearly all of 1-4 neurons at ~2 Hz,
+               whose noise easily triples a mean over 150 ms. The review fixed the pass criteria first (a calm fly
+               discovers nothing in 60 s; a driven curated type is discovered within 3 s; exploration seeds 0-4), then
+               added the Poisson condition with alpha derived from a false-alarm budget (FALSE_ALARM_HOURS below), not
+               fitted to the measurement. The magnitude numbers are unchanged from Day 1. Discovery only runs in the
                windowed game: never in --validate, assays, protocols or tests.
   LITERATURE   the one-line fact and citation on a curated type (kickthefly/data/neurodex_facts.yaml). Hand-written,
                checked against the cited paper, and only for the types in that table.
@@ -43,6 +50,17 @@ DISCOVER_MIN_HZ = 6.0            # mean firing of the type's neurons, spikes/s
 DISCOVER_FACTOR = 3.0            # ... and this many times its own calm rate
 DISCOVER_CALM_FLOOR_HZ = 2.0     # the calm rate is never taken below this (as Brain.level does)
 DISCOVER_SUSTAIN = 3             # consecutive checks
+WINDOW_STEPS = 30                # spikes are counted over the last 150 ms (the simulator keeps the last 400 steps)
+# Review (3.0 Day 1): the Poisson condition. alpha is set so that, if every type fired as a Poisson process at its calm rate,
+# a whole brain (~11,751 types, one test each per 50 ms check) would give about one false discovery per FALSE_ALARM_HOURS
+# of calm play. Real spiking isn't Poisson (refractoriness, network correlations), so this is a design target, not a
+# guarantee; tests/test_neurodex_real.py measures the real rate on exploration seeds.
+FALSE_ALARM_HOURS = 100.0
+# How a type was discovered. "rest" (review, Day 1): while nothing had touched the fly for 2 s. On the real pack a calm fly's
+# sensory types (ORNs, wing and body sensory neurons) fire correlated spontaneous bursts that pass every condition above,
+# 25-35 types in the first calm minute on exploration seeds 0-4; the entry says so instead of claiming "in play".
+HOW = ("play", "stimulated", "rest")
+DISCOVER_ALPHA = 1.0 / (11_751 * (3600 / 0.05) * FALSE_ALARM_HOURS)
 SETTLE_CHECKS = 100              # checks (5 s) of learning calm before any discovery
 CHECK_STEPS = 10                 # sim steps (5 ms) between checks
 CALM_K_QUIET, CALM_K_BUSY = 0.02, 0.0005     # calm-rate tracking, as core/memory.py does
@@ -382,10 +400,19 @@ class Progress:
             return
         for brain, rec in raw["brains"].items():
             types = rec.get("types") if isinstance(rec, dict) else None
-            if isinstance(types, dict):
-                self.data["brains"][str(brain)] = {"types": {
-                    str(t): {"t": str(v.get("t", "")), "x": float(v.get("x", 0.0)), "how": str(v.get("how", "play"))}
-                    for t, v in types.items() if isinstance(v, dict)}}
+            if not isinstance(types, dict):
+                continue
+            kept = {}
+            for t, v in types.items():                       # review: one bad value used to crash the whole load
+                if not isinstance(v, dict):
+                    continue
+                try:
+                    x = float(v.get("x", 0.0))
+                except (TypeError, ValueError):
+                    x = 0.0
+                kept[str(t)] = {"t": str(v.get("t", "")), "x": x if x == x else 0.0,
+                                "how": v.get("how") if v.get("how") in HOW else "play"}
+            self.data["brains"][str(brain)] = {"types": kept}
 
     def types(self, brain: str) -> dict:
         return self.data["brains"].setdefault(brain, {"types": {}})["types"]
@@ -447,7 +474,7 @@ def region_progress(tab: TypeTable, prog: Progress) -> list[tuple[str, int, int]
 class Tracker:
     """Watches a running brain and records discoveries. One per game; feed it each brain's per-neuron rates.
 
-    observe() takes the simulator's per-neuron rate EMA in spikes per step (sim.activity.rates()), the step length in
+    observe() takes the spikes of the last WINDOW_STEPS steps (window_spikes(sim.activity)), the step length in
     seconds, whether the brain is calm (nothing touched it, no surgery, no drive: the game's own test for "calm"), and
     how it is being driven. It returns the names of types discovered just now. A separate calm baseline is kept per
     brain, because each fly's brain settles on its own."""
@@ -466,13 +493,20 @@ class Tracker:
         known = self.prog.types(self.tab.brain)
         self.known_mask = np.fromiter((str(n) in known for n in self.tab.names), bool, len(self.tab))
 
-    def type_rates_hz(self, rates: np.ndarray, dt: float) -> np.ndarray:
-        r = np.where(self.valid, rates, 0.0)
-        return np.bincount(self.tid, weights=r, minlength=len(self.tab)) / self.count / dt
+    def type_counts(self, spikes: np.ndarray) -> np.ndarray:
+        """Spikes per type from neuron indices (neurons without a type are ignored)."""
+        idx = np.asarray(spikes, np.int64)
+        idx = idx[self.valid[idx]] if len(idx) else idx
+        return np.bincount(self.tab.type_id[idx], minlength=len(self.tab)).astype(np.float64)
 
-    def observe(self, key, rates: np.ndarray, dt: float, calm: bool, driven: bool = False) -> list[str]:
+    def observe(self, key, spikes: np.ndarray, dt: float, calm: bool, driven: bool = False,
+                window_steps: int = WINDOW_STEPS) -> list[str]:
+        """spikes: the indices of every neuron spike in the last `window_steps` steps (window_spikes() gets them from a
+        simulator), repeated once per spike."""
         st = self._state.get(key)
-        hz = self.type_rates_hz(np.asarray(rates, np.float64), dt)
+        counts = self.type_counts(spikes)
+        window_s = max(1, int(window_steps)) * dt
+        hz = counts / self.count / window_s
         if st is None:
             st = self._state[key] = {"calm": hz.copy(), "n": 0, "run": np.zeros(len(hz), np.int16)}
         st["n"] += 1
@@ -481,8 +515,16 @@ class Tracker:
             st["calm"] += (hz - st["calm"]) * k
         if st["n"] < SETTLE_CHECKS:
             return []
-        ratio = hz / np.maximum(st["calm"], DISCOVER_CALM_FLOOR_HZ)
+        base = np.maximum(st["calm"], DISCOVER_CALM_FLOOR_HZ)
+        ratio = hz / base
         hot = (hz >= DISCOVER_MIN_HZ) & (ratio >= DISCOVER_FACTOR) & ~self.known_mask
+        cand = np.flatnonzero(hot)
+        if len(cand):
+            from scipy.stats import poisson
+
+            lam = base[cand] * self.count[cand] * window_s
+            p = poisson.sf(counts[cand] - 1, lam)                 # P(X >= count) at the calm rate
+            hot[cand[p >= DISCOVER_ALPHA]] = False
         run = st["run"]
         run[hot] += 1
         run[~hot] = 0
@@ -490,7 +532,8 @@ class Tracker:
         out = []
         for i in found:
             name = str(self.tab.names[i])
-            if self.prog.mark(self.tab.brain, name, float(ratio[i]), "stimulated" if driven else "play"):
+            how = "stimulated" if driven else "rest" if calm else "play"
+            if self.prog.mark(self.tab.brain, name, float(ratio[i]), how):
                 out.append(name)
             self.known_mask[i] = True
             run[i] = 0
@@ -498,6 +541,15 @@ class Tracker:
 
 
 # --- one entry, for the panel, the API and the tests ----------------------------------------------------------------------------
+def window_spikes(activity, steps: int = WINDOW_STEPS) -> tuple[np.ndarray, int]:
+    """(neuron indices of every spike in the last `steps` steps, how many steps that really covers) from a simulator's
+    ActivityBuffer (sim.activity)."""
+    raster = activity.raster()[-steps:]
+    if not raster:
+        return np.zeros(0, np.int64), 1
+    return np.concatenate(raster), len(raster)
+
+
 def entry(tab: TypeTable, name: str, prog: Progress | None = None) -> dict | None:
     """Everything the Neurodex shows about a type. `discovered` False means the panel shows only a silhouette; this
     function still returns the data (the Python API and tests use it), the panel decides what to reveal."""

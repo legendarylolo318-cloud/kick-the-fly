@@ -83,23 +83,24 @@ def click(pos):
 def test_discovery_needs_settling_and_a_real_rise(game):
     run(game, nd.SETTLE_CHECKS * nd.CHECK_STEPS + 200)
     assert game.x3.table_state == "ready"
-    assert game.x3.progress.n_discovered("adult") == 0, "a calm fly discovers nothing"
-    game.type_ops["DNp01"] = 1
-    game._apply_surgery()
+    assert all(v["how"] == "rest" for v in game.x3.progress.types("adult").values())   # calm: only ever "at rest"
+    from kickthefly.core import simcore
+    simcore.drive(game.brain, game.x3.table.rows("LPLC2"), 0.5)       # the validation suite's activation current
+    # (a 60-neuron type: the synthetic pack rests near 17 Hz, too high for a 2-neuron type to be significant there)
     run(game, 600)
     rec = game.x3.progress.types("adult")
-    assert set(rec) == {"DNp01"} and rec["DNp01"]["how"] == "stimulated"
+    assert rec["LPLC2"]["how"] == "stimulated"
 
 
 def test_discoveries_are_saved_next_to_the_training_memory(game, isolated_home):
     run(game, nd.SETTLE_CHECKS * nd.CHECK_STEPS + 100)
-    game.type_ops["MDN"] = 1
-    game._apply_surgery()
+    from kickthefly.core import simcore
+    simcore.drive(game.brain, game.x3.table.rows("LPLC2"), 0.5)
     run(game, 600)
     path = nd.progress_path()
     assert path.exists() and path.parent.name == "memory"
     again = nd.Progress(path)
-    assert again.discovered("adult", "MDN")
+    assert again.discovered("adult", "LPLC2")
 
 
 def test_discovery_can_be_switched_off(synthetic_pack):
@@ -421,13 +422,13 @@ def test_api_collect_discovers_by_stimulation_and_never_touches_the_players_dex(
     fly = Fly(seed=3, warmup_s=0.5)
     prog = fly.collect()
     fly.step(6.0)
-    assert prog.n_discovered("adult") == 0
-    fly.drive("type:DNp01", amp=0.5)                              # the validation suite's activation current
+    assert all(v["how"] == "rest" for v in prog.types("adult").values())
+    fly.drive("type:LPLC2", amp=0.5)                              # the validation suite's activation current
     fly.step(3.0)
-    assert [(n, how) for _, n, how in fly.discoveries] == [("DNp01", "stimulated")]
+    assert ("LPLC2", "stimulated") in [(n, how) for _, n, how in fly.discoveries]
     assert prog.path.parent != nd.progress_path().parent and not nd.progress_path().exists()
-    e = fly.neurodex("DNp01")
-    assert e["discovered"] and e["curated"]["doi"] == "10.1038/nn.3741" and fly.neurodex("Nope") is None
+    e = fly.neurodex("LPLC2")
+    assert e["discovered"] and e["curated"]["doi"] == "10.1038/nature24626" and fly.neurodex("Nope") is None
 
 
 def test_api_killcam(synthetic_pack):
@@ -473,3 +474,37 @@ def test_the_buffer_skips_reading_rates_between_samples():
     assert b.due(0)
     b.push(0, np.zeros(3))
     assert not b.due(5) and b.due(8) and b.due(-1)
+
+
+# --- review (Day 1) ---------------------------------------------------------------------------------------------------------
+def test_the_table_worker_uses_the_progress_the_game_thread_made(synthetic_pack):
+    """The worker used to create its own Progress, racing the game thread's; the tracker and the panel could then hold two."""
+    g = make_game()
+    g.x3.async_build = True
+    g.x3.ensure_table()
+    prog_now = g.x3.progress
+    assert prog_now is not None                                  # made on the game thread, before the worker starts
+    t_end = time.time() + 30
+    while g.x3.table_state == "building" and time.time() < t_end:
+        time.sleep(0.02)
+    assert g.x3.table_state == "ready" and g.x3.tracker.prog is prog_now is g.x3.progress
+
+
+def test_gamepad_b_skips_the_kill_cam(game):
+    die_with_history(game)
+    for button in ("crouch", "up", "use", "killcam"):             # B, A, the trigger, the kill cam button
+        game.x3.kc_start()
+        assert game.x3.pad_event({button}) and not game.x3.kc_playing(), button
+
+
+def test_the_tutorial_does_not_cover_or_steal_keys_from_the_kill_cam(game):
+    """Review: seen in a real 3D frame, the first-launch tutorial drew over the kill cam and took Enter / Backspace first."""
+    die_with_history(game)
+    game.start_tutorial()
+    drawn = []
+    game.tutorial.draw = lambda surf: drawn.append(1)
+    game.x3.kc_start()
+    game.draw(time.perf_counter(), (10, 10))
+    assert not drawn
+    game.handle(key(pygame.K_RETURN), time.perf_counter())
+    assert not game.x3.kc_playing()                                # Enter skipped the kill cam, not a tutorial step

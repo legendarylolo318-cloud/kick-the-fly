@@ -65,7 +65,7 @@ def make_context(host) -> sc.Context:
         challenges=set(challenges.CLASSES), arenas=arenas, current_surgery=sc.payload_for_surgery(host),
         current_loadout=list(host.cfg.loadout["custom"]), saved_loadouts=[i["name"] for i in host.cfg.loadout["saved"]],
         max_saved_loadouts=lo.MAX_SAVED, protocol_names={f.stem for f in lab.protocol_files()},
-        larva=bool(host.is_larva), brain=x3.brain_name)
+        larva=bool(host.is_larva), lab=bool(host.cfg.lab), brain=x3.brain_name)
 
 
 def _payload(host, st: _State) -> tuple[dict | None, str | None]:

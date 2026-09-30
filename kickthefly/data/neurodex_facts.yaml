@@ -107,14 +107,14 @@ facts:
     text: "MBON-gamma5beta'2a, one glutamatergic cell, in the M4/M6 group whose output is required for appetitive and aversive memory performance."
     cite: "Aso et al. 2014, eLife 3:e04577 (naming); Owald et al. 2015, Neuron 86:417-427"
     doi: 10.7554/eLife.04577
-    checked: "Table 1 of Aso 2014 (PMC) for the name, cell count and transmitter; Owald 2015 abstract (PubMed) for the role, 2026-09-30"
+    checked: "Table 1 of Aso et al. 2014 e04577 (PMC4273437) for the name, cell count and transmitter; Owald 2015 abstract (PubMed) for the role; re-checked by review 2026-09-30"
 
   - id: mbon14
     types: [MBON14]
-    text: "MBON-alpha3, a cholinergic output neuron of the V3/V4 group (two cells); the paper connects this group to 2-hour appetitive memory."
-    cite: "Aso et al. 2014, eLife 3:e04577"
-    doi: 10.7554/eLife.04577
-    checked: "Table 1 and text, PMC, 2026-09-30"
+    text: "MBON-alpha3, a cholinergic output neuron of the V3/V4 group (two cells); silencing lines covering that group implicated it in 2-hour appetitive memory."
+    cite: "Aso et al. 2014, eLife 3:e04577 (naming); Aso et al. 2014, eLife 3:e04580 (memory)"
+    doi: 10.7554/eLife.04580
+    checked: "name, cell count and transmitter: Table 1 of e04577 (PMC4273437); the 2-hour appetitive memory statement is in e04580's text (PMC4273436), which Day 1 had read but cited as e04577; corrected by review 2026-09-30"
 
   - id: pip10
     types: [pIP10]
@@ -141,7 +141,7 @@ facts:
     game_note: "The game steers the fly with LC10 on the same side as DNa02 (GAME RULE)."
 
   - id: epg
-    types: [EPG, E-PG]
+    types: [EPG]
     text: "E-PG neurons tile the ellipsoid body and the protocerebral bridge; the position of their activity peak tracks the fly's heading."
     cite: "Green et al. 2017, Nature 546:101-106"
     doi: 10.1038/nature22343
@@ -187,16 +187,16 @@ facts:
 
   - id: dorsal-fb
     prefix: [FB6, FB7]
-    text: "Activating neurons that project to the dorsal fan-shaped body puts flies into a sleep-like quiescent state."
+    text: "Activating neurons that project to the dorsal fan-shaped body (layers 6-7) puts flies into a sleep-like quiescent state. Shown on every FB6/FB7 type: the dataset doesn't say which of them the paper's neurons are."
     cite: "Donlea et al. 2011, Science 332:1571-1576"
     doi: 10.1126/science.1202249
     checked: "abstract, PubMed, 2026-09-30"
     game_note: "The game's SLEEP readout is FB6/FB7 firing; these layers being the dorsal fan-shaped body is the game's reading of the dataset."
 
   - id: johnston-wind
-    types: [JO-C, JO-E]
+    prefix: [JO-C, JO-E]
     text: "Johnston's organ, the antennal mechanosensory organ, holds separate neuron subsets for wind, near-field sound and gravity, projecting to different regions of the central brain."
     cite: "Yorozu et al. 2009, Nature 458:201-205; Kamikouchi et al. 2009, Nature 458:165-171"
     doi: 10.1038/nature07843
-    checked: "abstracts, PubMed, 2026-09-30. Which subset is JO-C/E is the game's annotation-based choice, not claimed by these papers"
+    checked: "abstracts, PubMed, 2026-09-30. The pack names these JO-CA1, JO-CM, JO-ED1, JO-EV3 and so on, hence the prefixes (review found the exact names JO-C/JO-E match no type). Which subset is JO-C/E is the game's annotation-based choice, not claimed by these papers"
     game_note: "The fan's wind drives JO-C/E in the game (CONNECTOME sensors, GAME RULE wind)."

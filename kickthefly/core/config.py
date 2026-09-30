@@ -135,7 +135,7 @@ SETTINGS: tuple[Setting, ...] = (
       "Show a short card when the fly does something real flies were shown to do."),
     S("brain.neurodex", "Brain", "Neurodex discoveries", "bool", True,
       "Collect cell types in the Neurodex (default key D): a type is discovered the first time its neurons fire well "
-      "above their own calm rate while you play. The numbers in an entry come from the dataset (Connectome); what counts "
+      "above their own calm rate (tagged 'in play', 'by stimulation', or 'at rest' for a spontaneous burst). The numbers in an entry come from the dataset (Connectome); what counts "
       "as discovered, and the collection, are game rules. Off stops collecting; what you found stays.",
       tag=GAME_RULE),
     S("brain.killcam", "Brain", "Kill cam offer", "bool", True,
@@ -400,14 +400,24 @@ class Config:
         key_name = key_name.lower()
         if key_name in RESERVED_KEYS:
             return False, f"'{key_name}' is reserved (Esc opens the menu)"
-        other = self.action_for(key_name)
         old = self.keys[action]
+        # Every action on that key that may not share it with this one moves: the first to this action's old key (a swap,
+        # as before), unless that would itself clash (3.0: D is shared by walk-right and the Neurodex, so the old key can
+        # still be taken); anything left over is unbound and says so. Before this, only the first action on the key was
+        # moved, which left two actions on D (review, Day 1).
+        displaced = [a for a in self.actions_for(key_name) if a != action and not _allowed_overlap([a, action])]
         self.keys[action] = key_name
         self.dirty = True
-        if other and other != action:
-            self.keys[other] = old
-            return True, f"'{key_name}' was used by {ACTION_LABEL[other]}; swapped, that is now '{old}'"
-        return True, ""
+        notes = []
+        for a in displaced:
+            holders = [b for b in self.actions_for(old) if b != a] if old else []
+            if old and all(_allowed_overlap([a, b]) for b in holders):
+                self.keys[a] = old
+                notes.append(f"'{key_name}' was used by {ACTION_LABEL[a]}; swapped, that is now '{old}'")
+            else:
+                self.keys[a] = ""
+                notes.append(f"'{key_name}' was used by {ACTION_LABEL[a]}; that is now unbound (Settings > Controls)")
+        return True, "; ".join(notes)
 
     def bind_pad(self, action: str, binding: str) -> tuple[bool, str]:
         """Rebind a gamepad action. A binding another action uses swaps the two. Returns (ok, message)."""
@@ -494,8 +504,13 @@ class Config:
                                                 f"{ACTION_LABEL[a]} is unbound (Settings > Controls)")
             for k, acts in cfg.conflicts().items():          # a hand-edited file bound one key twice: keep the first
                 for a in acts[1:]:
-                    cfg.keys[a] = next(d for x, _, d in ACTIONS if x == a)
-                    cfg.warnings.append(f"key '{k}' was bound twice; {a} reset to its default")
+                    default = next(d for x, _, d in ACTIONS if x == a)
+                    # review (3.0): the default can be the contested key itself (the Neurodex's is D), or taken by another
+                    # action; then the action is unbound instead of staying doubled up
+                    taken = [b for b in cfg.actions_for(default) if b != a and not _allowed_overlap([a, b])]
+                    cfg.keys[a] = "" if (default == k or taken) else default
+                    cfg.warnings.append(f"key '{k}' was bound twice; {a} "
+                                        + ("is unbound (Settings > Controls)" if not cfg.keys[a] else "reset to its default"))
         schema = data.get("schema_version", 1)
         if not isinstance(schema, int) or isinstance(schema, bool):
             schema = 1

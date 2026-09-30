@@ -125,3 +125,56 @@ def test_old_replay_files_and_the_replay_format_are_unchanged():
     from kickthefly.core import replay
 
     assert replay.FORMAT == "kick-the-fly-replay" and replay.FORMAT_VERSION == 1
+
+
+# --- review (Day 1): rebinding around the shared D key --------------------------------------------------------------------
+def test_moving_the_neurodex_off_d_to_a_taken_key_leaves_no_double_binding():
+    cfg = config.Config(None)
+    ok, msg = cfg.bind("neurodex", "j")                      # j is Recall; before the fix Recall landed on D beside walk-right
+    assert ok and cfg.keys["neurodex"] == "j" and cfg.conflicts() == {}
+    assert cfg.keys["right"] == "d" and cfg.keys["recall"] == "" and "unbound" in msg
+
+
+def test_putting_another_action_on_d_moves_both_of_its_holders():
+    cfg = config.Config(None)
+    ok, msg = cfg.bind("arena", "d")                         # before the fix: arena and the Neurodex both on D
+    assert ok and cfg.conflicts() == {} and cfg.keys["arena"] == "d"
+    assert cfg.keys["right"] == cfg.keys["neurodex"] == "e"            # the allowed pair moves together to arena's old key
+
+
+def test_the_allowed_pair_can_still_be_made_again():
+    cfg = config.Config(None)
+    cfg.bind("neurodex", "f9")
+    ok, msg = cfg.bind("neurodex", "d")
+    assert ok and msg == "" and cfg.actions_for("d") == ["right", "neurodex"] and cfg.conflicts() == {}
+
+
+def test_random_rebinding_never_leaves_a_conflict():
+    import random
+
+    rng = random.Random(1234)
+    keys = ["d", "j", "e", "q", ";", "a", "w", "f9", "x", "1", "tab"]
+    actions = [a for a, _, _ in config.ACTIONS]
+    for _ in range(40):
+        cfg = config.Config(None)
+        for _ in range(30):
+            ok, _msg = cfg.bind(rng.choice(actions), rng.choice(keys))
+            assert ok and cfg.conflicts() == {}, cfg.conflicts()
+
+
+def test_a_hand_edited_double_binding_on_d_is_repaired(tmp_path):
+    """Review: the repair reset the second action to its default, which for the Neurodex is D itself, so it stayed doubled."""
+    cfg = load(tmp_path, 'schema_version = 3\n[keys]\nneurodex = "d"\narena = "d"\n')
+    assert cfg.conflicts() == {} and cfg.keys["arena"] == "d" and cfg.keys["neurodex"] == ""
+
+
+def test_every_old_schema_with_keys_on_d_or_semicolon_loads_without_conflicts(tmp_path):
+    files = ['schema_version = 1\n[keys]\nspawn = "d"\n', 'schema_version = 2\n[brain]\nscience_popups = true\n',
+             '[keys]\nmute = ";"\nbig_view = "d"\n', 'schema_version = 3\n[keys]\nright = "k"\n',
+             'schema_version = 3\n[keys]\nneurodex = "d"\narena = "d"\nkillcam = "e"\n']
+    for text in files:
+        cfg = load(tmp_path, text)
+        assert cfg.conflicts() == {}, text
+        assert cfg.save()
+        again = config.Config.load(tmp_path / "config.toml")
+        assert again.keys == cfg.keys and again.conflicts() == {}, text

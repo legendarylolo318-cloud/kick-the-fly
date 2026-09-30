@@ -58,6 +58,7 @@ STAT_SLACK_REL = 0.10          # widen the original 95% CI by this share of its 
 STAT_SINGLE_REL = 0.25         # one seed: no CI, so within this share of the mean ...
 STAT_SINGLE_ABS_HZ = 0.5       # ... plus this many Hz
 MAX_META_BYTES = 16 << 20
+MAX_FILE_BYTES = 8 << 30        # no single file in a bundle is read past this (a zip bomb is refused, not expanded)
 CRATE_CONTEXT = "https://w3id.org/ro/crate/1.1/context"
 CRATE_SPEC = "https://w3id.org/ro/crate/1.1"
 CC_BY_4 = "https://creativecommons.org/licenses/by/4.0/"
@@ -310,6 +311,8 @@ class Bundle:
             self.crate = json.loads(self.zip.read("ro-crate-metadata.json"))
         except ValueError as e:
             raise BundleError(f"the bundle's metadata is not readable ({e})") from None
+        if not isinstance(self.meta, dict) or not isinstance(self.crate, dict):
+            raise BundleError("not a Kick the Fly bundle (its metadata is not a JSON object)")
         if self.meta.get("format") != FORMAT:
             raise BundleError("not a Kick the Fly bundle (metadata.json has another format)")
         v = self.meta.get("format_version")
@@ -331,17 +334,36 @@ class Bundle:
         except (KeyError, ValueError, yaml.YAMLError) as e:
             raise BundleError(f"the bundle's protocol.yaml can't be read ({e})") from None
 
+    def _hash_member(self, n: str, limit: int) -> str | None:
+        """SHA-256 of one member, streamed; None if it expands past `limit` bytes (a zip bomb, or a lying header)."""
+        h, total = hashlib.sha256(), 0
+        with self.zip.open(n) as fh:
+            for chunk in iter(lambda: fh.read(1 << 20), b""):
+                total += len(chunk)
+                if total > limit:
+                    return None
+                h.update(chunk)
+        return h.hexdigest()
+
     def verify(self) -> list[str]:
-        """Problems found checking every file against the crate's SHA-256 (empty list = intact)."""
+        """Problems found checking every file against the crate's SHA-256 (empty list = intact). Streams each file and
+        stops at the size the crate declares for it, so memory stays flat whatever a bundle claims (review, Day 1)."""
         problems = []
-        listed = {e["@id"]: e for e in self.crate.get("@graph", []) if e.get("@type") == "File"}
+        graph = self.crate.get("@graph", []) if isinstance(self.crate, dict) else []
+        listed = {e["@id"]: e for e in graph if isinstance(e, dict) and e.get("@type") == "File" and "@id" in e}
         for n in self.names():
-            if n == "ro-crate-metadata.json":
+            if n == "ro-crate-metadata.json" or n.endswith("/"):
                 continue
             e = listed.get(n)
             if e is None:
                 problems.append(f"{n} is in the zip but not in the crate")
-            elif sha256_bytes(self.zip.read(n)) != e.get("sha256"):
+                continue
+            size = e.get("contentSize")
+            if not isinstance(size, int) or size < 0 or size > MAX_FILE_BYTES or self.zip.getinfo(n).file_size != size:
+                problems.append(f"{n} doesn't have the size the crate records for it")
+                continue
+            got = self._hash_member(n, size)
+            if got is None or got != e.get("sha256"):
                 problems.append(f"{n} has changed since the bundle was made (its SHA-256 doesn't match)")
         for n in listed:
             if n not in self.names():
@@ -411,6 +433,10 @@ def rerun(bundle_path: Path, out: Path, backend: str | None = None, dtype: str |
             p = protocol_mod.check(b.protocol(), "the bundle's protocol")
         except protocol_mod.ProtocolError as e:
             raise BundleError(f"the bundle's protocol isn't valid here: {e}") from None
+        if "results/summary.json" not in b.names():
+            raise BundleError("the bundle has no results/summary.json, so there is nothing to compare a rerun with")
+        if b.zip.getinfo("results/summary.json").file_size > MAX_META_BYTES:
+            raise BundleError("results/summary.json is implausibly large")
         orig_summary = json.loads(b.read("results/summary.json"))
         orig_backend = meta.get("backend")
         want_dtype = dtype or meta.get("dtype") or "float32"

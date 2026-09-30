@@ -87,6 +87,9 @@ class Extras:
             return
         self.table_state = "building"
         name = self.brain_name
+        prog = self.ensure_progress()                    # review: made here, on the game thread, before the worker starts.
+        # The worker used to call ensure_progress() itself, racing the game thread (opening the Neurodex, a discovery), so two
+        # Progress objects could exist: the tracker recorded into one and the panel showed and saved the other.
 
         def work():
             try:
@@ -95,7 +98,7 @@ class Extras:
                     self.table_state = "none"
                     return
                 self.table = t
-                self.tracker = nd.Tracker(t, self.ensure_progress())
+                self.tracker = nd.Tracker(t, prog)
                 self.table_state = "ready"
             except Exception as e:                      # the Neurodex is never worth a crash
                 from kickthefly.core.crash import log
@@ -127,7 +130,8 @@ class Extras:
         self._last_check[id(br)] = br.steps
         calm = (br.sedation == 0 and not br.surgery and not br.driving and br.steps - br.last_poke > 400)
         driven = bool(br.surgery or br.driving or getattr(g.laser_state, "firing", False))
-        found = tr.observe(id(br), br.sim.activity.rates(), br.dt, calm, driven)
+        spikes, steps = nd.window_spikes(br.sim.activity)
+        found = tr.observe(id(br), spikes, br.dt, calm, driven, window_steps=steps)
         for name in found:
             self.on_discovery(name, driven)
 
@@ -135,7 +139,7 @@ class Extras:
         g = self.g
         prog = self.ensure_progress()
         rec = prog.types(self.brain_name).get(name, {})
-        how = " (by stimulation)" if driven else ""
+        how = {"stimulated": " (by stimulation)", "rest": " (at rest)"}.get(rec.get("how"), "")
         self.toasts.append((f"NEURODEX  {name} discovered{how}", time.perf_counter()))
         g.note(f"NEURODEX  {name} discovered{how}  x{rec.get('x', 0):.1f} calm", source="rule")
         try:
@@ -340,7 +344,9 @@ class Extras:
     def pad_event(self, down) -> bool:
         """Gamepad (3D): called once per frame with the buttons that went down. True if they were used."""
         if self.player is not None:
-            if down & {"killcam", "b", "a"}:
+            # review: these are the pad's ACTION names (config.PAD_ACTIONS); "b"/"a" were button names and never matched, so
+            # B (bound to crouch) did not skip it as the docs say. Start is handled before this (it sends Esc).
+            if down & {"killcam", "crouch", "up", "use"}:
                 self.kc_stop()
             return True
         if "killcam" in down and self.kc_available():
@@ -378,6 +384,7 @@ class Extras:
         w = min(surf.get_width() - 20, img.get_width() + 28)
         cx = min(surf.get_width(), 890) // 2
         r = pygame.Rect(cx - w // 2, y, w, 28)
+        alpha = max(0, min(255, int(alpha)))
         card = pygame.Surface(r.size, pygame.SRCALPHA)
         pygame.draw.rect(card, (14, 18, 26, int(alpha * 0.9)), card.get_rect(), border_radius=10)
         pygame.draw.rect(card, (*col, alpha), card.get_rect(), 2, border_radius=10)

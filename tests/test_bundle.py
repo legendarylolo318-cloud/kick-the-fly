@@ -363,3 +363,52 @@ def test_an_assay_protocol_bundles_and_reruns_bit_exact(env, tmp_path):
 
     bad = rewrite(z, tmp_path / "bad.zip", edit_files={"results/summary.json": shift})
     assert not bundle.rerun(bad, tmp_path / "rr2", workers=1)["match"]
+
+
+# --- review (Day 1): hostile bundles --------------------------------------------------------------------------------------------
+def _bomb(path, member_size, declared=None, extra=None):
+    import hashlib
+
+    data = b"\0" * member_size
+    meta = {"format": bundle.FORMAT, "format_version": 1, "created": "x", "app_version": "x", "rerunnable": True}
+    crate = {"@graph": [{"@id": "raw/big.bin", "@type": "File", "sha256": hashlib.sha256(data).hexdigest(),
+                         "contentSize": member_size if declared is None else declared},
+                        {"@id": "metadata.json", "@type": "File"}]}
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("metadata.json", json.dumps(meta))
+        zf.writestr("ro-crate-metadata.json", json.dumps(extra if extra is not None else crate))
+        zf.writestr("raw/big.bin", data)
+    return path
+
+
+def test_verify_streams_and_never_loads_a_big_member(tmp_path):
+    import tracemalloc
+
+    z = _bomb(tmp_path / "bomb.zip", 64 << 20)                   # 64 MB of zeros in a ~64 KB zip
+    b = bundle.inspect(z)
+    tracemalloc.start()
+    problems = b.verify()
+    peak = tracemalloc.get_traced_memory()[1]
+    tracemalloc.stop()
+    assert peak < 8 << 20, f"verify held {peak / 1e6:.0f} MB"   # before the fix it read the whole member (64 MB)
+    assert all("big.bin" not in p for p in problems)
+
+
+def test_a_member_whose_size_lies_is_refused(tmp_path):
+    z = _bomb(tmp_path / "lie.zip", 1 << 20, declared=10)
+    assert any("size the crate records" in p for p in bundle.inspect(z).verify())
+
+
+def test_malformed_metadata_is_a_refusal_not_a_crash(tmp_path):
+    p = tmp_path / "list.zip"
+    with zipfile.ZipFile(p, "w") as zf:
+        zf.writestr("metadata.json", "[1, 2]")
+        zf.writestr("ro-crate-metadata.json", "{}")
+    with pytest.raises(bundle.BundleError, match="not a JSON object"):
+        bundle.inspect(p)
+
+
+def test_a_bundle_without_results_is_refused(env, tmp_path):
+    z = rewrite(env["zip"], tmp_path / "nores.zip", drop=("results/summary.json",))
+    with pytest.raises(bundle.BundleError, match="no results/summary.json"):
+        bundle.rerun(z, tmp_path / "out")

@@ -88,12 +88,13 @@ def test_larva_style_pack_without_transmitters_says_none(tmp_path):
 
 
 # --- the discovery rule --------------------------------------------------------------------------------------------------
-def _rates(tab, n, **hz):
-    """Per-neuron rate EMA (spikes per step, dt 5 ms) with the given types firing at the given Hz."""
-    r = np.full(n, 1.0 * 0.005)
+def _rates(tab, n, base_hz: float = 0.0, **hz):
+    """The spikes of one 150 ms window (neuron indices, one per spike) with the given types firing at the given Hz and every
+    other neuron at base_hz. (Named _rates for history: Day 1's rule read rates; the review's reads counted spikes.)"""
+    per = np.full(n, int(round(base_hz * nd.WINDOW_STEPS * 0.005)), np.int64)
     for name, h in hz.items():
-        r[tab.rows(name)] = h * 0.005
-    return r
+        per[tab.rows(name)] = int(round(h * nd.WINDOW_STEPS * 0.005))
+    return np.repeat(np.arange(n), per)
 
 
 def test_a_type_is_discovered_only_after_settling_and_a_sustained_rise(tab, tmp_path):
@@ -126,7 +127,7 @@ def test_a_type_that_is_always_loud_is_not_a_discovery(tab, tmp_path):
     """The rule is relative to the type's own calm rate: a type that fires 30 Hz at rest never counts."""
     prog = nd.Progress(tmp_path / "dex.json")
     tr = nd.Tracker(tab, prog)
-    always = _rates(tab, len(tab.type_id), ORN_DM1=30.0)
+    always = _rates(tab, len(tab.type_id), ORN_DM1=40.0)
     for _ in range(nd.SETTLE_CHECKS + 50):
         tr.observe("fly", always, 0.005, calm=True)
     assert not prog.discovered("adult", "ORN_DM1")
@@ -136,10 +137,10 @@ def test_weak_rise_below_the_absolute_floor_is_not_a_discovery(tab, tmp_path):
     prog = nd.Progress(tmp_path / "dex.json")
     tr = nd.Tracker(tab, prog)
     n = len(tab.type_id)
-    quiet = np.full(n, 0.0)                                          # calm 0 Hz: the calm floor (2 Hz) applies
+    quiet = _rates(tab, n)                                           # calm 0 Hz: the calm floor (2 Hz) applies
     for _ in range(nd.SETTLE_CHECKS + 5):
         tr.observe("fly", quiet, 0.005, calm=True)
-    faint = _rates(tab, n, DNp01=4.0)                                # 4 Hz is 2x the floor but under DISCOVER_MIN_HZ
+    faint = _rates(tab, n, DNp01=40.0 / 9)                           # ~4.4 Hz: over 2x the floor but under DISCOVER_MIN_HZ
     for _ in range(10):
         tr.observe("fly", faint, 0.005, calm=False)
     assert not prog.discovered("adult", "DNp01")
@@ -357,14 +358,14 @@ def test_larva_dex_discovers_by_stimulation_on_the_real_larval_brain(tmp_path, m
         for i in range(1300):
             br._step()
             if i % 10 == 0:
-                tr.observe("l", br.sim.activity.rates(), br.dt, True)
+                tr.observe("l", nd.window_spikes(br.sim.activity)[0], br.dt, True)
         assert prog.n_discovered("larva") == 0
         rows = tab.rows("KC")
         simcore.drive(br, rows, 0.5)
         for i in range(600):
             br._step()
             if i % 10 == 0:
-                tr.observe("l", br.sim.activity.rates(), br.dt, False, True)
+                tr.observe("l", nd.window_spikes(br.sim.activity)[0], br.dt, False, True)
         assert prog.types("larva").get("KC", {}).get("how") == "stimulated"
         assert prog.n_discovered("adult") == 0                       # the adult list is separate
     finally:
@@ -384,9 +385,80 @@ def test_every_curated_fact_matches_a_type_in_the_real_adult_pack():
     unmatched = []
     for f in nd.facts():
         if not any(f.matches(n) for n in names):
-            unmatched.append(f.id)
+            unmatched.append(f.id)                                     # review: JO-C/JO-E were exact names that match nothing
         for t in f.types:
-            if t not in names and f.id != "epg":                       # EPG / E-PG: either spelling may be the pack's
+            if t not in names:                                         # review: E-PG was listed, the pack only has EPG
                 unmatched.append(f"{f.id}:{t}")
+        for pre in f.prefix:
+            if not any(n.startswith(pre) for n in names):
+                unmatched.append(f"{f.id}:{pre}*")
     assert not unmatched, f"curated facts whose types are not in the pack: {unmatched}"
-    assert any(n in names for n in ("EPG", "E-PG")), "neither EPG nor E-PG is a type in the pack: the E-PG fact never shows"
+
+
+def test_a_fact_cites_the_paper_its_claim_was_checked_in():
+    """Review: MBON14's 2-hour appetitive memory statement is in Aso et al. 2014 e04580, not e04577 (which Day 1 cited)."""
+    f = next(f for f in nd.load_facts() if f.id == "mbon14")
+    assert "2-hour" in f.text and f.doi == "10.7554/eLife.04580" and "e04580" in f.cite and "e04577" in f.cite
+    jo = next(f for f in nd.load_facts() if f.id == "johnston-wind")
+    assert jo.prefix == ("JO-C", "JO-E") and not jo.types
+    assert nd.fact_for("JO-CM").id == "johnston-wind" and nd.fact_for("JO-EV3").id == "johnston-wind"
+    assert nd.fact_for("JO-A1") is None and nd.fact_for("JO-B2") is None
+    assert nd.fact_for("EPG").id == "epg" and nd.fact_for("EPGt") is None
+
+
+def test_one_bad_value_in_the_progress_file_does_not_lose_the_rest(tmp_path):
+    """Review: a non-numeric "x" (hand-edited, or a future format) crashed Progress() and so the Neurodex."""
+    p = tmp_path / "dex.json"
+    p.write_text(json.dumps({"version": 1, "brains": {"adult": {"types": {
+        "A": {"t": "2026-01-01", "x": "abc", "how": "play"}, "B": {"x": None}, "C": {"x": 4.5, "how": "stimulated"},
+        "D": {"x": float("nan"), "how": "<script>"}}}}}), encoding="utf-8")
+    prog = nd.Progress(p)
+    t = prog.types("adult")
+    assert set(t) == {"A", "B", "C", "D"} and t["A"]["x"] == 0.0 and t["B"]["x"] == 0.0 and t["C"]["x"] == 4.5
+    assert t["C"]["how"] == "stimulated" and t["D"]["how"] == "play" and t["D"]["x"] == 0.0 and p.exists()
+
+
+
+# --- review (Day 1): the Poisson condition ------------------------------------------------------------------------------------------
+def test_a_tiny_type_needs_more_evidence_than_a_big_one(tab, tmp_path):
+    """The real pack's false discoveries were types of 1-4 neurons: 7 spikes from 2 neurons in 150 ms is >6 Hz and >3x
+    the floor, but a plausible chance event at 2 Hz; the same rate from 40 neurons is not."""
+    from scipy.stats import poisson
+
+    lam_small = nd.DISCOVER_CALM_FLOOR_HZ * 2 * nd.WINDOW_STEPS * 0.005
+    assert poisson.sf(7 - 1, lam_small) > nd.DISCOVER_ALPHA
+    prog = nd.Progress(tmp_path / "dex.json")
+    tr = nd.Tracker(tab, prog)
+    n = len(tab.type_id)
+    for _ in range(nd.SETTLE_CHECKS + 5):
+        tr.observe("f", _rates(tab, n), 0.005, calm=True)
+    small = np.repeat(tab.rows("DNp01"), [4, 3])                     # 7 spikes, 2 neurons: 23 Hz mean
+    big = np.repeat(tab.rows("ORN_DM1"), 4)                          # 30 neurons x 4 spikes: 27 Hz mean
+    for _ in range(nd.DISCOVER_SUSTAIN + 2):
+        tr.observe("f", np.concatenate([small, big]), 0.005, calm=False)
+    assert not prog.discovered("adult", "DNp01") and prog.discovered("adult", "ORN_DM1")
+
+
+def test_alpha_comes_from_the_stated_budget():
+    assert nd.DISCOVER_ALPHA == pytest.approx(1 / (11_751 * 72_000 * nd.FALSE_ALARM_HOURS))
+
+
+def test_a_driven_single_neuron_can_still_be_discovered():
+    """A neuron driven every refractory cycle fires 10 times in 150 ms; at the 2 Hz floor that is far below alpha."""
+    from scipy.stats import poisson
+
+    assert poisson.sf(10 - 1, nd.DISCOVER_CALM_FLOOR_HZ * nd.WINDOW_STEPS * 0.005) < nd.DISCOVER_ALPHA
+
+
+def test_window_spikes_reads_the_last_steps_of_the_raster():
+    from kickthefly.sim.connectome.sim import ActivityBuffer
+
+    a = ActivityBuffer(5)
+    for k in range(40):
+        s = np.zeros(5, bool)
+        s[k % 5] = True
+        a.push(s)
+    idx, steps = nd.window_spikes(a, 30)
+    assert steps == 30 and len(idx) == 30 and set(idx) == {0, 1, 2, 3, 4}
+    empty, one = nd.window_spikes(ActivityBuffer(3))
+    assert len(empty) == 0 and one == 1

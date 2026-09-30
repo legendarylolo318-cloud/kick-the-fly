@@ -317,3 +317,40 @@ def test_new_command_line_flags_parse():
     assert a.rerun_bundle == "x.zip" and a.out == "d"
     a = k.parse_args(["--protocol", "p.yaml", "--bundle", "b.zip"])
     assert a.bundle == "b.zip"
+
+
+# --- review (Day 1): hostile codes ----------------------------------------------------------------------------------------------
+def test_a_protocol_name_that_is_a_path_is_refused():
+    for name in ("../../../../etc/passwd", "a/b", "a\\b", ".hidden", "x\ny"):
+        c = sc.Code(1, "protocol", {"protocol": {"name": name, "seed": 0, "duration_s": 1, "stimuli": [], "recordings": []}})
+        assert "path separators" in sc.validate(c, ctx()), name
+
+
+def test_protocol_runs_never_write_outside_their_folder(tmp_path):
+    from kickthefly.lab import protocol
+
+    assert protocol.folder_name("../../../../etc/passwd") == "etc-passwd"
+    assert protocol.folder_name("") == "protocol" and "/" not in protocol.folder_name("a/b\\c")
+
+
+def test_an_enormous_fly_count_is_refused_before_anything_is_built():
+    """flies: 10**9 made protocol.check build a billion-seed list (tens of GB) while only previewing the code."""
+    import time
+
+    for payload in ({"name": "x", "seed": 0, "flies": 10**9}, {"name": "x", "seeds": list(range(20_000))}):
+        c = sc.Code(1, "protocol", {"protocol": dict(payload, duration_s=1, stimuli=[], recordings=[])})
+        t = time.time()
+        why = sc.validate(c, ctx())
+        assert why and "at most" in why and time.time() - t < 1.0
+
+
+def test_the_loadout_preview_shows_what_apply_really_gives():
+    pv = sc.preview(sc.Code(1, "loadout", {"tools": ["sugar", "sugar", "laser"]}), ctx())
+    assert "Hotbar becomes: hand, sugar" == pv.lines[0]                  # duplicates dropped, hand added, no laser in Play
+    pv = sc.preview(sc.Code(1, "loadout", {"tools": ["sugar", "laser"]}), ctx(lab=True))
+    assert pv.lines[0] == "Hotbar becomes: hand, sugar, laser"
+
+
+def test_a_loadout_name_with_control_characters_is_refused():
+    why = sc.validate(sc.Code(1, "loadout", {"name": "a\x00\x1b[31mb", "tools": ["hand"]}), ctx())
+    assert why and "printable" in why

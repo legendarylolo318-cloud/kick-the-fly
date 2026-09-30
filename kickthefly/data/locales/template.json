@@ -344,5 +344,7 @@
   "search discovered types": "",
   "transmitter": "",
   "unassigned": "",
-  "the game assigns signs by a rule": ""
+  "the game assigns signs by a rule": "",
+  "Collect cell types in the Neurodex (default key D): a type is discovered the first time its neurons fire well above their own calm rate (tagged 'in play', 'by stimulation', or 'at rest' for a spontaneous burst). The numbers in an entry come from the dataset (Connectome); what counts as discovered, and the collection, are game rules. Off stops collecting; what you found stays.": "",
+  "discovered at rest (a spontaneous burst, nothing touching the fly)": ""
 }

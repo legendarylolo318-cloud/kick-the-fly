@@ -220,7 +220,8 @@ def _draw_entry(m, surf, box: pygame.Rect, tab, prog, st, brain: str) -> None:
         return
     m.text(surf, name, (x, y), ui.INK, m.f_head)
     y += 34
-    how = tr("discovered by stimulating it") if e["how"] == "stimulated" else tr("discovered in play")
+    how = {"stimulated": tr("discovered by stimulating it"),
+           "rest": tr("discovered at rest (a spontaneous burst, nothing touching the fly)")}.get(e["how"], tr("discovered in play"))
     c1 = m.chip(surf, (x, y), "GAME RULE")
     m.text(surf, f"{how}, {(e['when'] or '')[:10]}, x{(e['peak_x'] or 0):.1f} its calm rate", (c1.right + 8, y), ui.LABEL, m.f_small)
     y += 26

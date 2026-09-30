@@ -456,9 +456,9 @@ ASSUMPTIONS = (
 
     ("Neurodex: what counts as discovered (3.0)",
      "GAME RULE",
-     "Discovered = the type's mean firing is at least 6 spikes/s and 3x its own calm rate for 150 ms, after 5 s of "
-     "settling (fixed before play, not tuned). An entry's numbers are the dataset's, not the game's.",
-     "Nothing in a real fly is 'discovered'. The rule reads the MEAN rate, so sparse big types (Kenyon cells) are "
+     "Discovered = 6+ spikes/s, 3x its calm rate and a Poisson count test (alpha ~1e-11) for 150 ms. A calm fly still "
+     "finds 25-35 sensory types a minute through spontaneous bursts: tagged 'at rest'.",
+     "Nothing in a real fly is 'discovered'. The rule reads the type as a whole, so sparse big types (Kenyon cells) are "
      "mostly found by stimulating them, and the entry says so.",
      "kickthefly/core/neurodex.py · docs/neurodex.md"),
 

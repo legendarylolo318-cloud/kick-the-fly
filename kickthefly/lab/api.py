@@ -216,7 +216,8 @@ class Fly:
             calm = br.sedation == 0 and not br.surgery and not br.driving and br.steps - br.last_poke > 400
             driven = bool(br.surgery or br.driving)
             tracker, prog = self._dex
-            for name in tracker.observe("fly", br.sim.activity.rates(), br.dt, calm, driven):
+            spikes, steps = nd.window_spikes(br.sim.activity)
+            for name in tracker.observe("fly", spikes, br.dt, calm, driven, window_steps=steps):
                 self.discoveries.append((self.t, name, prog.types(tracker.tab.brain)[name]["how"]))
         if self._kc is not None and not br.dead:
             self._kc.push(br.steps, br.sim.activity.rates())

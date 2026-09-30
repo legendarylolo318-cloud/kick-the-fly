@@ -193,6 +193,11 @@ def read_any(text_or_path: str) -> Code:
 
 
 # --- checking a payload (this version's schema) -------------------------------------------------------------------------------
+def _clean_name(name: str, limit: int) -> str:
+    """One line of printable text, as the loadout editor's text box allows (config.py cleans saved names the same way)."""
+    return " ".join("".join(ch if ch.isprintable() else " " for ch in str(name)).split())[:limit]
+
+
 def _is_mode_map(d) -> bool:
     return isinstance(d, dict) and all(isinstance(k, str) and k and v in (-1, 1) and not isinstance(v, bool)
                                        for k, v in d.items())
@@ -219,6 +224,8 @@ def check_payload(kind: str, p) -> str | None:
             return "a loadout code needs a list of tool names"
         if not isinstance(p.get("name", ""), str) or len(p.get("name", "")) > 24:
             return "a loadout's name is at most 24 characters"
+        if p.get("name", "") != _clean_name(p.get("name", ""), 24):
+            return "a loadout's name is one line of printable text"
     elif kind == "protocol":
         if set(p) - {"protocol"} or not isinstance(p.get("protocol"), dict):
             return "a protocol code carries one protocol"
@@ -267,6 +274,7 @@ class Context:
     max_saved_loadouts: int = 5
     protocol_names: set = field(default_factory=set)
     larva: bool = False
+    lab: bool = False
     brain: str = "adult"
 
 
@@ -286,6 +294,9 @@ def validate(code: Code, ctx: Context) -> str | None:
     elif k == "lab":
         return _validate_params(p["params"], ctx)
     elif k == "protocol":
+        name = p["protocol"].get("name", "shared-protocol")
+        if not isinstance(name, str) or name != _clean_name(name, 60) or "/" in name or "\\" in name or name.startswith("."):
+            return "the protocol's name must be plain text without path separators"
         try:
             from kickthefly.lab import protocol
 
@@ -351,8 +362,11 @@ def preview(code: Code, ctx: Context) -> Preview:
     if k == "surgery":
         lines += _surgery_lines(p, ctx)
     elif k == "loadout":
+        from kickthefly.core import loadout as lo
+
         name = p.get("name") or "Shared loadout"
-        lines.append(f"Hotbar becomes: {', '.join(p['tools'])}")
+        # what Apply really gives: duplicates dropped and the hand first (review: the preview showed the raw list)
+        lines.append(f"Hotbar becomes: {', '.join(lo.Loadout(list(p['tools']), lab=ctx.lab, larva=ctx.larva).tools)}")
         if ctx.current_loadout:
             lines.append(f"Replaces the custom loadout ({len(ctx.current_loadout)} tools) and selects the Custom preset")
         if name in ctx.saved_loadouts:

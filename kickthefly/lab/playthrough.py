@@ -797,8 +797,9 @@ def extra_training(rig: Rig, r: Result) -> None:
 
 
 def extra_neurodex(rig: Rig, r: Result) -> None:
-    """3.0: a calm fly discovers nothing; stimulating a curated type discovers exactly it, tagged as stimulated, and the
-    progress file is written under this run's temporary home (never the player's)."""
+    """3.0: whatever a calm fly discovers is tagged "at rest" (review: on the real pack its sensory types' spontaneous
+    bursts pass the rule; the count is reported, not judged); driving a curated type at the validation suite's activation
+    current (amp 0.5) discovers it, tagged as stimulated; the progress file is written under this run's temporary home."""
     g = rig.game
     rig.reset()
     x3 = g.x3
@@ -811,25 +812,27 @@ def extra_neurodex(rig: Rig, r: Result) -> None:
         return
     rig.seconds(6.0)                                                   # settle: the discovery rule's first 5 s
     prog = x3.progress
-    calm_found = prog.n_discovered(x3.brain_name)
-    r.metrics["types"] = len(x3.table)
-    r.expect(calm_found == 0, f"a calm fly discovered {calm_found} types: {sorted(prog.types(x3.brain_name))[:5]}")
-    target = next((t for t in ("DNp01", "MDN", "DNp09") if x3.table.index(t) is not None), None)
-    r.expect(target is not None, "none of DNp01, MDN, DNp09 is in this brain")
+    calm = dict(prog.types(x3.brain_name))
+    r.metrics.update(types=len(x3.table), calm_discoveries=len(calm), calm_examples=sorted(calm)[:6])
+    wrong = {n: v["how"] for n, v in calm.items() if v["how"] != "rest"}
+    r.expect(not wrong, f"calm discoveries not tagged 'rest': {dict(list(wrong.items())[:5])}")
+    target = next((t for t in ("LPLC2", "DNp01", "MDN") if x3.table.index(t) is not None), None)
+    r.expect(target is not None, "none of LPLC2, DNp01, MDN is in this brain")
     if target is None:
         return
-    g.type_ops[target] = 1
-    g._apply_surgery()
-    rig.seconds(5.0)
+    from kickthefly.core import simcore
+
+    rows = x3.table.rows(target)
+    simcore.drive(rig.brain, rows, 0.5)
+    rig.seconds(3.0)
+    simcore.undrive(rig.brain, rows)
     rec = prog.types(x3.brain_name).get(target)
     r.metrics["stimulated_type"] = target
-    r.expect(rec is not None, f"stimulating {target} for 5 s did not discover it")
+    r.expect(rec is not None, f"driving {target} for 3 s did not discover it")
     if rec:
         r.expect(rec["how"] == "stimulated", f"{target} was tagged '{rec['how']}', not 'stimulated'")
         r.metrics["peak_x"] = rec["x"]
     r.expect(nd_path_under(tmp_home(), prog.path), f"the Neurodex was saved outside the temporary home: {prog.path}")
-    g.type_ops.clear()
-    g._apply_surgery()
 
 
 def tmp_home() -> Path:

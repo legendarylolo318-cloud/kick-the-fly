@@ -3157,8 +3157,8 @@ class Game3D(k2.Game):
         self.draw_science_card(hud, now)
         self.draw_time_indicator(hud, k2.PLAY_W // 2, 92)
         self.draw_recording(hud, k2.PLAY_W // 2, 130)
-        if self.tutorial is not None and self.tutorial.active and not self.menu.open:
-            self.tutorial.draw(hud)
+        if self.tutorial is not None and self.tutorial.active and not self.menu.open and not self.x3.kc_playing():
+            self.tutorial.draw(hud)                   # review: it drew over the kill cam
         if self.menu.open:
             self.menu.draw(hud, self.mouse_logical, now)
 
@@ -3192,6 +3192,8 @@ class Game3D(k2.Game):
             return True
         if self.menu_first(ev, self.mouse_logical):
             return not self.want_quit
+        if self.x3.kc_playing() and self.x3.handle_event(ev):   # review: the kill cam's keys first, before the tutorial's
+            return True
         if self.tutorial_event(ev) or self.wheel_event(ev):
             return True
         if self.x3.handle_event(ev):                 # 3.0: kill cam keys and clicks, the launch card, the Neurodex key

@@ -35,7 +35,7 @@ def run(fn, *a):
 def test_neurodex_extra_passes(rig):
     res = run(pt.extra_neurodex, rig)
     assert res.status == pt.PASS, res.failures
-    assert res.metrics["stimulated_type"] in ("DNp01", "MDN", "DNp09")
+    assert res.metrics["stimulated_type"] == "LPLC2"
 
 
 def test_killcam_extra_passes(rig):

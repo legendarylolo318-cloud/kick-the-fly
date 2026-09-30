@@ -330,9 +330,11 @@ documents fire above their own calm baseline. It changes no rule and tunes nothi
 Neurodex (3.0; core/neurodex.py, ui/neurodex_ui.py, data/neurodex_facts.yaml, docs/neurodex.md). A collectible encyclopedia of cell
 types. CONNECTOME: every number in an entry, read from the dataset through the brain pack: neuron count, superclass, regions (the
 game's coarse regions, derived from class and soma neuromere), the predicted transmitter and the dataset's own confidence, and the
-strongest input and output partner types by synapse count. GAME RULE: "discovered" (the type's mean firing is at least 6 spikes/s and
-3x its own calm rate for 150 ms, after 5 s of settling; fixed before play, not tuned), the collection, its progress per region, and
-the "discovered by stimulation" tag. LITERATURE: the one-line fact and its citation, for about 30 curated types only; each was checked
+strongest input and output partner types by synapse count. GAME RULE: "discovered" (over 150 ms windows, 3 checks in a row, the type's mean
+firing is at least 6 spikes/s and 3x its own calm rate, and its spike count is a one-sided Poisson event below alpha ~1.2e-11 at the
+calm rate; after 5 s of settling), the collection, its progress per region, and the "by stimulation" / "at rest" / "in play" tags.
+On the real pack a calm fly still discovers 25-35 sensory types a minute through correlated spontaneous bursts (the review's pass
+criterion "a calm fly discovers nothing" FAILS); those are tagged "at rest" (docs/neurodex.md). LITERATURE: the one-line fact and its citation, for about 30 curated types only; each was checked
 against the paper it cites. Saved per player next to the training memory; the larva has its own list. Never runs in --validate,
 assays, protocols or tests.
 Neuron of the Day (3.0; core/neuron_of_day.py). GAME RULE: a launch card that picks one curated Neurodex type by date and offers Try it
@@ -6054,8 +6056,8 @@ class Game:
         if self.kwheel_open and not self.menu.open:
             from kickthefly.ui import loadout_ui
             loadout_ui.draw_wheel(self, scr)
-        if self.tutorial is not None and self.tutorial.active and not self.menu.open:
-            self.tutorial.draw(scr)
+        if self.tutorial is not None and self.tutorial.active and not self.menu.open and not self.x3.kc_playing():
+            self.tutorial.draw(scr)                   # review: it drew over the kill cam
         if self.menu.open:
             self.menu.draw(scr, pygame.mouse.get_pos(), now)
 
@@ -6749,6 +6751,8 @@ class Game:
             return True
         if self.menu_first(ev, pygame.mouse.get_pos()):
             return not self.want_quit
+        if self.x3.kc_playing() and self.x3.handle_event(ev):   # review: the kill cam's keys first, before the tutorial's
+            return True
         if self.tutorial_event(ev) or self.wheel_event(ev):
             return True
         if self.x3.handle_event(ev):                 # 3.0: kill cam keys and clicks, the launch card, the Neurodex key

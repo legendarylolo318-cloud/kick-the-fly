@@ -56,6 +56,17 @@ class ProtocolError(ValueError):
     pass
 
 
+MAX_FLIES = 10_000              # 3.0 review: checking flies: 10**9 built a billion-seed list (tens of GB) before anything ran
+
+
+def folder_name(name) -> str:
+    """A protocol's name as one safe path component, for its output folder. 3.0 review: a name such as '../../x' (which a
+    share code or a downloaded protocol can carry) put the run's files outside the exports folder."""
+    import re
+
+    return re.sub(r"[^A-Za-z0-9._+-]+", "-", str(name)).strip("-.")[:60] or "protocol"
+
+
 def load(path: Path) -> dict:
     import yaml
 
@@ -82,10 +93,14 @@ def check(data, where: str = "protocol") -> dict:
     if "seeds" in p:
         if not isinstance(p["seeds"], list) or not all(isinstance(s, int) for s in p["seeds"]):
             raise ProtocolError(f"{where}: seeds must be a list of integers")
+        if len(p["seeds"]) > MAX_FLIES:
+            raise ProtocolError(f"{where}: at most {MAX_FLIES:,} seeds")
     else:
         seed, flies = p.get("seed", 0), p.get("flies", 1)
         if not isinstance(seed, int) or not isinstance(flies, int) or flies < 1:
             raise ProtocolError(f"{where}: seed must be an integer and flies a positive integer")
+        if flies > MAX_FLIES:
+            raise ProtocolError(f"{where}: flies must be at most {MAX_FLIES:,}")
         p["seeds"] = list(range(seed, seed + flies))
     for key in ("params", "surgery", "assay_options"):
         if key in p and not isinstance(p[key], dict):
@@ -216,7 +231,7 @@ def run(p: dict, out: Path | None = None, workers: int | None = None, progress=N
     from kickthefly.lab import recorder
     from kickthefly.lab import labstats
 
-    folder = (out or recorder.exports_dir()) / f"{time.strftime('%Y%m%d-%H%M%S')}-{p['name']}"
+    folder = (out or recorder.exports_dir()) / f"{time.strftime('%Y%m%d-%H%M%S')}-{folder_name(p['name'])}"
     folder.mkdir(parents=True, exist_ok=True)
     (folder / "protocol.json").write_text(json.dumps(p, indent=1, default=str), encoding="utf-8")
     t0 = time.time()
@@ -275,7 +290,7 @@ def record_replay(path: Path, dest: Path, out: Path | None = None) -> int:
     from kickthefly.lab import recorder
 
     seed = p["seeds"][0]
-    folder = (out or recorder.exports_dir()) / f"{time.strftime('%Y%m%d-%H%M%S')}-{p['name']}-replay"
+    folder = (out or recorder.exports_dir()) / f"{time.strftime('%Y%m%d-%H%M%S')}-{folder_name(p['name'])}-replay"
     folder.mkdir(parents=True, exist_ok=True)
     run_seed(p, seed, p.get("surgery") or None, folder, "replay", replay_to=Path(dest))
     from kickthefly.core import replay
