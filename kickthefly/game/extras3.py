@@ -524,8 +524,9 @@ class Extras:
                               ("speed", f"SPEED {p.speed:g}x  (1-4)", 170)):
             r = pygame.Rect(x + sum(w_ + 10 for k_, w_ in (("skip", 190), ("save", 170), ("speed", 170))[:["skip", "save", "speed"].index(key)]), by_, w, 38)
             pygame.draw.rect(surf, (44, 50, 64) if key != "skip" else (40, 110, 150), r, border_radius=10)
-            g._text(surf, label + ("  [recording]" if key == "save" and self.kc_saving else ""), r.center,
-                    (240, 243, 248), g.f_small, "center")
+            if key == "save" and self.kc_saving:                 # review: "[recording]" ran past the button's edge
+                label = "RECORDING..."
+            g._text(surf, label, r.center, (240, 243, 248), g.f_small, "center")
             self.kc_rects[key] = r
         g._text(surf, "The highlighted neurons ring on the brain panel. Nothing here changes the fly.",
                 (x, by_ - 22), (130, 142, 160), g.f_small)
