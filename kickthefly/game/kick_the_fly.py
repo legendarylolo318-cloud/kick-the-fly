@@ -7064,6 +7064,15 @@ def parse_args(argv: list[str] | None = None):
                          "nothing is ever sent")
     ap.add_argument("--record-replay", dest="record_replay", metavar="FILE",
                     help="with --protocol: record the protocol's first fly as a .ktfreplay")
+    ap.add_argument("--bundle", metavar="ZIP",
+                    help="with --protocol: also write the run as an experiment bundle (protocol, results, raw files, "
+                         "metadata, RO-Crate) that --rerun-bundle can check")
+    ap.add_argument("--rerun-bundle", dest="rerun_bundle", metavar="ZIP",
+                    help="with --headless --out DIR: run a bundle's protocol again and report whether the results "
+                         "match (bit-exact on CPU backends, statistical on GPU backends)")
+    ap.add_argument("--share-decode", dest="share_decode", metavar="CODE",
+                    help="print what a share code (or a .ktfshare file) contains and whether this version accepts it; "
+                         "changes nothing")
     args, unknown = ap.parse_known_args(argv)
     if unknown:
         log.warning("ignoring unknown arguments: %s", " ".join(unknown))
@@ -7096,7 +7105,8 @@ def main(argv: list[str] | None = None) -> int:
     if (args.headless or args.validate or args.protocol or getattr(args, "audit_asymmetry", False)
             or getattr(args, "benchmark", False) or getattr(args, "threshold_sweep", False)
             or getattr(args, "signflip_test", False) or getattr(args, "critical_path", None)
-            or getattr(args, "replay", None) or getattr(args, "record_replay", None)):
+            or getattr(args, "replay", None) or getattr(args, "record_replay", None)
+            or getattr(args, "rerun_bundle", None) or getattr(args, "share_decode", None)):
         if getattr(args, "replay", None) and not args.headless:
             print("--replay runs headless (--headless --replay FILE): the windowed game doesn't play replays yet",
                   file=sys.stderr)

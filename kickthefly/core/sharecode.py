@@ -499,3 +499,31 @@ def _apply_protocol(pr: dict) -> list[str]:
     data = {kk: vv for kk, vv in pr.items() if kk != "seeds" or "seed" not in pr}
     p.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
     return [f"protocol saved as {p.name}"]
+
+
+def main_decode(text: str) -> int:
+    """--share-decode CODE: say what a code contains and whether this version accepts it. Changes nothing."""
+    import sys
+
+    try:
+        code = read_any(text)
+    except ShareError as e:
+        print(f"refused: {e}", file=sys.stderr)
+        return 2
+    ctx = Context(tools=set(_tool_names()))
+    why = validate(code, ctx)
+    pv = preview(code, ctx)
+    print(f"{pv.title}: {'accepted' if why is None else 'refused'}")
+    if why:
+        print(f"  reason: {why}")
+    for line in pv.lines:
+        print("  " + line)
+    for w in pv.warnings:
+        print("  note: " + w)
+    return 0 if why is None else 2
+
+
+def _tool_names():
+    from kickthefly.core import loadout
+
+    return loadout.BY_NAME

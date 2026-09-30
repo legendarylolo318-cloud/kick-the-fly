@@ -1,7 +1,8 @@
 """Headless runs: no window, no sound, no display needed (SSH, CI, a Windows console).
 
     KickTheFly --headless --validate [--out results.json] [--workers N] [--seeds 1000-1009]
-    KickTheFly --headless --protocol experiment.yaml [--out folder]
+    KickTheFly --headless --protocol experiment.yaml [--out folder] [--bundle experiment.zip]
+    KickTheFly --headless --rerun-bundle experiment.zip --out folder
 
 The exe and the AppImage accept the same flags. On Windows the exe borrows the console it was started from for its
 output; from cmd use `start /wait KickTheFly.exe --headless ...` (or check the files written to --out).
@@ -314,6 +315,12 @@ def main(args) -> int:
     try:
         if getattr(args, "replay", None):
             return run_headless_replay(args)
+        if getattr(args, "share_decode", None):
+            from kickthefly.core import sharecode
+            return sharecode.main_decode(args.share_decode)
+        if getattr(args, "rerun_bundle", None):
+            from kickthefly.lab import bundle
+            return bundle.main(args)
         if getattr(args, "record_replay", None):
             if not args.protocol:
                 print("error: --record-replay records a --protocol run", file=sys.stderr)
@@ -340,12 +347,13 @@ def main(args) -> int:
             from kickthefly.lab import protocol
 
             return protocol.run_file(Path(args.protocol), Path(args.out) if args.out else None, workers=args.workers,
-                                     nwb=bool(getattr(args, "nwb", False)))
+                                     nwb=bool(getattr(args, "nwb", False)),
+                                     bundle_to=Path(args.bundle) if getattr(args, "bundle", None) else None)
     except FileNotFoundError as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
     print("nothing to do: use --validate, --protocol FILE, --playthrough, --replay FILE, --audit-asymmetry, --benchmark, "
-          "--threshold-sweep, --signflip-test or --critical-path TARGET", file=sys.stderr)
+          "--threshold-sweep, --signflip-test, --critical-path TARGET, --rerun-bundle ZIP or --share-decode CODE", file=sys.stderr)
     return 2
 
 

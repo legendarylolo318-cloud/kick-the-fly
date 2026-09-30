@@ -138,6 +138,7 @@ def run_seed(p: dict, seed: int, surgery: dict | None, folder: Path, tag: str, r
     """One fly of a stimulus protocol. Returns mean firing per recording group. replay_to: also record the run as a
     .ktfreplay (kickthefly/core/replay.py) there."""
     from kickthefly.lab import assays
+    from kickthefly.lab import bundle as bundle_mod
     from kickthefly.lab import recorder
     from kickthefly.core import simcore
 
@@ -180,8 +181,12 @@ def run_seed(p: dict, seed: int, surgery: dict | None, folder: Path, tag: str, r
         replay_rec.detach()
         replay_rec.save(replay_to)
     stem = folder / f"{tag}-seed{seed}"
+    a = rec.arrays()
+    # 3.0: what a bundle (lab/bundle.py) needs to check a rerun: the backend and precision that really ran, and a
+    # fingerprint of every recorded spike. Extra keys in the per-fly metadata; nothing the simulation reads.
     extra = dict(protocol=p["name"], protocol_spec={k: v for k, v in p.items() if k != "stimuli_rows"},
-                 condition=tag, surgery=surgery)
+                 condition=tag, surgery=surgery, sim_backend=br.sim.backend.name, sim_dtype=str(br.sim.p.dtype),
+                 spike_sha256=bundle_mod.spike_sha256(a["spike_steps"], a["spike_index"], a["n_steps"]))
     rec.save(stem, extra)
     if p.get("nwb"):
         from kickthefly.lab import nwbexport
@@ -190,7 +195,6 @@ def run_seed(p: dict, seed: int, surgery: dict | None, folder: Path, tag: str, r
         if reason:
             raise ProtocolError(reason)
         nwbexport.write(rec, stem.with_name(stem.name + ".nwb"), recorder.metadata(br, None, extra))
-    a = rec.arrays()
     out = {}
     for name, rows in groups.items():
         members = np.searchsorted(rec.rows, rows)
@@ -283,7 +287,8 @@ def record_replay(path: Path, dest: Path, out: Path | None = None) -> int:
     return 0
 
 
-def run_file(path: Path, out: Path | None = None, workers: int | None = None, nwb: bool = False) -> int:
+def run_file(path: Path, out: Path | None = None, workers: int | None = None, nwb: bool = False,
+             bundle_to: Path | None = None) -> int:
     path = find(path)
     try:
         p = load(path)
@@ -309,4 +314,13 @@ def run_file(path: Path, out: Path | None = None, workers: int | None = None, nw
         if isinstance(c, dict) and "p_value" in c:
             print(f"  {g}: surgery - control = {c['mean_difference']:+.2f}, p = {c['p_value']:.3g}")
     print(f"done in {time.time() - t0:.0f}s; results in {folder}")
+    if bundle_to is not None:
+        from kickthefly.lab import bundle
+
+        try:
+            z = bundle.create(folder, bundle_to)
+        except bundle.BundleError as e:
+            print(f"error: can't bundle this run: {e}")
+            return 2
+        print(f"bundle written to {z} (rerun it with --headless --rerun-bundle {z} --out DIR)")
     return 0
