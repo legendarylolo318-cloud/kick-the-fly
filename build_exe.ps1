@@ -46,7 +46,7 @@ else { Write-Warning "data\validation_results.json not found; the build won't sh
     --exclude-module tkinter --exclude-module matplotlib --exclude-module pynwb --exclude-module h5py `
     --exclude-module pandas `
     --hidden-import glcontext.wgl --hidden-import glcontext.empty `
-    --hidden-import yaml --collect-submodules kickthefly `
+    --hidden-import yaml --collect-submodules kickthefly --collect-data kickthefly `
     kick_the_fly.py
 if ($LASTEXITCODE -ne 0) { throw "pyinstaller failed" }
 

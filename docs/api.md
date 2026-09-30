@@ -95,3 +95,28 @@ fly.use_tool("sugar")                  # drives the tool's documented sensory ne
 
 `fly.use_tool` is the sensory drive only: no body, no room. A tool the mode doesn't allow raises `ValueError`. The presets and the
 tool catalog (`ToolInfo`: category, description, the neurons it drives, CONNECTOME or GAME RULE) are in `kickthefly.core.loadout`.
+
+
+## Neurodex, kill cam (3.0)
+
+```python
+from kickthefly import Fly
+
+fly = Fly(seed=7)
+prog = fly.collect()               # collect Neurodex discoveries while stepping; a throwaway collection, never your own file
+fly.step(6.0)                      # the discovery rule needs the first 5 s to settle
+fly.drive("type:DNp01", amp=0.5)
+fly.step(3.0)
+print(fly.discoveries)             # [(brain time s, "DNp01", "stimulated")]
+print(fly.neurodex("DNp01"))       # dataset facts, the curated fact and citation (if any), discovered or not
+
+fly.killcam()                      # keep the last 6 s of per-neuron firing
+fly.step(3.0)
+fly.kill()
+rep = fly.killcam_replay()         # kickthefly.core.killcam.Replay
+print(rep.summary(fly.brain.types)["risers"][:3])
+```
+
+`collect(progress=path)` writes to that file; pass `kickthefly.core.neurodex.progress_path()` to add to your own Neurodex. The rule
+and its numbers are in `kickthefly/core/neurodex.py` and [docs/neurodex.md](neurodex.md). Share codes are `kickthefly.core.sharecode`
+(`encode`, `decode`, `validate`, `preview`) and bundles are `kickthefly.lab.bundle` (`create`, `inspect`, `rerun`).

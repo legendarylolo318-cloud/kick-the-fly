@@ -1,5 +1,35 @@
 # Changelog
 
+## 3.0.0 (unreleased)
+
+Day 1 of the 3.0 build. Nothing the simulation does changed: `kickthefly/lab/validation.py`, `assays.py` and `kickthefly/sim/` are
+untouched, and no rule or threshold was tuned.
+
+### Added
+- **Neurodex** (D, Esc > Neurodex, d-pad up): a collectible encyclopedia of cell types. A type is discovered the first time its
+  neurons fire well above their calm rate while you play (GAME RULE). Entries show the dataset's numbers (CONNECTOME) and, for about
+  30 types, a one-line fact with its checked citation (LITERATURE). Progress per region, saved next to the training memory; the larva
+  has its own list. docs/neurodex.md.
+- **Neuron of the Day:** a launch card with one curated type, its fact and a Try it button (Lab laser or brain surgery). Own setting,
+  default on, own off switch; separate from the real-science cards.
+- **Kill cam** (;, d-pad down): slow-motion replay of the last ~6 s of the brain on death, with the neurons whose firing rose most
+  highlighted; skippable, saved with the existing recorder; Reduced flashing slows it and steadies the highlight. docs/killcam.md.
+- **Experiment bundles:** Lab > Record and export > Bundle, `--bundle ZIP` with `--protocol`, and `--headless --rerun-bundle ZIP --out DIR`
+  (bit-exact on CPU backends, statistical on GPU; an RO-Crate 1.1 description with a SHA-256 for every file). docs/bundles.md.
+- **Share codes:** Esc > Share makes and imports `KTF1-...` codes for surgeries, loadouts, protocols, challenge setups and Lab parameters,
+  with a preview before applying and a file fallback for codes over 1,200 characters. `--share-decode CODE`. docs/share-codes.md.
+- Settings > Brain: Neurodex discoveries, Kill cam offer, Neuron of the day (all default on). Keys: Neurodex (D), Kill cam (;).
+  Gamepad: Neurodex (d-pad up), Kill cam / skip (d-pad down). Ctrl+V pastes into the menu's text boxes.
+- Python API: `fly.collect()`, `fly.neurodex(type)`, `fly.killcam()`, `fly.kill()`, `fly.killcam_replay()`.
+- The self-test checks the Neurodex facts; the playthrough bot checks discovery, the kill cam, share codes and a bundle rerun.
+- Lab > Model assumptions: five new cards tagging each new behavior.
+
+### Changed
+- Per-fly protocol metadata now also records the backend and precision that ran and a SHA-256 of the recorded spikes (extra keys only).
+- The pause menu has Neurodex and Share entries (slightly smaller buttons).
+- D is both walk-right and the Neurodex key in 3D: the Neurodex opens on D only while the mouse is free. Configs that already use D
+  for something else keep it and start with the Neurodex unbound.
+
 ## 2.13.1 (2026-09-30)
 
 2.13.0 was tagged, but its release run stopped before publishing any files, so 2.13.0 ships as 2.13.1. Nothing in the

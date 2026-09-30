@@ -327,6 +327,24 @@ report never sends anything: it hands a URL to the player's own browser when ask
 Playthrough bot (2.13; lab/playthrough.py). Drives the real games headless; asserts, per tool, that the neurons the tool
 documents fire above their own calm baseline. It changes no rule and tunes nothing.
 
+Neurodex (3.0; core/neurodex.py, ui/neurodex_ui.py, data/neurodex_facts.yaml, docs/neurodex.md). A collectible encyclopedia of cell
+types. CONNECTOME: every number in an entry, read from the dataset through the brain pack: neuron count, superclass, regions (the
+game's coarse regions, derived from class and soma neuromere), the predicted transmitter and the dataset's own confidence, and the
+strongest input and output partner types by synapse count. GAME RULE: "discovered" (the type's mean firing is at least 6 spikes/s and
+3x its own calm rate for 150 ms, after 5 s of settling; fixed before play, not tuned), the collection, its progress per region, and
+the "discovered by stimulation" tag. LITERATURE: the one-line fact and its citation, for about 30 curated types only; each was checked
+against the paper it cites. Saved per player next to the training memory; the larva has its own list. Never runs in --validate,
+assays, protocols or tests.
+Neuron of the Day (3.0; core/neuron_of_day.py). GAME RULE: a launch card that picks one curated Neurodex type by date and offers Try it
+(the Lab laser or brain surgery on that type). Its own setting (default on), separate from the real-science popups. The fact on it is
+LITERATURE.
+Kill cam (3.0; core/killcam.py). CONNECTOME: the replay is each neuron's own simulated firing rate for the last 6 s of the brain's
+life, and the highlighted neurons are the ones whose rate rose most. GAME RULE: the offer, the window, the slow motion, the count, and
+death itself (so the moment the replay ends). Nothing feeds back into the simulation.
+Share codes and experiment bundles (3.0; core/sharecode.py, ui/share_ui.py, lab/bundle.py). GAME RULE, both: containers for settings
+and results the game already has; they add nothing to the simulation. A bundle rerun is judged bit-exact on the CPU backends and,
+on a GPU backend, statistically by a rule fixed before any rerun (lab/bundle.py).
+
 Fly individuality (2.11; Kain et al. 2012, Linneweber et al. 2020).
 - GAME RULE: Per-fly variation, deterministic from each fly's seed, implemented as per-neuron scaling
   so the shared weight matrix is unchanged: W_fly = D_post · W · D_pre, where D_pre and D_post are
@@ -2270,6 +2288,8 @@ HELP = (
     ("R", "reset to a single fresh fly"),
     ("F11", "fullscreen (or Alt+Enter); drag the window edge to resize"),
     ("T", "training: teach it to fear or like a smell (saved between sessions)"),
+    ("D", "the Neurodex: cell types you have discovered (in 3D only with the mouse free, Tab)"),
+    (";", "kill cam: slow-motion replay of the fly's last seconds, after it dies"),
     ("Z [ ] .", "pause time, slower, faster, single step"),
     ("H", "this help"),
     ("Esc", "close a panel, or open the menu (settings, save, quit)"),
@@ -4946,12 +4966,14 @@ class Game:
         self.sound.play("shutter")
 
     def _draw_help(self, surf) -> None:
-        panel = pygame.Rect(165, 110, 560, 64 + 30 * len(HELP))
+        step = min(30, (H - 40 - 64) // len(HELP))                # 3.0: two more rows; squeeze the spacing, never run off-screen
+        height = 64 + step * len(HELP)
+        panel = pygame.Rect(165, max(12, min(110, (H - height) // 2)), 560, height)
         pygame.draw.rect(surf, (18, 21, 28), panel, border_radius=16)
         pygame.draw.rect(surf, BORDER, panel, 1, border_radius=16)
         self._text(surf, "CONTROLS", (panel.x + 24, panel.y + 16), INK, self.f_head)
         for k, (key, what) in enumerate(HELP):
-            y = panel.y + 54 + k * 30
+            y = panel.y + 54 + k * step
             self._text(surf, key, (panel.x + 30, y), AMBER, self.f_bold)
             self._text(surf, what, (panel.x + 120, y), TEXT, self.f_text)
 

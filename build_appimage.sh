@@ -64,7 +64,7 @@ fi
     --exclude-module tkinter --exclude-module matplotlib --exclude-module pynwb --exclude-module h5py \
     --exclude-module pandas \
     --hidden-import glcontext.x11 --hidden-import glcontext.egl --hidden-import glcontext.empty \
-    --hidden-import yaml --collect-submodules kickthefly \
+    --hidden-import yaml --collect-submodules kickthefly --collect-data kickthefly \
     kick_the_fly.py
 
 # Never bundle the libraries the host's graphics driver loads next to us. Mesa (radeonsi, iris, llvmpipe...) is loaded

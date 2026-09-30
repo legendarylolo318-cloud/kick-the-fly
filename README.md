@@ -50,6 +50,7 @@ backends, the Python API and the Lab's optional NWB export.
 - [What you can do](#what-you-can-do)
 - [Controls](#controls) and [Settings](#settings)
 - [Tool loadouts](#tool-loadouts) and [Help: tutorial, self-test and bug report](#help-tutorial-self-test-and-bug-report)
+- [Neurodex, kill cam, share codes and bundles (3.0)](#neurodex-kill-cam-share-codes-and-bundles-30)
 - [Play: challenges and real-science cards](#play-challenges-and-real-science-cards)
 - [Screenshots](#screenshots)
 - [Lab mode](#lab-mode), [Validation](#validation), [Performance](#performance), [Python API](#python-api)
@@ -131,11 +132,13 @@ Every key below can be rebound in Settings > Controls (a key that's already take
 
 | key | what it does |
 |---|---|
-| Esc | close a panel, or open the pause menu: Resume, Challenges (Play) or Lab tools (Lab), Settings, Save State, Load State, Mode, Quit |
+| Esc | close a panel, or open the pause menu: Resume, Challenges (Play) or Lab tools (Lab), Neurodex, Settings, Share, Save State, Load State, Mode, Quit |
 | WASD | walk (Shift sprint, Ctrl or C crouch); walk into the fly to kick it |
 | Mouse | look around; left click uses the tool in your hand |
 | 1-9, 0 or mouse wheel | pick a hotbar tool (your loadout: Base by default in Play; the wheel steps through it). - and = turn the page of a loadout longer than 10 tools |
 | Q | the loadout editor: which tools are on the hotbar, in what order, and your saved loadouts (Esc closes it) |
+| D | the Neurodex (3.0). In 3D, D is also walk-right: the Neurodex opens on D only while the mouse is free (Tab), or from Esc > Neurodex |
+| ; | the kill cam, after the fly dies (3.0) |
 | ` (hold) | the tool wheel: every tool, whether or not it is on the hotbar (point, then let go) |
 | Tab | free the mouse to click the brain panel and menus (click the room to look again) |
 | B | big live brain view; click a neuron to inspect it, search neurons, trace paths between two |
@@ -163,9 +166,9 @@ Every key below can be rebound in Settings > Controls (a key that's already take
 | . | single step while paused (1/60 s of the room and the matching brain steps) |
 | H | controls help |
 
-**Gamepad (3D):** left stick walks, right stick looks, right trigger uses the tool (pull it to start looking around), LB / RB pick the previous / next tool of your loadout, hold Y for the tool wheel (every tool; point with the right stick, release to pick), X opens the loadout editor, B crouches, left-stick click sprints, Start opens the menu, Back the big brain view. Button names are the pad's own labels (on a Switch Pro: ZR uses, L / R pick tools, + is Start and − is Back). Pads SDL knows (Xbox, PlayStation, Switch Pro and many more) work without setup; every button and stick can still be rebound in Settings > Controls (click a binding, then press the button or push the stick). Keyboard and mouse work as always alongside it. The 2D game has no gamepad support.
+**Gamepad (3D):** left stick walks, right stick looks, right trigger uses the tool (pull it to start looking around), LB / RB pick the previous / next tool of your loadout, hold Y for the tool wheel (every tool; point with the right stick, release to pick), X opens the loadout editor, B crouches, left-stick click sprints, Start opens the menu, Back the big brain view, d-pad up the Neurodex (3.0), d-pad down the kill cam (and skips it). Button names are the pad's own labels (on a Switch Pro: ZR uses, L / R pick tools, + is Start and − is Back). Pads SDL knows (Xbox, PlayStation, Switch Pro and many more) work without setup; every button and stick can still be rebound in Settings > Controls (click a binding, then press the button or push the stick). Keyboard and mouse work as always alongside it. The 2D game has no gamepad support.
 
-Command line: `--2d`, `--fullscreen`, `--backend NAME` (a simulation backend: `auto`, `cpu`, `numba`, `gl`, `torch-cpu`, `torch-cuda`, `torch-rocm`; or, on Linux, the display backend `wayland` or `x11` as before), `--sim-backend NAME` (the simulation backend only, same choices), `--dtype float32|float64`, `--record-video [PATH]`, `--seed N`, `--arena NAME` (room, fan, flypaper, pool, lamp, escaperoom, thermo, field, orchard), `--flies N` (start with N flies), and for headless runs `--headless`, `--protocol FILE --record-replay OUT` and `--replay FILE --out DIR` (replay files), `--validate`, `--protocol FILE`, `--nwb`, `--out PATH`, `--workers N`, `--seeds 1000-1009`, `--strict`, `--threshold-sweep`, `--signflip-test`, `--critical-path TARGET`, `--benchmark`, and (2.13) `--selftest [--out FILE.json]`, `--bugreport [--out DIR]` and `--headless --playthrough [adult|larva|all] [--playthrough-quick] --out DIR`.
+Command line: `--2d`, `--fullscreen`, `--backend NAME` (a simulation backend: `auto`, `cpu`, `numba`, `gl`, `torch-cpu`, `torch-cuda`, `torch-rocm`; or, on Linux, the display backend `wayland` or `x11` as before), `--sim-backend NAME` (the simulation backend only, same choices), `--dtype float32|float64`, `--record-video [PATH]`, `--seed N`, `--arena NAME` (room, fan, flypaper, pool, lamp, escaperoom, thermo, field, orchard), `--flies N` (start with N flies), and for headless runs `--headless`, `--protocol FILE --record-replay OUT` and `--replay FILE --out DIR` (replay files), `--validate`, `--protocol FILE`, `--nwb`, `--out PATH`, `--workers N`, `--seeds 1000-1009`, `--strict`, `--threshold-sweep`, `--signflip-test`, `--critical-path TARGET`, `--benchmark`, and (2.13) `--selftest [--out FILE.json]`, `--bugreport [--out DIR]` and `--headless --playthrough [adult|larva|all] [--playthrough-quick] --out DIR`, and (3.0) `--headless --protocol FILE --out DIR --bundle OUT.zip`, `--headless --rerun-bundle BUNDLE.zip --out DIR` and `--share-decode CODE`.
 
 ## Settings
 
@@ -173,7 +176,7 @@ Esc > Settings. Changes apply right away and are saved to `config.toml`; hover a
 
 - **Graphics:** fullscreen, resolution scale (3D drawn smaller and stretched, for weak GPUs), FPS cap, VSync (restart), display backend (Linux only, restart), brain panel style, menu size, UI scale.
 - **Audio:** master, wing buzz and sound effects volume, brain stethoscope (spike sonification clicks, hotkey K), mute.
-- **Brain:** Play/Lab mode, arena, pain neurons, immortal, sim speed, random seed (applies on R), real vs rule tags, real-science popups (default OFF; see below), courtship song buzz, aggression lunges, day/night cycle (outdoors), compute backend (see [Optional: faster simulation](#optional-faster-simulation-with-numba-pytorch-or-opengl)) and state precision (float32, the default, or float64). Brain settings are tagged **Connectome** (changes how the simulation runs) or **Game rule** (a rule the game adds on top).
+- **Brain:** Play/Lab mode, arena, pain neurons, immortal, sim speed, random seed (applies on R), real vs rule tags, real-science popups (default OFF; see below), Neurodex discoveries, kill cam offer and Neuron of the day (3.0, all default ON), courtship song buzz, aggression lunges, day/night cycle (outdoors), compute backend (see [Optional: faster simulation](#optional-faster-simulation-with-numba-pytorch-or-opengl)) and state precision (float32, the default, or float64). Brain settings are tagged **Connectome** (changes how the simulation runs) or **Game rule** (a rule the game adds on top).
 - **Controls:** the tool loadout (see below), mouse sensitivity, invert Y, field of view, key bindings (the hotbar keys, the editor and the tool wheel included), and the gamepad: on/off, look speed, dead zone, invert Y and every button binding.
 - **Help (2.13):** replay the tutorial, open the loadout editor, run the self-test, report a bug.
 - **Accessibility:** language (English, or German, machine-translated and incomplete; so far the pause menu and the Settings labels are translated, see [docs/translating.md](docs/translating.md)), colorblind-safe brain view colors (blue/yellow) and a high-contrast palette, reduced flashing (no screen shake, flashes, sparkles, scanning band or blinking), larger text.
@@ -191,6 +194,16 @@ The editor (**Q**, Esc closes it) lists every tool by category with its icon, a 
 - **Report a bug:** Settings > Help (and the crash screen) collects the version, OS, backend, the self-test, the last 500 log lines and any crash report, shows you exactly what would be included and lets you remove items, then copies it or opens a prefilled GitHub issue in your browser (long parts go to a file you attach). Nothing is uploaded automatically and there is no telemetry.
 
 More in [docs/selftest-and-bugreport.md](docs/selftest-and-bugreport.md).
+
+## Neurodex, kill cam, share codes and bundles (3.0)
+
+- **Neurodex** (D, Esc > Neurodex): a collectible encyclopedia of cell types. A type is *discovered* the first time its neurons fire well above their own calm rate while you play (**GAME RULE**). Each entry shows what the dataset says (**CONNECTOME**: neuron count, superclass, regions, predicted transmitter with the dataset's confidence, strongest input and output partner types, a cached EM skeleton) and, for about 30 well-known types, a one-line fact with its real citation (**LITERATURE**, each checked against the paper). Progress by region, saved with your training memory; the larva has its own list. [docs/neurodex.md](docs/neurodex.md)
+- **Neuron of the Day:** a small launch card with one curated type, its fact and a **Try it** button that sets up a one-click experiment (the Lab laser, or brain surgery). Its own setting, default on, and its own off switch; separate from the real-science cards. [docs/neurodex.md](docs/neurodex.md)
+- **Kill cam:** when the fly dies, a slow-motion replay of the last ~6 s of its brain on the brain panel, with the neurons whose firing rose most highlighted. Skippable, saved as a video or GIF by the existing recorder, and quieter with Reduced flashing. [docs/killcam.md](docs/killcam.md)
+- **Share codes** (Esc > Share): short copyable `KTF1-...` codes for a surgery, a loadout, a protocol, a challenge setup or Lab parameters. Import previews what it will change before you apply it; damaged, newer or incompatible codes are refused with a reason; a code too big to copy becomes a file. [docs/share-codes.md](docs/share-codes.md)
+- **Experiment bundles** (Lab > Record and export > Bundle): a zip with the protocol, results, raw exports, metadata (version, backend, precision, seeds, brain pack checksum, parameters, surgery, individuality, arena) and an RO-Crate description. `--headless --rerun-bundle ZIP --out DIR` runs it again and says whether the results match: bit-exact on CPU backends, statistical on GPU. [docs/bundles.md](docs/bundles.md)
+
+None of these uses the network or the microphone, none runs during `--validate` or in tests, and none changes a simulation result.
 
 ## Play: challenges and real-science cards
 
@@ -522,6 +535,9 @@ Documents and Pictures on Windows come from the Known Folders API, so redirected
 - The decoy female: its body, the contact distance, and the COURTSHIP tag contact triggers (no neuron is read for it).
 - Tool loadouts (2.13): the hotbar, the presets, the pages, the wheel and the editor are interface; no neuron reads them. The fruit item, and the fly walking to it and eating it, are game rules (the same ones sugar has).
 - The plume tracking assay, all of it: the plume and the surge/cast navigation (headless, Python API only).
+- Neurodex (3.0): which types count as *discovered* (the mean firing of the type at least 6 spikes/s and 3x its own calm rate for 150 ms, fixed before play, not tuned), the collection and its progress, and the Neuron of the Day pick and its Try it. The numbers inside an entry are the dataset's (**CONNECTOME**); the one-line fact and citation are **LITERATURE**, hand-written and checked against the paper, and only for the curated types.
+- Kill cam (3.0): the offer, the 6 s window, the slow motion, which neurons are highlighted. The firing it replays is each neuron's real simulated rate (**CONNECTOME**); death, and so the moment the replay ends, is a game rule.
+- Share codes and experiment bundles (3.0): containers for settings and results the game already has. A bundle rerun is judged bit-exact on the CPU backends and, on a GPU backend, by a statistical rule whose three numbers were fixed beforehand.
 
 The full mapping is in the docstring at the top of `kickthefly/game/kick_the_fly.py` (the `kick_the_fly.py` shim in the repo root points at it), and per assay in `kickthefly/lab/assays.py`.
 
