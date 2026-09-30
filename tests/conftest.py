@@ -28,3 +28,23 @@ def brain_pack():
 
 
 needs_pack = pytest.mark.skipif(brain_pack() is None, reason="brain pack data/kick_brain.npz not built")
+
+
+@pytest.fixture(scope="session")
+def _synthetic_pack_file(tmp_path_factory):
+    import synthetic_pack
+
+    return synthetic_pack.build(tmp_path_factory.mktemp("synthetic-pack") / synthetic_pack.PACK_NAME)
+
+
+@pytest.fixture
+def synthetic_pack(_synthetic_pack_file, monkeypatch):
+    """Point brainpack.find at the tiny SYNTHETIC pack (tests/synthetic_pack.py: random wiring, real type names) for one
+    test. For plumbing tests only; it is not the connectome and proves nothing about biology."""
+    from kickthefly.core import neurodex
+    from kickthefly.sim import brainpack
+
+    monkeypatch.setattr(brainpack, "find", lambda brain="adult": _synthetic_pack_file if brain == "adult" else None)
+    neurodex.reset_cache()
+    yield _synthetic_pack_file
+    neurodex.reset_cache()

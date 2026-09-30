@@ -1,0 +1,202 @@
+# Neurodex: curated facts. A hand-made table; everything else in a Neurodex entry is computed from the dataset.
+#
+# Rules for editing this file (they are also checked by tests/test_neurodex.py):
+#   - A fact says what the cited paper reports, in its own terms, and no more. No numbers or cell-type identities that
+#     the source doesn't state. Each entry was checked against the paper's abstract or full text (PubMed / PubMed
+#     Central / Crossref) when it was written; "checked" says which, and on what date.
+#   - `types` are exact dataset (MaleCNS v1.0) type names; `prefix` matches every type starting with that string. A
+#     fact attaches to every type it matches, so use `prefix` only when the paper's statement covers all of them.
+#   - Nothing here was tuned or measured by this game. These are literature statements, not results of the simulation.
+#   - Names of driver lines are deliberately left out: none is needed for the facts below and none may be guessed.
+#   - `game_note` (optional) says how the game itself uses the type, if it does (GAME RULE or CONNECTOME as in the
+#     docstring of kickthefly/game/kick_the_fly.py).
+version: 1
+facts:
+  - id: giant-fiber
+    types: [DNp01]
+    text: "The giant fiber's spike timing, relative to parallel escape circuits, decides between a long-duration escape that starts stable flight and a short, fast takeoff."
+    cite: "von Reyn et al. 2014, Nat Neurosci 17:962-970"
+    doi: 10.1038/nn.3741
+    checked: "abstract, PubMed, 2026-09-30"
+    game_note: "Looming detectors LPLC2 and LC4 drive it in the sim (validated); the game makes the fly dodge above 4x calm."
+
+  - id: lplc2
+    types: [LPLC2]
+    text: "Its cross-shaped dendrites sit in the four T4/T5 motion layers, so it fires for an object expanding radially outward (a looming stimulus) and rejects other motion."
+    cite: "Klapoetke et al. 2017, Nature 551:237-241"
+    doi: 10.1038/nature24626
+    checked: "abstract, PubMed, 2026-09-30"
+
+  - id: lc4
+    types: [LC4]
+    text: "A visual projection neuron that feeds the giant fiber; removing this input during looming shows it encodes how fast the object expands, while other inputs encode its size."
+    cite: "von Reyn et al. 2017, Neuron 94:1190-1204"
+    doi: 10.1016/j.neuron.2017.05.036
+    checked: "abstract and the dataset paper's reference list naming LC4 for this study, PubMed and PMC, 2026-09-30"
+
+  - id: mdn
+    types: [MDN]
+    text: "The moonwalker descending neuron: blocking it stops backward walking, and activating it makes the fly walk backward."
+    cite: "Bidaye et al. 2014, Science 344:97-101"
+    doi: 10.1126/science.1249964
+    checked: "abstract, Crossref, 2026-09-30"
+    game_note: "Its target motor neurons fail validation in this sim; the BACK UP reaction is a GAME RULE."
+
+  - id: dnp09
+    types: [DNp09]
+    text: "P9: activating it starts forward walking with ipsilateral turning; it is needed for a male to pursue a female during courtship."
+    cite: "Bidaye et al. 2020, Neuron 108:469-485"
+    doi: 10.1016/j.neuron.2020.07.032
+    checked: "abstract, PubMed, 2026-09-30"
+
+  - id: mn9
+    types: [MN9]
+    text: "A proboscis motor neuron: activating it lifts the rostrum, consistent with contracting muscle 9."
+    cite: "Schwarz et al. 2017, eLife 6:e19892 (confirming Gordon & Scott 2009)"
+    doi: 10.7554/eLife.19892
+    checked: "full text, PMC, 2026-09-30"
+
+  - id: adn
+    types: [DNg62, DNge078]
+    text: "These are the dataset's aDN1 and aDN2. Activating antennal-grooming descending neurons elicits the stereotyped leg movements that groom the antennae."
+    cite: "Hampel et al. 2015, eLife 4:e08758"
+    doi: 10.7554/eLife.08758
+    checked: "abstract, Crossref; the aDN1/aDN2 names are the dataset's own synonym for these types, 2026-09-30"
+    game_note: "Antennal touch to aDN is validated in this sim; aDN to the front-leg motor neurons is not."
+
+  - id: dna01
+    types: [DNa01]
+    text: "Recordings in walking flies show its activity predicts low-gain steering (DNa02, recruited first and more transient, predicts high-gain steering)."
+    cite: "Rayshubskiy et al. 2025, eLife 13:RP102230"
+    doi: 10.7554/eLife.102230
+    checked: "abstract and full text, PMC, 2026-09-30"
+
+  - id: dna02
+    types: [DNa02]
+    text: "Its activity predicts high-gain, transient steering; turning velocity is linearly related to the right-minus-left difference in DNa02 activity."
+    cite: "Rayshubskiy et al. 2025, eLife 13:RP102230"
+    doi: 10.7554/eLife.102230
+    checked: "abstract and full text, PMC, 2026-09-30"
+    game_note: "The game turns the fly by DNa01 + DNa02, right minus left."
+
+  - id: pam
+    prefix: [PAM]
+    text: "A subset of the PAM cluster's dopamine neurons signals sugar reward to the mushroom body: sugar ingestion activates them, and activating them can stand in for the reward."
+    cite: "Liu et al. 2012, Nature 488:512-516"
+    doi: 10.1038/nature11304
+    checked: "abstract, PubMed, 2026-09-30"
+    game_note: "Sugar drives them directly in the game (GAME RULE); the reward meter reads their firing."
+
+  - id: ppl1
+    prefix: [PPL1]
+    text: "Dopamine neurons of the PPL1 cluster can induce aversive odor memories in the mushroom body, with different stability for different pathways."
+    cite: "Aso et al. 2012, PLoS Genet 8:e1002768"
+    doi: 10.1371/journal.pgen.1002768
+    checked: "abstract, PLOS, 2026-09-30"
+    game_note: "Pain drives them in the game (GAME RULE); training weakens Kenyon cell to MBON synapses while they fire."
+
+  - id: kenyon-cells
+    prefix: [KC]
+    text: "An odor activates only a sparse subset of Kenyon cells, and this sparse code holds up across a range of odors."
+    cite: "Honegger et al. 2011, J Neurosci 31:11772-11785"
+    doi: 10.1523/JNEUROSCI.1099-11.2011
+    checked: "abstract, Crossref, 2026-09-30"
+
+  - id: mbon01
+    types: [MBON01]
+    text: "MBON-gamma5beta'2a, one glutamatergic cell, in the M4/M6 group whose output is required for appetitive and aversive memory performance."
+    cite: "Aso et al. 2014, eLife 3:e04577 (naming); Owald et al. 2015, Neuron 86:417-427"
+    doi: 10.7554/eLife.04577
+    checked: "Table 1 of Aso 2014 (PMC) for the name, cell count and transmitter; Owald 2015 abstract (PubMed) for the role, 2026-09-30"
+
+  - id: mbon14
+    types: [MBON14]
+    text: "MBON-alpha3, a cholinergic output neuron of the V3/V4 group (two cells); the paper connects this group to 2-hour appetitive memory."
+    cite: "Aso et al. 2014, eLife 3:e04577"
+    doi: 10.7554/eLife.04577
+    checked: "Table 1 and text, PMC, 2026-09-30"
+
+  - id: pip10
+    types: [pIP10]
+    text: "A descending neuron in the brain that, with P1, mediates the decision to sing and to act on it; it links the brain to the thoracic song circuit."
+    cite: "von Philipsborn et al. 2011, Neuron 69:509-522"
+    doi: 10.1016/j.neuron.2011.01.011
+    checked: "abstract, PubMed, 2026-09-30"
+    game_note: "pIP10 to the ps1 wing motor neurons is validated in this sim. Nothing in play drives pIP10."
+
+  - id: p1
+    types: [pC1_1a, pC1_1b, pC1_2a, pC1_2a/2b, pC1_2b, pC1_2c, pC1_3a, pC1_3b, pC1_3c, pC1_5a, pC1_5b, pC1_6a, pC1_7a, pC1_7b, pC1_12a, pC1_13a, pC1_14a, pC1_14b, pC1_15a, pC1_15b, pC1_15c, pC1_16a, pC1_16b, pC1_17a, pC1_17b]
+    text: "The pC1 types the game counts as P1 (the clone called pMP-e or pMP4 in the literature). P1 neurons trigger the male courtship ritual, and their activity gates how strongly visual LC10a neurons drive pursuit of a female."
+    cite: "Hindmarsh Sten et al. 2021, Nature 595:549-553"
+    doi: 10.1038/s41586-021-03714-w
+    checked: "abstract, PubMed; the list of pC1 types is the game's own (assays.P1_TYPES, from the dataset's synonyms), 2026-09-30"
+    game_note: "P1 to the ps1 song neurons is too weak in this sim (validation FAIL)."
+
+  - id: lc10
+    prefix: [LC10]
+    text: "LC10 neurons respond to small moving objects and carry the visual information a male needs to orient toward and stay near a female during courtship; silencing them abolishes that."
+    cite: "Ribeiro et al. 2018, Cell 174:607-621"
+    doi: 10.1016/j.cell.2018.06.020
+    checked: "abstract, PubMed, 2026-09-30"
+    game_note: "The game steers the fly with LC10 on the same side as DNa02 (GAME RULE)."
+
+  - id: epg
+    types: [EPG, E-PG]
+    text: "E-PG neurons tile the ellipsoid body and the protocerebral bridge; the position of their activity peak tracks the fly's heading."
+    cite: "Green et al. 2017, Nature 546:101-106"
+    doi: 10.1038/nature22343
+    checked: "full text, PMC, 2026-09-30"
+    game_note: "No heading bump forms in this sim (validation FAIL)."
+
+  - id: orn-da1
+    types: [ORN_DA1]
+    text: "Olfactory neurons carrying the receptor Or67d: the male pheromone cVA acts through them to regulate mating behavior (inhibiting it in males, promoting it in females)."
+    cite: "Kurtovic et al. 2007, Nature 446:542-546"
+    doi: 10.1038/nature05672
+    checked: "abstract, PubMed, 2026-09-30"
+
+  - id: orn-v
+    types: [ORN_V]
+    text: "CO2 activates a single antennal-lobe glomerulus, V, and the sensory neurons innervating it are needed for the fly's innate avoidance of CO2."
+    cite: "Suh et al. 2004, Nature 431:854-859"
+    doi: 10.1038/nature02980
+    checked: "abstract, PubMed, 2026-09-30"
+
+  - id: tk-aggression
+    types: [AVLP727m]
+    text: "The dataset names this type \"Asahina 2014: TK-FruM\". Tachykinin-expressing FruM neurons are male-specific; activating them raises, and silencing lowers, aggression between males."
+    cite: "Asahina et al. 2014, Cell 156:221-235"
+    doi: 10.1016/j.cell.2013.11.045
+    checked: "abstract, PubMed; the type-to-paper link is the dataset's own annotation, 2026-09-30"
+
+  - id: t4t5
+    prefix: [T4, T5]
+    text: "T4 cells respond to moving bright edges and T5 cells to dark edges; each subtype is tuned to one of four cardinal directions, and each terminates in its own sublayer of the lobula plate."
+    cite: "Maisak et al. 2013, Nature 500:212-216"
+    doi: 10.1038/nature12320
+    checked: "abstract, PubMed, 2026-09-30"
+    game_note: "Rightward rotation drives T4a/T5a_R + T4b/T5b_L then DNa_R in this sim (validated); the EMD stage is a GAME RULE, Lab only."
+
+  - id: lnv
+    types: [l-LNv, s-LNv]
+    text: "The PDF-expressing ventral lateral neurons (small and large LNv) restore morning activity when the clock runs only in them, and can drive 24-hour rhythms alone in constant darkness."
+    cite: "Grima et al. 2004, Nature 431:869-873"
+    doi: 10.1038/nature02935
+    checked: "abstract, PubMed, 2026-09-30"
+    game_note: "Daylight drives them directly in the game (GAME RULE)."
+
+  - id: dorsal-fb
+    prefix: [FB6, FB7]
+    text: "Activating neurons that project to the dorsal fan-shaped body puts flies into a sleep-like quiescent state."
+    cite: "Donlea et al. 2011, Science 332:1571-1576"
+    doi: 10.1126/science.1202249
+    checked: "abstract, PubMed, 2026-09-30"
+    game_note: "The game's SLEEP readout is FB6/FB7 firing; these layers being the dorsal fan-shaped body is the game's reading of the dataset."
+
+  - id: johnston-wind
+    types: [JO-C, JO-E]
+    text: "Johnston's organ, the antennal mechanosensory organ, holds separate neuron subsets for wind, near-field sound and gravity, projecting to different regions of the central brain."
+    cite: "Yorozu et al. 2009, Nature 458:201-205; Kamikouchi et al. 2009, Nature 458:165-171"
+    doi: 10.1038/nature07843
+    checked: "abstracts, PubMed, 2026-09-30. Which subset is JO-C/E is the game's annotation-based choice, not claimed by these papers"
+    game_note: "The fan's wind drives JO-C/E in the game (CONNECTOME sensors, GAME RULE wind)."
