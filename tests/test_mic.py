@@ -194,3 +194,31 @@ def test_a_hum_drives_the_real_jo_neurons_and_silence_does_not():
     assert h["jo_a"]["hz"] > 20 * max(s["jo_a"]["hz"], 0.1), "a loud 200 Hz hum fires JO-A"
     assert h["analysis"]["peak_hz"] == pytest.approx(200.0, rel=0.02)
     assert s["jo_a"]["ratio"] < 2.0
+
+
+# --- the Python API (synthetic: no device) ----------------------------------------------------------------------------------------------
+@needs_pack
+def test_fly_hear_attack_and_weather_in_the_python_api():
+    from kickthefly import Fly
+
+    f = Fly(seed=3, warmup_s=1.0)
+    h = f.hear(hz=200.0, seconds=1.0, ipi_ms=35.0)
+    assert h["peak_hz"] == pytest.approx(200.0, rel=0.03) and h["jo_a_hz"] > 5 and h["drive_b"] < h["drive_a"]
+    quiet = Fly(seed=3, warmup_s=1.0).hear(hz=200.0, seconds=1.0, amp=0.0)
+    assert quiet["jo_a_hz"] < 1.0
+    r = Fly(seed=3, warmup_s=1.0).attack("mantis")
+    assert r["captured"] and r["max_loom_before_strike"] < 1.5
+    with pytest.raises(ValueError, match="frog"):
+        f.attack("walrus")
+    w = Fly(seed=3, warmup_s=1.0)
+    rec = w.record({"wing": ("wing", None)}) if False else None
+    w.weather(rain=1.0)
+    pokes = []
+    real = w.brain.poke
+    w.brain.poke = lambda region, side, strength, recruit=None: (pokes.append(region), real(region, side, strength, recruit))[1]
+    w.step(5.0)
+    assert {"wing", "body", "head", "legs", "humid"} <= set(pokes)
+    pokes.clear()
+    w.weather()                                              # all off
+    w.step(2.0)
+    assert not pokes

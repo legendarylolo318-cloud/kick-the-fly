@@ -1,0 +1,13 @@
+# 3.0 day 3, Microphone -> Johnston's organ: a stimulus protocol with a SYNTHETIC 200 Hz hum in 35 ms pulses (never the microphone) from 1 s to 4 s.
+# JO-A/B are driven through core/mic.py's analysis (GAME RULE); the P1 cluster and the song motor neurons are recorded.
+name: mic-hum-pulses
+seed: 1000
+flies: 2
+warmup_s: 1
+duration_s: 6
+audio: {hz: 200, ipi_ms: 35, amp: 0.1, at_s: 1, seconds: 3}
+recordings:
+  - {name: JO-A, neurons: "prefix:JO-A"}
+  - {name: JO-B, neurons: "prefix:JO-B"}
+  - {name: P1 cluster, neurons: "p1"}
+  - {name: song motor neurons, neurons: "ps1"}

@@ -48,6 +48,15 @@ Two kinds of protocol:
     # a third kind of protocol, a virtual patch clamp (lab/patchclamp.py), MODEL:
     patch: {neuron: "type:DNp01", index: 0, mode: embedded, amplitudes: [0, 0.05, 0.1], duration_ms: 500, repeats: 3}
 
+3.0 day 3 additions (stimulus protocols only; each is optional):
+
+    weather:                                 # rain, gusts, lightning (game/weather.py), GAME RULE on the real touch / humidity / wind / light neurons
+      {rain: 0.6, gust_hz: 0.2, storm: true, wind_speed: 3, wind_dir: 180}
+    audio:                                   # a SYNTHETIC hum through the microphone's analysis onto JO-A/B (core/mic.py); never the microphone
+      {hz: 200, ipi_ms: 35, amp: 0.1, at_s: 1, seconds: 3, sensitivity: 1}     # ipi_ms omitted: a steady hum
+    predator: {kind: frog, at_s: 1.0}        # a frog | dragonfly | mantis attack as looming onto LPLC2/LC4 (game/predators.py)
+    # assay kinds: predator_escape (lab/predators.py) and hum_demo (lab/audio.py), with assay_options as for the others
+
 Neuron specs (simcore.rows_of and assays.groups): a game group ("loom", "escape", "head", "reward", "sweet"...), an
 assay group ("dnp01", "mn9", "adn", "jo_ce", "mn_front"...), "type:A,B", "prefix:KC", "superclass:descending_neuron"
 or "rows:1,2,3".
@@ -66,7 +75,8 @@ from pathlib import Path
 import numpy as np
 
 TOP_KEYS = {"name", "description", "title", "classroom", "steps", "seed", "seeds", "flies", "warmup_s", "duration_s", "params", "surgery", "control",
-            "stimuli", "recordings", "assay", "assay_options", "workers", "nwb", "thermogenetics", "drug", "imaging", "patch"}
+            "stimuli", "recordings", "assay", "assay_options", "workers", "nwb", "thermogenetics", "drug", "imaging", "patch",
+            "weather", "audio", "predator"}
 STIM_KEYS = {"at_s", "for_s", "target", "strength", "recruit", "mode", "amp", "side"}
 
 
@@ -78,6 +88,7 @@ MAX_FLIES = 10_000              # 3.0 review: checking flies: 10**9 built a bill
 
 
 DAY2_KEYS = ("thermogenetics", "drug", "imaging", "patch")
+DAY3_KEYS = ("weather", "audio", "predator")
 
 
 def _check_day2(p: dict, where: str) -> None:
@@ -87,7 +98,7 @@ def _check_day2(p: dict, where: str) -> None:
     if "patch" in p:
         # 3.0 day 2 review: surgery, recordings, control and a top-level warmup/duration were accepted and then ignored
         ignored = [k for k in ("assay", "classroom", "thermogenetics", "drug", "imaging", "stimuli", "recordings", "surgery",
-                               "control", "warmup_s", "duration_s") if k in p]
+                               "control", "warmup_s", "duration_s", *DAY3_KEYS) if k in p]
         if ignored:
             raise ProtocolError(f"{where}: a patch protocol stands alone; it can't use {', '.join(ignored)} (its own warm-up is "
                                 f"patch.warmup_s)")
@@ -112,7 +123,7 @@ def _check_day2(p: dict, where: str) -> None:
                           index=index, warmup_s=warmup)
         return
     if "assay" in p or p.get("classroom"):
-        used = [k for k in DAY2_KEYS if k in p]
+        used = [k for k in DAY2_KEYS + DAY3_KEYS if k in p]
         if used:
             kind = "an assay" if "assay" in p else "a classroom"
             raise ProtocolError(f"{where}: {', '.join(used)} can't be used in {kind} protocol yet (stimulus protocols only)")
@@ -120,7 +131,10 @@ def _check_day2(p: dict, where: str) -> None:
             _check_thermo_escape(p.get("assay_options") or {}, where)
         if p.get("assay") == "predator_escape":
             _check_predator_escape(p.get("assay_options") or {}, where)
+        if p.get("assay") == "hum_demo":
+            _check_hum_demo(p.get("assay_options") or {}, where)
         return
+    _check_day3(p, where)
     if "thermogenetics" in p:
         try:
             p["thermogenetics"] = thermogenetics.check_spec(p["thermogenetics"], where)
@@ -182,6 +196,61 @@ def _check_thermo_escape(opts: dict, where: str) -> None:
         tg.effector(opts.get("effector_name", "trpa1"))
     except tg.ThermoError as e:
         raise ProtocolError(f"{where}: thermo_escape: {e}") from None
+
+
+def _num(v, lo, hi, what, where, allow_none=False):
+    if v is None and allow_none:
+        return None
+    if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) or not lo <= v <= hi:
+        raise ProtocolError(f"{where}: {what} must be a number from {lo:g} to {hi:g}")
+    return float(v)
+
+
+def _check_day3(p: dict, where: str) -> None:
+    """Validate the 3.0 day 3 stimulus blocks (weather, audio, predator): unknown keys and out-of-range values are refused."""
+    from kickthefly.core import mic
+    from kickthefly.game import predators as pr
+
+    if "weather" in p:
+        w = p["weather"]
+        keys = {"rain", "gust_hz", "storm", "wind_speed", "wind_dir"}
+        if not isinstance(w, dict) or set(w) - keys:
+            raise ProtocolError(f"{where}: weather has unknown keys; allowed: {sorted(keys)}")
+        if "storm" in w and not isinstance(w["storm"], bool):
+            raise ProtocolError(f"{where}: weather.storm must be true or false")
+        p["weather"] = dict(rain=_num(w.get("rain", 0.0), 0, 1, "weather.rain", where),
+                            gust_hz=_num(w.get("gust_hz", 0.0), 0, 0.5, "weather.gust_hz", where), storm=bool(w.get("storm", False)),
+                            wind_speed=_num(w.get("wind_speed", 0.0), 0, 20, "weather.wind_speed", where),
+                            wind_dir=_num(w.get("wind_dir", 180.0), 0, 360, "weather.wind_dir", where))
+    if "audio" in p:
+        a = p["audio"]
+        keys = {"hz", "ipi_ms", "amp", "at_s", "seconds", "sensitivity"}
+        if not isinstance(a, dict) or set(a) - keys:
+            raise ProtocolError(f"{where}: audio has unknown keys (it is a synthetic hum, never the microphone); allowed: {sorted(keys)}")
+        p["audio"] = dict(hz=_num(a.get("hz", 200.0), 10, 2000, "audio.hz", where),
+                          ipi_ms=_num(a.get("ipi_ms"), 10, 500, "audio.ipi_ms", where, allow_none=True),
+                          amp=_num(a.get("amp", 0.1), 0, 1, "audio.amp", where), at_s=_num(a.get("at_s", 0.0), 0, 3600, "audio.at_s", where),
+                          seconds=_num(a.get("seconds", 1.0), 0.05, 600, "audio.seconds", where),
+                          sensitivity=_num(a.get("sensitivity", 1.0), mic.SENSITIVITY[0], mic.SENSITIVITY[1], "audio.sensitivity", where))
+    if "predator" in p:
+        d = p["predator"]
+        if not isinstance(d, dict) or set(d) - {"kind", "at_s"} or d.get("kind") not in pr.SPECS:
+            raise ProtocolError(f"{where}: predator needs kind: one of {', '.join(pr.KINDS)} (and optionally at_s)")
+        p["predator"] = dict(kind=d["kind"], at_s=_num(d.get("at_s", 0.0), 0, 3600, "predator.at_s", where))
+
+
+def _check_hum_demo(opts: dict, where: str) -> None:
+    """The hum_demo assay's options become keyword arguments of audio.demo_fly."""
+    from kickthefly.lab import audio
+
+    bad = set(opts) - {"conditions", "seconds", "amp"}
+    if bad:
+        raise ProtocolError(f"{where}: hum_demo options are conditions, seconds and amp, not {sorted(bad)}")
+    c = opts.get("conditions", list(audio.CONDITIONS))
+    if not isinstance(c, list) or not 1 <= len(c) <= len(audio.CONDITIONS) or not all(x in audio.CONDITIONS for x in c):
+        raise ProtocolError(f"{where}: hum_demo conditions must be a list of {', '.join(audio.CONDITIONS)}")
+    _num(opts.get("seconds", audio.SECONDS), 0.2, 30, "hum_demo seconds", where)
+    _num(opts.get("amp", audio.HUM_AMP), 0.0, 1.0, "hum_demo amp", where)
 
 
 def _check_predator_escape(opts: dict, where: str) -> None:
@@ -337,6 +406,26 @@ def run_seed(p: dict, seed: int, surgery: dict | None, folder: Path, tag: str, r
 
         th_spec = p["thermogenetics"]
         th = thermogenetics.from_spec(th_spec)
+    wx = wx_args = hum = hum_rows = loom_rates = None
+    if p.get("weather"):
+        from kickthefly.game import weather
+
+        wx_args = p["weather"]
+        wx = weather.Weather(seed)
+    if p.get("audio"):
+        from kickthefly.core import mic
+
+        ad = p["audio"]
+        an = mic.Analyzer(mic.RATE, ad["sensitivity"])
+        wave = mic.hum(ad["hz"], ad["seconds"], mic.RATE, ad["amp"], ad["ipi_ms"])
+        hum = [an.push(ch) for ch in mic.chunks(wave)]               # the synthetic hum, analysed once, deterministically
+        hum_rows = mic.jo_rows(br)
+    if p.get("predator"):
+        from kickthefly.game import predators as pr
+        from kickthefly.lab import predators as lp
+
+        pd = p["predator"]
+        loom_rates = lp.loom_rates(pr.trace(pd["kind"], seed))
     if p.get("imaging"):
         from kickthefly.lab import imaging
 
@@ -351,6 +440,12 @@ def run_seed(p: dict, seed: int, surgery: dict | None, folder: Path, tag: str, r
     for t in range(n):
         if th is not None and t % 10 == 0:                       # every 50 ms: the temperature, then the effectors
             th.update(br, thermogenetics.temperature_at(th_spec, t * 0.005), 0.05)
+        if wx is not None and t % 10 == 0:                       # every 50 ms: rain, gusts and lightning onto the real neurons
+            _weather_step(br, wx, wx_args)
+        if hum is not None:
+            _hum_step(br, hum, hum_rows, p["audio"], t)
+        if loom_rates is not None:
+            _predator_step(br, loom_rates, p["predator"], t)
         for k, s in enumerate(stims):
             active = s["start"] <= t < s["stop"]
             if s.get("mode", "poke") == "drive":
@@ -367,6 +462,10 @@ def run_seed(p: dict, seed: int, surgery: dict | None, folder: Path, tag: str, r
             frames.append(imaging.render_frame(view, session, "default", "panel")[0])
     if th is not None:
         th.clear(br)
+    if hum is not None:
+        from kickthefly.core import mic
+
+        mic.release(br)
     rec.stop()
     if replay_rec is not None:
         replay_rec.detach()
@@ -400,6 +499,58 @@ def run_seed(p: dict, seed: int, surgery: dict | None, folder: Path, tag: str, r
         spikes = int(np.isin(a["spike_index"], members).sum())
         out[name] = spikes / max(1, len(rows)) / max(1e-9, a["n_steps"] * 0.005)
     return out
+
+
+def _weather_step(br, wx, a: dict) -> None:
+    """One 50 ms tick of the weather block, the same transduction as the game's (game/weather.py, game/outdoors.py)."""
+    from kickthefly.game import outdoors
+
+    wx.update(0.05, a["rain"], a["gust_hz"], a["storm"])
+    for region, side, s in wx.hits(0.05):
+        br.poke(region, side, s)
+    h = wx.humid(0.05)
+    if h > 0:
+        br.poke("humid", None, h)
+    ws, wd = wx.wind(a["wind_speed"], a["wind_dir"])
+    if ws > 0:
+        left, right = outdoors.wind_drive(0.0, wd, ws)
+        if left > 0.02:
+            br.poke("wind", "L", left)
+        if right > 0.02:
+            br.poke("wind", "R", right)
+    light = wx.lightning()
+    if light > 0:
+        br.poke("light", "L", light, recruit=0.6 * light)
+        br.poke("light", "R", light, recruit=0.6 * light)
+
+
+def _hum_step(br, readings: list, rows, a: dict, t: int) -> None:
+    """The synthetic hum's analysed current on JO-A/B, one reading per 256 samples (11.6 ms), released when it ends."""
+    from kickthefly.core import mic
+
+    sec = t * 0.005 - a["at_s"]
+    if sec < 0:
+        return
+    i = int(sec * mic.RATE / mic.CHUNK)
+    if i >= len(readings):
+        if i == len(readings):
+            mic.release(br)
+        return
+    mic.apply(br, readings[i], rows)
+
+
+def _predator_step(br, rates: list, a: dict, t: int) -> None:
+    """The predator's loom measure, frame by frame at 60 Hz, through the game's own transduction onto LPLC2/LC4."""
+    from kickthefly.game import kick_the_fly as k
+
+    f = int((t * 0.005 - a["at_s"]) * 60)
+    if f < 0 or f >= len(rates):
+        return
+    if t > 0 and f == int(((t - 1) * 0.005 - a["at_s"]) * 60):      # still inside the same 1/60 s frame: already poked
+        return
+    strength = float(np.clip((rates[f] - k.LOOM_MIN) / k.LOOM_FULL, 0, 1))
+    if strength > 0:
+        br.poke("loom", None, strength, recruit=0.6 * strength)
 
 
 def _poke_rows(br, s) -> None:

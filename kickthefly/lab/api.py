@@ -19,6 +19,12 @@
     res = fly.image(5.0, indicator="gcamp6s")    # simulated GCaMP imaging of the next 5 s (lab/imaging.py)
     fly.drug("picrotoxin", 0.5); fly.washout()   # synaptic scaling by predicted transmitter (lab/pharmacology.py)
 
+3.0 day 3 (game rules throughout; what they drive is the connectome's own neurons):
+
+    fly.attack("frog")                           # a frog, dragonfly or mantis attack through the real looming pathway (lab/predators.py)
+    fly.weather(rain=0.6, gust_hz=0.2, storm=True); fly.step(10.0)    # rain on touch neurons, gusts on JO-C/E, lightning on the eyes
+    fly.hear(hz=200.0, seconds=2.0, ipi_ms=35.0) # a synthetic hum through the microphone's analysis onto JO-A/B (core/mic.py; no device)
+
 Neurons are named exactly as in protocols: a group ("loom", "dnp01", "sweet", "pip10", "p1", ...), "type:A,B",
 "prefix:KC", "superclass:descending_neuron", "rows:1,2,3", "line:SS00727" (a driver line), or an array of rows. Everything steps in lockstep on the
 calling thread, so the same seed and the same calls give the same spikes (on cpu, numba and torch-cpu alike).
@@ -90,6 +96,8 @@ class Fly:
         self._temp = 22.0
         self._kinetics = "real"
         self._drug = None                             # 3.0 day 2: the pharmacology.Wiring currently applied by Fly.drug()
+        self._wx = None                               # 3.0 day 3: Fly.weather() adds rain, gusts and lightning
+        self._wx_args = (0.0, 0.0, False, 0.0, 180.0)
 
     # --- tool loadouts (2.13) --------------------------------------------------------------------------------------------
     @property
@@ -302,6 +310,68 @@ class Fly:
         self._doses = {}
         return self
 
+    # --- 3.0 day 3: predators, weather, a hum ------------------------------------------------------------------------------
+    def attack(self, kind: str, seed: int | None = None) -> dict:
+        """One predator ('frog', 'dragonfly' or 'mantis') attacks a fly that stays where it is: what its eyes see goes through the
+        game's looming transduction onto LPLC2/LC4, and the result says whether DNp01 crossed the escape threshold before the
+        capture. GAME RULE attack, MODEL PREDICTION result (lab/predators.py)."""
+        from kickthefly.game import predators as pr
+        from kickthefly.lab import predators as lp
+
+        if kind not in pr.SPECS:
+            raise ValueError(f"unknown predator {kind!r}; use one of {', '.join(pr.KINDS)}")
+        return lp.escape_trial(self.brain, pr.trace(kind, self.seed if seed is None else int(seed)))
+
+    def weather(self, rain: float = 0.0, gust_hz: float = 0.0, storm: bool = False, wind_speed: float = 0.0,
+                wind_dir: float = 180.0) -> "Fly":
+        """Rain, gusts and lightning from now on (rain 0-1, gusts a second 0-0.5, storm on/off, a steady wind in m/s). Drops fire the
+        touch neurons by body part, the air the humidity neurons, wind and gusts JO-C/E through the game's wind transduction,
+        lightning the photoreceptors. All off (the defaults) removes it. GAME RULE (game/weather.py)."""
+        from kickthefly.game import weather
+
+        self._wx_args = (float(rain), float(gust_hz), bool(storm), float(wind_speed), float(wind_dir))
+        active = rain > 0 or gust_hz > 0 or storm or wind_speed > 0
+        self._wx = (self._wx or weather.Weather(self.seed)) if active else None
+        return self
+
+    def _weather_tick(self, br) -> None:
+        from kickthefly.game import outdoors
+
+        w = self._wx
+        rain, gust, storm, speed, direction = self._wx_args
+        w.update(0.05, rain, gust, storm)
+        for region, side, s in w.hits(0.05):
+            br.poke(region, side, s)
+        h = w.humid(0.05)
+        if h > 0:
+            br.poke("humid", None, h)
+        ws, wd = w.wind(speed, direction)
+        if ws > 0:
+            left, right = outdoors.wind_drive(0.0, wd, ws)
+            if left > 0.02:
+                br.poke("wind", "L", left)
+            if right > 0.02:
+                br.poke("wind", "R", right)
+        light = w.lightning()
+        if light > 0:
+            br.poke("light", "L", light, recruit=0.6 * light)
+            br.poke("light", "R", light, recruit=0.6 * light)
+
+    def hear(self, hz: float = 200.0, seconds: float = 1.0, ipi_ms: float | None = None, amp: float = 0.1,
+             sensitivity: float = 1.0) -> dict:
+        """A synthetic hum (a sine at `hz`; with ipi_ms, a train of pulses at that interval) goes through the same analysis the
+        microphone uses and drives the JO-A and JO-B neurons for `seconds`; the brain steps meanwhile. Never uses a microphone.
+        Returns what the analysis saw (frequency, drive) and the JO neurons' firing. GAME RULE transduction (core/mic.py)."""
+        from kickthefly.core import mic
+        from kickthefly.lab import audio
+
+        a, b = mic.jo_rows(self.brain)
+        watch = {"jo_a": a, "jo_b": b}
+        res = audio.hear(self.brain, mic.hum(hz, seconds, mic.RATE, amp, ipi_ms), sensitivity=sensitivity, watch=watch)
+        n = max(1, res["steps"])
+        return dict(peak_hz=res["peak_hz"], drive_a=res["mean_drive_a"], drive_b=res["mean_drive_b"], steps=res["steps"],
+                    jo_a_hz=res["counts"]["jo_a"] / max(1, len(a)) / (n * DT), jo_b_hz=res["counts"]["jo_b"] / max(1, len(b)) / (n * DT))
+
     # --- time --------------------------------------------------------------------------------------------------------
     def step(self, seconds: float | None = None, *, steps: int | None = None) -> np.ndarray:
         """Advance the brain (5 ms per step). Returns the last step's spikes (a bool array over all neurons)."""
@@ -310,6 +380,8 @@ class Fly:
         for _ in range(max(0, n)):
             if self._thermo is not None and br.steps % 10 == 0:
                 self._thermo.update(br, self._temp, 10 * DT)
+            if self._wx is not None and br.steps % 10 == 0:
+                self._weather_tick(br)
             br._step()
             if self._dex is not None or self._kc is not None:
                 self._observe()
