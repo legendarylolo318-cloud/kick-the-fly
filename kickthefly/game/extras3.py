@@ -290,6 +290,7 @@ class Extras:
         try:
             self.dex_tick()
             self.kc_feed()
+            self.g.live.tick()
         except Exception:
             from kickthefly.core.crash import log
             log.exception("3.0 tick failed")

@@ -496,6 +496,9 @@ class Menu:
                  ("Neurodex", "neurodex", "normal", True,
                   "The cell types you have discovered, with what the dataset says about each. Default key D."),
                  ("Settings", "settings", "normal", True, "Graphics, audio, brain, controls and accessibility."),
+                 ("Mic and streamer", "live_inputs", "normal", True,
+                  "Opt-in: sound from your microphone drives the fly's Johnston's organ, and Twitch viewers vote on what happens. "
+                  "Both are off every time the game starts and show a red indicator while on."),
                  ("Share", "share", "normal", True,
                   "Make a short code for your surgery, loadout, protocol, challenge setup or Lab parameters, or import one "
                   "and see what it would change first."),

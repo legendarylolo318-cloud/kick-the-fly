@@ -2503,6 +2503,9 @@ class Game:
                 self.apply_setting(s.key)
         from kickthefly.game import extras3
         self.x3 = extras3.Extras(self)               # 3.0: Neurodex tracking, kill cam, Neuron of the Day
+        from kickthefly.game import live_inputs
+        self.live = live_inputs.LiveInputs(self)     # 3.0 day 3: microphone and streamer mode (both off at every launch)
+        self.menu.pages["live_inputs"] = live_inputs.page
         threading.Thread(target=self._view_loop, name="brain-view", daemon=True).start()
 
     # --- settings, menu and time ----------------------------------------------------------------------------------
@@ -2816,6 +2819,7 @@ class Game:
         elif name == "quit":
             self.menu.show("confirm_quit")
         elif name == "quit_now":
+            self.live.stop_all()
             self.want_quit = True
         elif name == "lab":
             self.menu.show("lab")
@@ -2825,6 +2829,8 @@ class Game:
             self.x3.open_neurodex()
         elif name == "share":
             self.menu.show("share")
+        elif name == "live_inputs":
+            self.menu.show("live_inputs")
         elif name == "save_state":
             self.save_state()
         elif name == "load_state":
@@ -6377,6 +6383,7 @@ class Game:
         return rect
 
     def _draw_hud(self, surf, now: float) -> None:
+        self.live.draw(surf, self.f_small, PLAY_W)            # 3.0 day 3: the red MIC ON / TWITCH CHAT pills, the vote tally
         if self.cfg["brain.autopilot"] and self.cfg["brain.autopilot_hide_hud"]:
             badge = self.f_small.render("AUTOPILOT / SPECTATOR   (Y: exit)", True, (130, 160, 190))
             box = badge.get_rect(midtop=(PLAY_W // 2, 14)).inflate(16, 6)

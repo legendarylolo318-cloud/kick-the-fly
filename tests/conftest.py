@@ -12,6 +12,7 @@ sys.path.insert(0, str(ROOT))
 os.environ["SDL_VIDEODRIVER"] = os.environ.get("KTF_TEST_SDL_VIDEODRIVER", "dummy")
 os.environ["SDL_AUDIODRIVER"] = os.environ.get("KTF_TEST_SDL_AUDIODRIVER", "dummy")
 os.environ.setdefault("KICK_THE_FLY_OFFLINE", "1")            # never contact neuPrint from the tests (or CI)
+os.environ["KTF_NO_NETWORK"] = "1"                            # 3.0 day 3: no network feature (Streamer mode) may connect in a test; forced, not defaulted
 
 
 @pytest.fixture(autouse=True)

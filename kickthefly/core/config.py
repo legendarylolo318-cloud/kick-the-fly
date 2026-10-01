@@ -146,6 +146,27 @@ SETTINGS: tuple[Setting, ...] = (
       "A small card at launch with one curated cell type, a fact with its citation (from the literature, not measured "
       "here) and a Try it button that sets up a one-click experiment. Separate from the real-science popups. Which type, "
       "the card and Try it are game rules.", tag=GAME_RULE),
+    S("brain.mic_sensitivity", "Brain", "Microphone sensitivity", "float", 1.0,
+      "Esc > Mic and streamer: how loud a band must be to drive the Johnston's organ JO-A/JO-B neurons fully (the sound is band-passed "
+      "into JO-B, below ~100 Hz, and JO-A, higher; neurons from the dataset, the transduction and every number a GAME RULE). Only the "
+      "sensitivity is saved: the microphone itself is off every time the game starts, shows a red MIC ON pill while on, and nothing it "
+      "hears is saved or sent.", lo=0.1, hi=10.0, step=0.1, fmt="{:.1f}x", tag=GAME_RULE),
+    S("stream.allow_tool", "Brain", "Streamer mode: viewers may vote !tool", "bool", True,
+      "Esc > Mic and streamer: whether Twitch viewers can change the tool in hand by chat vote (!tool NAME, only tools on your hotbar). "
+      "GAME RULE. Streamer mode itself is off every time the game starts and only reads chat anonymously.", tag=GAME_RULE),
+    S("stream.allow_arena", "Brain", "Streamer mode: viewers may vote !arena", "bool", False,
+      "Whether viewers can change the arena by chat vote (!arena NAME). Off until you switch it on. GAME RULE.", tag=GAME_RULE),
+    S("stream.allow_surgery", "Brain", "Streamer mode: viewers may vote !surgery", "bool", False,
+      "Whether viewers can silence or restore a neuron group by chat vote (!surgery NAME). Off until you switch it on. GAME RULE.",
+      tag=GAME_RULE),
+    S("stream.window_s", "Brain", "Streamer mode: vote window", "float", 20.0,
+      "Seconds a chat vote stays open after the first vote. The winner needs at least the minimum votes. GAME RULE.",
+      lo=5.0, hi=120.0, step=5.0, fmt="{:.0f} s", tag=GAME_RULE),
+    S("stream.cooldown_s", "Brain", "Streamer mode: cooldown", "float", 30.0,
+      "Seconds after a vote ends during which new votes are ignored. GAME RULE.", lo=5.0, hi=300.0, step=5.0, fmt="{:.0f} s",
+      tag=GAME_RULE),
+    S("stream.min_votes", "Brain", "Streamer mode: minimum votes", "int", 2,
+      "The fewest votes the winning option needs to take effect. GAME RULE.", lo=1, hi=50, step=1, tag=GAME_RULE),
     S("brain.imaging_indicator", "Brain", "Imaging indicator", "choice", "gcamp6s",
       "Lab > Calcium imaging: which GCaMP the simulated imaging uses. MODEL: spikes from the simulation convolved with the "
       "indicator's kernel plus photon shot noise, not a measurement. The rise and decay come from Chen 2013 (GCaMP6s/6f, its "

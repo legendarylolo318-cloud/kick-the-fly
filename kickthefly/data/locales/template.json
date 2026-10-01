@@ -374,5 +374,19 @@
   "MANTIS": "",
   "Put down a frog: a very fast tongue strike.": "",
   "Put down a mantis that creeps up, then strikes.": "",
-  "Release a dragonfly that chases flying flies from above.": ""
+  "Release a dragonfly that chases flying flies from above.": "",
+  "Esc > Mic and streamer: how loud a band must be to drive the Johnston's organ JO-A/JO-B neurons fully (the sound is band-passed into JO-B, below ~100 Hz, and JO-A, higher; neurons from the dataset, the transduction and every number a GAME RULE). Only the sensitivity is saved: the microphone itself is off every time the game starts, shows a red MIC ON pill while on, and nothing it hears is saved or sent.": "",
+  "Esc > Mic and streamer: whether Twitch viewers can change the tool in hand by chat vote (!tool NAME, only tools on your hotbar). GAME RULE. Streamer mode itself is off every time the game starts and only reads chat anonymously.": "",
+  "Microphone sensitivity": "",
+  "Seconds a chat vote stays open after the first vote. The winner needs at least the minimum votes. GAME RULE.": "",
+  "Seconds after a vote ends during which new votes are ignored. GAME RULE.": "",
+  "Streamer mode: cooldown": "",
+  "Streamer mode: minimum votes": "",
+  "Streamer mode: viewers may vote !arena": "",
+  "Streamer mode: viewers may vote !surgery": "",
+  "Streamer mode: viewers may vote !tool": "",
+  "Streamer mode: vote window": "",
+  "The fewest votes the winning option needs to take effect. GAME RULE.": "",
+  "Whether viewers can change the arena by chat vote (!arena NAME). Off until you switch it on. GAME RULE.": "",
+  "Whether viewers can silence or restore a neuron group by chat vote (!surgery NAME). Off until you switch it on. GAME RULE.": ""
 }
