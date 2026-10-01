@@ -2067,6 +2067,7 @@ class Game3D(k2.Game):
     def update3d(self, now: float, dt: float, keys, rel) -> None:
         self.frame += 1
         self._poll_spawn()
+        self._lab_tick()
         if self.player_dead_at is not None:
             self.player.eye_h += (0.3 - self.player.eye_h) * 0.05       # you slump to the floor
         for slot in self.flies:                                         # for drawing between ticks in slow motion

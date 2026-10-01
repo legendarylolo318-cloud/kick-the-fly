@@ -24,7 +24,8 @@ kickthefly/
   ui/                      menu framework and the settings screens; the loadout editor and tool wheel (loadout_ui), the first-launch tutorial, Settings > Help (help_ui), the crash screen,
                            the Neurodex panel (neurodex_ui) and Esc > Share (share_ui)
   lab/                     lab, labjobs, labstats, validation, playthrough (the bot), assays, challenges, protocol, recorder, bundle (3.0), nwbexport,
-                           headless, benchmark, api (`from kickthefly import Fly`), neurosearch (brain view search and
+                           headless, benchmark, api (`from kickthefly import Fly`), genetics, thermogenetics, patchclamp, imaging,
+                           pharmacology (3.0 day 2, logic) with labtoolkit (their five Lab screens) and livelab (their in-game state), neurosearch (brain view search and
                            path tracer), and the Lab-only manipulations (threshold, signflip, criticalpath, clamp,
                            diffmode, lesions)
   data/                    non-code assets bundled inside the package

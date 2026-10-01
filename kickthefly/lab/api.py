@@ -11,8 +11,16 @@
     print(rec.rates(), rec.rates(start_s=1.0))   # spikes/s per group, over the whole run or from 1 s on
     fly.export("out/looming")                    # spikes, rates and metadata CSV/JSON (+ .nwb with nwb=True)
 
+3.0 day 2 (each is MODEL or GAME RULE, see the module docstring of the lab module named):
+
+    fly.neurons("line:SS00727")                  # a split-GAL4 driver line's cell types (lab/genetics.py); fly.line("SS00727")
+    fly.express("trpa1", "type:DNp01"); fly.temperature(32); fly.step(1.0)    # thermogenetics (lab/thermogenetics.py)
+    fly.patch("type:DNp01", [0.0, 0.05, 0.1])    # virtual current clamp, I-F curve (lab/patchclamp.py)
+    res = fly.image(5.0, indicator="gcamp6s")    # simulated GCaMP imaging of the next 5 s (lab/imaging.py)
+    fly.drug("picrotoxin", 0.5); fly.washout()   # synaptic scaling by predicted transmitter (lab/pharmacology.py)
+
 Neurons are named exactly as in protocols: a group ("loom", "dnp01", "sweet", "pip10", "p1", ...), "type:A,B",
-"prefix:KC", "superclass:descending_neuron", "rows:1,2,3", or an array of rows. Everything steps in lockstep on the
+"prefix:KC", "superclass:descending_neuron", "rows:1,2,3", "line:SS00727" (a driver line), or an array of rows. Everything steps in lockstep on the
 calling thread, so the same seed and the same calls give the same spikes (on cpu, numba and torch-cpu alike).
 What is connectome and what is a game rule is the same as everywhere else (kickthefly/game/kick_the_fly.py).
 """
@@ -78,6 +86,10 @@ class Fly:
         self._tool = loadout.HAND
         self._dex = None                              # 3.0: Fly.collect() attaches a Neurodex tracker
         self._kc = None                               # 3.0: Fly.killcam() attaches a kill cam buffer
+        self._thermo = None                           # 3.0 day 2: Fly.express() adds thermogenetic expression
+        self._temp = 22.0
+        self._kinetics = "real"
+        self._drug = None                             # 3.0 day 2: the pharmacology.Wiring currently applied by Fly.drug()
 
     # --- tool loadouts (2.13) --------------------------------------------------------------------------------------------
     @property
@@ -196,12 +208,106 @@ class Fly:
         self.brain.poke(region, side, strength)
         return self
 
+    # --- genetic toolkit, thermogenetics, patch clamp, imaging, pharmacology (3.0 day 2) ----------------------------------
+    def line(self, name: str) -> dict:
+        """A split-GAL4 driver line: its cell types, how many neurons of them this connectome has, and what the source says
+        about off-target expression (lab/genetics.py). LITERATURE for the mapping, CONNECTOME for the counts."""
+        from kickthefly.lab import genetics
+
+        return genetics.describe(name, self.brain.types)
+
+    def express(self, effector: str, target, strength: float = 1.0) -> "Fly":
+        """Express TrpA1 ("trpa1") or shibire-ts ("shibire") in these neurons (a neuron spec, including `line:SS00727`). They
+        respond to fly.temperature(); the effectors follow it during step(). Thermogenetics: see lab/thermogenetics.py."""
+        from kickthefly.lab import thermogenetics as tg
+
+        spec = target if isinstance(target, str) else "rows:" + ",".join(str(int(r)) for r in self.neurons(target))
+        ex = (self._thermo.expressions if self._thermo is not None else []) + [tg.Expression(effector, spec, strength)]
+        self._thermo = tg.Thermogenetics(ex, self._kinetics)
+        return self
+
+    def temperature(self, celsius: float | None = None, kinetics: str | None = None) -> float:
+        """Set (or read) the temperature the expressed effectors sense, 10-45 C. kinetics "steady" makes them follow it
+        instantly instead of with their time constants."""
+        from kickthefly.lab import thermogenetics as tg
+
+        if kinetics is not None:
+            if kinetics not in ("real", "steady"):
+                raise ValueError("kinetics must be 'real' or 'steady'")
+            self._kinetics = kinetics                     # remembered, so it also applies to expression added later
+            if self._thermo is not None:
+                self._thermo.kinetics = kinetics
+        if celsius is not None:
+            if not tg.TEMP_RANGE_C[0] <= float(celsius) <= tg.TEMP_RANGE_C[1]:
+                raise ValueError(f"temperature must be within {tg.TEMP_RANGE_C[0]:g}-{tg.TEMP_RANGE_C[1]:g} C")
+            self._temp = float(celsius)
+        return self._temp
+
+    def unexpress(self) -> "Fly":
+        """Remove every thermogenetic expression (the currents go away)."""
+        if self._thermo is not None:
+            self._thermo.clear(self.brain)
+            self._thermo = None
+        return self
+
+    def patch(self, neuron, amplitudes=(0.0, 0.05, 0.1, 0.2), duration_ms: float = 500.0, repeats: int = 3,
+              mode: str = "embedded", index: int = 0) -> dict:
+        """Virtual patch clamp (MODEL, a point-neuron LIF unit): firing rate against injected current for one neuron. `neuron`
+        is a row number or a spec (then `index` picks which neuron of it). Returns lab/patchclamp.if_curve()'s dict, with the
+        recording under "recording". It steps this brain in embedded mode (the current is removed afterwards)."""
+        from kickthefly.lab import patchclamp as pc
+
+        row = int(neuron) if isinstance(neuron, (int, np.integer)) else pc.pick_neuron(self.brain, neuron, index)
+        return pc.if_curve(self.brain, row, list(amplitudes), duration_ms, repeats, mode, self.seed, self.brain.sim.p)
+
+    def image(self, seconds: float, rois=None, indicator: str = "gcamp6s", fps: float = 20.0, **kw):
+        """Simulated calcium imaging (MODEL) of the next `seconds`: spikes convolved with the indicator's kernel, averaged over
+        ROIs (default one per brain region; or a list of neuron specs), with photon shot noise. Returns an
+        imaging.ImagingResult (export_csv / export_nwb / export_tiff in lab/imaging.py)."""
+        from kickthefly.lab import imaging
+
+        if rois is None:
+            rois = imaging.rois_by_region(self.brain)
+        elif not isinstance(rois, dict):
+            rois = imaging.rois_from_specs(self.brain, rois)
+        if self._thermo is None:
+            return imaging.record(self.brain, seconds, rois, indicator, fps, seed=self.seed, **kw)
+        s = imaging.ImagingSession(self.brain.n, rois, indicator, fps, seed=self.seed, **kw)
+        s.prime_from_activity(self.brain.sim.activity)
+        for _ in range(int(round(seconds / DT))):
+            self.step(steps=1)
+            s.push(np.flatnonzero(self.brain.sim.spikes))
+        return s.result()
+
+    def drug(self, name: str, dose: float, include_low_confidence: bool = True, cut: float = 0.7) -> dict:
+        """Apply a drug (MODEL PREDICTION): "picrotoxin", "cholinergic", "glucl" or "gabaa_agonist", dose 0-1, scaling the
+        synapses of the predicted transmitter. Adds to a drug already on (other drugs stay). Returns what changed. See
+        lab/pharmacology.py for what this does and does not model."""
+        from kickthefly.lab import pharmacology as ph
+        from kickthefly.sim import wiring
+
+        doses = dict(getattr(self, "_doses", {}))
+        doses[ph.drug(name).key] = float(dose)
+        self._doses, self._drug_opts = doses, (include_low_confidence, cut)
+        w = ph.wiring_for(doses, include_low_confidence, cut)
+        return wiring.apply(self.brain, w, getattr(self.brain, "graph", None))
+
+    def washout(self) -> "Fly":
+        """Remove every drug (the synapses return to exactly what they were, learned weights included)."""
+        from kickthefly.sim import wiring
+
+        wiring.clear(self.brain)
+        self._doses = {}
+        return self
+
     # --- time --------------------------------------------------------------------------------------------------------
     def step(self, seconds: float | None = None, *, steps: int | None = None) -> np.ndarray:
         """Advance the brain (5 ms per step). Returns the last step's spikes (a bool array over all neurons)."""
         n = int(steps) if steps is not None else int(round((DT if seconds is None else seconds) / DT))
         br = self.brain
         for _ in range(max(0, n)):
+            if self._thermo is not None and br.steps % 10 == 0:
+                self._thermo.update(br, self._temp, 10 * DT)
             br._step()
             if self._dex is not None or self._kc is not None:
                 self._observe()

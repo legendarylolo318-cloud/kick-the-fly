@@ -101,7 +101,7 @@ def step(br, n: int, record: np.ndarray | None = None) -> np.ndarray | None:
 
 def rows_of(br, spec) -> np.ndarray:
     """Neuron rows from a spec: a group name (e.g. 'loom', 'escape'), 'type:DNp01,MDN', 'prefix:KC', 'superclass:x'
-    or 'rows:1,2,3'."""
+    'rows:1,2,3' or 'line:SS00727' (a driver line)."""
     if isinstance(spec, (list, tuple, np.ndarray)):
         return np.asarray(spec, np.int64)
     spec = str(spec)
@@ -116,6 +116,13 @@ def rows_of(br, spec) -> np.ndarray:
         return np.flatnonzero(np.isin(br.superclass, spec[11:].split(",")))
     if spec.startswith("rows:"):
         return np.array([int(x) for x in spec[5:].split(",") if x], np.int64)
+    if spec.startswith("line:"):                         # 3.0 day 2: a split-GAL4 driver line (lab/genetics.py)
+        from kickthefly.lab import genetics
+
+        try:
+            return genetics.rows_of_lines(br.types, spec)
+        except genetics.GeneticsError as e:
+            raise ValueError(str(e)) from None
     if spec in br.col:
         i = br.col[spec]
         if i < br.n_det:

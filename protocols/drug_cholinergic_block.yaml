@@ -1,0 +1,12 @@
+# 3.0 day 2, Pharmacology (MODEL PREDICTION): a 70% cholinergic block scales acetylcholine synapses to x0.3 (all predictions, however
+# low their confidence). Compare with drug_picrotoxin.yaml. No receptor, kinetic or neuromodulatory model.
+name: drug-cholinergic-block
+seed: 100
+flies: 3
+warmup_s: 1
+duration_s: 2
+drug:
+  doses: {cholinergic: 0.7}
+recordings:
+  - {name: whole_brain, neurons: "whole brain"}
+  - {name: descending, neurons: "superclass:descending_neuron"}

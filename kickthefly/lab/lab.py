@@ -331,7 +331,53 @@ ASSUMPTIONS = (
      "SYNAPSE",
      "A 0-100% severity slider scales inhibitory synaptic weights (W_inh * (1 - s)). Runaway excitation (>30 Hz) is an emergent recurrent network outcome; visual convulsion twitching is a game rule.",
      "Picrotoxin pharmacologically blocks ionotropic GABA_A (Rdl) chloride channels with non-uniform subunit affinities and dose kinetics. Receptor-dependent washes (octopamine, dopamine antagonists) and metabotropic cascades are omitted.",
-     "kickthefly/sim/wiring.py · kickthefly/lab/robustness.py · Lab > Robustness > Inhibition block"),
+     "kickthefly/sim/wiring.py · kickthefly/lab/robustness.py · Lab > Pharmacology (picrotoxin; moved from Robustness in 3.0)"),
+
+    ("Driver lines: a literature table matched to connectome types by exact name",
+     "DATASET",
+     "Lab > Genetic toolkit picks neurons by split-GAL4 line. The line -> cell type mapping is copied from Meissner et al. 2025 (eLife, "
+     "CC BY 4.0; 2,667 adult lines with cell types); neuron counts come from the pack. A cell-type name counts only if it is spelled "
+     "exactly like a MaleCNS type (about half of the table's names are, since it uses the light-microscopy literature's names); the "
+     "rest are shown as unmatched, never guessed.",
+     "The table is the authors' claim about what a line labels, not a measurement on this connectome, and says nothing about expression "
+     "strength or timing. The off-target note is only the paper's quality score. No GAL4 (non-split) mapping was found that could be "
+     "redistributed, so those lines are not offered.",
+     "kickthefly/lab/genetics.py · kickthefly/data/driver_lines.yaml · tools/build_driver_lines.py"),
+
+    ("Thermogenetics: a temperature-gated current, nothing more",
+     "BIOPHYSICS",
+     "TrpA1 adds a depolarizing current above ~25 C (Pulver 2009) and shibire-ts a silencing current near 30 C (Kitamoto 2001) to the "
+     "neurons that express them. The curve's other end, the 1 s / 40 s / 20 s kinetics and the current size are game rules. Escape vs "
+     "temperature in the DNp01 assay is the model's response to that game-rule current.",
+     "Temperature changes nothing else (no Q10 on any neuron or synapse). shibire-ts really blocks synaptic vesicle recycling at the "
+     "terminal; the model silences the whole neuron, which also stops its spiking. Expression is all-or-nothing in the chosen types.",
+     "kickthefly/lab/thermogenetics.py · Lab > Thermogenetics · assay thermo_escape"),
+
+    ("Virtual patch clamp on a point-neuron model",
+     "BIOPHYSICS",
+     "Current-clamp steps and I-F curves of one simulated neuron. Every neuron is the same leaky integrate-and-fire unit, so in isolation "
+     "every neuron has the same I-F curve; in the wired brain the membrane potential also carries the real synaptic input around it.",
+     "Potential is in model units (threshold 1.0, reset 0.0), never millivolts; no spike waveform, dendrite, ion channel, adaptation or "
+     "cell-specific property; 5 ms resolution. This is not electrophysiology and is not calibrated to any recording.",
+     "kickthefly/lab/patchclamp.py · Lab > Patch clamp · inspector PATCH button"),
+
+    ("Simulated calcium imaging is a forward model on spikes",
+     "BIOPHYSICS",
+     "Spikes are convolved with a two-exponential GCaMP kernel, averaged over an ROI, and given Poisson photon shot noise; dF/F is "
+     "against a 30 s running mean. Kernel speeds come from Chen 2013 and Zhang 2023; only jGCaMP8m's numbers were verified in the papers' "
+     "text (the 6s/6f half-decays were not).",
+     "Linear in spikes, equal brightness for every neuron in an ROI, dF/F per spike and the photon budget are game parameters; no "
+     "subthreshold calcium, bleaching, motion, scattering or neuropil; a real pipeline estimates F0 and segments cells.",
+     "kickthefly/lab/imaging.py · Lab > Calcium imaging"),
+
+    ("Pharmacology scales synapses by predicted transmitter",
+     "SYNAPSE",
+     "Picrotoxin, a cholinergic block, a glutamate-Cl block and a GABA-A agonist multiply the weights of every synapse whose presynaptic "
+     "neuron is predicted to release that transmitter. The panel counts the affected synapses at each confidence level and can leave "
+     "out low-confidence predictions. Octopamine and dopamine modulation are left out: those synapses are not in the simulated matrix.",
+     "No receptor subtypes, subunit affinities, location on the cell, kinetics, washout or side effects. The simulator's slow global "
+     "gain works against any drug that changes overall synaptic strength, so effects are read soon after a drug goes on.",
+     "kickthefly/lab/pharmacology.py · kickthefly/sim/wiring.py · Lab > Pharmacology"),
 
     ("Hemifield lesion as static connectome wiring ablation",
      "DATASET",
@@ -775,7 +821,8 @@ def install(menu: ui.Menu) -> None:
     menu.pages["lab_assumptions"] = page_assumptions
     menu.pages["lab_asymmetry"] = page_asymmetry
     menu.pages["lab_benchmark"] = page_benchmark
-    from kickthefly.lab import labclassroom, labclamp, labcritical, labdiff, lablaser, labpsych, labwiring
+    from kickthefly.lab import labclassroom, labclamp, labcritical, labdiff, lablaser, labpsych, labtoolkit, labwiring
+    menu.pages.update(labtoolkit.PAGES)                 # 3.0 day 2: genetic toolkit, thermogenetics, patch, imaging, pharmacology
     menu.pages["lab_wiring"] = labwiring.page
     menu.pages["lab_critical"] = labcritical.page
     menu.pages["lab_clamp"] = labclamp.page
@@ -892,7 +939,7 @@ def page_assays(m: ui.Menu, surf, rect, mouse) -> None:
     x0, y = rect.x + 24, rect.y + 78
     busy = st.job is not None and st.job.running
     m.text(surf, "Assay", (x0, y + 15), ui.TEXT, m.f_text, "midleft")
-    m.segmented(surf, (x0 + 110, y, 520, 30), [labjobs.ASSAY_LABEL[k] for k in labjobs.ASSAYS],
+    m.segmented(surf, (x0 + 110, y, 700, 30), [labjobs.ASSAY_LABEL[k] for k in labjobs.ASSAYS],
                 labjobs.ASSAYS.index(st.kind), lambda i: setattr(st, "kind", labjobs.ASSAYS[i]), id="assay_kind",
                 enabled=not busy)
     y += 40
@@ -993,6 +1040,15 @@ def draw_assay_result(m: ui.Menu, surf, area: pygame.Rect, res: dict) -> None:
         draw_chart(m, surf, chart, xs, series, "approach speed (m/s)", "escape probability", y_max=1.0)
         rows = [(f"{r['speed']:g} m/s", f"{r['escapes']}/{r['approaches']} escaped, latency {_ci(r['latency_s'])} s",
                  (f"{cr['escapes']}/{cr['approaches']}" if c else "")) for r, cr in zip(t["rows"], c["rows"] if c else t["rows"])]
+    elif kind == "thermo_escape":
+        xs = [r["temperature_c"] for r in t["rows"]]
+        mk = lambda key: [dict(mean=r[key], lo=float("nan"), hi=float("nan")) for r in t["rows"]]   # noqa: E731
+        draw_chart(m, surf, chart, xs, [("TrpA1 in DNp01", ui.ACCENT, mk("escape_rate")),
+                                        ("control (no expression)", (200, 200, 200), mk("control_rate"))],
+                   "temperature (C)", "escape rate", y_max=1.0, x_fmt="{:g}")
+        rows = [(f"{r['temperature_c']:g} C", f"{r['escapes']}/{r['flies']} escaped (control {r['control_escapes']}), "
+                 f"DNp01 {_ci(r['dnp01_hz'], '{:.0f}')} Hz", f"{r['escapes']}/{r['flies']}") for r in t["rows"]]
+        rows.append(("MODEL", "the temperature curve is a game rule; escape = the game's DNp01 rule", ""))
     else:
         xs = [r["dose"] for r in t["rows"]]
         series = [(tl, ui.ACCENT, [r["mn9_ratio"] for r in t["rows"]])]

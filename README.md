@@ -51,6 +51,7 @@ backends, the Python API and the Lab's optional NWB export.
 - [Controls](#controls) and [Settings](#settings)
 - [Tool loadouts](#tool-loadouts) and [Help: tutorial, self-test and bug report](#help-tutorial-self-test-and-bug-report)
 - [Neurodex, kill cam, share codes and bundles (3.0)](#neurodex-kill-cam-share-codes-and-bundles-30)
+- [Genetic toolkit, thermogenetics, patch clamp, imaging and pharmacology (3.0)](#genetic-toolkit-thermogenetics-patch-clamp-imaging-and-pharmacology-3.0-lab)
 - [Play: challenges and real-science cards](#play-challenges-and-real-science-cards)
 - [Screenshots](#screenshots)
 - [Lab mode](#lab-mode), [Validation](#validation), [Performance](#performance), [Python API](#python-api)
@@ -203,6 +204,14 @@ More in [docs/selftest-and-bugreport.md](docs/selftest-and-bugreport.md).
 - **Share codes** (Esc > Share): short copyable `KTF1-...` codes for a surgery, a loadout, a protocol, a challenge setup or Lab parameters. Import previews what it will change before you apply it; damaged, newer or incompatible codes are refused with a reason; a code too big to copy becomes a file. [docs/share-codes.md](docs/share-codes.md)
 - **Experiment bundles** (Lab > Record and export > Bundle): a zip with the protocol, results, raw exports, metadata (version, backend, precision, seeds, brain pack checksum, parameters, surgery, individuality, arena) and an RO-Crate description. `--headless --rerun-bundle ZIP --out DIR` runs it again and says whether the results match: bit-exact on CPU backends, statistical on GPU. [docs/bundles.md](docs/bundles.md)
 
+### Genetic toolkit, thermogenetics, patch clamp, imaging and pharmacology (3.0, Lab)
+
+- **Genetic toolkit** (Lab > Genetic toolkit; `line:SS00727` anywhere a neuron spec goes): choose neurons by split-GAL4 driver line. The line -> cell type table is **LITERATURE** (Meissner et al. 2025, eLife, CC BY 4.0, 2,667 adult lines, built by `tools/build_driver_lines.py`, none written by hand); neuron counts are **CONNECTOME**; a name matches only if spelled exactly like a MaleCNS type (**GAME RULE**). Shows whether the source says the line's expression is off-target. No GAL4 (non-split) mapping was found that could be redistributed. [docs/genetics.md](docs/genetics.md)
+- **Thermogenetics** (Lab > Thermogenetics): TrpA1 (activates) and shibire-ts (silences) above a threshold temperature, in a cell type or a driver line, with the temperature from the thermo arena, a Lab slider or a protocol. Onsets are cited (Pulver 2009; Kitamoto 2001); the rest of the curves, the kinetics and the current sizes are **GAME RULE**; only expressing neurons respond (**MODEL**). Assay `thermo_escape`: DNp01 activation, escape rate vs temperature. [docs/thermogenetics.md](docs/thermogenetics.md)
+- **Virtual patch clamp** (Lab > Patch clamp, or PATCH in the neuron inspector): live membrane potential, spikes, threshold, current steps and an I-F curve, CSV and NWB. **MODEL: a point-neuron LIF unit in model units, not real electrophysiology.** [docs/patchclamp.md](docs/patchclamp.md)
+- **Simulated calcium imaging** (Lab > Calcium imaging): the brain view's Imaging mode colors neurons by GCaMP6s / 6f / 8m dF/F made from spikes plus shot noise (**MODEL**); ROI traces; CSV, NWB and TIFF export. Which kernel numbers were and were not verified in the papers is stated. [docs/imaging.md](docs/imaging.md)
+- **Pharmacology** (Lab > Pharmacology; picrotoxin moved here): picrotoxin, cholinergic block, glutamate-Cl block and a GABA-A agonist scale synapses by predicted transmitter, with a dose slider, the synapses affected at each confidence level, and an option to exclude low-confidence predictions (**MODEL PREDICTION**). Octopamine/dopamine are left out. [docs/pharmacology.md](docs/pharmacology.md)
+
 None of these uses the network or the microphone, none runs during `--validate` or in tests, and none changes a simulation result.
 
 ## Play: challenges and real-science cards
@@ -310,7 +319,7 @@ All from the current build at 1280x760, made by `tools/make_screenshots.py` (see
 **Lab** (Esc > Mode, or Settings > Brain) replaces the challenges with research tools: the validation dashboard,
 assays over many flies with same-seed controls and statistics, psychometric sweeps, the optogenetics laser, recording
 and NWB export, the critical path finder, connectome robustness tests (synapse threshold sweeps, transmitter sign
-flips, inhibition block), neural clamp, diff mode, hemifield lesions, classroom lectures, and YAML protocols that also
+flips), the day-2 toolkit (genetic toolkit, thermogenetics, patch clamp, calcium imaging, pharmacology), neural clamp, diff mode, hemifield lesions, classroom lectures, and YAML protocols that also
 run headless (`--headless --protocol FILE`). Its Parameters page holds the model's parameters and every game-rule
 threshold. All of it, with examples: **[docs/lab.md](docs/lab.md)**.
 
@@ -535,6 +544,7 @@ Documents and Pictures on Windows come from the Known Folders API, so redirected
 - The decoy female: its body, the contact distance, and the COURTSHIP tag contact triggers (no neuron is read for it).
 - Tool loadouts (2.13): the hotbar, the presets, the pages, the wheel and the editor are interface; no neuron reads them. The fruit item, and the fly walking to it and eating it, are game rules (the same ones sugar has).
 - The plume tracking assay, all of it: the plume and the surge/cast navigation (headless, Python API only).
+- Day-2 toolkit (3.0): the line -> cell type table and its quality score are **LITERATURE** (Meissner et al. 2025); a name counts only on an exact spelling match (**GAME RULE**). TrpA1 and shibire-ts: the onsets are cited, the full-on ends, kinetics and current sizes are **GAME RULE**, only expressing neurons respond (**MODEL**). The patch clamp, calcium imaging and drug panels are **MODEL** / **MODEL PREDICTION**: a point-neuron LIF unit in model units; a spike-to-fluorescence forward model; a synaptic scale by predicted transmitter. See the docs/ page of each.
 - Neurodex (3.0): which types count as *discovered* (over 150 ms, the type's mean firing at least 6 spikes/s and 3x its own calm rate, and a Poisson count test against its calm rate; a calm fly still discovers some sensory types through spontaneous bursts, and those are tagged *at rest*: see docs/neurodex.md), the collection and its progress, and the Neuron of the Day pick and its Try it. The numbers inside an entry are the dataset's (**CONNECTOME**); the one-line fact and citation are **LITERATURE**, hand-written and checked against the paper, and only for the curated types.
 - Kill cam (3.0): the offer, the 6 s window, the slow motion, which neurons are highlighted. The firing it replays is each neuron's real simulated rate (**CONNECTOME**); death, and so the moment the replay ends, is a game rule.
 - Share codes and experiment bundles (3.0): containers for settings and results the game already has. A bundle rerun is judged bit-exact on the CPU backends and, on a GPU backend, by a statistical rule whose three numbers were fixed beforehand.

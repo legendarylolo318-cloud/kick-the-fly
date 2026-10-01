@@ -120,3 +120,14 @@ print(rep.summary(fly.brain.types)["risers"][:3])
 `collect(progress=path)` writes to that file; pass `kickthefly.core.neurodex.progress_path()` to add to your own Neurodex. The rule
 and its numbers are in `kickthefly/core/neurodex.py` and [docs/neurodex.md](neurodex.md). Share codes are `kickthefly.core.sharecode`
 (`encode`, `decode`, `validate`, `preview`) and bundles are `kickthefly.lab.bundle` (`create`, `inspect`, `rerun`).
+
+
+## 3.0 day 2: toolkit methods
+
+| call | what | tag |
+|---|---|---|
+| `fly.line("SS00727")` | a driver line's cell types, matched types, neuron count and the source's off-target note; `"line:SS00727"` works as a neuron spec everywhere | LITERATURE + CONNECTOME |
+| `fly.express("trpa1" \| "shibire", spec)`, `fly.temperature(c, kinetics=)`, `fly.unexpress()` | thermogenetics; effectors follow the temperature during `step()` | GAME RULE + MODEL |
+| `fly.patch(neuron, amplitudes, duration_ms, repeats, mode="embedded" \| "isolated")` | virtual current clamp, I-F curve and recording | MODEL |
+| `fly.image(seconds, rois=None, indicator="gcamp6s", fps=20)` | simulated GCaMP imaging of the next seconds; returns an `ImagingResult` | MODEL |
+| `fly.drug(name, dose, include_low_confidence=True, cut=0.7)`, `fly.washout()` | synaptic scaling by predicted transmitter | MODEL PREDICTION |

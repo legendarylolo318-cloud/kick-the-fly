@@ -388,6 +388,37 @@ def check_neurodex() -> Check:
                  if prog.warnings else "")
 
 
+@_timed
+def check_toolkit() -> Check:
+    """3.0 day 2: the Lab toolkit's data and optional dependencies. The driver-line table must load (PyYAML and the data file); pynwb
+    is optional (NWB export of patch clamp and imaging; CSV and TIFF need nothing extra); the pharmacology and imaging tables must be
+    internally consistent. The game runs without any of it; only those Lab screens would be missing."""
+    try:
+        from kickthefly.lab import genetics, imaging, pharmacology, thermogenetics
+    except ImportError as e:
+        return Check("toolkit", "Lab toolkit", WARN, f"a toolkit module can't be imported ({e})",
+                     "Install the requirements into the game's own venv: pip install -r requirements.txt.")
+    try:
+        n = len(genetics.table())
+        src = genetics.source()
+        if n < 1000 or src.get("license") != "CC BY 4.0":
+            raise genetics.GeneticsError(f"the driver-line table looks wrong ({n} lines, license {src.get('license')!r})")
+        for ind in imaging.INDICATORS.values():
+            imaging.time_constants(ind)
+        assert set(pharmacology.DRUGS) and set(thermogenetics.EFFECTORS)
+    except Exception as e:
+        return Check("toolkit", "Lab toolkit", WARN, f"the toolkit's data can't be used: {type(e).__name__}: {e}",
+                     "Lab > Genetic toolkit and the other day-2 screens may not work until kickthefly/data/driver_lines.yaml is "
+                     "restored (reinstall the game).")
+    from kickthefly.lab import nwbexport
+
+    nwb = nwbexport.available()
+    return Check("toolkit", "Lab toolkit", PASS if nwb is None else WARN,
+                 f"{n:,} driver lines ({src.get('license')}), {len(pharmacology.DRUGS)} drugs, {len(thermogenetics.EFFECTORS)} "
+                 f"effectors, {len(imaging.INDICATORS)} indicators" + ("" if nwb is None else "; NWB export is off (pynwb missing)"),
+                 "" if nwb is None else "Patch clamp and imaging still export CSV (and imaging TIFF). For NWB: pip install pynwb.")
+
+
 def _writable(d: Path) -> str | None:
     try:
         d.mkdir(parents=True, exist_ok=True)
@@ -515,7 +546,7 @@ def run(*, backends_only: list[str] | None = None, smoke: bool = True, graphics:
     steps = [check_build, check_brainpack_adult, check_brainpack_larva, lambda: check_backends(backends_only)]
     if graphics:
         steps.append(check_graphics)
-    steps += [check_audio, check_ffmpeg, check_folders, check_neurodex, check_resources, check_display]
+    steps += [check_audio, check_ffmpeg, check_folders, check_neurodex, check_toolkit, check_resources, check_display]
     if smoke:
         steps.append(check_smoke)
     checks: list[Check] = []

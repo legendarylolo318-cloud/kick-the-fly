@@ -347,6 +347,37 @@ Share codes and experiment bundles (3.0; core/sharecode.py, ui/share_ui.py, lab/
 and results the game already has; they add nothing to the simulation. A bundle rerun is judged bit-exact on the CPU backends and,
 on a GPU backend, statistically by a rule fixed before any rerun (lab/bundle.py).
 
+Genetic toolkit (3.0 day 2; lab/genetics.py, data/driver_lines.yaml, docs/genetics.md). LITERATURE: which cell types a split-GAL4
+line labels, and its expression-quality score, copied from Meissner et al. 2025 (eLife, CC BY 4.0; 2,667 adult lines). CONNECTOME: how
+many neurons carry those types. GAME RULE: a cell-type name is matched to a MaleCNS type only when spelled identically (no fuzzy
+matching); `line:SS00727` is a neuron spec that surgery, the laser, recordings, protocols and thermogenetics accept. The off-target
+note is only the paper's own score. No GAL4 (non-split) mapping was found that could be redistributed, so none is offered.
+
+Thermogenetics (3.0 day 2; lab/thermogenetics.py, docs/thermogenetics.md). LITERATURE: TrpA1 turns on near 25 C (Pulver et al. 2009);
+shibire-ts blocks synaptic transmission, paralysing within 2 min at 30 C and recovering in about 1 min (Kitamoto 2001). GAME RULE: the
+full-on ends of the curves (29 C, 30 C, a 28 C start for shibire-ts), the kinetics (TrpA1 1 s; shibire-ts 40 s on, 20 s off), the current
+sizes (the validation drive 0.5; surgery's silencing -0.6), the thermo arena's 15-35 C map, the Lab temperature slider. MODEL: only the
+expressing neurons respond (no Q10 anywhere), and shibire-ts silences the neuron rather than blocking its terminal. Assay thermo_escape:
+thermogenetic activation of DNp01, escape rate vs temperature, against a no-expression control (criteria in the module, fixed first).
+
+Virtual patch clamp (3.0 day 2; lab/patchclamp.py, docs/patchclamp.md). MODEL: a point-neuron LIF unit, NOT electrophysiology. The
+potential is in model units (threshold 1.0, reset 0.0) and never millivolts; every neuron is the same unit, so the isolated I-F curve is
+the same for all of them. CONNECTOME: embedded mode keeps the real synaptic input around the neuron. GAME RULE: the step protocol,
+hold current and I-F amplitudes. Exports CSV and NWB (in model units, not a volts series). Lab > Patch clamp, or PATCH in the inspector.
+
+Simulated calcium imaging (3.0 day 2; lab/imaging.py, docs/imaging.md). MODEL: spikes convolved with a two-exponential GCaMP kernel,
+averaged over an ROI, with Poisson shot noise; dF/F against a 30 s running mean of the neuron's own fluorescence. LITERATURE: kernel
+speeds from Chen et al. 2013 (GCaMP6s/6f) and Zhang et al. 2023 (jGCaMP8m); the UI says which of those numbers were not verified in the
+papers' text. GAME RULE: dF/F per spike, photon budget, ROI sets, colors (Settings > Accessibility palettes; Reduced flashing smooths the
+view). The brain view's Imaging mode colors neurons by dF/F. Exports CSV, NWB (RoiResponseSeries, ImageSeries) and TIFF stacks.
+
+Pharmacology (3.0 day 2; lab/pharmacology.py, docs/pharmacology.md). MODEL PREDICTION: a drug multiplies the weight of every synapse whose
+presynaptic neuron is predicted to release a transmitter (picrotoxin: GABA and glutamate down; cholinergic block; glutamate-Cl block;
+GABA-A agonist, GABA up to x2). CONNECTOME: the transmitter predictions and their confidence (measured, or predicted with a confidence);
+the panel counts the synapses affected at each level and can leave out low-confidence predictions. GAME RULE: the dose mapping and the
+confidence cut. Octopamine and dopamine are left out: those synapses are not in the simulated matrix. The simulator's slow global gain
+works against any drug that changes overall synaptic strength, so effects are read soon after a drug goes on.
+
 Fly individuality (2.11; Kain et al. 2012, Linneweber et al. 2020).
 - GAME RULE: Per-fly variation, deterministic from each fly's seed, implemented as per-neuron scaling
   so the shared weight matrix is unchanged: W_fly = D_post · W · D_pre, where D_pre and D_post are
@@ -702,6 +733,12 @@ class Brain:
         # replacing it: a neuron you silenced does not start firing because the experiment drives its type.
         self.drive_cur = np.zeros(g.n, np.float32)
         self.driving = False
+        # 3.0 day 2: named extra currents (thermogenetics, the patch electrode): each feature owns one entry, the sum is
+        # added to the drive. Nothing is added while none is set, so every existing run is bit-identical.
+        self.currents: dict[str, np.ndarray] = {}
+        self.probe = None               # 3.0 day 2: optional callable(brain) run after every step (the patch electrode)
+        self.inject = np.zeros(g.n, np.float32)
+        self.injecting = False
         self.sense[("all", None)] = np.arange(g.n)   # the zapper's shock
         self.n_det = len(self.names)
         for k, (name, classes) in enumerate(POPS):
@@ -795,6 +832,27 @@ class Brain:
         self.override[rows] = SURGERY_CURRENT[mode]
         self.surgery = bool(np.any(self.override))
 
+    def set_current(self, name: str, rows, values) -> None:
+        """Give the named source `values` (a scalar or one per row) on `rows`, replacing what that source had. The
+        sources add up; one source never overwrites another (unlike drive_cur, which assays own). Call from the step's
+        thread or while the brain is not stepping."""
+        arr = self.currents.get(name)
+        if arr is None:
+            arr = self.currents[name] = np.zeros(len(self.inject), np.float32)
+        arr[:] = 0
+        arr[np.asarray(rows, np.int64)] = values
+        self._sum_currents()
+
+    def clear_current(self, name: str) -> None:
+        if self.currents.pop(name, None) is not None:
+            self._sum_currents()
+
+    def _sum_currents(self) -> None:
+        self.inject[:] = 0
+        for arr in self.currents.values():
+            self.inject += arr
+        self.injecting = bool(np.any(self.inject))
+
     def clear_overrides(self) -> None:
         self.override[:] = 0
         self.surgery = False
@@ -842,12 +900,17 @@ class Brain:
                 drive = drive + self.override
             if self.driving:
                 drive = drive + self.drive_cur
-            spikes = self.sim.step(drive if (active or self.sedation > 0 or self.surgery or self.driving) else None)
+            if self.injecting:
+                drive = drive + self.inject
+            spikes = self.sim.step(drive if (active or self.sedation > 0 or self.surgery or self.driving
+                                             or self.injecting) else None)
         for _, (rows, _) in active:
             self._cur[rows] = 0
 
         if self.recorder is not None:
             self.recorder.push(self.steps, spikes)
+        if self.probe is not None:
+            self.probe(self)
         if self.stethoscope_indices is not None and len(self.stethoscope_indices) > 0:
             self.stethoscope_spikes += int(np.count_nonzero(spikes[self.stethoscope_indices]))
         on = np.flatnonzero(spikes)
@@ -869,7 +932,7 @@ class Brain:
             p1_inst = (p1_cnt / len(self.p1_indices)) / self.dt
             self.p1_fast += (p1_inst - self.p1_fast) * self.k_fast
         if (self.death_step is None and self.sedation == 0 and not self.surgery and not self.driving
-                and self.steps - self.last_poke > CALM_STEPS):
+                and not self.injecting and self.steps - self.last_poke > CALM_STEPS):
             self.base += (self.fast - self.base) * self.k_base
             self.lglg_base += (self.lglg_fast - self.lglg_base) * self.k_base
             self.p1_base += (self.p1_fast - self.p1_base) * self.k_base
@@ -878,7 +941,7 @@ class Brain:
             self.hist[self.hist_n % HIST] = self.fast
             self.hist_n += 1
         if self.memory is not None and self.steps % MEMORY_STEPS == 0 and self.death_step is None:
-            calm = (self.sedation == 0 and not self.surgery and not self.driving
+            calm = (self.sedation == 0 and not self.surgery and not self.driving and not self.injecting
                     and self.steps - self.last_poke > CALM_STEPS)
             self.memory.step(self.sim.activity.rates(), calm, self.steps)
 
@@ -2378,6 +2441,12 @@ class Game:
         self.last_save = time.perf_counter()
         self.surgery_modes = [0] * len(SURGERY)
         self.type_ops: dict[str, int] = {}
+        from kickthefly.lab import livelab
+        self.thermo_live = livelab.ThermoLive()       # 3.0 day 2: Lab > Thermogenetics (off until an expression is added)
+        self.imaging_live = livelab.ImagingLive()     # 3.0 day 2: Lab > Imaging (off until turned on)
+        self.imaging_live.indicator = str(self.cfg["brain.imaging_indicator"])
+        self.imaging_live.fps = float(self.cfg["brain.imaging_fps"])
+        self.patch_row: int | None = None             # 3.0 day 2: the neuron the inspector's Patch button chose
         self.surgery_buttons: list = []
         self.inspect: dict | None = None
         from kickthefly.lab.laser import LaserState
@@ -2842,7 +2911,17 @@ class Game:
                 ("Optogenetics laser", "lab_laser", "Aimable in-world laser to activate or silence cell types live."),
                 ("Psychometric curves", "lab_psych", "Sweep parameters across trials and export publication-ready SVG/PDF."),
                 ("Classroom mode", "lab_classroom", "Sequential step-by-step lecture walkthroughs of connectome circuits with citations."),
-                ("Protocols", "lab_protocols", "Load and run YAML protocol files.")]
+                ("Protocols", "lab_protocols", "Load and run YAML protocol files."),
+                ("Genetic toolkit", "lab_genetics", "Pick neurons by split-GAL4 driver line: line, cell types, neuron count, and what the "
+                 "source says about off-target expression."),
+                ("Thermogenetics", "lab_thermo", "TrpA1 (activates) and shibire-ts (silences) above a threshold temperature, by cell type "
+                 "or driver line."),
+                ("Patch clamp", "lab_patch", "Virtual current clamp of one simulated neuron: potential, spikes, current steps, I-F curve "
+                 "(a point-neuron model, not electrophysiology)."),
+                ("Calcium imaging", "lab_imaging", "GCaMP dF/F simulated from spikes (MODEL): brain view Imaging mode, ROI traces, "
+                 "CSV / NWB / TIFF export."),
+                ("Pharmacology", "lab_pharm", "Picrotoxin, cholinergic block, glutamate-Cl block and a GABA-A agonist as synaptic "
+                 "scaling by predicted transmitter, with the confidence of each prediction shown.")]
 
     def start_recording(self, groups: list[tuple[str, str]], seconds: float, nwb: bool = False) -> None:
         from kickthefly.lab import lab
@@ -3374,8 +3453,20 @@ class Game:
             raster = br.sim.activity.raster()
             spiked = raster[-1] if raster else np.zeros(0, np.int64)
             replay = self.x3.view_rates()            # 3.0: while the kill cam plays, the recorded frame, not the live brain
+            img = self.imaging_live
             if replay is not None:
                 self.view_surf[key] = self.view.render(key, replay[0], replay[1], t0 - self.born_view, learn=False)
+            elif img.on:                             # 3.0 day 2: Imaging mode, the view shows simulated dF/F (MODEL)
+                try:
+                    img.feed(br)
+                    rates = img.view_rates(self.view, bool(self.cfg["access.reduced_flashing"]))
+                    if rates is None:
+                        raise RuntimeError("no imaging session")
+                    surf = self.view.render(key, rates, np.zeros(0, np.int64), t0 - self.born_view, learn=False)
+                    self.view_surf[key] = img.recolor(self.view, surf, self.cfg["access.palette"],
+                                                      bool(self.cfg["access.reduced_flashing"]))
+                except Exception as e:
+                    img.on, img.error = False, f"imaging stopped: {e}"
             else:
                 self.view_surf[key] = self.view.render(key, br.sim.activity.rates(), spiked, t0 - self.born_view, learn=calm)
             time.sleep(max(0.005, 0.05 - (time.perf_counter() - t0)))
@@ -3408,6 +3499,10 @@ class Game:
             pygame.draw.line(surf, ACCENT, (cx, cy), (cx + sx * L, cy), 2)
             pygame.draw.line(surf, ACCENT, (cx, cy), (cx, cy + sy * L), 2)
         v = self.view
+        if self.imaging_live.on:
+            ind = self.imaging_live.session.ind.name if self.imaging_live.session else ""
+            self._text(surf, f"IMAGING (MODEL)  {ind.split(' (')[0]}  dF/F" if not small else "IMAGING (MODEL)",
+                       (rect.x + 6, rect.bottom - 18), (170, 255, 190), self.f_small)
         if small:
             self._text(surf, f"{v.firing:,} firing", (rect.x + 6, rect.y + 4), (150, 215, 240), self.f_small)
             self._text(surf, f"{v.hot_firing:,} pain", (rect.right - 6, rect.y + 4), (255, 150, 70), self.f_small, "topright")
@@ -4264,11 +4359,28 @@ class Game:
             self.popup(slot.fly.p[HEAD] + up, "ZZZ", (170, 190, 255))
         slot.asleep_until = now + 2.0
 
+    def _lab_tick(self) -> None:
+        """3.0 day 2: the Lab's live thermogenetics (every few frames). Does nothing until an expression is added."""
+        tl = self.thermo_live
+        if (tl.active or tl.per_brain) and self.frame % 3 == 0:
+            try:
+                tl.tick(self.flies, ARENAS[self.arena_i] == "thermo")
+            except Exception as e:                       # a bad target is reported once and the expression dropped
+                tl.clear([s.brain for s in self.flies])
+                self.menu.flash(f"thermogenetics: {e}", menu_ui.BAD)
+
+    def patch_neuron(self, row: int) -> None:
+        """The inspector's Patch button: open Lab > Patch on this neuron."""
+        self.patch_row = int(row)
+        self.menu.show("lab_patch")
+
     def _thermo_tick(self, slot: "FlySlot", t: float, on_floor: bool) -> None:
         """The thermo arena, shared by the 2D and 3D games. t is where the fly is between the cold wall (-1) and the
         hot wall (+1). GAME RULE: the gradient and the damage at the extremes. CONNECTOME: what the drive reaches."""
         fly, br = slot.fly, slot.brain
         cold, hot = thermo_gradient(t)
+        from kickthefly.lab.thermogenetics import arena_temperature
+        slot.arena_temp_c = arena_temperature(t)           # 3.0 day 2: what TrpA1 / shibire-ts expressed in this fly sense
         if not fly.dead and self.frame % 3 == 0:
             if cold > THERMO_DEADBAND:
                 br.poke("cold", None, cold)
@@ -4516,6 +4628,12 @@ class Game:
                        "center")
             self.inspect_flip_button = (r, i)
             self._text(surf, "Lab: sign flip", (card.right - 12, card.bottom - 26), DIM, self.f_small, "topright")
+        self.patch_button = None
+        if self.cfg.lab:                             # 3.0 day 2: virtual patch clamp on this neuron (Lab > Patch)
+            r = pygame.Rect(card.x + 312, card.bottom + 6, 96, 24)
+            pygame.draw.rect(surf, (90, 70, 140), r, border_radius=6)
+            self._text(surf, "PATCH (MODEL)", r.center, INK, self.f_small, "center")
+            self.patch_button = (r, i)
         self.path_buttons = []                       # path tracer: this neuron as the start or the end
         for k, (label, what) in enumerate((("PATH FROM HERE", "from"), ("PATH TO HERE", "to"))):
             r = pygame.Rect(card.x + k * 156, card.bottom + 6, 150, 24)
@@ -5606,6 +5724,7 @@ class Game:
         self.frame += 1
         self.mouse = mouse
         self._poll_spawn()
+        self._lab_tick()
         self._environment(now, mouse)
         for slot in list(self.flies):
             fly = slot.fly
@@ -6923,6 +7042,10 @@ class Game:
                         flip = getattr(self, "inspect_flip_button", None)
                         if flip is not None and flip[0].collidepoint(ev.pos):
                             self.flip_neuron(flip[1])
+                            return True
+                        pb = getattr(self, "patch_button", None)
+                        if pb is not None and pb[0].collidepoint(ev.pos):
+                            self.patch_neuron(pb[1])
                             return True
                         for r, mode in getattr(self, "inspect_buttons", []):
                             if r.collidepoint(ev.pos):
