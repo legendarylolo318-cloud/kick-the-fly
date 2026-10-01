@@ -8,11 +8,14 @@ What is what:
   LITERATURE  (cited, approximate)
     TrpA1 turns on near 25 C: Pulver et al. 2009 (J Neurophysiol 101:3075, doi:10.1152/jn.00071.2009) expressed dTrpA1 in larval
     motor neurons and "heat ramps from 21 to 27 degrees C evoked tonic spiking at approximately 25 degrees C that showed
-    little adaptation over many minutes". Hamada et al. 2008 (Nature 454:217, doi:10.1038/nature07001) identify dTrpA1 as a
-    warmth sensor in the fly's anterior cell neurons.
+    little adaptation over many minutes"; checked 3.0 Day 2 against the open-access full text (PMC2694103): spiking began at
+    about 25-26 C (evoked junction potentials: 26 +- 0.2 C), no significant decay over 20 min of constant heating, and the
+    deactivation threshold was higher than the activation threshold (hysteresis: NOT modelled here). Hamada et al. 2008 (Nature 454:217, doi:10.1038/nature07001) identify dTrpA1 as a
+    warmth sensor in the fly's anterior cell neurons, which first respond at 24.9 +- 0.6 C (n = 10; PMC2730888).
     shibire-ts blocks synaptic transmission at high temperature: Kitamoto 2001 (J Neurobiol 47:81, doi:10.1002/neu.1018) found adults
     expressing shi-ts in cholinergic neurons "becoming motionless within 2 min at 30 degrees C", and walking again within
-    about 1 min after the return to the permissive temperature; the shi product is needed for synaptic vesicle recycling.
+    about 1 min after the return to the permissive temperature (both numbers are in the paper's abstract, checked 3.0 Day 2;
+    the full text is not open access and was not read); the shi product is needed for synaptic vesicle recycling.
   GAME RULE  (everything the papers do not give)
     - the activation curve: 0 below the onset temperature, rising linearly to full at `full_c` (TrpA1 25 -> 29 C, shibire-ts
       28 -> 30 C; the 29 C and 28 C ends are this game's choices, not measurements);

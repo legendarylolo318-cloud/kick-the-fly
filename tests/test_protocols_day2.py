@@ -116,3 +116,34 @@ def test_a_drug_and_thermogenetics_compose_in_one_protocol(synthetic_pack, tmp_p
     assert protocol.run_seed(p, 1, None, out, "run")["gf"] > 0
     for f in (W.synapse_counts, W.edge_pre, W.edge_post):
         f.cache_clear()
+
+
+# --- 3.0 Day 2 decisions: the F0 time constant is a setting, a protocol key and an API argument ---------------------------------------
+def test_the_f0_time_constant_is_checked_and_reaches_the_session():
+    from kickthefly.core import config
+
+    for bad in (0, -5, "30", True, float("inf")):
+        with pytest.raises(protocol.ProtocolError, match="f0_tau_s"):
+            protocol.check(dict(name="x", imaging=dict(f0_tau_s=bad)))
+    assert protocol.check(dict(name="x", imaging=dict(f0_tau_s=60)))["imaging"]["f0_tau_s"] == 60
+    spec = {s.key: s for s in config.SETTINGS}
+    assert spec["brain.imaging_f0_tau_s"].default == 30                     # the default is unchanged
+    assert 5 in spec["brain.imaging_fps"].options and 20 in spec["brain.imaging_fps"].options
+    assert spec["brain.imaging_f0_tau_s"].tag == config.GAME_RULE
+
+
+def test_a_slower_f0_settles_later_than_a_faster_one():
+    import numpy as np
+
+    from kickthefly.lab import imaging as im
+
+    out = {}
+    for tau in (3.0, 30.0):
+        rng = np.random.default_rng(0)
+        s = im.ImagingSession(40, {"a": np.arange(40)}, "gcamp6s", 20.0, shot_noise=False, baseline_tau_s=tau)
+        for _ in range(2000):                                               # 10 s of 10 Hz, then the rate triples for 5 s
+            s.push(np.flatnonzero(rng.random(40) < 10 * 0.005))
+        for _ in range(1000):
+            s.push(np.flatnonzero(rng.random(40) < 30 * 0.005))
+        out[tau] = float(np.array(s.true_dff)[-1, 0])
+    assert out[30.0] > out[3.0]                                             # the short baseline has already absorbed the rise

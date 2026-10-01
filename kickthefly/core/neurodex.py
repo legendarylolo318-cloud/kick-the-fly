@@ -10,14 +10,19 @@ What is what (the canonical map is the docstring of kickthefly/game/kick_the_fly
                is discovered when, for DISCOVER_SUSTAIN consecutive checks, its mean firing is at least DISCOVER_MIN_HZ
                and at least DISCOVER_FACTOR x its own calm rate (never below DISCOVER_CALM_FLOOR_HZ), AND that many
                spikes would be a one-sided Poisson event of probability below DISCOVER_ALPHA if the type were firing at
-               its calm rate, after the brain has settled. The collection, its progress bars and the "discovered by
-               stimulation" and "at rest" tags are game rules too.
+               its calm rate, after the brain has settled, AND the fly is not calm: while nothing has touched it (the game's own
+               test for calm) or driven it, nothing is discovered (3.0 Day 2 decision, below). The collection, its progress
+               bars and the "discovered by stimulation" and "at rest" tags are game rules too.
                History, so nobody re-tunes it by taste: Day 1 had only the first two conditions (fixed a priori). On the
                real pack a calm, untouched fly then "discovered" 190 types a minute, nearly all of 1-4 neurons at ~2 Hz,
                whose noise easily triples a mean over 150 ms. The review fixed the pass criteria first (a calm fly
                discovers nothing in 60 s; a driven curated type is discovered within 3 s; exploration seeds 0-4), then
                added the Poisson condition with alpha derived from a false-alarm budget (FALSE_ALARM_HOURS below), not
-               fitted to the measurement. The magnitude numbers are unchanged from Day 1. Discovery only runs in the
+               fitted to the measurement. The magnitude numbers are unchanged from Day 1. 3.0 Day 2 decision (a design choice
+               about what the collection means, not a threshold change): the spontaneous bursts that remain on the real pack
+               are the model's own background activity, not something the player or a researcher did, so a calm fly now
+               discovers nothing and the review's criterion "a calm fly discovers nothing" holds by rule. Old "at rest" entries
+               are kept. Discovery only runs in the
                windowed game: never in --validate, assays, protocols or tests.
   LITERATURE   the one-line fact and citation on a curated type (kickthefly/data/neurodex_facts.yaml). Hand-written,
                checked against the cited paper, and only for the types in that table.
@@ -58,7 +63,9 @@ WINDOW_STEPS = 30                # spikes are counted over the last 150 ms (the 
 FALSE_ALARM_HOURS = 100.0
 # How a type was discovered. "rest" (review, Day 1): while nothing had touched the fly for 2 s. On the real pack a calm fly's
 # sensory types (ORNs, wing and body sensory neurons) fire correlated spontaneous bursts that pass every condition above,
-# 25-35 types in the first calm minute on exploration seeds 0-4; the entry says so instead of claiming "in play".
+# 25-35 types in the first calm minute on exploration seeds 0-4. Day 1 tagged those "at rest". 3.0 Day 2 decision: they no
+# longer count at all (a discovery needs the player or a tool to have touched the fly; see observe). The tag stays in HOW so
+# progress files written by Day 1 builds still load and still show "at rest"; nothing is removed from a saved collection.
 HOW = ("play", "stimulated", "rest")
 DISCOVER_ALPHA = 1.0 / (11_751 * (3600 / 0.05) * FALSE_ALARM_HOURS)
 SETTLE_CHECKS = 100              # checks (5 s) of learning calm before any discovery
@@ -518,6 +525,8 @@ class Tracker:
         base = np.maximum(st["calm"], DISCOVER_CALM_FLOOR_HZ)
         ratio = hz / base
         hot = (hz >= DISCOVER_MIN_HZ) & (ratio >= DISCOVER_FACTOR) & ~self.known_mask
+        if calm and not driven:                  # 3.0 Day 2: nothing touched the fly, so nothing is discovered (see HOW)
+            hot[:] = False
         cand = np.flatnonzero(hot)
         if len(cand):
             from scipy.stats import poisson

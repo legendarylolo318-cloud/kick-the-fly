@@ -83,7 +83,7 @@ def click(pos):
 def test_discovery_needs_settling_and_a_real_rise(game):
     run(game, nd.SETTLE_CHECKS * nd.CHECK_STEPS + 200)
     assert game.x3.table_state == "ready"
-    assert all(v["how"] == "rest" for v in game.x3.progress.types("adult").values())   # calm: only ever "at rest"
+    assert game.x3.progress.types("adult") == {}                     # calm: nothing is discovered (3.0 Day 2 decision)
     from kickthefly.core import simcore
     simcore.drive(game.brain, game.x3.table.rows("LPLC2"), 0.5)       # the validation suite's activation current
     # (a 60-neuron type: the synthetic pack rests near 17 Hz, too high for a 2-neuron type to be significant there)
@@ -422,7 +422,7 @@ def test_api_collect_discovers_by_stimulation_and_never_touches_the_players_dex(
     fly = Fly(seed=3, warmup_s=0.5)
     prog = fly.collect()
     fly.step(6.0)
-    assert all(v["how"] == "rest" for v in prog.types("adult").values())
+    assert prog.types("adult") == {}                              # a calm fly discovers nothing (3.0 Day 2 decision)
     fly.drive("type:LPLC2", amp=0.5)                              # the validation suite's activation current
     fly.step(3.0)
     assert ("LPLC2", "stimulated") in [(n, how) for _, n, how in fly.discoveries]

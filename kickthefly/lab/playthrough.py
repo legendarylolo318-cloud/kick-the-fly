@@ -957,8 +957,8 @@ def extra_training(rig: Rig, r: Result) -> None:
 
 
 def extra_neurodex(rig: Rig, r: Result) -> None:
-    """3.0: whatever a calm fly discovers is tagged "at rest" (review: on the real pack its sensory types' spontaneous
-    bursts pass the rule; the count is reported, not judged); driving a curated type at the validation suite's activation
+    """3.0: a calm, untouched fly discovers nothing (Day 2 decision: the spontaneous bursts of its sensory types on the real
+    pack no longer count; before, they were tagged "at rest" and only reported); driving a curated type at the validation suite's activation
     current (amp 0.5) discovers it, tagged as stimulated; the progress file is written under this run's temporary home."""
     g = rig.game
     rig.reset()
@@ -982,8 +982,8 @@ def extra_neurodex(rig: Rig, r: Result) -> None:
     calm = {n: v for n, v in prog.types(x3.brain_name).items() if n not in before}
     r.metrics.update(types=len(x3.table), calm_discoveries=len(calm), calm_examples=sorted(calm)[:6],
                      discovered_before=len(before))
-    wrong = {n: v["how"] for n, v in calm.items() if v["how"] != "rest"}
-    r.expect(not wrong, f"calm discoveries not tagged 'rest': {dict(list(wrong.items())[:5])}")
+    r.expect(not calm, f"a calm fly discovered {len(calm)} types (3.0 Day 2: it discovers nothing): "
+                       f"{dict((n, v['how']) for n, v in list(calm.items())[:5])}")
     # 3.0 day 2 review: a type the earlier legs already discovered keeps its first record ("play") and is never discovered
     # again, so the stimulated part drives a curated type not discovered yet (day 1 review: DNp01, MDN and DNp09 are
     # discovered within 3 s at amp 0.5).

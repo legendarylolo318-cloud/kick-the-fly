@@ -462,3 +462,41 @@ def test_window_spikes_reads_the_last_steps_of_the_raster():
     assert steps == 30 and len(idx) == 30 and set(idx) == {0, 1, 2, 3, 4}
     empty, one = nd.window_spikes(ActivityBuffer(3))
     assert len(empty) == 0 and one == 1
+
+
+# --- 3.0 Day 2 decision: a calm, untouched fly discovers nothing -----------------------------------------------------------------
+def test_a_calm_fly_discovers_nothing_however_loud_a_type_gets(tab, tmp_path):
+    """A spontaneous burst with nothing touching the fly (calm, not driven) is never a discovery, however long it lasts; the
+    same burst counts once the fly is touched (play) and the type is still there to discover."""
+    prog = nd.Progress(tmp_path / "dex.json")
+    tr = nd.Tracker(tab, prog)
+    n = len(tab.type_id)
+    for _ in range(nd.SETTLE_CHECKS + 20):
+        tr.observe("fly", _rates(tab, n), 0.005, calm=True)
+    loud = _rates(tab, n, DNp01=80.0)
+    for _ in range(nd.DISCOVER_SUSTAIN * 3):               # short enough that the calm baseline has not absorbed the burst
+        assert tr.observe("fly", loud, 0.005, calm=True) == []
+    assert prog.n_discovered("adult") == 0
+    got = []
+    for _ in range(nd.DISCOVER_SUSTAIN):
+        got += tr.observe("fly", loud, 0.005, calm=False)
+    assert got == ["DNp01"] and prog.types("adult")["DNp01"]["how"] == "play"
+
+
+def test_driven_counts_even_when_the_fly_is_calm_and_old_rest_entries_survive(tab, tmp_path):
+    """Stimulation counts regardless of the calm flag (the API drives a calm fly), and a progress file written by a Day 1 build
+    with an 'at rest' entry loads, keeps its tag and is not rediscovered."""
+    path = tmp_path / "dex.json"
+    old = nd.Progress(path)
+    assert old.mark("adult", "ORN_VM5v", 4.0, "rest") and old.save()
+    prog = nd.Progress(path)
+    assert prog.types("adult")["ORN_VM5v"]["how"] == "rest"
+    tr = nd.Tracker(tab, prog)
+    n = len(tab.type_id)
+    for _ in range(nd.SETTLE_CHECKS + 20):
+        tr.observe("fly", _rates(tab, n), 0.005, calm=True)
+    got = []
+    for _ in range(nd.DISCOVER_SUSTAIN):
+        got += tr.observe("fly", _rates(tab, n, MDN=50.0), 0.005, calm=True, driven=True)
+    assert got == ["MDN"] and prog.types("adult")["MDN"]["how"] == "stimulated"
+    assert prog.types("adult")["ORN_VM5v"]["how"] == "rest"

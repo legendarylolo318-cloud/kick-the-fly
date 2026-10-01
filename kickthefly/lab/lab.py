@@ -364,7 +364,7 @@ ASSUMPTIONS = (
     ("Simulated calcium imaging is a forward model on spikes",
      "BIOPHYSICS",
      "Spikes are convolved with a two-exponential GCaMP kernel, averaged over an ROI, and given Poisson photon shot noise; dF/F is "
-     "against a 30 s running mean. Kernel speeds: Chen 2013 Supplementary Table 3 (GCaMP6s/6f, mouse V1, 1 action "
+     "against a running mean (30 s by default, a setting). Kernel speeds: Chen 2013 Supplementary Table 3 (GCaMP6s/6f, mouse V1, 1 action "
      "potential) and Zhang 2023 (jGCaMP8m, fly visual responses), each checked in the paper.",
      "Linear in spikes, equal brightness for every neuron in an ROI, dF/F per spike and the photon budget are game parameters; no "
      "subthreshold calcium, bleaching, motion, scattering or neuropil; a real pipeline estimates F0 and segments cells.",
@@ -502,8 +502,8 @@ ASSUMPTIONS = (
 
     ("Neurodex: what counts as discovered (3.0)",
      "GAME RULE",
-     "Discovered = 6+ spikes/s, 3x its calm rate and a Poisson count test (alpha ~1e-11) for 150 ms. A calm fly still "
-     "finds 25-35 sensory types a minute through spontaneous bursts: tagged 'at rest'.",
+     "Discovered = 6+ spikes/s, 3x its calm rate and a Poisson count test (alpha ~1e-11) for 150 ms. A calm fly "
+     "discovers nothing (3.0 Day 2 decision); only play or stimulation counts.",
      "Nothing in a real fly is 'discovered'. The rule reads the type as a whole, so sparse big types (Kenyon cells) are "
      "mostly found by stimulating them, and the entry says so.",
      "kickthefly/core/neurodex.py · docs/neurodex.md"),

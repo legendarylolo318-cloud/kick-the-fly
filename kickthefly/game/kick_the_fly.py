@@ -333,8 +333,8 @@ game's coarse regions, derived from class and soma neuromere), the predicted tra
 strongest input and output partner types by synapse count. GAME RULE: "discovered" (over 150 ms windows, 3 checks in a row, the type's mean
 firing is at least 6 spikes/s and 3x its own calm rate, and its spike count is a one-sided Poisson event below alpha ~1.2e-11 at the
 calm rate; after 5 s of settling), the collection, its progress per region, and the "by stimulation" / "at rest" / "in play" tags.
-On the real pack a calm fly still discovers 25-35 sensory types a minute through correlated spontaneous bursts (the review's pass
-criterion "a calm fly discovers nothing" FAILS); those are tagged "at rest" (docs/neurodex.md). LITERATURE: the one-line fact and its citation, for about 30 curated types only; each was checked
+On the real pack a calm fly would still discover 25-35 sensory types a minute through correlated spontaneous bursts; since 3.0 Day 2
+a calm, untouched fly discovers nothing (a design decision, docs/neurodex.md), and "at rest" survives only on old saved entries. LITERATURE: the one-line fact and its citation, for about 30 curated types only; each was checked
 against the paper it cites. Saved per player next to the training memory; the larva has its own list. Never runs in --validate,
 assays, protocols or tests.
 Neuron of the Day (3.0; core/neuron_of_day.py). GAME RULE: a launch card that picks one curated Neurodex type by date and offers Try it
@@ -366,7 +366,7 @@ the same for all of them. CONNECTOME: embedded mode keeps the real synaptic inpu
 hold current and I-F amplitudes. Exports CSV and NWB (in model units, not a volts series). Lab > Patch clamp, or PATCH in the inspector.
 
 Simulated calcium imaging (3.0 day 2; lab/imaging.py, docs/imaging.md). MODEL: spikes convolved with a two-exponential GCaMP kernel,
-averaged over an ROI, with Poisson shot noise; dF/F against a 30 s running mean of the neuron's own fluorescence. LITERATURE: kernel
+averaged over an ROI, with Poisson shot noise; dF/F against a running mean (30 s by default, a setting) of the neuron's own fluorescence. LITERATURE: kernel
 speeds from Chen et al. 2013 (GCaMP6s/6f: Supplementary Table 3, mouse V1 in vivo, 1 action potential) and Zhang et al. 2023
 (jGCaMP8m), each checked in the paper (3.0 day 2 review); the UI gives the source of each. GAME RULE: dF/F per spike, photon
 budget, ROI sets, colors (Settings > Accessibility palettes; Reduced flashing smooths the view). The brain view's Imaging mode
@@ -2454,6 +2454,7 @@ class Game:
         self.imaging_live = livelab.ImagingLive()     # 3.0 day 2: Lab > Imaging (off until turned on)
         self.imaging_live.indicator = str(self.cfg["brain.imaging_indicator"])
         self.imaging_live.fps = float(self.cfg["brain.imaging_fps"])
+        self.imaging_live.baseline_tau_s = float(self.cfg["brain.imaging_f0_tau_s"])
         self.patch_row: int | None = None             # 3.0 day 2: the neuron the inspector's Patch button chose
         self.surgery_buttons: list = []
         self.inspect: dict | None = None

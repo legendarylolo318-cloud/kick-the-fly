@@ -16,7 +16,8 @@ own spike record). A type is discovered when, for **3 checks in a row** after th
 least **6 spikes/s** and at least **3x the type's own calm rate** (never below 2 spikes/s), **and** that many spikes would be a
 one-sided Poisson event of probability below **α ≈ 1.2×10⁻¹¹** if the type were firing at its calm rate. The calm rate is tracked
 per type while nothing touches the fly. How it happened is recorded: *by stimulation* (brain surgery, a driven current or the laser
-was on), *at rest* (nothing had touched the fly for 2 s) or *in play*.
+was on), *in play*. (Builds before 3.0 Day 2 also had *at rest*, for a spontaneous burst while nothing touched the fly; those saved entries keep
+that tag, and no new ones are made.)
 
 **How the rule got here, and what still fails.** Day 1 had only the first two conditions, fixed before anything was played. On the
 real adult pack (review, 2026-09-30) a calm, untouched fly then "discovered" about 190 types a minute, nearly all of 1-4 neurons
@@ -32,8 +33,11 @@ The Poisson condition was added with α derived from a stated budget (about one 
 were Poisson), not fitted to the measurement. It removed the small-type noise; what remains are sensory types (olfactory receptor
 neurons such as ORN_VM5v and ORN_VA2, wing and body sensory neurons) whose spontaneous firing in this model comes in correlated
 bursts, which break the Poisson assumption. Rather than tune the rule further against the same measurement, those discoveries are
-labelled **at rest**, so an entry never claims you did something you didn't. Whether calm discoveries should count at all is an open
-decision (see HANDOFF_3.0_DAY1_REVIEW.md).
+labelled **at rest**. **3.0 Day 2 decision:** they no longer count. A type is only discovered while something is touching the fly
+(play) or driving it (stimulation); a calm, untouched fly discovers nothing, which is the rule's original pass criterion. This is a
+design choice about what the collection means (the bursts are the model's own background activity, which neither a player nor a
+researcher did), not a change to the thresholds. Entries tagged *at rest* by an earlier build stay in your collection and still show
+that tag; nothing is removed.
 
 Stimulating with brain surgery's gentle current (what Neuron of the Day's Try it uses in Play mode) discovers MDN, DNp09 and LPLC2 on
 the real brain but not DNp01, MBON01 or PAM08 (seeds 0 and 1); the Lab laser and driven currents do.

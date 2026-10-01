@@ -113,6 +113,7 @@ class ImagingLive:
         self.on = False
         self.indicator = imaging.DEFAULT_INDICATOR
         self.fps = 20.0
+        self.baseline_tau_s = 30.0                  # the running-mean F0's time constant (GAME RULE; Settings > Brain)
         self.shot_noise = True
         self.f0_photons = 100.0
         self.dff_per_spike = 0.2
@@ -133,7 +134,8 @@ class ImagingLive:
         else:
             rois = imaging.rois_from_specs(br, [s.strip() for s in self.roi_mode.split(";") if s.strip()])
         session = imaging.ImagingSession(br.n, rois, self.indicator, self.fps, self.f0_photons, self.dff_per_spike,
-                                         self.shot_noise, seed=int(getattr(br, "seed", 0)), max_frames=600)
+                                         self.shot_noise, seed=int(getattr(br, "seed", 0)), max_frames=600,
+                                         baseline_tau_s=self.baseline_tau_s)
         self.frames.clear()
         self.frame_times.clear()
         self._kept_upto = 0

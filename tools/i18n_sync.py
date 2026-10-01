@@ -21,7 +21,7 @@ MODULES = ("kickthefly/ui/loadout_ui.py", "kickthefly/ui/tutorial.py", "kickthef
            "kickthefly/ui/crashscreen.py", "kickthefly/game/kick_the_fly.py", "kickthefly/game/kick3d.py",
            "kickthefly/ui/neurodex_ui.py", "kickthefly/ui/share_ui.py", "kickthefly/game/extras3.py")
 NEW_SETTINGS = ("controls.loadout_preset", "brain.neurodex", "brain.killcam", "brain.neuron_of_day", "brain.imaging_indicator",
-                "brain.imaging_fps")
+                "brain.imaging_fps", "brain.imaging_f0_tau_s")
 
 
 def literals(path: Path) -> set[str]:

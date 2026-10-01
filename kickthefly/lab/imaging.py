@@ -11,7 +11,7 @@ MODEL, end to end. The simulation has spikes and nothing else. Imaging here is a
   MODEL        everything else: each spike adds the same kernel (linear, no saturation but a cap, no calcium buffering, no
                indicator dynamics beyond two exponentials); every neuron in an ROI is equally bright and equally expressing
                (a real ROI is weighted by each cell's brightness and baseline); F0 is a slow running mean of each neuron's own
-               fluorescence (30 s time constant, a game parameter; real pipelines use a running mean or low percentile too), so
+               fluorescence (30 s time constant by default, a game parameter: Settings > Brain, or `f0_tau_s` in a protocol; real pipelines use a running mean or low percentile too), so
                a steady firing rate reads as dF/F 0 and only changes show; the first seconds of a session, before the mean has
                settled, are inflated or deflated accordingly (the indicator state is primed from the brain's last 2 s of spikes to
                limit that); the amplitude per spike is a game parameter (`dff_per_spike`, default

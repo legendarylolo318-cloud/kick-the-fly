@@ -135,7 +135,7 @@ SETTINGS: tuple[Setting, ...] = (
       "Show a short card when the fly does something real flies were shown to do."),
     S("brain.neurodex", "Brain", "Neurodex discoveries", "bool", True,
       "Collect cell types in the Neurodex (default key D): a type is discovered the first time its neurons fire well "
-      "above their own calm rate (tagged 'in play', 'by stimulation', or 'at rest' for a spontaneous burst). The numbers in an entry come from the dataset (Connectome); what counts "
+      "above their own calm rate while you play or stimulate it (tagged 'in play' or 'by stimulation'; a calm, untouched fly discovers nothing, and 'at rest' entries from older builds are kept). The numbers in an entry come from the dataset (Connectome); what counts "
       "as discovered, and the collection, are game rules. Off stops collecting; what you found stays.",
       tag=GAME_RULE),
     S("brain.killcam", "Brain", "Kill cam offer", "bool", True,
@@ -153,7 +153,13 @@ SETTINGS: tuple[Setting, ...] = (
       "Imaging mode on.", options=("gcamp6s", "gcamp6f", "jgcamp8m"), labels=("GCaMP6s", "GCaMP6f", "GCaMP8m"), tag="MODEL"),
     S("brain.imaging_fps", "Brain", "Imaging frame rate", "choice", 20,
       "Lab > Calcium imaging: frames per second of the simulated imaging (the 5 ms simulation step quantizes it). MODEL, not a "
-      "measurement.", options=(10, 20, 30, 40), labels=("10 Hz", "20 Hz", "30 Hz", "40 Hz"), tag="MODEL"),
+      "measurement.", options=(5, 10, 20, 30, 40), labels=("5 Hz", "10 Hz", "20 Hz", "30 Hz", "40 Hz"), tag="MODEL"),
+    S("brain.imaging_f0_tau_s", "Brain", "Imaging baseline (F0) time constant", "choice", 30,
+      "Lab > Calcium imaging: dF/F is measured against a running mean of each neuron's own fluorescence with this time constant. "
+      "A steady firing rate reads as 0 and only changes show; the first seconds of a session are inflated or deflated while the "
+      "mean settles. Shorter hides slow changes, longer takes longer to settle. GAME RULE (a choice made for this game, not a "
+      "measurement); Off until you turn Imaging mode on.", options=(10, 30, 60, 120),
+      labels=("10 s", "30 s (default)", "60 s", "120 s"), tag=GAME_RULE),
     S("brain.autopilot", "Brain", "Autopilot / spectator", "bool", False,
       "Hands-off mode where only environmental inputs reach the fly. Hotkey Y.", tag=GAME_RULE),
     S("brain.autopilot_orbit", "Brain", "Autopilot brain orbit", "bool", True,

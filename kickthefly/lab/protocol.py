@@ -137,14 +137,14 @@ def _check_day2(p: dict, where: str) -> None:
             raise ProtocolError(f"{where}: drug: {e}") from None
     if "imaging" in p:
         im = p["imaging"]
-        keys = {"indicator", "fps", "rois", "tiff", "shot_noise", "f0_photons", "dff_per_spike"}
+        keys = {"indicator", "fps", "rois", "tiff", "shot_noise", "f0_photons", "dff_per_spike", "f0_tau_s"}
         if not isinstance(im, dict) or set(im) - keys:
             raise ProtocolError(f"{where}: imaging has unknown keys; allowed: {sorted(keys)}")
         try:
             imaging.indicator(im.get("indicator", imaging.DEFAULT_INDICATOR))
             if not 1 <= float(im.get("fps", 20)) <= 200:
                 raise imaging.ImagingError("fps must be between 1 and 200")
-            for key, default in (("f0_photons", 100.0), ("dff_per_spike", 0.2)):   # 3.0 day 2 review: were checked mid-run
+            for key, default in (("f0_photons", 100.0), ("dff_per_spike", 0.2), ("f0_tau_s", 30.0)):   # 3.0 day 2 review: were checked mid-run
                 v = im.get(key, default)
                 if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) or v <= 0:
                     raise imaging.ImagingError(f"{key} must be a positive number")
@@ -327,7 +327,8 @@ def run_seed(p: dict, seed: int, surgery: dict | None, folder: Path, tag: str, r
         rois = imaging.rois_by_region(br) if im.get("rois", "regions") == "regions" else imaging.rois_from_specs(br, im["rois"])
         session = imaging.ImagingSession(br.n, rois, im.get("indicator", imaging.DEFAULT_INDICATOR), float(im.get("fps", 20)),
                                          float(im.get("f0_photons", 100.0)), float(im.get("dff_per_spike", 0.2)),
-                                         bool(im.get("shot_noise", True)), seed=seed)
+                                         bool(im.get("shot_noise", True)), seed=seed,
+                                         baseline_tau_s=float(im.get("f0_tau_s", 30.0)))
         if im.get("tiff"):
             view, frames = imaging.make_view(br), []
     for t in range(n):
