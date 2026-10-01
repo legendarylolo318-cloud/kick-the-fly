@@ -247,4 +247,4 @@ def test_rain_draws_without_error_and_stays_cheap(g3):
     rd = Rec()
     eye = np.array([0.0, 1.0, 0.0])
     g3._draw_rain(rd, eye, 1.0)
-    assert 0 < rd.n <= 90, "at most 90 streaks"
+    assert 0 < rd.n <= 60, "at most 60 streaks"

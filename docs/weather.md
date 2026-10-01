@@ -15,7 +15,7 @@ The open field and the orchard (3D) can have weather. It is off by default, so e
 
 What it is not: raindrops are not simulated (a hit is a touch pulse of a set strength); no shelter under trees, no evaporation, no cooling, no wind shear. The humidity neurons idle at about 18 Hz in this model, so rain moves their **mean** rate only about 14%, although their 100 ms peaks rise clearly (the playthrough check reports both).
 
-Visuals are cheap by design: up to 90 short streaks that fall past the camera, a darker sky, a swelling flash; no particle state. `tests/test_weather.py` checks the budget (at most 90 streaks) and the performance numbers are in the day-3 handoff.
+Visuals are cheap by design: up to 60 opaque streaks (0.7 m long) that fall in a 9 m box around the camera (opaque on purpose: translucent items go through the renderer's sorted layer, and the first version, 90 translucent streaks built with `segment()`, cost the brain a third of its real-time speed), a darker sky, a swelling flash; no particle state. `tests/test_weather.py` checks the budget (at most 60 streaks) and the performance numbers are in the day-3 handoff.
 
 ```python
 fly.weather(rain=0.6, gust_hz=0.2, storm=True); fly.step(10.0)

@@ -101,6 +101,7 @@ FLY_RX, FLY_RY, FLY_RZ = RX, RY, RZ
 OUTDOOR_FAR = 90.0                          # far plane outdoors, metres; the room keeps its 40
 DRAW_DIST = 38.0                            # scenery further than this from the camera isn't drawn
 TUFT_DIST = 16.0                            # grass tufts are only drawn this close (they are small and many)
+RAIN_COLOR = (0.62, 0.7, 0.82)                  # opaque on purpose: translucent items go through the renderer's sorted layer, which costs the brain real time
 SPIDER_TOP = 3.0                            # outdoors the spider drops from a branch height, not from the sky
 # The tool in your hand (draw_viewmodel): where it's held, in camera space (x right, y up, -z forward), the lens it's
 # drawn with, and each tool's nozzle relative to that. tool_tip() fires effects from these same points.
@@ -2593,7 +2594,7 @@ class Game3D(k2.Game):
             box(c, s, wall, P_WALLPAPER)
         for c, s in (((0, 0.5, -RZ + 0.015), (2 * RX, 1.0, 0.03)), ((0, 0.5, RZ - 0.015), (2 * RX, 1.0, 0.03)),
                      ((-RX + 0.015, 0.5, 0), (0.03, 1.0, 2 * RZ)), ((RX - 0.015, 0.5, 0), (0.03, 1.0, 2 * RZ))):
-            box(c, s, tile, P_STRIPES)                                                              # the tiled backsplash
+            box(c, s, tile, P_NONE)                                                                 # the tiled backsplash (plain: the stripes pattern read as dark patches)
         trim = (0.94, 0.92, 0.88)
         box((0, 1.0, -RZ + 0.03), (2 * RX, 0.04, 0.06), trim)
         box((1.4, 1.85, -RZ + 0.012), (1.9, 1.1, 0.02), (1, 1, 1), 8)                                # the window
@@ -2632,8 +2633,8 @@ class Game3D(k2.Game):
         rd.add("cylinder", trs(bp + (0, 0.0, 0), None, (kitchen.BURNER_R + 0.08, 0.04, kitchen.BURNER_R + 0.08)), (0.1, 0.1, 0.11))
         flick = 0.85 + 0.15 * math.sin(now * 9.0)
         for r in (0.18, 0.32, 0.46):
-            rd.add("torus", trs(bp + (0, 0.05, 0), None, (r, 0.6, r)), (1.0, 0.35, 0.1), P_NONE, 2.2 * flick)
-        rd.particle(bp + (0, 0.25, 0), 0.5, (1.0, 0.45, 0.15, 0.1 * flick), additive=True)
+            rd.add("torus", trs(bp + (0, 0.05, 0), None, (r, 0.5, r)), (0.95, 0.22, 0.05), P_NONE, 1.2 * flick)
+        rd.particle(bp + (0, 0.25, 0), 0.4, (1.0, 0.4, 0.12, 0.08 * flick), additive=True)
         bw = kitchen.BOWL_POS                                                                        # the fruit bowl
         rd.add("cylinder", trs(bw + (0, 0.0, 0), None, (kitchen.BOWL_R * 0.55, 0.04, kitchen.BOWL_R * 0.55)), (0.8, 0.74, 0.62))
         rd.add("cylinder", trs(bw + (0, 0.04, 0), None, (kitchen.BOWL_R, kitchen.BOWL_H - 0.04, kitchen.BOWL_R)), (0.86, 0.8, 0.7, 0.55), P_NONE)
@@ -2744,17 +2745,17 @@ class Game3D(k2.Game):
         d = np.linalg.norm(v, axis=1)
         return (d < max_dist + radius) & ((v @ fwd) > -0.35 * d - radius)
 
-    _RAIN = np.random.default_rng(7).random((90, 3))              # fixed streak offsets (0-1): no per-streak state to keep
+    _RAIN = np.random.default_rng(7).random((60, 3))              # fixed streak offsets (0-1): no per-streak state to keep
 
     def _draw_rain(self, rd: Renderer, eye: np.ndarray, now: float) -> None:
-        """Cheap rain: up to 90 short streaks that fall past the camera. GAME RULE (looks only; the hits are in _weather)."""
-        n = int(10 + 80 * self.weather.rain)
+        """Cheap rain: up to 60 short opaque streaks that fall past the camera. GAME RULE (looks only; the hits are in _weather)."""
+        n = int(8 + 52 * self.weather.rain)
         off = self._RAIN[:n]
         for u, v, w_ in off:
-            x = eye[0] + (u - 0.5) * 16.0
-            z = eye[2] + (w_ - 0.5) * 16.0
-            y = (v * 9.0 - now * 9.0) % 9.0
-            rd.add("cylinder", segment((x, y + 0.3, z), (x, y, z), 0.004), (0.75, 0.82, 0.92, 0.5), P_NONE)
+            x = eye[0] + (u - 0.5) * 9.0
+            z = eye[2] + (w_ - 0.5) * 9.0
+            y = (v * 6.0 - now * 9.0) % 6.0
+            rd.add("cylinder", trs((x, y, z), None, (0.006, 0.7, 0.006)), RAIN_COLOR, P_NONE)       # a vertical streak: no segment() maths
 
     def _draw_outdoors(self, rd: Renderer, now: float) -> None:
         eye, fwd = self._camera()

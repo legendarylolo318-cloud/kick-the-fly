@@ -6418,7 +6418,7 @@ class Game:
         return rect
 
     def _draw_hud(self, surf, now: float) -> None:
-        self.live.draw(surf, self.f_small, PLAY_W)            # 3.0 day 3: the red MIC ON / TWITCH CHAT pills, the vote tally
+        self.live.draw(surf, self.f_bold, PLAY_W)             # 3.0 day 3: the red MIC ON / TWITCH CHAT pills, the vote tally (Larger text applies)
         if self.cfg["brain.autopilot"] and self.cfg["brain.autopilot_hide_hud"]:
             badge = self.f_small.render("AUTOPILOT / SPECTATOR   (Y: exit)", True, (130, 160, 190))
             box = badge.get_rect(midtop=(PLAY_W // 2, 14)).inflate(16, 6)

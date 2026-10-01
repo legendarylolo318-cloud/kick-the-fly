@@ -250,8 +250,10 @@ class LiveInputs:
     def _draw_tally(self, surf, font, play_w: int) -> None:
         b = self.board
         rows = b.tally()[:5]
-        w, x, y = 300, play_w - 312, 64
-        h = 52 + 24 * max(1, len(rows)) + 22 * len(self.history[:2])
+        lh = font.get_linesize() + 4                       # rows follow the font, so Larger text still fits
+        w, x, y = max(300, int(font.size("tool SWATTER  9999")[0] * 1.5)), 0, 64
+        x = play_w - w - 12
+        h = 44 + lh * max(1, len(rows)) + (lh - 2) * len(self.history[:2])
         pygame.draw.rect(surf, (10, 12, 18, 215) if surf.get_flags() & pygame.SRCALPHA else (10, 12, 18), (x, y, w, h), border_radius=10)
         pygame.draw.rect(surf, (150, 130, 255), (x, y, w, h), 1, border_radius=10)
         title = {"idle": "CHAT VOTE: !tool NAME", "open": "CHAT VOTE", "cooldown": "VOTE COOLDOWN"}[b.state]
@@ -259,20 +261,20 @@ class LiveInputs:
         if b.state != "idle":
             t = font.render(f"{b.remaining():.0f} s", True, (255, 220, 140))
             surf.blit(t, (x + w - t.get_width() - 10, y + 8))
-        yy = y + 36
+        yy = y + 8 + lh + 4
         top = max([r[3] for r in rows] + [1])
         for command, _slug, label, n in rows:
-            pygame.draw.rect(surf, (60, 52, 110), (x + 10, yy + 2, int((w - 20) * n / top), 18), border_radius=4)
+            pygame.draw.rect(surf, (60, 52, 110), (x + 10, yy + 2, int((w - 20) * n / top), lh - 6), border_radius=4)
             surf.blit(font.render(f"{command} {label}", True, (240, 240, 255)), (x + 14, yy))
             c = font.render(str(n), True, (255, 255, 255))
             surf.blit(c, (x + w - c.get_width() - 14, yy))
-            yy += 24
+            yy += lh
         if not rows:
             surf.blit(font.render("no votes yet" if b.state != "cooldown" else "no votes counted", True, (170, 170, 190)), (x + 14, yy))
-            yy += 24
+            yy += lh
         for line in self.history[:2]:
             surf.blit(font.render("last: " + line, True, (170, 200, 170)), (x + 10, yy))
-            yy += 22
+            yy += lh - 2
 
 
 # --- the menu page --------------------------------------------------------------------------------------------------------------------
