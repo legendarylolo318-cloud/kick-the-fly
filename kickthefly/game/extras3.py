@@ -123,6 +123,9 @@ class Extras:
         if br.dead:
             return
         last = self._last_check.get(id(br))
+        if last is not None and br.steps < last:
+            last = None                                 # 3.0 day 2 decisions: the step counter went back (a new fly, a loaded
+                                                        # save): without this no check ran until it caught up with the old count
         if last is not None and br.steps - last < nd.CHECK_STEPS:
             return
         if br.steps == last:

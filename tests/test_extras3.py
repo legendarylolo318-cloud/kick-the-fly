@@ -508,3 +508,15 @@ def test_the_tutorial_does_not_cover_or_steal_keys_from_the_kill_cam(game):
     assert not drawn
     game.handle(key(pygame.K_RETURN), time.perf_counter())
     assert not game.x3.kc_playing()                                # Enter skipped the kill cam, not a tutorial step
+
+
+def test_discovery_resumes_after_the_step_counter_goes_back(game):
+    """3.0 day 2 decisions: a new fly or a loaded save puts the brain's step count below the last check's. The check was skipped
+    until the count caught up with the old one (found by the playthrough: driving DNp01 for 3 s discovered nothing)."""
+    run(game, nd.SETTLE_CHECKS * nd.CHECK_STEPS + 200)
+    assert game.x3.table_state == "ready"
+    game.x3._last_check[id(game.brain)] = game.brain.steps + 50_000              # as if the fly had run much longer before
+    from kickthefly.core import simcore
+    simcore.drive(game.brain, game.x3.table.rows("LPLC2"), 0.5)
+    run(game, 600)
+    assert game.x3.progress.types("adult").get("LPLC2", {}).get("how") == "stimulated"
