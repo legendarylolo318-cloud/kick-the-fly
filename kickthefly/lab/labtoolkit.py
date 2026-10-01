@@ -226,7 +226,7 @@ def _laser_line(host, line: str, st) -> None:
 
 def _thermo_line(host, effector: str, line: str, st) -> None:
     try:
-        host.thermo_live.add(effector, f"line:{line}")
+        host.thermo_live.add(effector, f"line:{line}", brain=_brain(host))
         st.note = f"{effector} expressed in line {line}: set the temperature in Lab > Thermogenetics"
     except Exception as e:
         st.note = str(e)
@@ -254,6 +254,13 @@ def page_thermo(m: ui.Menu, surf, rect, mouse) -> None:
     m.slider(surf, (x + 200, y, 360, 28), tl.temperature_c, tg.TEMP_RANGE_C[0], tg.TEMP_RANGE_C[1], 0.5, "{:.1f} C",
              lambda v: setattr(tl, "temperature_c", float(v)), lambda: None, id="th_temp", enabled=tl.source == "slider",
              tip="Lab slider temperature. Nothing in the model changes with temperature except the effectors you add here.")
+    if tl.source == "arena":                     # 3.0 day 2 review: the page showed the idle slider's value, not what flies sense
+        from kickthefly.game import kick_the_fly as k2
+
+        temps = [getattr(s_, "arena_temp_c", None) for s_ in host.flies] if k2.ARENAS[host.arena_i] == "thermo" else []
+        temps = [t for t in temps if t is not None]
+        m.text(surf, ("flies sense " + ", ".join(f"{t:.1f} C" for t in temps[:4]) + " (thermo arena, game rule)") if temps else
+               "not in the thermo arena: the slider applies", (x + 580, y + 14), ui.AMBER, m.f_small, "midleft")
     y += 36
     m.text(surf, "Kinetics", (x, y + 14), ui.TEXT, m.f_text, "midleft")
     m.segmented(surf, (x + 200, y, 360, 28), ["Realistic (game rule)", "Instant"], 0 if tl.kinetics == "real" else 1,
@@ -304,8 +311,8 @@ def page_thermo(m: ui.Menu, surf, rect, mouse) -> None:
 
 
 def _add_expr(st, tl, host) -> None:
-    try:
-        tl.add("trpa1" if st.t_effector == 0 else "shibire", st.t_target)
+    try:                                             # resolved on the live brain first: a typo is refused, not dropped later
+        tl.add("trpa1" if st.t_effector == 0 else "shibire", st.t_target, brain=_brain(host))
         st.note = "added; it applies to every fly on the next frames"
     except Exception as e:
         st.note = str(e)
@@ -336,7 +343,12 @@ def page_patch(m: ui.Menu, surf, rect, mouse) -> None:
     row = st.p_row if st.p_row is not None else None
     if getattr(host, "patch_row", None) is not None:                 # the inspector's Patch button
         row, st.p_row, host.patch_row = int(host.patch_row), int(host.patch_row), None
-        st.p_type = str(br.types[row])
+        _detach(st)
+        if 0 <= row < br.n:
+            st.p_type = str(br.types[row])
+    if row is not None and not 0 <= row < br.n:                      # 3.0 day 2 review: chosen on another brain
+        st.note = f"neuron {row} is outside this brain (0-{br.n - 1}); choose it again"
+        row = st.p_row = None
         _detach(st)
     x = rect.x + 24
     m.text(surf, "Neuron", (x, y + 14), ui.TEXT, m.f_text, "midleft")
@@ -450,9 +462,25 @@ def _detach(st) -> None:
 
 
 def _hold(st, v) -> None:
-    st.p_hold = float(v)
+    from kickthefly.lab import patchclamp as pc
+
+    try:
+        st.p_hold = pc.check_current(v)
+    except pc.PatchError as e:
+        st.note = str(e)
+        return
     if st.p_electrode is not None:
         st.p_electrode.set_hold(st.p_hold)
+
+
+def leave_patch(m) -> None:
+    """Take the live electrode off the brain (its probe and holding current) once Lab > Patch is no longer on screen: the
+    game runs again when the menu closes, and a current left on a neuron would change the fly with nothing showing it
+    (3.0 day 2 review)."""
+    st = getattr(m, "toolkit", None)
+    if st is not None and st.p_electrode is not None and m.screen != "lab_patch":
+        _detach(st)
+        st.p_live = False
 
 
 def _pick(st, host) -> None:

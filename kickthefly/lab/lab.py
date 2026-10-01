@@ -364,8 +364,8 @@ ASSUMPTIONS = (
     ("Simulated calcium imaging is a forward model on spikes",
      "BIOPHYSICS",
      "Spikes are convolved with a two-exponential GCaMP kernel, averaged over an ROI, and given Poisson photon shot noise; dF/F is "
-     "against a 30 s running mean. Kernel speeds come from Chen 2013 and Zhang 2023; only jGCaMP8m's numbers were verified in the papers' "
-     "text (the 6s/6f half-decays were not).",
+     "against a 30 s running mean. Kernel speeds: Chen 2013 Supplementary Table 3 (GCaMP6s/6f, mouse V1, 1 action "
+     "potential) and Zhang 2023 (jGCaMP8m, fly visual responses), each checked in the paper.",
      "Linear in spikes, equal brightness for every neuron in an ROI, dF/F per spike and the photon budget are game parameters; no "
      "subthreshold calcium, bleaching, motion, scattering or neuropil; a real pipeline estimates F0 and segments cells.",
      "kickthefly/lab/imaging.py · Lab > Calcium imaging"),

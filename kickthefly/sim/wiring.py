@@ -24,6 +24,7 @@ How a severity slider maps onto them, and which neurons a bulk flip picks, are c
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from functools import lru_cache
 
@@ -78,10 +79,30 @@ class Wiring:
         """Rebuild from as_dict() plus the flipped rows, which save states keep as an array next to it."""
         if not d:
             return Wiring()
-        nts = d.get("nt_scales") or {}
         return Wiring(int(d.get("min_synapses", 1)), tuple(int(r) for r in rows),
-                      float(d.get("inhibition_scale", 1.0)),
-                      tuple(sorted((str(k), float(v)) for k, v in nts.items())), float(d.get("nt_min_conf", 0.0)))
+                      float(d.get("inhibition_scale", 1.0)), _nt_scales_from(d.get("nt_scales")),
+                      _finite_or(d.get("nt_min_conf", 0.0), 0.0))
+
+
+def _finite_or(v, default: float) -> float:
+    try:
+        v = float(v)
+    except (TypeError, ValueError):
+        return default
+    return v if math.isfinite(v) else default
+
+
+def _nt_scales_from(nts) -> tuple:
+    """nt_scales as saved ({transmitter: factor}). 3.0 day 2 review: a damaged save (a list, a text factor, NaN) crashed the load
+    or put NaN into every synapse of that transmitter; anything that isn't a finite, non-negative factor is left out."""
+    if not isinstance(nts, dict):
+        return ()
+    out = []
+    for k, v in nts.items():
+        f = _finite_or(v, -1.0)
+        if f >= 0.0 and f != 1.0:
+            out.append((str(k), f))
+    return tuple(sorted(out))
 
 
 @lru_cache(maxsize=1)

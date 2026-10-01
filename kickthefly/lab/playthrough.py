@@ -970,10 +970,18 @@ def extra_neurodex(rig: Rig, r: Result) -> None:
     r.expect(x3.table_state == "ready", f"the Neurodex table is '{x3.table_state}' {x3.table_error}")
     if x3.table_state != "ready":
         return
-    rig.seconds(6.0)                                                   # settle: the discovery rule's first 5 s
-    prog = x3.progress
-    calm = dict(prog.types(x3.brain_name))
-    r.metrics.update(types=len(x3.table), calm_discoveries=len(calm), calm_examples=sorted(calm)[:6])
+    prog = x3.ensure_progress()
+    before = set(prog.types(x3.brain_name))
+    # 3.0 day 2 review: the window was not calm. The bot's hand sat on the fly's head (rig.frames' default mouse), so the fly
+    # smelled the tool every frame (a 'scent' poke, so never calm by the game's rule), and the check judged every type
+    # discovered since the rig started, including the earlier play legs'. Now the hand rests over the brain panel (2D) or
+    # the player steps back (3D), and only what is discovered in this window is judged. The criterion is unchanged.
+    away = None if rig.three_d else (rig.k2.PLAY_W + 40, 40)
+    rig.step_back()
+    rig.seconds(6.0, mouse=away)                                       # settle: the discovery rule's first 5 s
+    calm = {n: v for n, v in prog.types(x3.brain_name).items() if n not in before}
+    r.metrics.update(types=len(x3.table), calm_discoveries=len(calm), calm_examples=sorted(calm)[:6],
+                     discovered_before=len(before))
     wrong = {n: v["how"] for n, v in calm.items() if v["how"] != "rest"}
     r.expect(not wrong, f"calm discoveries not tagged 'rest': {dict(list(wrong.items())[:5])}")
     target = next((t for t in ("LPLC2", "DNp01", "MDN") if x3.table.index(t) is not None), None)

@@ -22,13 +22,17 @@ def test_kernel_has_the_indicators_time_to_peak_and_half_decay(key):
 
 def test_indicator_speeds_are_ordered_like_the_papers_say():
     s, f, m = (im.INDICATORS[k] for k in ("gcamp6s", "gcamp6f", "jgcamp8m"))
-    assert s.half_decay_ms > f.half_decay_ms > m.half_decay_ms * 0.9 and s.rise_ms > f.rise_ms > m.rise_ms * 0.9
+    # 3.0 day 2 review: 6s and 6f are compared within Chen 2013's one table; jGCaMP8m's numbers are fly visual responses, a
+    # different preparation, so no order between it and GCaMP6f is claimed.
+    assert s.half_decay_ms > f.half_decay_ms and s.rise_ms > f.rise_ms
     assert m.half_decay_ms == 137.0 and m.rise_ms == 58.0            # Zhang et al. 2023's Drosophila in-vivo numbers, stated in its text
 
 
 def test_every_indicator_says_which_of_its_numbers_were_not_verified():
-    assert "NOT found in the paper's text" in im.INDICATORS["gcamp6s"].verified
-    assert "NOT found in the paper's text" in im.INDICATORS["gcamp6f"].verified
+    assert "Supplementary Table 3" in im.INDICATORS["gcamp6s"].verified       # 3.0 day 2 review: checked in the paper
+    assert (im.INDICATORS["gcamp6s"].rise_ms, im.INDICATORS["gcamp6s"].half_decay_ms) == (179.0, 550.0)
+    assert (im.INDICATORS["gcamp6f"].rise_ms, im.INDICATORS["gcamp6f"].half_decay_ms) == (45.0, 142.0)
+    assert "Supplementary Table 3" in im.INDICATORS["gcamp6f"].verified
     assert "stated in the paper's text" in im.INDICATORS["jgcamp8m"].verified
     for ind in im.INDICATORS.values():
         assert "doi:10." in ind.source
@@ -69,7 +73,7 @@ def test_responses_add_linearly_and_roi_is_the_mean():
         b.push(np.array([], int))
     da, db = a.neuron_dff(), b.neuron_dff()
     assert db[1] == pytest.approx(da[0]) and db[0] == pytest.approx(da[0])
-    assert a.roi_dff_true()[0] == pytest.approx(da[0] / 4)          # one of four neurons spiked: the ROI is the mean
+    assert a.roi_dff_true()[0] == pytest.approx(da[0] / 4, rel=1e-5)  # one of four neurons spiked: the ROI is the mean (float32 state)
 
 
 def test_frames_follow_the_frame_rate():
@@ -166,7 +170,7 @@ def result(synthetic_pack):
 def test_record_returns_frames_for_every_roi(result):
     assert result.dff.shape == result.true_dff.shape == result.photons.shape == (40, len(result.roi_names))
     assert result.meta["tag"].startswith("MODEL") and result.meta["indicator"].startswith("GCaMP6f")
-    assert result.meta["time_to_peak_ms"] == 62.0 and "F0 is a running mean" in result.meta["baseline"]
+    assert result.meta["time_to_peak_ms"] == 45.0 and "F0 is a running mean" in result.meta["baseline"]
 
 
 def test_csv_has_the_tag_and_both_traces(result, tmp_path):

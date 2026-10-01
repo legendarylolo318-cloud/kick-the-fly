@@ -54,17 +54,19 @@ class Indicator:
 
 
 INDICATORS = {
-    "gcamp6s": Indicator("gcamp6s", "GCaMP6s (slow, sensitive)", 125.0, 550.0,
-                         "Chen et al. 2013, Nature 499:295 (doi:10.1038/nature12354)",
-                         "Rise: the paper's text says single spikes are resolvable when separated by 'the rise time of the sensor or "
-                         "more (100-150 ms, GCaMP6s)'; this game takes the middle of that range, 125 ms, as the time to peak "
-                         "(a choice). Half-decay 550 ms: NOT found in the paper's text by whoever built this table; it is the "
-                         "commonly quoted value and needs checking against the paper's Figure 1 by a person with the paper open."),
-    "gcamp6f": Indicator("gcamp6f", "GCaMP6f (fast)", 62.0, 140.0,
-                         "Chen et al. 2013, Nature 499:295 (doi:10.1038/nature12354)",
-                         "Rise: the text gives '50-75 ms, GCaMP6f'; this game takes the middle, 62 ms, as the time to peak (a "
-                         "choice). Half-decay 140 ms: NOT found in the paper's text by whoever built this table; it is the "
-                         "commonly quoted value and needs checking against the paper's Figure 1."),
+    # 3.0 day 2 review: both numbers of each GCaMP6 kernel are now the paper's own single-spike measurements, read in Chen et al.
+    # 2013's Supplementary Table 3 (the main text gives only the rise ranges quoted below; day 2 had used their middles, 125 and
+    # 62 ms, and a 140 ms GCaMP6f half-decay that was not in the paper).
+    "gcamp6s": Indicator("gcamp6s", "GCaMP6s (slow, sensitive)", 179.0, 550.0,
+                         "Chen et al. 2013, Nature 499:295 (doi:10.1038/nature12354), Supplementary Table 3",
+                         "Verified in the paper's Supplementary Table 3 (mouse V1 in vivo, cell-attached, 1 action potential): "
+                         "rise time to peak 179 +- 23 ms, half-decay 550 +- 52 ms; this game uses the means. (The main text "
+                         "gives a 100-150 ms rise time for resolving single spikes.) Mouse cortex, not fly neurons."),
+    "gcamp6f": Indicator("gcamp6f", "GCaMP6f (fast)", 45.0, 142.0,
+                         "Chen et al. 2013, Nature 499:295 (doi:10.1038/nature12354), Supplementary Table 3",
+                         "Verified in the paper's Supplementary Table 3 (mouse V1 in vivo, cell-attached, 1 action potential): "
+                         "rise time to peak 45 +- 4 ms, half-decay 142 +- 11 ms; this game uses the means. (The main text "
+                         "gives a 50-75 ms rise time for resolving single spikes.) Mouse cortex, not fly neurons."),
     "jgcamp8m": Indicator("jgcamp8m", "jGCaMP8m (fast, sensitive)", 58.0, 137.0,
                           "Zhang et al. 2023, Nature 615:884 (doi:10.1038/s41586-023-05828-9), Drosophila in-vivo visual "
                           "responses: half-rise 58 +- 6 ms, half-decay 137 +- 21 ms",
@@ -158,8 +160,13 @@ def rois_from_specs(br, specs, per_neuron: bool = False) -> dict[str, np.ndarray
     """ROIs from neuron specs (a type, `prefix:KC`, `line:SS00727`, a group). per_neuron=True gives each neuron its own ROI."""
     from kickthefly.core import simcore
 
+    specs = [specs] if isinstance(specs, str) else list(specs)
+    if len(specs) > MAX_ROIS:                       # 3.0 day 2 review: checked before resolving 100,000 specs one by one
+        raise ImagingError(f"at most {MAX_ROIS} ROIs")
     out = {}
-    for spec in ([specs] if isinstance(specs, str) else list(specs)):
+    for spec in specs:
+        if not isinstance(spec, str):
+            raise ImagingError(f"an ROI is a neuron spec (text), not {spec!r}")
         try:
             rows = np.sort(np.asarray(simcore.rows_of(br, spec if ":" in spec or spec in getattr(br, "col", {}) else f"type:{spec}"),
                                       np.int64))
@@ -191,8 +198,14 @@ class ImagingSession:
             raise ImagingError("an imaging session needs at least one ROI")
         if not (1.0 <= fps <= 200.0):
             raise ImagingError("frame rate must be between 1 and 200 Hz")
-        if not f0_photons > 0 or not dff_per_spike > 0:
-            raise ImagingError("f0_photons and dff_per_spike must be positive")
+        for name, v in (("f0_photons", f0_photons), ("dff_per_spike", dff_per_spike), ("dff_cap", dff_cap),
+                        ("baseline_tau_s", baseline_tau_s)):
+            try:
+                v = float(v)
+            except (TypeError, ValueError):
+                v = float("nan")
+            if not (math.isfinite(v) and v > 0):        # 3.0 day 2 review: inf / NaN got through
+                raise ImagingError(f"{name} must be a positive finite number")
         self.n, self.fps = int(n), float(fps)
         self.frame_steps = max(1, int(round(1.0 / fps / DT_S)))
         self.fps = 1.0 / (self.frame_steps * DT_S)              # the rate the 5 ms steps can really give
@@ -221,6 +234,7 @@ class ImagingSession:
         self.base = np.zeros(len(self.tracked), np.float32)   # running-mean dF/F (absolute) of each tracked neuron
         self.rng = np.random.default_rng(seed)
         self.steps = 0
+        self.frames_taken = 0                               # every frame ever taken (t keeps only the last max_frames)
         self._seen = None                                   # brain step count already pushed (feed_from_activity)
         self.max_frames = max_frames
         self.t, self.true_dff, self.dff, self.photons = [], [], [], []
@@ -284,6 +298,7 @@ class ImagingSession:
         dff = photons / den - 1.0
         if self.baseline == "running":
             self.base += (d - self.base) * np.float32(self.k_base)
+        self.frames_taken += 1
         self.t.append(self.steps * DT_S)
         self.true_dff.append(true)
         self.dff.append(dff)
@@ -322,6 +337,9 @@ class ImagingSession:
 
     # -- results ----------------------------------------------------------------------------------------------------------------
     def result(self, extra: dict | None = None) -> "ImagingResult":
+        if not self.t:
+            raise ImagingError(f"no imaging frame was taken yet: record at least one frame ({1.0 / self.fps:.3g} s at "
+                               f"{self.fps:.3g} Hz)")
         meta = dict(tag=TAG_TEXT, indicator=self.ind.name, indicator_source=self.ind.source, indicator_verified=self.ind.verified,
                     time_to_peak_ms=self.ind.rise_ms, half_decay_ms=self.ind.half_decay_ms,
                     tau_rise_ms=self.tau_r_ms, tau_decay_ms=self.tau_d_ms, fps=self.fps, frame_steps=self.frame_steps,
@@ -348,13 +366,23 @@ class ImagingResult:
     meta: dict = field(default_factory=dict)
     roi_rows: list = field(default_factory=list)
     frames: list = field(default_factory=list)      # rendered RGB frames (uint8 arrays), if the recording kept them
+    frame_times: list = field(default_factory=list)  # the imaging time (s) of each kept frame, when it isn't one per frame
+
+
+def check_seconds(seconds) -> float:
+    try:
+        seconds = float(seconds)
+    except (TypeError, ValueError):
+        raise ImagingError("seconds must be a number") from None
+    if not 0 < seconds <= 3600:
+        raise ImagingError("seconds must be between 0 and 3600")
+    return seconds
 
 
 def record(br, seconds: float, rois: dict, indicator: str = DEFAULT_INDICATOR, fps: float = 20.0, seed: int = 0,
            frame_cb=None, **kw) -> ImagingResult:
     """Step a lockstep brain for `seconds` and image it. frame_cb(session, frame_index) runs after each frame (for rendering)."""
-    if not 0 < seconds <= 3600:
-        raise ImagingError("seconds must be between 0 and 3600")
+    check_seconds(seconds)
     s = ImagingSession(br.n, rois, indicator, fps, seed=seed, **kw)
     s.prime_from_activity(br.sim.activity)
     for _ in range(int(round(seconds / DT_S))):
@@ -448,9 +476,13 @@ def export_nwb(res: ImagingResult, path: Path) -> Path:
     if res.frames:
         from hdmf.backends.hdf5.h5_utils import H5DataIO
 
+        # 3.0 day 2 review: the live view keeps one rendered frame per screen refresh that saw a new imaging frame, which is not
+        # one per imaging frame, so those carry their own times; a protocol's frames are exactly one per imaging frame.
+        timing = (dict(timestamps=[float(x) for x in res.frame_times]) if len(res.frame_times) == len(res.frames)
+                  else dict(rate=float(m["fps"]), starting_time=float(res.t_s[0]) if len(res.t_s) else 0.0))
         nwb.add_acquisition(ImageSeries(name="rendered_view", data=H5DataIO(np.stack(res.frames).astype(np.uint8), compression="gzip"),
-                                        unit="n.a.", format="raw", rate=float(m["fps"]), starting_time=0.0,
-                                        description="the rendered brain view colored by dF/F (RGB)"))
+                                        unit="n.a.", format="raw", description="the rendered brain view colored by dF/F (RGB)",
+                                        **timing))
     with NWBHDF5IO(str(path), "w") as io:
         io.write(nwb)
     return Path(path)

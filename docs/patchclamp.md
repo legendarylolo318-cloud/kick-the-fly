@@ -34,4 +34,4 @@ patch: {neuron: "type:DNp01", index: 0, mode: embedded, amplitudes: [0, 0.05, 0.
 ```
 
 `protocols/patch_dnp01_if_curve.yaml` runs it over several seeds and writes per-fly CSVs and a mean I-F table. `fly.patch("type:DNp01",
-[0, 0.05, 0.1], mode="isolated")` returns the curve and the recording. A patch protocol stands alone (no stimuli, drug or imaging).
+[0, 0.05, 0.1], mode="isolated")` returns the curve and the recording. A patch protocol stands alone: stimuli, recordings, surgery, a control, thermogenetics, a drug, imaging or a top-level warmup_s / duration_s are refused rather than ignored (its warm-up is `patch.warmup_s`). Currents must be finite and within +-5.

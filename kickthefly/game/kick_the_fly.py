@@ -367,9 +367,10 @@ hold current and I-F amplitudes. Exports CSV and NWB (in model units, not a volt
 
 Simulated calcium imaging (3.0 day 2; lab/imaging.py, docs/imaging.md). MODEL: spikes convolved with a two-exponential GCaMP kernel,
 averaged over an ROI, with Poisson shot noise; dF/F against a 30 s running mean of the neuron's own fluorescence. LITERATURE: kernel
-speeds from Chen et al. 2013 (GCaMP6s/6f) and Zhang et al. 2023 (jGCaMP8m); the UI says which of those numbers were not verified in the
-papers' text. GAME RULE: dF/F per spike, photon budget, ROI sets, colors (Settings > Accessibility palettes; Reduced flashing smooths the
-view). The brain view's Imaging mode colors neurons by dF/F. Exports CSV, NWB (RoiResponseSeries, ImageSeries) and TIFF stacks.
+speeds from Chen et al. 2013 (GCaMP6s/6f: Supplementary Table 3, mouse V1 in vivo, 1 action potential) and Zhang et al. 2023
+(jGCaMP8m), each checked in the paper (3.0 day 2 review); the UI gives the source of each. GAME RULE: dF/F per spike, photon
+budget, ROI sets, colors (Settings > Accessibility palettes; Reduced flashing smooths the view). The brain view's Imaging mode
+colors neurons by dF/F (its firing counters and legend give way to an IMAGING (MODEL) label). Exports CSV, NWB (RoiResponseSeries, ImageSeries) and TIFF stacks.
 
 Pharmacology (3.0 day 2; lab/pharmacology.py, docs/pharmacology.md). MODEL PREDICTION: a drug multiplies the weight of every synapse whose
 presynaptic neuron is predicted to release a transmitter (picrotoxin: GABA and glutamate down; cholinergic block; glutamate-Cl block;
@@ -834,24 +835,27 @@ class Brain:
 
     def set_current(self, name: str, rows, values) -> None:
         """Give the named source `values` (a scalar or one per row) on `rows`, replacing what that source had. The
-        sources add up; one source never overwrites another (unlike drive_cur, which assays own). Call from the step's
-        thread or while the brain is not stepping."""
-        arr = self.currents.get(name)
-        if arr is None:
-            arr = self.currents[name] = np.zeros(len(self.inject), np.float32)
-        arr[:] = 0
+        sources add up; one source never overwrites another (unlike drive_cur, which assays own). Safe from any thread:
+        the Lab tick calls it on the game thread while the brain thread steps (3.0 day 2 review)."""
+        arr = np.zeros(len(self.inject), np.float32)
         arr[np.asarray(rows, np.int64)] = values
-        self._sum_currents()
-
-    def clear_current(self, name: str) -> None:
-        if self.currents.pop(name, None) is not None:
+        with self._lock:
+            self.currents[name] = arr
             self._sum_currents()
 
+    def clear_current(self, name: str) -> None:
+        with self._lock:
+            if self.currents.pop(name, None) is not None:
+                self._sum_currents()
+
     def _sum_currents(self) -> None:
-        self.inject[:] = 0
+        # Build the sum in a new array and swap it in: a step on the brain thread may be reading the old one, and zeroing it
+        # in place let that step see a half-built sum (3.0 day 2 review). The array is set before the flag.
+        total = np.zeros(len(self.inject), np.float32)
         for arr in self.currents.values():
-            self.inject += arr
-        self.injecting = bool(np.any(self.inject))
+            total += arr
+        self.inject = total
+        self.injecting = bool(np.any(total))
 
     def clear_overrides(self) -> None:
         self.override[:] = 0
@@ -910,7 +914,11 @@ class Brain:
         if self.recorder is not None:
             self.recorder.push(self.steps, spikes)
         if self.probe is not None:
-            self.probe(self)
+            try:
+                self.probe(self)
+            except Exception:                            # 3.0 day 2 review: on the brain thread an exception ends the loop
+                log.exception("brain probe failed; removed")
+                self.probe = None
         if self.stethoscope_indices is not None and len(self.stethoscope_indices) > 0:
             self.stethoscope_spikes += int(np.count_nonzero(spikes[self.stethoscope_indices]))
         on = np.flatnonzero(spikes)
@@ -3503,8 +3511,8 @@ class Game:
             ind = self.imaging_live.session.ind.name if self.imaging_live.session else ""
             self._text(surf, f"IMAGING (MODEL)  {ind.split(' (')[0]}  dF/F" if not small else "IMAGING (MODEL)",
                        (rect.x + 6, rect.bottom - 18), (170, 255, 190), self.f_small)
-        if small:
-            self._text(surf, f"{v.firing:,} firing", (rect.x + 6, rect.y + 4), (150, 215, 240), self.f_small)
+        if small and not self.imaging_live.on:     # 3.0 day 2 review: in Imaging mode the view is fed dF/F, so these would
+            self._text(surf, f"{v.firing:,} firing", (rect.x + 6, rect.y + 4), (150, 215, 240), self.f_small)  # count pixels
             self._text(surf, f"{v.hot_firing:,} pain", (rect.right - 6, rect.y + 4), (255, 150, 70), self.f_small, "topright")
 
     def _draw_big_view(self, surf) -> None:
@@ -3540,8 +3548,11 @@ class Game:
         pulse = 1.0 if self.calm_fx else 0.5 + 0.5 * math.sin(now * 6)
         # Header: title and the recording/stethoscope/mode controls on the first row, the live counts and the camera
         # presets on the second; status and help lines go under the brain so nothing overlaps.
-        r = self._text(surf, f"{v.firing:,} firing", (24, 38), (150, 215, 240), self.f_bold)
-        self._text(surf, f"{v.hot_firing:,} pain", (r.right + 18, 38), tuple(int(c * (0.7 + 0.3 * pulse)) for c in (255, 150, 70)), self.f_bold)
+        if self.imaging_live.on:                     # 3.0 day 2 review: not firing counts while the view shows dF/F
+            r = self._text(surf, "dF/F (MODEL)", (24, 38), (170, 255, 190), self.f_bold)
+        else:
+            r = self._text(surf, f"{v.firing:,} firing", (24, 38), (150, 215, 240), self.f_bold)
+            self._text(surf, f"{v.hot_firing:,} pain", (r.right + 18, 38), tuple(int(c * (0.7 + 0.3 * pulse)) for c in (255, 150, 70)), self.f_bold)
 
         # Time-lapse recording button:
         tl_btn = pygame.Rect(232, 13, 105, 22)
@@ -3638,6 +3649,10 @@ class Game:
                        (30, ly), TEXT, self.f_small)
             self._text(surf, "Neurons without region annotations in MaleCNS v1.0 are kept in an explicit 'unassigned' bucket.",
                        (30, ly + 18), DIM, self.f_small)
+        elif self.imaging_live.on:                   # 3.0 day 2 review: the firing legend's colors are not what Imaging shows
+            self._text(surf, "IMAGING (MODEL): brightness = simulated GCaMP dF/F of the ROI neurons; the rest stay dark",
+                       (30, ly), TEXT, self.f_small)
+            self._text(surf, "a forward model on the simulation's spikes, not a measurement", (30, ly + 18), DIM, self.f_small)
         else:
             hot_c, cool_c = self.view.legend
             aacircle(surf, (30, ly + 7), 5, hot_c)
@@ -4360,13 +4375,18 @@ class Game:
         slot.asleep_until = now + 2.0
 
     def _lab_tick(self) -> None:
-        """3.0 day 2: the Lab's live thermogenetics (every few frames). Does nothing until an expression is added."""
+        """3.0 day 2: the Lab's live thermogenetics (every few frames). Does nothing until an expression is added. Also takes
+        the patch electrode off once its page is closed."""
+        if getattr(self.menu, "toolkit", None) is not None:
+            from kickthefly.lab import labtoolkit
+            labtoolkit.leave_patch(self.menu)
         tl = self.thermo_live
         if (tl.active or tl.per_brain) and self.frame % 3 == 0:
             try:
                 tl.tick(self.flies, ARENAS[self.arena_i] == "thermo")
-            except Exception as e:                       # a bad target is reported once and the expression dropped
-                tl.clear([s.brain for s in self.flies])
+            except Exception as e:                       # a target this brain can't resolve: that expression is dropped
+                if not isinstance(e, ValueError):        # (ThermoLive did it); anything else stops them all
+                    tl.clear([s.brain for s in self.flies])
                 self.menu.flash(f"thermogenetics: {e}", menu_ui.BAD)
 
     def patch_neuron(self, row: int) -> None:
@@ -4630,9 +4650,10 @@ class Game:
             self._text(surf, "Lab: sign flip", (card.right - 12, card.bottom - 26), DIM, self.f_small, "topright")
         self.patch_button = None
         if self.cfg.lab:                             # 3.0 day 2: virtual patch clamp on this neuron (Lab > Patch)
-            r = pygame.Rect(card.x + 312, card.bottom + 6, 96, 24)
+            # a row of its own under PATH FROM/TO (3.0 day 2 review: at card.x + 312 it fell off the card and the view's clip)
+            r = pygame.Rect(card.x, card.bottom + 36, 306, 24)
             pygame.draw.rect(surf, (90, 70, 140), r, border_radius=6)
-            self._text(surf, "PATCH (MODEL)", r.center, INK, self.f_small, "center")
+            self._text(surf, "PATCH CLAMP THIS NEURON (MODEL)", r.center, INK, self.f_small, "center")
             self.patch_button = (r, i)
         self.path_buttons = []                       # path tracer: this neuron as the start or the end
         for k, (label, what) in enumerate((("PATH FROM HERE", "from"), ("PATH TO HERE", "to"))):

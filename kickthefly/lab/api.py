@@ -266,6 +266,7 @@ class Fly:
         imaging.ImagingResult (export_csv / export_nwb / export_tiff in lab/imaging.py)."""
         from kickthefly.lab import imaging
 
+        seconds = imaging.check_seconds(seconds)
         if rois is None:
             rois = imaging.rois_by_region(self.brain)
         elif not isinstance(rois, dict):
@@ -287,10 +288,11 @@ class Fly:
         from kickthefly.sim import wiring
 
         doses = dict(getattr(self, "_doses", {}))
-        doses[ph.drug(name).key] = float(dose)
-        self._doses, self._drug_opts = doses, (include_low_confidence, cut)
-        w = ph.wiring_for(doses, include_low_confidence, cut)
-        return wiring.apply(self.brain, w, getattr(self.brain, "graph", None))
+        doses[ph.drug(name).key] = dose
+        w = ph.wiring_for(doses, include_low_confidence, cut)       # refuses a bad dose or cut before anything is kept
+        out = wiring.apply(self.brain, w, getattr(self.brain, "graph", None))
+        self._doses, self._drug_opts = {k: float(v) for k, v in doses.items()}, (include_low_confidence, cut)
+        return out
 
     def washout(self) -> "Fly":
         """Remove every drug (the synapses return to exactly what they were, learned weights included)."""

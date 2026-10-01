@@ -357,5 +357,5 @@
   "Imaging frame rate": "",
   "Imaging indicator": "",
   "Lab > Calcium imaging: frames per second of the simulated imaging (the 5 ms simulation step quantizes it). MODEL, not a measurement.": "",
-  "Lab > Calcium imaging: which GCaMP the simulated imaging uses. MODEL: spikes from the simulation convolved with the indicator's kernel plus photon shot noise, not a measurement. The rise and decay come from Chen 2013 (GCaMP6s/6f) and Zhang 2023 (jGCaMP8m); the screen says which of those numbers could not be checked in the papers' text. Off until you turn Imaging mode on.": ""
+  "Lab > Calcium imaging: which GCaMP the simulated imaging uses. MODEL: spikes from the simulation convolved with the indicator's kernel plus photon shot noise, not a measurement. The rise and decay come from Chen 2013 (GCaMP6s/6f, its Supplementary Table 3: mouse cortex, single spikes) and Zhang 2023 (jGCaMP8m, fly visual responses). Off until you turn Imaging mode on.": ""
 }

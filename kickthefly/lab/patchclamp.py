@@ -42,6 +42,18 @@ MODES = ("embedded", "isolated")
 UNITS_NOTE = ("model units: the firing threshold is 1.0 and the reset is 0.0; the tonic drive alone rests at "
               "bias/leak = 0.8. Not millivolts.")
 TAG_TEXT = "MODEL: a point-neuron leaky integrate-and-fire unit. Not real electrophysiology."
+MAX_CURRENT = 5.0
+
+
+def check_current(a) -> float:
+    """A current the electrode may inject: a finite number within +-MAX_CURRENT (NaN never reaches a brain)."""
+    try:
+        a = float(a)
+    except (TypeError, ValueError):
+        raise PatchError("the current must be a number") from None
+    if not abs(a) <= MAX_CURRENT:
+        raise PatchError(f"the current must be a number within +-{MAX_CURRENT:g}")
+    return a
 
 
 class PatchError(ValueError):
@@ -62,17 +74,28 @@ class ClampProtocol:
     holding: float = 0.0
 
     def __post_init__(self):
-        self.amplitudes = [float(a) for a in self.amplitudes]
+        if isinstance(self.amplitudes, (str, bytes)) or not hasattr(self.amplitudes, "__len__"):
+            raise PatchError("amplitudes must be a list of numbers")
+        try:
+            self.amplitudes = [float(a) for a in self.amplitudes]
+            self.holding = float(self.holding)
+            self.repeats = int(self.repeats)
+        except (TypeError, ValueError):
+            raise PatchError("amplitudes, holding and repeats must be numbers") from None
         if not self.amplitudes or len(self.amplitudes) > 200:
             raise PatchError("give between 1 and 200 current amplitudes")
-        if any(abs(a) > 5.0 for a in self.amplitudes) or abs(self.holding) > 5.0:
-            raise PatchError("currents are limited to +-5 (the validation suite's activation current is 0.5)")
+        # 3.0 day 2 review: NaN passed abs(a) > 5 and went into the live brain, where that neuron's potential stayed NaN.
+        if not all(abs(a) <= MAX_CURRENT for a in self.amplitudes + [self.holding]):
+            raise PatchError(f"currents are limited to finite numbers within +-{MAX_CURRENT:g} (the validation suite's "
+                             f"activation current is 0.5)")
         for name, lo, hi in (("duration_ms", 10, 20000), ("pre_ms", 0, 20000), ("post_ms", 0, 20000), ("gap_ms", 0, 20000)):
-            v = float(getattr(self, name))
+            try:
+                v = float(getattr(self, name))
+            except (TypeError, ValueError):
+                raise PatchError(f"{name} must be a number") from None
             if not lo <= v <= hi:
                 raise PatchError(f"{name} must be between {lo} and {hi} ms")
             setattr(self, name, v)
-        self.repeats = int(self.repeats)
         if not 1 <= self.repeats <= 100:
             raise PatchError("repeats must be between 1 and 100")
 
@@ -276,13 +299,16 @@ class LiveElectrode:
         self.br.clear_current(SOURCE)
 
     def set_hold(self, amp: float) -> None:
-        self.hold = float(amp)
+        self.hold = check_current(amp)
         self._inject(self.hold if self._sched is None else self._last)
 
     def run(self, proto: ClampProtocol) -> None:
-        self.proto, self._sched, self._pos, self.done = proto, proto.schedule(), 0, False
+        # The brain thread reads this state in _push after every step: everything it needs exists before the schedule
+        # appears (3.0 day 2 review: a step between the two lines raised AttributeError there and ended the brain loop).
         self.log = []
         self._buf_v, self._buf_s, self._buf_i = [], [], []
+        self.proto, self._pos, self.done = proto, 0, False
+        self._sched = proto.schedule()
 
     def _inject(self, a) -> None:
         if a != self._last:
@@ -298,17 +324,18 @@ class LiveElectrode:
         self.v[k], self.spikes[k] = br.sim.v[self.row], bool(br.sim.spikes[self.row])
         self.i[k] = 0.0 if self._last is None else self._last
         self.count += 1
-        if self._sched is not None:
+        sched = self._sched                                  # read once: the game thread may start another run meanwhile
+        if sched is not None:
             self._buf_v.append(self.v[k]); self._buf_s.append(self.spikes[k]); self._buf_i.append(self.i[k])
             self._pos += 1
-            if self._pos >= len(self._sched):
+            if self._pos >= len(sched):
                 self.recording = Recording(np.array(self._buf_v, np.float32), np.array(self._buf_s), np.array(self._buf_i, np.float32),
                                            "embedded", self.row, dict(neuron=describe_neuron(br, self.row), tag=TAG_TEXT,
                                                                       units=UNITS_NOTE, live=True))
                 self._sched, self.done = None, True
                 self._inject(self.hold)
             else:
-                self._inject(float(self._sched[self._pos]))
+                self._inject(float(sched[self._pos]))
 
     def window(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """(v, spikes, current) for the last `window_steps` steps in time order."""

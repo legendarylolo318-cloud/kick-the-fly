@@ -59,6 +59,7 @@ mean firing per recording group, and, with surgery, the paired comparison agains
 from __future__ import annotations
 
 import json
+import math
 import time
 from pathlib import Path
 
@@ -84,26 +85,39 @@ def _check_day2(p: dict, where: str) -> None:
     from kickthefly.lab import imaging, patchclamp, pharmacology, thermogenetics
 
     if "patch" in p:
-        if "assay" in p or p.get("classroom") or any(k in p for k in ("thermogenetics", "drug", "imaging", "stimuli")):
-            raise ProtocolError(f"{where}: a patch protocol stands alone (no assay, stimuli, thermogenetics, drug or imaging)")
+        # 3.0 day 2 review: surgery, recordings, control and a top-level warmup/duration were accepted and then ignored
+        ignored = [k for k in ("assay", "classroom", "thermogenetics", "drug", "imaging", "stimuli", "recordings", "surgery",
+                               "control", "warmup_s", "duration_s") if k in p]
+        if ignored:
+            raise ProtocolError(f"{where}: a patch protocol stands alone; it can't use {', '.join(ignored)} (its own warm-up is "
+                                f"patch.warmup_s)")
         pa = p["patch"]
         keys = {"neuron", "index", "mode", "amplitudes", "duration_ms", "repeats", "warmup_s"}
         if not isinstance(pa, dict) or set(pa) - keys or "neuron" not in pa:
             raise ProtocolError(f"{where}: patch needs {{neuron, ...}} with only {sorted(keys)}")
+        if not isinstance(pa["neuron"], str) or not pa["neuron"].strip():
+            raise ProtocolError(f"{where}: patch.neuron must be a neuron spec such as type:DNp01")
         try:
-            patchclamp.ClampProtocol(pa.get("amplitudes", [0.0, 0.05, 0.1]), float(pa.get("duration_ms", 500)),
-                                     repeats=int(pa.get("repeats", 3)))
+            proto = patchclamp.ClampProtocol(pa.get("amplitudes", [0.0, 0.05, 0.1]), pa.get("duration_ms", 500),
+                                             repeats=pa.get("repeats", 3))
             if pa.get("mode", "embedded") not in patchclamp.MODES:
                 raise patchclamp.PatchError(f"mode must be one of {patchclamp.MODES}")
-            if int(pa.get("index", 0)) < 0 or not 0 <= float(pa.get("warmup_s", 1.0)) <= 3600:
+            index, warmup = int(pa.get("index", 0)), float(pa.get("warmup_s", 1.0))
+            if index < 0 or not 0 <= warmup <= 3600:
                 raise patchclamp.PatchError("index must be >= 0 and warmup_s within 0-3600")
         except (patchclamp.PatchError, TypeError, ValueError) as e:
             raise ProtocolError(f"{where}: patch: {e}") from None
+        # numbers from here on (3.0 day 2 review: amplitudes written as text passed and broke the summary after the run)
+        p["patch"] = dict(pa, amplitudes=list(proto.amplitudes), duration_ms=proto.duration_ms, repeats=proto.repeats,
+                          index=index, warmup_s=warmup)
         return
     if "assay" in p or p.get("classroom"):
         used = [k for k in DAY2_KEYS if k in p]
         if used:
-            raise ProtocolError(f"{where}: {', '.join(used)} can't be used in an assay protocol yet (stimulus protocols only)")
+            kind = "an assay" if "assay" in p else "a classroom"
+            raise ProtocolError(f"{where}: {', '.join(used)} can't be used in {kind} protocol yet (stimulus protocols only)")
+        if p.get("assay") == "thermo_escape":
+            _check_thermo_escape(p.get("assay_options") or {}, where)
         return
     if "thermogenetics" in p:
         try:
@@ -130,11 +144,42 @@ def _check_day2(p: dict, where: str) -> None:
             imaging.indicator(im.get("indicator", imaging.DEFAULT_INDICATOR))
             if not 1 <= float(im.get("fps", 20)) <= 200:
                 raise imaging.ImagingError("fps must be between 1 and 200")
+            for key, default in (("f0_photons", 100.0), ("dff_per_spike", 0.2)):   # 3.0 day 2 review: were checked mid-run
+                v = im.get(key, default)
+                if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) or v <= 0:
+                    raise imaging.ImagingError(f"{key} must be a positive number")
+            for key in ("shot_noise", "tiff"):
+                if key in im and not isinstance(im[key], bool):
+                    raise imaging.ImagingError(f"{key} must be true or false")
         except (imaging.ImagingError, TypeError, ValueError) as e:
             raise ProtocolError(f"{where}: imaging: {e}") from None
         rois = im.get("rois", "regions")
         if not (rois == "regions" or (isinstance(rois, list) and rois and all(isinstance(r, str) for r in rois))):
             raise ProtocolError(f"{where}: imaging.rois must be 'regions' or a list of neuron specs")
+        if isinstance(rois, list) and len(rois) > imaging.MAX_ROIS:
+            raise ProtocolError(f"{where}: imaging: at most {imaging.MAX_ROIS} ROIs")
+
+
+def _check_thermo_escape(opts: dict, where: str) -> None:
+    """The thermo_escape assay's options become keyword arguments of thermogenetics.escape_fly. 3.0 day 2 review: any key
+    went through (brain: 1 crashed every worker; temps: [] crashed the summary)."""
+    from kickthefly.lab import thermogenetics as tg
+
+    bad = set(opts) - {"temps", "target", "effector_name"}
+    if bad:
+        raise ProtocolError(f"{where}: thermo_escape options are temps, target and effector_name, not {sorted(bad)}")
+    temps = opts.get("temps", list(tg.ASSAY_TEMPS))
+    if (not isinstance(temps, list) or not 1 <= len(temps) <= 50
+            or not all(isinstance(t, (int, float)) and not isinstance(t, bool) for t in temps)
+            or not all(tg.TEMP_RANGE_C[0] <= t <= tg.TEMP_RANGE_C[1] for t in temps)):
+        raise ProtocolError(f"{where}: thermo_escape temps must be a list of 1-50 temperatures within "
+                            f"{tg.TEMP_RANGE_C[0]:g}-{tg.TEMP_RANGE_C[1]:g} C")
+    if not isinstance(opts.get("target", "type:DNp01"), str):
+        raise ProtocolError(f"{where}: thermo_escape target must be a neuron spec")
+    try:
+        tg.effector(opts.get("effector_name", "trpa1"))
+    except tg.ThermoError as e:
+        raise ProtocolError(f"{where}: thermo_escape: {e}") from None
 
 
 def folder_name(name) -> str:
@@ -197,6 +242,7 @@ def check(data, where: str = "protocol") -> dict:
         _check_day2(p, where)
         return p
     if p.get("classroom"):
+        _check_day2(p, where)
         return p
     if "patch" in p:
         _check_day2(p, where)

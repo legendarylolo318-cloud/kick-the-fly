@@ -48,6 +48,9 @@ ARENA_COLD_C, ARENA_HOT_C = 15.0, 35.0           # GAME RULE: the thermo arena's
 TEMP_RANGE_C = (10.0, 45.0)
 ACTIVATE_CURRENT = 0.5                           # GAME RULE: validation's activation current (protocol mode: drive)
 SILENCE_CURRENT = -0.6                           # GAME RULE: brain surgery's silencing current
+MAX_STRENGTH = 3.0                               # GAME RULE: the strength slider's top
+MAX_EXPRESSIONS = 64                             # 3.0 day 2 review: limits on what a protocol file can ask for
+MAX_SCHEDULE_POINTS = 1000
 
 
 @dataclass(frozen=True)
@@ -114,7 +117,13 @@ class Expression:
     def __post_init__(self):
         self.effector = effector(self.effector).key
         self.target = str(self.target)
-        self.strength = float(max(0.0, min(3.0, self.strength)))
+        try:
+            strength = float(self.strength)
+        except (TypeError, ValueError):
+            raise ThermoError("strength must be a number from 0 to 3") from None
+        if not 0.0 <= strength <= MAX_STRENGTH:        # 3.0 day 2 review: NaN used to become 3 silently, -1 became 0
+            raise ThermoError(f"strength must be a number from 0 to {MAX_STRENGTH:g}")
+        self.strength = strength
 
 
 class Thermogenetics:
@@ -211,25 +220,37 @@ def check_spec(spec, where: str = "protocol") -> dict:
     ex = spec.get("expression")
     if not isinstance(ex, list) or not ex:
         raise ThermoError(f"{where}: thermogenetics.expression must be a list of {{effector, target}}")
+    if len(ex) > MAX_EXPRESSIONS:
+        raise ThermoError(f"{where}: at most {MAX_EXPRESSIONS} expressions")
     out = dict(spec)
     clean = []
     for i, e in enumerate(ex):
         if not isinstance(e, dict) or set(e) - {"effector", "target", "strength"} or "effector" not in e or "target" not in e:
             raise ThermoError(f"{where}: expression {i + 1} needs effector and target (and optionally strength)")
+        if not isinstance(e["target"], str) or not e["target"].strip():
+            raise ThermoError(f"{where}: expression {i + 1}: target must be a neuron spec such as type:DNp01 or line:SS00727")
         try:
-            effector(e["effector"])
-            float(e.get("strength", 1.0))
-        except (ThermoError, TypeError, ValueError) as err:
+            Expression(e["effector"], e["target"], e.get("strength", 1.0))
+        except ThermoError as err:
             raise ThermoError(f"{where}: expression {i + 1}: {err}") from None
         clean.append(dict(e))
     out["expression"] = clean
     t = spec.get("temperature_c", 22.0)
-    if isinstance(t, (int, float)):
-        pts = [(0.0, float(t))]
-    elif isinstance(t, list) and t and all(isinstance(p, dict) and set(p) == {"at_s", "c"} for p in t):
-        pts = sorted((float(p["at_s"]), float(p["c"])) for p in t)
-    else:
-        raise ThermoError(f"{where}: temperature_c must be a number or a list of {{at_s, c}}")
+    try:
+        if isinstance(t, (int, float)) and not isinstance(t, bool):
+            pts = [(0.0, float(t))]
+        elif isinstance(t, list) and t and all(isinstance(p, dict) and set(p) == {"at_s", "c"} for p in t):
+            if len(t) > MAX_SCHEDULE_POINTS:
+                raise ThermoError(f"{where}: a temperature schedule has at most {MAX_SCHEDULE_POINTS} points")
+            pts = sorted((float(p["at_s"]), float(p["c"])) for p in t)
+        else:
+            raise ThermoError(f"{where}: temperature_c must be a number or a list of {{at_s, c}}")
+    except ThermoError:
+        raise
+    except (TypeError, ValueError):                  # 3.0 day 2 review: at_s: "x" escaped as a bare ValueError
+        raise ThermoError(f"{where}: temperature_c points need numbers: {{at_s: seconds, c: degrees}}") from None
+    if any(not (0.0 <= at <= 3600.0) for at, _ in pts):
+        raise ThermoError(f"{where}: at_s must be within 0-3600 s")
     if any(not (TEMP_RANGE_C[0] <= c <= TEMP_RANGE_C[1]) for _, c in pts):
         raise ThermoError(f"{where}: temperatures must be within {TEMP_RANGE_C[0]:g}-{TEMP_RANGE_C[1]:g} C")
     out["temperature_c"] = t

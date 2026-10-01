@@ -6,8 +6,11 @@ import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
-os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
+# Forced, not defaulted (3.0 day 2 review): a shell that exports SDL_VIDEODRIVER=wayland or x11 made the tests open real, empty
+# windows on the desktop. No test needs a visible window; KTF_TEST_SDL_VIDEODRIVER / KTF_TEST_SDL_AUDIODRIVER pick another
+# driver on purpose (e.g. offscreen).
+os.environ["SDL_VIDEODRIVER"] = os.environ.get("KTF_TEST_SDL_VIDEODRIVER", "dummy")
+os.environ["SDL_AUDIODRIVER"] = os.environ.get("KTF_TEST_SDL_AUDIODRIVER", "dummy")
 os.environ.setdefault("KICK_THE_FLY_OFFLINE", "1")            # never contact neuPrint from the tests (or CI)
 
 

@@ -148,9 +148,9 @@ SETTINGS: tuple[Setting, ...] = (
       "the card and Try it are game rules.", tag=GAME_RULE),
     S("brain.imaging_indicator", "Brain", "Imaging indicator", "choice", "gcamp6s",
       "Lab > Calcium imaging: which GCaMP the simulated imaging uses. MODEL: spikes from the simulation convolved with the "
-      "indicator's kernel plus photon shot noise, not a measurement. The rise and decay come from Chen 2013 (GCaMP6s/6f) and Zhang "
-      "2023 (jGCaMP8m); the screen says which of those numbers could not be checked in the papers' text. Off until you turn Imaging "
-      "mode on.", options=("gcamp6s", "gcamp6f", "jgcamp8m"), labels=("GCaMP6s", "GCaMP6f", "GCaMP8m"), tag="MODEL"),
+      "indicator's kernel plus photon shot noise, not a measurement. The rise and decay come from Chen 2013 (GCaMP6s/6f, its "
+      "Supplementary Table 3: mouse cortex, single spikes) and Zhang 2023 (jGCaMP8m, fly visual responses). Off until you turn "
+      "Imaging mode on.", options=("gcamp6s", "gcamp6f", "jgcamp8m"), labels=("GCaMP6s", "GCaMP6f", "GCaMP8m"), tag="MODEL"),
     S("brain.imaging_fps", "Brain", "Imaging frame rate", "choice", 20,
       "Lab > Calcium imaging: frames per second of the simulated imaging (the 5 ms simulation step quantizes it). MODEL, not a "
       "measurement.", options=(10, 20, 30, 40), labels=("10 Hz", "20 Hz", "30 Hz", "40 Hz"), tag="MODEL"),
