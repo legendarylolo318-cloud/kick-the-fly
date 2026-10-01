@@ -524,3 +524,19 @@ def test_thermo_page_shows_what_the_flies_sense_in_the_arena(game):
     texts.clear()
     _draw(game, "lab_thermo")
     assert any("31.2 C" in t for t in texts), [t for t in texts if " C" in t]
+
+
+def test_neurodex_check_stimulates_a_type_not_discovered_yet(rig):
+    """In --playthrough all, LPLC2 had been discovered in a tool leg (tagged 'play'); the check drove it again and read that
+    first record: "LPLC2 was tagged 'play', not 'stimulated'"."""
+    from kickthefly.lab import playthrough as pt
+
+    x3 = rig.game.x3
+    x3.ensure_table()
+    x3.ensure_progress().mark(x3.brain_name, "LPLC2", 3.0, "play")
+    res = pt.Result(id="t", group="extra", brain="adult")
+    pt.guarded(res, pt.extra_neurodex, rig, res)
+    # the target choice only: on the synthetic pack DNp01 and MDN already fire at rest, so driving them discovers nothing
+    # there (plumbing pack); on the real pack the same check PASSes with DNp01 (run by hand, see the review handoff)
+    assert res.metrics["stimulated_type"] == "DNp01" and res.metrics["candidates_already_discovered"] == ["LPLC2"]
+    assert not any("LPLC2 was tagged" in f for f in res.failures)

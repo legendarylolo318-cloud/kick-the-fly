@@ -984,8 +984,16 @@ def extra_neurodex(rig: Rig, r: Result) -> None:
                      discovered_before=len(before))
     wrong = {n: v["how"] for n, v in calm.items() if v["how"] != "rest"}
     r.expect(not wrong, f"calm discoveries not tagged 'rest': {dict(list(wrong.items())[:5])}")
-    target = next((t for t in ("LPLC2", "DNp01", "MDN") if x3.table.index(t) is not None), None)
-    r.expect(target is not None, "none of LPLC2, DNp01, MDN is in this brain")
+    # 3.0 day 2 review: a type the earlier legs already discovered keeps its first record ("play") and is never discovered
+    # again, so the stimulated part drives a curated type not discovered yet (day 1 review: DNp01, MDN and DNp09 are
+    # discovered within 3 s at amp 0.5).
+    present = [t for t in ("LPLC2", "DNp01", "MDN", "DNp09") if x3.table.index(t) is not None]
+    known = set(prog.types(x3.brain_name))
+    r.metrics["candidates_already_discovered"] = [t for t in present if t in known]
+    r.expect(bool(present), "none of LPLC2, DNp01, MDN, DNp09 is in this brain")
+    target = next((t for t in present if t not in known), None)
+    if present and target is None:
+        r.note("every candidate type was already discovered in earlier legs: the stimulated part was not judged")
     if target is None:
         return
     from kickthefly.core import simcore
