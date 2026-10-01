@@ -52,6 +52,6 @@ def test_share_extra_passes(rig):
 def test_bundle_extra_passes(synthetic_pack, tmp_path, monkeypatch):
     monkeypatch.setenv("KICK_THE_FLY_SIM_BACKEND", "cpu")
     res = pt.Result(id="t", group="extra", brain="adult")
-    pt.guarded(res, pt.extra_bundle, "cpu", res, tmp_path)
+    pt.guarded(res, pt.extra_bundle, "cpu", tmp_path, res)          # the bot calls fn(*args, result): the result goes last
     assert res.status == pt.PASS, res.failures
     assert res.metrics["verdict"] == "MATCH (bit-exact)"

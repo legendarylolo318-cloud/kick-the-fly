@@ -116,7 +116,7 @@ Nothing is pushed. Branch made from `release/3.0` (323f8f2). Version is not bump
 | `--validate` before (pristine `release/3.0`) vs after (this branch) | **identical**, 0 differences, 21 tests, 12 PASS / 9 FAIL |
 | new tests | 146 (genetics 12, thermogenetics 22, patch clamp 19, imaging 30, pharmacology 19, Lab screens in the running game 23, API 7, protocols 14), all pass |
 | full `pytest -m "not validation"` (earlier code, 46 min) | 749 passed, 2 failed, 15 skipped: `test_nwb_round_trip` (the NWB bug below, fixed mid-run, passes now) and the playthrough slice (see below) |
-| full `pytest` again on the final code | see "Final run" at the end of this file |
+| full `pytest` again on the final code | **763 passed, 2 failed, 15 skipped** (45 min). The failures: the playthrough slice (the pre-existing `extra:neurodex`) and `test_playthrough_extras.py::test_bundle_extra_passes`, which called `extra_bundle` with the same wrong argument order as the bot bug; I fixed the test to the bot's real call order and it passes |
 | `--selftest` | 18 PASS, 1 WARN (audio, only because I forced the dummy audio driver), 0 FAIL; GL 4.6 / GPU probe / GL backend PASS |
 | `--headless --playthrough all --sim-backend cpu`, **final code** (SDL offscreen) | **315 passed, 1 failed, 69 gated, 11 skipped.** All six new checks PASS, `extra:bundle-rerun` PASS (bit-exact). The one FAIL is the pre-existing `extra:neurodex`. (An earlier run on pre-fix code: 313 / 4 failed, see below.) |
 | assay `thermo_escape`, seeds 1000-1009 | C1 / C2 / C3 PASS (details above) |
