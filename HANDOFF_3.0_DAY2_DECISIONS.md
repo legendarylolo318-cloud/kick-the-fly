@@ -1,7 +1,7 @@
 # Handoff: 3.0 day 2 decisions (branch `day2-decisions`, from `release/3.0` at 837514c)
 
 You asked for the open Day 2 design questions to be decided for researchers and players alike, and for the unverified citations to
-be checked. Nothing here changes a threshold, a weight or a time constant of the model. Tests of the results are in the table at the end.
+be checked. Nothing here changes a threshold, a weight or a time constant of the model. Results are in the last section.
 
 ## Decisions
 | question | decision | why |
@@ -35,3 +35,28 @@ Tests: `tests/test_neurodex.py` (+2), `tests/test_protocols_day2.py` (+2), `test
 - Old English tips replaced in `config.py` leave their old entries in the locale catalogs (harmless; the sync tool never removes entries).
 - The F0 and frame-rate Settings are read when the game starts (both now carry the `restart` flag so the UI says "applies on the next launch"; the frame rate was already read only at launch). Only the indicator can be changed live, in Lab > Calcium imaging. Not tried in a visible window. A live control for them would be a small follow-up if you want it.
 - Thermogenetic hysteresis (Pulver) is a documented gap, not built.
+
+## Two bugs found while verifying (both fixed, with regression tests)
+1. **Neurodex discovery froze after a new fly or a loaded save (a game bug).** `Extras3.dex_tick` skips a check unless the brain has run
+   `CHECK_STEPS` since the last one, but the brain's step counter goes back to 0 on a new fly or a loaded save, so no check ran until it
+   caught up with the old count (reproduced in the playthrough: `_last_check` 5307, brain at 3282; driving DNp01 for 3 s discovered nothing).
+   Fix: a counter that went back resets the check. `test_discovery_resumes_after_the_step_counter_goes_back` fails without the fix.
+2. **The bot's neurodex calm window opened too early (a bot bug).** After the training check the last tool poke was under 2 s old, so
+   types the fly legitimately smelled were discovered "in play" inside the "calm" window. The window now opens once the fly has been
+   untouched for 2.5 s. The criterion is unchanged.
+
+## What I ran (branch `day2-decisions`, 81811d4 and the handoff commit; full-speed, one machine, real adult pack)
+| run | result |
+|---|---|
+| full `pytest`, two halves (before the two fixes above) | half 1: 383 passed, 19 skipped, **1 failed** (the playthrough slice: bug 1); half 2: 464 passed, 0 failed (run in three pieces: a memory guard stopped the first runs inside `test_validation`, which spawns six workers; nothing failed before that, and the last four files, `test_validation`, `test_video_record`, `test_wiring`, `test_workflows`, passed 51/51 on their own) |
+| after the fixes: `tests/test_extras3.py`, `tests/playthrough/` | 38 passed; 13 passed (the slice that failed now passes) |
+| `--validate` baseline (837514c) vs this branch, cpu, 6 workers | **identical: 2,020 values, 0 differences**; 21 tests, 12 PASS / 9 FAIL in both (the documented results) |
+| `--headless --playthrough adult --sim-backend cpu` | **261 passed, 0 failed**, 3 gated, 12 skipped; `extra:neurodex` PASS, `game2d` and `game3d:adult:flypaper:bomb` both PASS |
+| `--headless --playthrough larva --sim-backend cpu` | 55 passed, 0 failed, 67 gated |
+| `tools/i18n_sync.py --check`, links in changed docs | clean |
+
+## Not done / not verified
+- The **full pytest was not rerun end to end after the two fixes**: only the files they touch (above). The fixes change `Extras3.dex_tick` and the bot's neurodex check only.
+- `flypaper:bomb` passed this time in both 2D and 3D; the review saw it fail history-dependently (4.574 Hz vs 8.725 needed on one leg). I did not diagnose why it passes now, so treat it as not understood rather than fixed.
+- Everything the day 2 review listed as unverified still is: live windows with real input and a gamepad, GPU compute backends, exe / AppImage builds, `nwbinspector`.
+- The four paper numbers extracted by a summarizing model (see Citations) still need a human check.

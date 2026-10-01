@@ -117,8 +117,8 @@ all?) stays open.
 | run | result |
 |---|---|
 | `--validate` before (clean release/3.0, 323f8f2) vs after (b1ab364), cpu, 5 workers | **identical**: 2,020 values, 0 differences; 21 tests, 12 PASS / 9 FAIL; 590 s and 597 s |
-| `--headless --playthrough all --sim-backend cpu` (SDL offscreen) | 315 passed, 2 failed, 69 gated, 10 skipped (b1ab364). FAILs: `extra:neurodex` (second half of the same check bug, fixed after this run, rerun pending) and `game2d:adult:flypaper:bomb` (pre-existing and history-dependent: the same leg FAILs on run 0 on Sonnet's code too, 4.574 Hz vs 8.725 needed; diagnosis unfinished) |
-| full `pytest` (two processes on disjoint halves of the files) | NOT FINISHED: first half started on b1ab364, second half not run |
+| `--headless --playthrough all --sim-backend cpu` (SDL offscreen) | 315 passed, 2 failed, 69 gated, 10 skipped (b1ab364). FAILs: `extra:neurodex` (second half of the same check bug; fixed, and the rerun passed: HANDOFF_3.0_DAY2_DECISIONS.md) and `game2d:adult:flypaper:bomb` (pre-existing and history-dependent: the same leg FAILs on run 0 on Sonnet's code too, 4.574 Hz vs 8.725 needed; diagnosis unfinished; it PASSED on the decisions branch's playthrough, cause still not understood) |
+| full `pytest` (two processes on disjoint halves of the files) | NOT FINISHED here; run to completion afterwards on the decisions branch, see HANDOFF_3.0_DAY2_DECISIONS.md (all passed except the playthrough slice, whose cause was a game bug, fixed there) |
 | targeted suites while fixing (day 2 files, wiring, nwb, config, playthrough extras, neurodex, i18n, selftest, savestate, sharecode, bundle, labpages, extras3, compat) | 235 + 61 + 143 passed, 1 skipped |
 | `tests/test_day2_review.py` on Sonnet's 4745422 (clean worktree) | 60 failed, 4 passed (the guards above) |
 | protocol fuzz: 40,000 random protocols with hostile day 2 blocks (seeded) | non-ProtocolError exceptions: 0 before and after (the at_s case was found by a targeted test); accepted 10,084 before vs 54 after |
