@@ -365,5 +365,14 @@
   "60 s": "",
   "Collect cell types in the Neurodex (default key D): a type is discovered the first time its neurons fire well above their own calm rate while you play or stimulate it (tagged 'in play' or 'by stimulation'; a calm, untouched fly discovers nothing, and 'at rest' entries from older builds are kept). The numbers in an entry come from the dataset (Connectome); what counts as discovered, and the collection, are game rules. Off stops collecting; what you found stays.": "",
   "Imaging baseline (F0) time constant": "",
-  "Lab > Calcium imaging: dF/F is measured against a running mean of each neuron's own fluorescence with this time constant. A steady firing rate reads as 0 and only changes show; the first seconds of a session are inflated or deflated while the mean settles. Shorter hides slow changes, longer takes longer to settle. GAME RULE (a choice made for this game, not a measurement); Off until you turn Imaging mode on.": ""
+  "Lab > Calcium imaging: dF/F is measured against a running mean of each neuron's own fluorescence with this time constant. A steady firing rate reads as 0 and only changes show; the first seconds of a session are inflated or deflated while the mean settles. Shorter hides slow changes, longer takes longer to settle. GAME RULE (a choice made for this game, not a measurement); Off until you turn Imaging mode on.": "",
+  "DRAGONFLY": "",
+  "FROG": "",
+  "Looming detectors LPLC2/LC4 (and so DNp01) as it hops closer and the tongue shoots out; a capture fires body, head and leg touch neurons. The frog's behaviour is a game rule.": "",
+  "Looming detectors LPLC2/LC4 as it dives; a grab fires leg, wing and body touch neurons. It only hunts a fly that is in the air. The chase is a game rule.": "",
+  "Looming detectors LPLC2/LC4: the slow creep stays below the looming threshold, the strike does not; a capture fires body and leg touch neurons. The creep and strike are game rules.": "",
+  "MANTIS": "",
+  "Put down a frog: a very fast tongue strike.": "",
+  "Put down a mantis that creeps up, then strikes.": "",
+  "Release a dragonfly that chases flying flies from above.": ""
 }

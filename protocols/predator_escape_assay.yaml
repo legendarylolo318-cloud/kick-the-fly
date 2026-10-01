@@ -1,0 +1,10 @@
+# 3.0 day 3, Predators: escape probability by predator (labjobs "predator_escape"). Each fly faces the frog, the dragonfly and the
+# mantis 3 times; an escape is the game's own rule (DNp01 above 4x its calm rate before the capture). The attacks are game rules and
+# the probabilities are MODEL PREDICTIONS. Validation seeds 1000-1009; pass criteria are in kickthefly/lab/predators.py (CRITERIA),
+# written before the first run.
+name: predator-escape-assay
+assay: predator_escape
+seed: 1000
+flies: 10
+assay_options:
+  trials: 3

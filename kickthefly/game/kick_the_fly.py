@@ -519,7 +519,7 @@ PAIN_LEVELS = (  # name, share of a region's neurons a light touch recruits, how
     ("normal", 0.3, 0.0), ("more", 0.6, 0.5), ("max", 1.0, 1.0),
 )
 SURGERY_CURRENT = {-1: -0.6, 0: 0.0, 1: 0.12}   # x ext_gain 4: silenced -2.4 per step (beats any touch), stimulated +0.48
-TOOL_NAMES = ("hand", "flick", "swatter", "bomb", "torch", "cleaner", "zapper", "freeze", "spider", "sugar", "alcohol", "laser", "cva", "decoy", "fruit")
+TOOL_NAMES = ("hand", "flick", "swatter", "bomb", "torch", "cleaner", "zapper", "freeze", "spider", "sugar", "alcohol", "laser", "cva", "decoy", "fruit", "frog", "dragonfly", "mantis")
 STIM_AMP = 0.5              # x ext_gain 4 = 2.0 per step: a driven neuron fires every refractory cycle
 HIST = 1500                  # history samples, one per 20 ms = 30 s
 CALM_STEPS = 400             # 2 s without a touch before the baseline learns again
@@ -1963,6 +1963,21 @@ def draw_icon(surf, name: str, c, col) -> None:
                 thick_line(surf, (x, y), (x + sgn * 13 * math.cos(a), y + 9 * math.sin(a) - 3 + k), 1.6, col)
         aacircle(surf, (x, y + 1), 6, col)
         aacircle(surf, (x, y - 6), 4, col)
+    elif name == "frog":
+        aacircle(surf, (x, y + 2), 8, (70, 140, 58))
+        aacircle(surf, (x - 4, y - 5), 3, (240, 220, 80))
+        aacircle(surf, (x + 4, y - 5), 3, (240, 220, 80))
+        thick_line(surf, (x + 6, y + 4), (x + 14, y + 9), 3, (230, 90, 100))
+    elif name == "dragonfly":
+        thick_line(surf, (x - 12, y), (x + 8, y), 3, (38, 116, 190))
+        aacircle(surf, (x + 10, y), 4, (30, 150, 90))
+        gfxdraw.filled_ellipse(surf, int(x - 2), int(y - 7), 9, 3, (200, 215, 235, 190))
+        gfxdraw.filled_ellipse(surf, int(x - 2), int(y + 7), 9, 3, (200, 215, 235, 190))
+    elif name == "mantis":
+        thick_line(surf, (x - 8, y + 6), (x, y - 2), 4, (116, 158, 56))
+        thick_line(surf, (x, y - 2), (x + 3, y - 12), 3, (116, 158, 56))
+        aacircle(surf, (x + 4, y - 14), 3, (78, 116, 38))
+        thick_line(surf, (x + 3, y - 10), (x + 11, y - 6), 2, (78, 116, 38))
     elif name == "sugar":
         aapoly(surf, [(x - 8, y - 4), (x + 2, y - 9), (x + 11, y - 4), (x + 1, y + 1)], (250, 250, 255))
         aapoly(surf, [(x - 8, y - 4), (x + 1, y + 1), (x + 1, y + 12), (x - 8, y + 7)], (215, 215, 225))
@@ -2013,7 +2028,10 @@ TOOLS = (("hand", "HAND", "drag the fly and throw it"), ("flick", "FLICK", "clic
          ("laser", "LASER", "targeted laser: hold/click to stimulate or silence cell types in real time"),
          ("cva", "CVA", "puffs cVA pheromone: activates Or67d/DA1 glomerulus"),
          ("decoy", "DECOY", "spawns a decoy female target to evoke courtship"),
-         ("fruit", "FRUIT", "click: drop ripe fruit, eaten like sugar (as in the orchard)"))
+         ("fruit", "FRUIT", "click: drop ripe fruit, eaten like sugar (as in the orchard)"),
+         ("frog", "FROG", "click: put down a frog; its tongue is very fast"),
+         ("dragonfly", "DRAGONFLY", "click: a dragonfly chases flying flies from above"),
+         ("mantis", "MANTIS", "click: a mantis creeps up slowly, then strikes"))
 assert tuple(t[0] for t in TOOLS) == TOOL_NAMES
 # Real vs rule (the on-screen tags, Settings > Brain): which reactions are triggered by the connectome sim's own neurons
 # and which by a rule the game adds. REAL means live descending-neuron firing crossed a threshold; how the body then
@@ -2069,7 +2087,7 @@ TOOL_KEYS = (pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5, pygame.
 TOOL_KEY_LABELS = ("1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=", "", "")      # what the toolbar shows for each
 TORCH_KEYS = (("head", None), ("body", None), ("legs", "L"), ("legs", "R"), ("wing", "L"), ("wing", "R"), ("heat", None))
 OUCH = ("BONK!", "OOF!", "SPLAT!", "THWACK!", "BZZT!", "OW!")
-CURSOR_SIZE = {"flick": 12, "swatter": 38, "bomb": 16, "torch": 18, "cleaner": 22, "zapper": 16, "freeze": 22, "spider": 20, "laser": 14}
+CURSOR_SIZE = {"flick": 12, "swatter": 38, "bomb": 16, "torch": 18, "cleaner": 22, "zapper": 16, "freeze": 22, "spider": 20, "laser": 14, "frog": 20, "dragonfly": 20, "mantis": 20}
 LOOM_MIN, LOOM_FULL = 1.5, 8.0        # rad/s of angular expansion: below LOOM_MIN nothing, LOOM_MIN + LOOM_FULL = full drive
 SCENT_RANGE = 330.0                   # px: how close a tool must be for the fly to smell it
 FEAR_ACT, LIKE_ACT = 0.35, 0.35       # learned memory (memory.py) that changes behavior
@@ -3207,6 +3225,8 @@ class Game:
         self.shards: list[list] = []
         self.bolts: list[list] = []
         self.spider: dict | None = None
+        from kickthefly.game.predator_play import PredatorPlay
+        self.preds = PredatorPlay(self, False, FLOOR, CEIL, PLAY_W)       # 3.0 day 3: frog, dragonfly, mantis
         self.zap_ready = 0.0
         self.streaks: list[list] = []
 
@@ -3760,6 +3780,7 @@ class Game:
                 out.append((("swat", id(sw)), pivot + np.array([math.cos(ang), math.sin(ang)]) * float(np.hypot(*d)), 80.0))
         if self.spider is not None and self.spider["state"] in ("drop", "hunt"):     # as in the 3D game
             out.append(("spider", self.spider["p"].copy(), 22.0))
+        out.extend(self.preds.threats())                                   # 3.0 day 3: the same looming measure
         for b in self.bombs:
             out.append((("bomb", id(b)), b["p"].copy(), 16.0))
         for other in self.flies:                      # other flies loom too: a real, symmetric dodge reaction
@@ -5295,6 +5316,9 @@ class Game:
             self.spider = {"p": np.array([pos[0], CEIL + 4.0]), "state": "drop", "bite_at": 0.0, "bites": 0, "t": now}
             self.sound.play("drop")
             self.popup((pos[0], CEIL + 70), "A SPIDER!", (200, 200, 210))
+        elif name in ("frog", "dragonfly", "mantis"):
+            if self.preds.spawn(name, pos):
+                self.sound.play("drop")
         elif name in ("sugar", "fruit") and len(self.sugars) < 3:
             # fruit is eaten exactly as sugar is (same neurons, same rules): only the item and its look differ
             self.sugars.append({"p": np.array(pos, float), "v": 0.0, "left": 1.0, "fruit": name == "fruit"})
@@ -5416,6 +5440,7 @@ class Game:
         for slot in self.flies:
             self._effects_one(slot, now)
         self._spider(now)
+        self.preds.step(now)
         self._sugar(now)
         self._alcohol(now)
         self._decoy(now)
@@ -5753,6 +5778,9 @@ class Game:
             pin = np.array(mouse, float)
             if fly.wrapped and self.spider is not None and self.spider.get("target") is slot:
                 pin = self.spider["p"] + (0, 26)
+            held = self.preds.pin_for(slot)
+            if held is not None:
+                pin = held
             for i, sp in fly.step(now, pin):
                 s = float(np.clip((sp - 9) / 35, 0.05, 1))
                 self.hit(slot, i, s)
@@ -6091,6 +6119,9 @@ class Game:
                 pygame.draw.lines(arena, col[:3], False, [tuple(p) for p in pts], w_)
         if self.spider is not None:
             self._draw_spider(arena, now)
+        if self.preds.list:
+            from kickthefly.game import predator_play
+            predator_play.draw2d(self.preds, arena, now)
         for s in self.sugars:
             k_ = max(0.35, s["left"])
             x, y = s["p"]

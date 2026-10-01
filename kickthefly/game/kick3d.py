@@ -936,6 +936,8 @@ class Game3D(k2.Game):
         self.shards3: list = []
         self.popups3 = []
         self.spider3: dict | None = None
+        from kickthefly.game.predator_play import PredatorPlay
+        self.preds = PredatorPlay(self, True)            # 3.0 day 3: frog, dragonfly, mantis (shared with the 2D game)
         self.pellets3: list = []
         self.fly_reward_until = self.fly_punish_until = self.fire_ready = 0.0
         self.steer = self.valence = self.trigger = self.hurt_flash = 0.0
@@ -1104,6 +1106,13 @@ class Game3D(k2.Game):
                                 bites=0, anchor=pt.copy())
             self.spider = self.spider3
             self.sound.play("drop")
+        elif name in ("frog", "dragonfly", "mantis"):
+            if d[1] < -0.05:
+                pt = eye + d * (-eye[1] / d[1])
+            else:
+                pt = eye + np.array([d[0], 0, d[2]]) * 2.0
+            if self.preds.spawn(name, np.clip(pt, (-RX + 0.4, 0, -RZ + 0.4), (RX - 0.4, 0, RZ - 0.4))):
+                self.sound.play("drop")
         elif name in ("sugar", "fruit") and len(self.sugars3) < 3 and now - self.throw_t > 0.3:
             self.throw_t = now
             self.sugars3.append(dict(p=self.tool_tip(), v=d * 0.07 + np.array([0, 0.02, 0]), left=1.0, landed=False,
@@ -1315,6 +1324,7 @@ class Game3D(k2.Game):
                 out.append(("swing", a + (b - a) * (ph / 0.14), 0.2))
         if self.spider3 is not None and self.spider3["state"] in ("drop", "hunt"):
             out.append(("spider", self.spider3["p"].copy(), 0.1))
+        out.extend(self.preds.threats())                 # 3.0 day 3: the same looming measure as every other object
         for b in self.bombs3:
             out.append((("bomb", id(b)), b["p"].copy(), 0.08))
         for other in self.flies:                      # other flies loom too: a real, symmetric dodge reaction
@@ -1432,6 +1442,7 @@ class Game3D(k2.Game):
             self.sugars3 = [sg for sg in self.sugars3 if abs(sg["p"][0]) < RX and abs(sg["p"][2]) < RZ]
             self.alcohols3 = [al for al in getattr(self, "alcohols3", []) if abs(al["p"][0]) < RX and abs(al["p"][2]) < RZ]
             self.spider3 = self.spider = None
+            self.preds.clear()
 
     def arena_status(self) -> list[str]:
         arena = k2.ARENAS[self.arena_i]
@@ -1774,6 +1785,7 @@ class Game3D(k2.Game):
         for slot in self.flies:
             self._effects_one(slot, now)
         self._spider3d(now)
+        self.preds.step(now)
         self._sugar3d(now)
         self._alcohol3d(now)
         self._decoy3d(now)
@@ -2084,6 +2096,9 @@ class Game3D(k2.Game):
             pin = self._hold_point()
             if fly.wrapped and self.spider3 is not None and self.spider3.get("target") is slot:
                 pin = self.spider3["p"] - (0, 0.16, 0)
+            held = self.preds.pin_for(slot)
+            if held is not None:
+                pin = held
             for i, sp in fly.step(now, pin):
                 s = float(np.clip((sp - 9) / 35, 0.05, 1))
                 self.hit(slot, i, s)
@@ -2779,6 +2794,9 @@ class Game3D(k2.Game):
             for dx in (-0.015, 0.015):
                 rd.add("sphere", trs(body + (dx, 0.03, 0.13), None, (0.008,) * 3), (1.0, 0.25, 0.25), P_NONE, 1.0)
             self._shadow(rd, body, 0.15)
+        if self.preds.list:
+            from kickthefly.game import predator_play
+            predator_play.draw3d(self.preds, rd, now)
         for sh in self.shards3:
             R = rot_x(sh["rot"][0]) @ rot_y(sh["rot"][1]) @ rot_z(sh["rot"][2])
             rd.add("cube", trs(sh["p"], R, (sh["size"], sh["size"] * 0.6, sh["size"] * 0.3)),
@@ -2879,6 +2897,19 @@ class Game3D(k2.Game):
             hand(base + (0, 0.0, 0.02), 1.0)
         elif name == "spider":
             rd.add("sphere", trs(base + (0, 0.06, -0.05), None, (0.04, 0.035, 0.05)), (0.12, 0.11, 0.13), layer="view")
+            hand(base, 0.6)
+        elif name == "frog":
+            rd.add("sphere", trs(base + (0, 0.06, -0.05), None, (0.05, 0.035, 0.055)), (0.25, 0.5, 0.2), layer="view")
+            rd.add("sphere", trs(base + (0.02, 0.095, -0.075), None, (0.012, 0.012, 0.012)), (0.95, 0.85, 0.3), layer="view")
+            rd.add("sphere", trs(base + (-0.02, 0.095, -0.075), None, (0.012, 0.012, 0.012)), (0.95, 0.85, 0.3), layer="view")
+            hand(base, 0.6)
+        elif name == "dragonfly":
+            rd.add("cylinder", segment(base + (0, 0.07, 0.0), base + (0, 0.07, -0.12), 0.007), (0.15, 0.45, 0.75), layer="view")
+            rd.add("cylinder", segment(base + (-0.07, 0.085, -0.04), base + (0.07, 0.085, -0.04), 0.004), (0.85, 0.9, 0.95), layer="view")
+            hand(base, 0.6)
+        elif name == "mantis":
+            rd.add("cylinder", segment(base + (0, 0.05, 0.0), base + (0, 0.1, -0.1), 0.012), (0.45, 0.62, 0.22), layer="view")
+            rd.add("sphere", trs(base + (0, 0.105, -0.11), None, (0.018, 0.016, 0.016)), (0.3, 0.45, 0.15), layer="view")
             hand(base, 0.6)
         elif name == "sugar":
             if now - self.throw_t > 0.3:

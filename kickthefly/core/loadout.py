@@ -103,6 +103,18 @@ CATALOG: tuple[ToolInfo, ...] = (
              "Bites hit body and leg touch neurons; looming detectors as it closes in. The hunting and the venom "
              "are game rules.", GAME_RULE, larva=False, larva_note="the larva has no looming detectors in this model",
              probes=(LOOM,)),
+    ToolInfo("frog", "FROG", "Creatures", "Put down a frog: a very fast tongue strike.",
+             "Looming detectors LPLC2/LC4 (and so DNp01) as it hops closer and the tongue shoots out; a capture fires body, "
+             "head and leg touch neurons. The frog's behaviour is a game rule.", GAME_RULE, larva=False,
+             larva_note="the larva has no looming detectors in this model", probes=(LOOM,)),
+    ToolInfo("dragonfly", "DRAGONFLY", "Creatures", "Release a dragonfly that chases flying flies from above.",
+             "Looming detectors LPLC2/LC4 as it dives; a grab fires leg, wing and body touch neurons. It only hunts a fly that "
+             "is in the air. The chase is a game rule.", GAME_RULE, larva=False,
+             larva_note="the larva has no looming detectors in this model", probes=(LOOM,)),
+    ToolInfo("mantis", "MANTIS", "Creatures", "Put down a mantis that creeps up, then strikes.",
+             "Looming detectors LPLC2/LC4: the slow creep stays below the looming threshold, the strike does not; a capture "
+             "fires body and leg touch neurons. The creep and strike are game rules.", GAME_RULE, larva=False,
+             larva_note="the larva has no looming detectors in this model", probes=(LOOM,)),
     ToolInfo("decoy", "DECOY", "Creatures", "Drop a decoy female to evoke courtship.",
              "Foreleg contact drives the 64 foreleg gustatory neurons LgLG5-8 (putative ppk23/ppk25). COURTSHIP is "
              "a game rule.", GAME_RULE, larva=False, larva_note="no LgLG5-8 neurons in the larval brain",
@@ -116,7 +128,7 @@ BY_NAME = {t.name: t for t in CATALOG}
 # sugar, - alcohol, = laser). The "All" preset keeps it, so a migrated config's muscle memory still lands on the same
 # tools. CATALOG above is in the editor's category order instead.
 TOOL_NAMES = ("hand", "flick", "swatter", "bomb", "torch", "cleaner", "zapper", "freeze", "spider", "sugar", "alcohol",
-              "laser", "cva", "decoy", "fruit")
+              "laser", "cva", "decoy", "fruit", "frog", "dragonfly", "mantis")
 assert set(TOOL_NAMES) == set(BY_NAME) and len(TOOL_NAMES) == len(CATALOG)
 
 # name -> tuple of tool names (the hand is added by build() wherever a preset forgets it)

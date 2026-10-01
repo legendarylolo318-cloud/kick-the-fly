@@ -1040,6 +1040,14 @@ def draw_assay_result(m: ui.Menu, surf, area: pygame.Rect, res: dict) -> None:
         draw_chart(m, surf, chart, xs, series, "approach speed (m/s)", "escape probability", y_max=1.0)
         rows = [(f"{r['speed']:g} m/s", f"{r['escapes']}/{r['approaches']} escaped, latency {_ci(r['latency_s'])} s",
                  (f"{cr['escapes']}/{cr['approaches']}" if c else "")) for r, cr in zip(t["rows"], c["rows"] if c else t["rows"])]
+    elif kind == "predator_escape":
+        xs = [r["predator"] for r in t["rows"]]
+        ci = [dict(mean=r["escape_probability"], lo=r["ci95"][0], hi=r["ci95"][1]) for r in t["rows"]]
+        draw_chart(m, surf, chart, xs, [("escape probability (Wilson 95% CI)", ui.ACCENT, ci)], "predator",
+                   "escape probability", y_max=1.0, connect=False)
+        rows = [(r["predator"], f"{r['escapes']}/{r['trials']} escaped, 95% CI {r['ci95'][0]:.2f}-{r['ci95'][1]:.2f}",
+                 f"{r['escapes']}/{r['trials']}") for r in t["rows"]]
+        rows.append(("MODEL PREDICTION", "the attack is a game rule; an escape = DNp01 above the game's escape rule before the capture", ""))
     elif kind == "thermo_escape":
         xs = [r["temperature_c"] for r in t["rows"]]
         mk = lambda key: [dict(mean=r[key], lo=float("nan"), hi=float("nan")) for r in t["rows"]]   # noqa: E731

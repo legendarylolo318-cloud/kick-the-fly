@@ -118,6 +118,8 @@ def _check_day2(p: dict, where: str) -> None:
             raise ProtocolError(f"{where}: {', '.join(used)} can't be used in {kind} protocol yet (stimulus protocols only)")
         if p.get("assay") == "thermo_escape":
             _check_thermo_escape(p.get("assay_options") or {}, where)
+        if p.get("assay") == "predator_escape":
+            _check_predator_escape(p.get("assay_options") or {}, where)
         return
     if "thermogenetics" in p:
         try:
@@ -180,6 +182,21 @@ def _check_thermo_escape(opts: dict, where: str) -> None:
         tg.effector(opts.get("effector_name", "trpa1"))
     except tg.ThermoError as e:
         raise ProtocolError(f"{where}: thermo_escape: {e}") from None
+
+
+def _check_predator_escape(opts: dict, where: str) -> None:
+    """The predator_escape assay's options become keyword arguments of predators.escape_fly (3.0 day 3)."""
+    from kickthefly.game import predators as pr
+
+    bad = set(opts) - {"kinds", "trials"}
+    if bad:
+        raise ProtocolError(f"{where}: predator_escape options are kinds and trials, not {sorted(bad)}")
+    kinds = opts.get("kinds", list(pr.KINDS))
+    if not isinstance(kinds, list) or not 1 <= len(kinds) <= len(pr.KINDS) or not all(k in pr.SPECS for k in kinds):
+        raise ProtocolError(f"{where}: predator_escape kinds must be a list of {', '.join(pr.KINDS)}")
+    trials = opts.get("trials", 3)
+    if isinstance(trials, bool) or not isinstance(trials, int) or not 1 <= trials <= 20:
+        raise ProtocolError(f"{where}: predator_escape trials must be a whole number from 1 to 20")
 
 
 def folder_name(name) -> str:
