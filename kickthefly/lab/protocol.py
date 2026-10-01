@@ -31,6 +31,23 @@ Two kinds of protocol:
     surgery: {"prefix:KC": -1}   # optional; a same-seed control always runs with it
     assay_options: {cycles: 6}
 
+3.0 day 2 additions (each is optional; the existing keys and files are unchanged):
+
+    thermogenetics:                          # TrpA1 / shibire-ts in some neurons, and a temperature (lab/thermogenetics.py)
+      expression: [{effector: trpa1, target: "type:DNp01"}]      # target: any neuron spec, including "line:SS00727"
+      temperature_c: 32                      # or a schedule: [{at_s: 0, c: 22}, {at_s: 2, c: 32}]
+      kinetics: real                         # real (default) | steady ;  time_scale: 1  compresses the time constants
+    drug:                                    # synaptic scaling by predicted transmitter (lab/pharmacology.py)
+      doses: {picrotoxin: 0.5}               # picrotoxin | cholinergic | glucl | gabaa_agonist, each 0-1
+      include_low_confidence: true           # false leaves out predictions below `cut` (default 0.7)
+    imaging:                                 # simulated GCaMP imaging alongside the run (lab/imaging.py), MODEL
+      indicator: gcamp6s                     # gcamp6s | gcamp6f | gcamp8m
+      fps: 20
+      rois: regions                          # or a list of neuron specs, one ROI each
+      tiff: false                            # also write the rendered brain view as a TIFF stack (slow: builds the view)
+    # a third kind of protocol, a virtual patch clamp (lab/patchclamp.py), MODEL:
+    patch: {neuron: "type:DNp01", index: 0, mode: embedded, amplitudes: [0, 0.05, 0.1], duration_ms: 500, repeats: 3}
+
 Neuron specs (simcore.rows_of and assays.groups): a game group ("loom", "escape", "head", "reward", "sweet"...), an
 assay group ("dnp01", "mn9", "adn", "jo_ce", "mn_front"...), "type:A,B", "prefix:KC", "superclass:descending_neuron"
 or "rows:1,2,3".
@@ -42,13 +59,14 @@ mean firing per recording group, and, with surgery, the paired comparison agains
 from __future__ import annotations
 
 import json
+import math
 import time
 from pathlib import Path
 
 import numpy as np
 
 TOP_KEYS = {"name", "description", "title", "classroom", "steps", "seed", "seeds", "flies", "warmup_s", "duration_s", "params", "surgery", "control",
-            "stimuli", "recordings", "assay", "assay_options", "workers", "nwb"}
+            "stimuli", "recordings", "assay", "assay_options", "workers", "nwb", "thermogenetics", "drug", "imaging", "patch"}
 STIM_KEYS = {"at_s", "for_s", "target", "strength", "recruit", "mode", "amp", "side"}
 
 
@@ -57,6 +75,111 @@ class ProtocolError(ValueError):
 
 
 MAX_FLIES = 10_000              # 3.0 review: checking flies: 10**9 built a billion-seed list (tens of GB) before anything ran
+
+
+DAY2_KEYS = ("thermogenetics", "drug", "imaging", "patch")
+
+
+def _check_day2(p: dict, where: str) -> None:
+    """Validate the 3.0 day 2 blocks (thermogenetics, drug, imaging, patch); raise ProtocolError with the reason."""
+    from kickthefly.lab import imaging, patchclamp, pharmacology, thermogenetics
+
+    if "patch" in p:
+        # 3.0 day 2 review: surgery, recordings, control and a top-level warmup/duration were accepted and then ignored
+        ignored = [k for k in ("assay", "classroom", "thermogenetics", "drug", "imaging", "stimuli", "recordings", "surgery",
+                               "control", "warmup_s", "duration_s") if k in p]
+        if ignored:
+            raise ProtocolError(f"{where}: a patch protocol stands alone; it can't use {', '.join(ignored)} (its own warm-up is "
+                                f"patch.warmup_s)")
+        pa = p["patch"]
+        keys = {"neuron", "index", "mode", "amplitudes", "duration_ms", "repeats", "warmup_s"}
+        if not isinstance(pa, dict) or set(pa) - keys or "neuron" not in pa:
+            raise ProtocolError(f"{where}: patch needs {{neuron, ...}} with only {sorted(keys)}")
+        if not isinstance(pa["neuron"], str) or not pa["neuron"].strip():
+            raise ProtocolError(f"{where}: patch.neuron must be a neuron spec such as type:DNp01")
+        try:
+            proto = patchclamp.ClampProtocol(pa.get("amplitudes", [0.0, 0.05, 0.1]), pa.get("duration_ms", 500),
+                                             repeats=pa.get("repeats", 3))
+            if pa.get("mode", "embedded") not in patchclamp.MODES:
+                raise patchclamp.PatchError(f"mode must be one of {patchclamp.MODES}")
+            index, warmup = int(pa.get("index", 0)), float(pa.get("warmup_s", 1.0))
+            if index < 0 or not 0 <= warmup <= 3600:
+                raise patchclamp.PatchError("index must be >= 0 and warmup_s within 0-3600")
+        except (patchclamp.PatchError, TypeError, ValueError) as e:
+            raise ProtocolError(f"{where}: patch: {e}") from None
+        # numbers from here on (3.0 day 2 review: amplitudes written as text passed and broke the summary after the run)
+        p["patch"] = dict(pa, amplitudes=list(proto.amplitudes), duration_ms=proto.duration_ms, repeats=proto.repeats,
+                          index=index, warmup_s=warmup)
+        return
+    if "assay" in p or p.get("classroom"):
+        used = [k for k in DAY2_KEYS if k in p]
+        if used:
+            kind = "an assay" if "assay" in p else "a classroom"
+            raise ProtocolError(f"{where}: {', '.join(used)} can't be used in {kind} protocol yet (stimulus protocols only)")
+        if p.get("assay") == "thermo_escape":
+            _check_thermo_escape(p.get("assay_options") or {}, where)
+        return
+    if "thermogenetics" in p:
+        try:
+            p["thermogenetics"] = thermogenetics.check_spec(p["thermogenetics"], where)
+        except thermogenetics.ThermoError as e:
+            raise ProtocolError(str(e)) from None
+    if "drug" in p:
+        d = p["drug"]
+        if not isinstance(d, dict) or set(d) - {"doses", "include_low_confidence", "cut"} or not isinstance(d.get("doses"), dict) \
+                or not d["doses"]:
+            raise ProtocolError(f"{where}: drug needs doses: {{name: 0-1}} (and optionally include_low_confidence, cut)")
+        if not isinstance(d.get("include_low_confidence", True), bool):
+            raise ProtocolError(f"{where}: drug.include_low_confidence must be true or false")
+        try:
+            pharmacology.wiring_for(d["doses"], d.get("include_low_confidence", True), float(d.get("cut", pharmacology.DEFAULT_CUT)))
+        except (pharmacology.PharmError, TypeError, ValueError) as e:
+            raise ProtocolError(f"{where}: drug: {e}") from None
+    if "imaging" in p:
+        im = p["imaging"]
+        keys = {"indicator", "fps", "rois", "tiff", "shot_noise", "f0_photons", "dff_per_spike"}
+        if not isinstance(im, dict) or set(im) - keys:
+            raise ProtocolError(f"{where}: imaging has unknown keys; allowed: {sorted(keys)}")
+        try:
+            imaging.indicator(im.get("indicator", imaging.DEFAULT_INDICATOR))
+            if not 1 <= float(im.get("fps", 20)) <= 200:
+                raise imaging.ImagingError("fps must be between 1 and 200")
+            for key, default in (("f0_photons", 100.0), ("dff_per_spike", 0.2)):   # 3.0 day 2 review: were checked mid-run
+                v = im.get(key, default)
+                if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) or v <= 0:
+                    raise imaging.ImagingError(f"{key} must be a positive number")
+            for key in ("shot_noise", "tiff"):
+                if key in im and not isinstance(im[key], bool):
+                    raise imaging.ImagingError(f"{key} must be true or false")
+        except (imaging.ImagingError, TypeError, ValueError) as e:
+            raise ProtocolError(f"{where}: imaging: {e}") from None
+        rois = im.get("rois", "regions")
+        if not (rois == "regions" or (isinstance(rois, list) and rois and all(isinstance(r, str) for r in rois))):
+            raise ProtocolError(f"{where}: imaging.rois must be 'regions' or a list of neuron specs")
+        if isinstance(rois, list) and len(rois) > imaging.MAX_ROIS:
+            raise ProtocolError(f"{where}: imaging: at most {imaging.MAX_ROIS} ROIs")
+
+
+def _check_thermo_escape(opts: dict, where: str) -> None:
+    """The thermo_escape assay's options become keyword arguments of thermogenetics.escape_fly. 3.0 day 2 review: any key
+    went through (brain: 1 crashed every worker; temps: [] crashed the summary)."""
+    from kickthefly.lab import thermogenetics as tg
+
+    bad = set(opts) - {"temps", "target", "effector_name"}
+    if bad:
+        raise ProtocolError(f"{where}: thermo_escape options are temps, target and effector_name, not {sorted(bad)}")
+    temps = opts.get("temps", list(tg.ASSAY_TEMPS))
+    if (not isinstance(temps, list) or not 1 <= len(temps) <= 50
+            or not all(isinstance(t, (int, float)) and not isinstance(t, bool) for t in temps)
+            or not all(tg.TEMP_RANGE_C[0] <= t <= tg.TEMP_RANGE_C[1] for t in temps)):
+        raise ProtocolError(f"{where}: thermo_escape temps must be a list of 1-50 temperatures within "
+                            f"{tg.TEMP_RANGE_C[0]:g}-{tg.TEMP_RANGE_C[1]:g} C")
+    if not isinstance(opts.get("target", "type:DNp01"), str):
+        raise ProtocolError(f"{where}: thermo_escape target must be a neuron spec")
+    try:
+        tg.effector(opts.get("effector_name", "trpa1"))
+    except tg.ThermoError as e:
+        raise ProtocolError(f"{where}: thermo_escape: {e}") from None
 
 
 def folder_name(name) -> str:
@@ -116,8 +239,13 @@ def check(data, where: str = "protocol") -> dict:
     if "assay" in p:
         if p["assay"] not in labjobs.ASSAYS:
             raise ProtocolError(f"{where}: assay must be one of {list(labjobs.ASSAYS)}")
+        _check_day2(p, where)
         return p
     if p.get("classroom"):
+        _check_day2(p, where)
+        return p
+    if "patch" in p:
+        _check_day2(p, where)
         return p
     for key, default in (("warmup_s", 1.0), ("duration_s", 2.0)):
         v = p.setdefault(key, default)
@@ -133,6 +261,7 @@ def check(data, where: str = "protocol") -> dict:
     recs = p.setdefault("recordings", [])
     if not isinstance(recs, list) or not all(isinstance(r, dict) and "neurons" in r for r in recs):
         raise ProtocolError(f"{where}: recordings must be a list of {{name, neurons}}")
+    _check_day2(p, where)
     return p
 
 
@@ -157,7 +286,14 @@ def run_seed(p: dict, seed: int, surgery: dict | None, folder: Path, tag: str, r
     from kickthefly.lab import recorder
     from kickthefly.core import simcore
 
-    br = simcore.new_brain(seed=seed, params=p.get("params"))
+    wiring = None
+    if p.get("drug"):
+        from kickthefly.lab import pharmacology
+
+        d = p["drug"]
+        wiring = pharmacology.wiring_for(d["doses"], d.get("include_low_confidence", True),
+                                         float(d.get("cut", pharmacology.DEFAULT_CUT)))
+    br = simcore.new_brain(seed=seed, params=p.get("params"), wiring=wiring)
     if surgery:
         assays.apply_surgery(br, surgery)
     replay_rec = None
@@ -178,7 +314,25 @@ def run_seed(p: dict, seed: int, surgery: dict | None, folder: Path, tag: str, r
     rec = recorder.Recorder(br, groups).start()
     n = int(round(p["duration_s"] / 0.005))
     driving: set[int] = set()
+    th = th_spec = session = frames = view = None
+    if p.get("thermogenetics"):
+        from kickthefly.lab import thermogenetics
+
+        th_spec = p["thermogenetics"]
+        th = thermogenetics.from_spec(th_spec)
+    if p.get("imaging"):
+        from kickthefly.lab import imaging
+
+        im = p["imaging"]
+        rois = imaging.rois_by_region(br) if im.get("rois", "regions") == "regions" else imaging.rois_from_specs(br, im["rois"])
+        session = imaging.ImagingSession(br.n, rois, im.get("indicator", imaging.DEFAULT_INDICATOR), float(im.get("fps", 20)),
+                                         float(im.get("f0_photons", 100.0)), float(im.get("dff_per_spike", 0.2)),
+                                         bool(im.get("shot_noise", True)), seed=seed)
+        if im.get("tiff"):
+            view, frames = imaging.make_view(br), []
     for t in range(n):
+        if th is not None and t % 10 == 0:                       # every 50 ms: the temperature, then the effectors
+            th.update(br, thermogenetics.temperature_at(th_spec, t * 0.005), 0.05)
         for k, s in enumerate(stims):
             active = s["start"] <= t < s["stop"]
             if s.get("mode", "poke") == "drive":
@@ -191,11 +345,23 @@ def run_seed(p: dict, seed: int, surgery: dict | None, folder: Path, tag: str, r
             elif active and (t - s["start"]) % 10 == 0:
                 _poke_rows(br, s)
         br._step()
+        if session is not None and session.push(np.flatnonzero(br.sim.spikes)) and frames is not None:
+            frames.append(imaging.render_frame(view, session, "default", "panel")[0])
+    if th is not None:
+        th.clear(br)
     rec.stop()
     if replay_rec is not None:
         replay_rec.detach()
         replay_rec.save(replay_to)
     stem = folder / f"{tag}-seed{seed}"
+    if session is not None:
+        res = session.result(dict(protocol=p["name"], seed=seed))
+        imaging.export_csv(res, stem.with_name(stem.name + "-imaging.csv"))
+        if frames:
+            imaging.export_tiff(frames, stem.with_name(stem.name + "-imaging.tif"), res.meta)
+            res.frames = frames
+        if p.get("nwb"):
+            imaging.export_nwb(res, stem.with_name(stem.name + "-imaging.nwb"))
     a = rec.arrays()
     # 3.0: what a bundle (lab/bundle.py) needs to check a rerun: the backend and precision that really ran, and a
     # fingerprint of every recorded spike. Extra keys in the per-fly metadata; nothing the simulation reads.
@@ -235,7 +401,10 @@ def run(p: dict, out: Path | None = None, workers: int | None = None, progress=N
     folder.mkdir(parents=True, exist_ok=True)
     (folder / "protocol.json").write_text(json.dumps(p, indent=1, default=str), encoding="utf-8")
     t0 = time.time()
-    if "assay" in p:
+    if "patch" in p:
+        summary = run_patch(p, folder, progress)
+        summary["seconds"] = round(time.time() - t0, 1)
+    elif "assay" in p:
         res = labjobs.run_sync(p["assay"], p["seeds"], p.get("assay_options"), p.get("surgery"), p.get("params"),
                                workers or labjobs.default_workers(), progress=progress)
         recorder.export_result(res, None, folder)
@@ -265,6 +434,38 @@ def run(p: dict, out: Path | None = None, workers: int | None = None, progress=N
     return folder
 
 
+def run_patch(p: dict, folder: Path, progress=None) -> dict:
+    """A patch protocol: each seed's fly gets one neuron current-clamped (lab/patchclamp.py). MODEL, not electrophysiology."""
+    from kickthefly.core import simcore
+    from kickthefly.lab import assays, labstats
+    from kickthefly.lab import patchclamp as pc
+
+    pa = p["patch"]
+    amps = pa.get("amplitudes", [0.0, 0.05, 0.1])
+    per_seed, rheo, neuron = {}, {}, None
+    for i, seed in enumerate(p["seeds"]):
+        br = simcore.new_brain(seed=seed, params=p.get("params"))
+        assays.rest(br, int(round(float(pa.get("warmup_s", 1.0)) / 0.005)))
+        try:
+            row = pc.pick_neuron(br, pa["neuron"], int(pa.get("index", 0)))
+            curve = pc.if_curve(br, row, amps, float(pa.get("duration_ms", 500)), int(pa.get("repeats", 3)),
+                                pa.get("mode", "embedded"), seed, getattr(br.sim, "p", None))
+        except pc.PatchError as e:
+            raise ProtocolError(str(e)) from None
+        neuron = pc.describe_neuron(br, row)
+        pc.export_csv(curve["recording"], folder / f"patch-seed{seed}-trace.csv")
+        pc.export_if_csv(curve, folder / f"patch-seed{seed}-if.csv")
+        if p.get("nwb"):
+            pc.export_nwb(curve["recording"], folder / f"patch-seed{seed}.nwb")
+        per_seed[seed] = dict(zip(curve["amplitudes"], curve["rate_hz"]))
+        rheo[seed] = curve["rheobase"]
+        if progress:
+            progress(i + 1, len(p["seeds"]))
+    by_amp = {f"{a:g}": labstats.mean_ci([per_seed[s][a] for s in p["seeds"]]) for a in sorted(set(amps))}
+    return dict(protocol=p["name"], seeds=p["seeds"], patch=dict(pa), tag=pc.TAG_TEXT, units=pc.UNITS_NOTE, neuron=neuron,
+                rate_hz_by_current=by_amp, rheobase_by_seed={str(k): v for k, v in rheo.items()})
+
+
 def find(path: Path) -> Path:
     """A protocol file by path, or by name from your protocols folder or the bundled examples."""
     if Path(path).exists():
@@ -284,6 +485,9 @@ def record_replay(path: Path, dest: Path, out: Path | None = None) -> int:
         p = load(path)
         if "assay" in p:
             raise ProtocolError("--record-replay records a stimulus protocol; assay protocols aren't supported")
+        used = [k for k in DAY2_KEYS if k in p]
+        if used:
+            raise ProtocolError(f"--record-replay does not record {', '.join(used)} (their currents are not replay events)")
     except ProtocolError as e:
         print(f"error: {e}")
         return 2
@@ -319,12 +523,15 @@ def run_file(path: Path, out: Path | None = None, workers: int | None = None, nw
         print(f"error: {e}")
         return 2
     t0 = time.time()
-    print(f"protocol {p['name']}: {len(p['seeds'])} fly(s)" + (f", assay {p['assay']}" if "assay" in p else ""), flush=True)
+    print(f"protocol {p['name']}: {len(p['seeds'])} fly(s)" + (f", assay {p['assay']}" if "assay" in p else "")
+          + (", patch clamp (MODEL)" if "patch" in p else ""), flush=True)
     folder = run(p, out, workers, progress=lambda d, n: print(f"  {d}/{n} ({time.time() - t0:.0f}s)", flush=True))
     summary = json.loads((folder / "summary.json").read_text(encoding="utf-8"))
     for tag, groups in summary.get("mean_rate_hz", {}).items():
         for g, c in groups.items():
             print(f"  {tag:8s} {g:20s} {c['mean']:8.2f} Hz  (n={c['n']})")
+    for a_, c in (summary.get("rate_hz_by_current") or {}).items():
+        print(f"  current {a_:>6s}  {c['mean']:8.2f} Hz  (n={c['n']})   [{summary['tag']}]")
     for g, c in (summary.get("comparison") or {}).items():
         if isinstance(c, dict) and "p_value" in c:
             print(f"  {g}: surgery - control = {c['mean_difference']:+.2f}, p = {c['p_value']:.3g}")

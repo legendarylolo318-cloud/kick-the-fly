@@ -326,7 +326,8 @@ def _export(m, res) -> None:
 
 
 # --- picrotoxin / global inhibition block ------------------------------------------------------------------------
-@tab("inhibition", "Inhibition block")
+# 3.0 day 2: picrotoxin and the inhibition block moved to Lab > Pharmacology (labtoolkit.py), which calls the helpers below. The
+# tab is no longer registered here; the drawing function stays because the Pharmacology page reuses its report.
 def _tab_inhibition(m, surf, body, st, host) -> None:
     from kickthefly.core import simcore
     from kickthefly.sim import wiring as wiring_mod

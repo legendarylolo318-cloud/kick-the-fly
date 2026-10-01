@@ -1,7 +1,9 @@
 .venv/
+.venv
 .venv-build/
 __pycache__/
 /data/
+/data
 /build/
 /dist/
 /KickTheFly.spec

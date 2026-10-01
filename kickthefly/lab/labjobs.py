@@ -16,9 +16,9 @@ import numpy as np
 
 from kickthefly.lab import labstats
 
-ASSAYS = ("tmaze", "looming", "sugar", "orchard")
+ASSAYS = ("tmaze", "looming", "sugar", "orchard", "thermo_escape")
 ASSAY_LABEL = {"tmaze": "T-maze conditioning", "looming": "Looming escape", "sugar": "Sugar response",
-               "orchard": "Orchard feeding"}
+               "orchard": "Orchard feeding", "thermo_escape": "Thermogenetic escape"}
 
 
 def default_workers() -> int:
@@ -43,11 +43,16 @@ def assay_task(kind: str, seed: int, options: dict, surgery: dict | None, params
         return assays.sugar_fly(seed, surgery=surgery, params=params, **opts)
     if kind == "orchard":
         return assays.orchard_fly(seed, surgery=surgery, params=params, **opts)
+    if kind == "thermo_escape":
+        from kickthefly.lab import thermogenetics
+
+        return thermogenetics.escape_fly(seed, surgery=surgery, params=params, **opts)
     raise ValueError(kind)
 
 
 HEADLINE_LABEL = {"tmaze": "performance index", "looming": "escape probability (all speeds)",
-                  "sugar": "MN9 ratio (all doses)", "orchard": "MN9 ratio, feeding vs travelling"}
+                  "sugar": "MN9 ratio (all doses)", "orchard": "MN9 ratio, feeding vs travelling",
+                  "thermo_escape": "escape probability (all temperatures, expressing flies)"}
 
 
 def headline(kind: str, fly: dict) -> float:
@@ -60,6 +65,8 @@ def headline(kind: str, fly: dict) -> float:
         return float(np.mean([np.mean([o["ratio"] for o in offs]) for offs in fly["offers"].values()]))
     if kind == "orchard":
         return float(fly["mn9_ratio"])
+    if kind == "thermo_escape":
+        return float(np.mean([t["expressing"]["escaped"] for t in fly["trials"].values()]))
     raise ValueError(kind)
 
 
@@ -87,6 +94,10 @@ def summarize(kind: str, flies: list[dict]) -> dict:
         return dict(metric="escape probability and latency vs approach speed", rows=rows,
                     per_fly=[float(np.mean([np.mean([t["escaped"] for t in tr]) for tr in f["trials"].values()]))
                              for f in flies])
+    if kind == "thermo_escape":
+        from kickthefly.lab import thermogenetics
+
+        return thermogenetics.summarize(flies)
     if kind == "orchard":
         return dict(metric="orchard feeding: MN9 and PAM feeding vs travelling, and the orchard's depletion",
                     mn9_ratio=labstats.mean_ci([f["mn9_ratio"] for f in flies]),

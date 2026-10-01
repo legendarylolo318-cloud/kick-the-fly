@@ -2,6 +2,22 @@
 
 ## 3.0.0 (unreleased)
 
+### Day 2 (genetic toolkit, thermogenetics, patch clamp, imaging, pharmacology)
+Added, all in the Lab and all tagged on screen. Existing validation results are unchanged (diffed); the only edits near the simulation
+are inert hooks on `Brain` (named extra currents, a per-step probe) and optional fields on `sim.wiring.Wiring`.
+- **Genetic toolkit:** choose neurons by split-GAL4 line (`line:SS00727`); `kickthefly/data/driver_lines.yaml` (2,667 lines, Meissner
+  et al. 2025, CC BY 4.0) built by `tools/build_driver_lines.py`; off-target note from the source's quality score. No GAL4 (non-split) table.
+- **Thermogenetics:** TrpA1 and shibire-ts by cell type or line; temperature from the thermo arena, a Lab slider or a protocol; assay
+  `thermo_escape` (DNp01 escape rate vs temperature).
+- **Virtual patch clamp** (Lab > Patch clamp, inspector PATCH): potential, spikes, current steps, I-F curve, CSV/NWB. MODEL.
+- **Simulated calcium imaging** (Lab > Calcium imaging): Imaging mode in the brain view, GCaMP6s/6f/8m, ROI traces, CSV/NWB/TIFF. MODEL.
+- **Pharmacology** (Lab > Pharmacology): picrotoxin (moved from Robustness), cholinergic block, glutamate-Cl block, GABA-A agonist,
+  dose slider, synapses affected per confidence level, include/exclude low-confidence predictions. MODEL PREDICTION.
+- Protocols: `thermogenetics:`, `drug:`, `imaging:` blocks and a `patch:` protocol kind; seven example protocols. Python API: `fly.line`,
+  `express`, `temperature`, `patch`, `image`, `drug`, `washout`. Settings > Brain: imaging indicator and frame rate. `--selftest` checks the
+  toolkit. Playthrough: six new checks. Lab > Model assumptions: five new cards. docs/genetics.md, thermogenetics.md, patchclamp.md,
+  imaging.md, pharmacology.md.
+
 Day 1 of the 3.0 build. Nothing the simulation does changed: `kickthefly/lab/validation.py`, `assays.py` and `kickthefly/sim/` are
 untouched, and no rule or threshold was tuned.
 

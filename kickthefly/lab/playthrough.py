@@ -32,6 +32,12 @@ stimulated, saved under the temporary home), the kill cam (an offer with a full 
 stimulated type, playback that ends and skips), share codes (a surgery and a loadout round trip through the real game,
 a damaged code is refused) and an experiment bundle (a tiny protocol is bundled and rerun: bit-exact on the CPU backends).
 
+Also covered (3.0 day 2, criteria written before the first run): a driver line selects its cell type and silencing through it
+silences (extra:genetics), TrpA1 and shibire-ts respond to temperature and only where expressed (extra:thermogenetics), the patch
+clamp's isolated and embedded I-F curves (extra:patch), imaging a driven type shows a dF/F rise and exports (extra:imaging), a
+cholinergic block lowers and picrotoxin raises whole-brain firing and washout restores the weights exactly (extra:pharmacology),
+and the five Lab screens draw on the real brain (extra:toolkit-pages).
+
 Also covered: multi-fly spawn and despawn up to 8, brain surgery on and off, training with 5 pairings, a duel start and
 end, pet mode catch-up over a simulated 3-day gap, individuality off / subtle / strong, and every loadout preset in
 every mode. The 3D renderer runs offscreen where OpenGL is available; with no GL its checks are SKIPPED, never failed.
@@ -764,6 +770,160 @@ def extra_surgery(backend: str, r: Result) -> None:
     r.expect(on > 1.5 * max(base["loom"], 0.5), f"stimulating gave {on:.2f} Hz (calm {base['loom']:.2f})")
 
 
+# --- 3.0 day 2: genetic toolkit, thermogenetics, patch clamp, imaging, pharmacology -------------------------------------
+# Pass criteria, fixed before the first run and not adjusted after seeing results (seeds 41-46 are exploration seeds).
+def extra_genetics(backend: str, r: Result) -> None:
+    """A driver line selects exactly its cell type's neurons, and surgery through the line silences them (the source table's
+    claim that SS00727 labels DNp01 is literature; the neurons and what silencing does are the connectome and the model)."""
+    from kickthefly.lab.api import Fly
+
+    fly = Fly(seed=41, backend=backend, warmup_s=1.0, learn=False)
+    d = fly.line("SS00727")
+    r.metrics.update(line=d["line"], matched=d["matched"], neurons=d["neurons"], off_target=d["off_target"])
+    r.expect(d["matched"].get("DNp01", 0) > 0, f"SS00727 matched {d['matched']}, expected DNp01 in this connectome")
+    r.expect(set(fly.neurons("line:SS00727")) == set(fly.neurons("type:DNp01")), "line:SS00727 is not exactly the DNp01 neurons")
+    r.expect(d["off_target"] in ("minimal", "some", "yes", "weak", "unstable", "unknown"), "no off-target statement")
+    rec = fly.record({"gf": "line:SS00727"})
+    fly.step(1.0)
+    base = rec.rates(0.0, 1.0)["gf"]
+    fly.silence("line:SS00727")
+    fly.step(1.0)
+    off = rec.rates(1.2, 2.0)["gf"]
+    fly.restore()
+    r.metrics.update(baseline_hz=base, silenced_hz=off)
+    r.expect(off < 0.2 * max(base, 0.5), f"silencing the line left {off:.2f} Hz (calm {base:.2f})")
+
+
+def extra_thermogenetics(backend: str, r: Result) -> None:
+    """TrpA1 in DNp01 fires it when warm and not when cool; the same temperature does nothing without the channel; shibire-ts
+    silences the looming detectors when warm (steady-state kinetics: this checks the threshold curve, not the time course)."""
+    from kickthefly.lab.api import Fly
+
+    fly = Fly(seed=42, backend=backend, warmup_s=1.0, learn=False)
+    rec = fly.record({"gf": "dnp01", "loom": "loom"})
+    fly.step(1.0)
+    calm = rec.rates(0.0, 1.0)
+    fly.temperature(34.0, kinetics="steady")
+    fly.step(1.0)
+    control = rec.rates(1.2, 2.0)["gf"]                                   # warm, no channel expressed yet
+    fly.express("trpa1", "line:SS00727")
+    fly.step(1.0)
+    hot = rec.rates(2.2, 3.0)["gf"]
+    fly.temperature(20.0)
+    fly.step(1.0)
+    cool = rec.rates(3.2, 4.0)["gf"]
+    fly.unexpress()
+    fly.express("shibire", "type:LPLC2,LC4").temperature(34.0)
+    fly.step(1.0)
+    shi = rec.rates(4.2, 5.0)["loom"]
+    r.metrics.update(calm_hz=calm["gf"], warm_control_hz=control, trpa1_warm_hz=hot, trpa1_cool_hz=cool, loom_calm_hz=calm["loom"],
+                     shibire_warm_loom_hz=shi)
+    r.expect(hot >= 3.0 * max(calm["gf"], 1.0), f"TrpA1 at 34 C gave DNp01 {hot:.1f} Hz (calm {calm['gf']:.1f})")
+    r.expect(cool <= 2.0 * max(calm["gf"], 1.0), f"TrpA1 at 20 C gave DNp01 {cool:.1f} Hz (calm {calm['gf']:.1f})")
+    r.expect(control <= 2.0 * max(calm["gf"], 1.0), f"34 C without the channel gave DNp01 {control:.1f} Hz")
+    r.expect(shi < 0.2 * max(calm["loom"], 0.5), f"shibire-ts at 34 C left the looming detectors at {shi:.2f} Hz (calm {calm['loom']:.2f})")
+    fly.unexpress()
+    r.expect(not fly.brain.injecting, "an effector current was left on the brain")
+
+
+def extra_patch(backend: str, r: Result) -> None:
+    """The isolated unit never fires below the LIF rheobase and never slower with more current; in the wired brain, current
+    raises the firing of a neuron that is otherwise quiet and the electrode leaves nothing behind. (MODEL, not electrophysiology.)"""
+    from kickthefly.lab.api import Fly
+
+    fly = Fly(seed=43, backend=backend, warmup_s=1.0, learn=False)
+    iso = fly.patch("type:DNp01", [0.0, 0.005, 0.02, 0.1, 0.5], duration_ms=500, repeats=2, mode="isolated")
+    rate = iso["rate_hz"]
+    r.metrics.update(isolated_rates=rate, isolated_rheobase=iso["rheobase"])
+    r.expect(all(b >= a - 1.0 for a, b in zip(rate, rate[1:])), f"the isolated I-F curve is not monotone: {rate}")
+    r.expect(rate[0] < 5.0 and rate[-1] > 40.0, f"isolated unit fired {rate[0]:.1f} Hz at rest and {rate[-1]:.1f} Hz at 0.5")
+    emb = fly.patch("type:DNp01", [0.0, 0.5], duration_ms=500, repeats=2, mode="embedded")
+    r.metrics.update(embedded_rates=emb["rate_hz"])
+    r.expect(emb["rate_hz"][1] > emb["rate_hz"][0] + 10.0, f"embedded: {emb['rate_hz'][0]:.1f} -> {emb['rate_hz'][1]:.1f} Hz with 0.5 injected")
+    r.expect(not fly.brain.injecting, "the patch electrode left a current on the brain")
+
+
+def extra_imaging(backend: str, tmp: Path, r: Result) -> None:
+    """Imaging a driven cell type shows a dF/F rise over its calm baseline; the regions ROI set covers the brain; CSV (and NWB if
+    pynwb is installed) export. (MODEL: a forward model on the spikes.)"""
+    from kickthefly.lab import imaging
+    from kickthefly.lab.api import Fly
+
+    fly = Fly(seed=44, backend=backend, warmup_s=1.0, learn=False)
+    calm = fly.image(2.0, rois=["type:LPLC2"], indicator="gcamp6f", shot_noise=False)
+    fly.drive("type:LPLC2", amp=0.5)
+    driven = fly.image(2.0, rois=["type:LPLC2"], indicator="gcamp6f", shot_noise=False)
+    fly.undrive()
+    up = float(driven.true_dff[-1, 0])
+    r.metrics.update(calm_dff=float(calm.true_dff[-1, 0]), driven_dff=up)
+    r.expect(up > float(calm.true_dff[-1, 0]) + 0.1, f"driving LPLC2 moved dF/F from {calm.true_dff[-1, 0]:.2f} to {up:.2f}")
+    regions = fly.image(1.0, fps=20)
+    r.expect(len(regions.roi_names) >= 5 and np.isfinite(regions.dff).all(), f"regions ROI set: {regions.roi_names}")
+    f = imaging.export_csv(regions, tmp / "imaging" / "roi.csv")
+    r.expect(f.exists() and f.read_text(encoding="utf-8").startswith("# MODEL"), "the CSV export is missing or untagged")
+    from kickthefly.lab import nwbexport
+
+    if nwbexport.available() is None:
+        imaging.export_nwb(regions, tmp / "imaging" / "roi.nwb")
+    else:
+        r.note("NWB export not checked: pynwb is not installed")
+
+
+def extra_pharmacology(backend: str, r: Result) -> None:
+    """Directional checks only, written before the run: a cholinergic block lowers whole-brain firing, picrotoxin raises it, and
+    washout puts every synaptic weight back exactly. (MODEL PREDICTION: a synaptic scale, no receptor model.)"""
+    from kickthefly.lab.api import Fly
+
+    fly = Fly(seed=45, backend=backend, warmup_s=1.0, learn=False)
+    before = fly.brain.sim.W_csr.data.copy()
+
+    def mean_rate(seconds=1.0):
+        n = int(seconds / 0.005)
+        tot = 0
+        for _ in range(n):
+            fly.step(steps=1)
+            tot += int(fly.brain.sim.spikes.sum())
+        return tot / fly.n / seconds
+
+    base = mean_rate()
+    info = fly.drug("cholinergic", 1.0)
+    chol = mean_rate()
+    fly.washout()
+    r.expect(np.array_equal(fly.brain.sim.W_csr.data, before), "washout did not restore the weights exactly")
+    fly.step(1.0)
+    fly.drug("picrotoxin", 1.0)
+    ptx = mean_rate()
+    fly.washout()
+    r.metrics.update(baseline_hz=base, cholinergic_block_hz=chol, picrotoxin_hz=ptx, synapses_changed=info["changed"])
+    r.expect(info["changed"] > 1_000_000, f"the cholinergic block changed only {info['changed']:,} synaptic entries")
+    r.expect(chol < 0.9 * base, f"cholinergic block: {base:.2f} -> {chol:.2f} Hz per neuron")
+    r.expect(ptx > 1.1 * base, f"picrotoxin: {base:.2f} -> {ptx:.2f} Hz per neuron")
+    r.expect(np.array_equal(fly.brain.sim.W_csr.data, before), "the weights were not restored after the last washout")
+
+
+def extra_toolkit_pages(rig: Rig, r: Result) -> None:
+    """The five Lab screens draw on the real brain, and the inspector offers Patch in Lab mode."""
+    import pygame
+
+    from kickthefly.game import kick_the_fly as k2
+
+    g = rig.game
+    rig.reset()
+    surf = pygame.Surface((k2.W, k2.H))
+    for page in ("lab_genetics", "lab_thermo", "lab_patch", "lab_imaging", "lab_pharm"):
+        r.expect(page in g.menu.pages, f"{page} is not registered")
+        g.menu.show(page)
+        g.menu.mouse = (5, 5)
+        g.menu.draw(surf, (5, 5), time.perf_counter())
+    g.menu.close()
+    g.inspect = g._neuron_info(int(np.flatnonzero(g.brain.types == "DNp01")[0]))
+    g.big_view = True
+    g._draw_big_view(surf)
+    r.expect(g.cfg.lab is False or g.patch_button is not None, "the inspector did not offer Patch in Lab mode")
+    g.big_view = False
+    g.inspect = None
+
+
 def extra_training(rig: Rig, r: Result) -> None:
     """Five fear pairings: the mushroom body's memory of the scent must move, and the log holds the pairings."""
     g = rig.game
@@ -810,10 +970,18 @@ def extra_neurodex(rig: Rig, r: Result) -> None:
     r.expect(x3.table_state == "ready", f"the Neurodex table is '{x3.table_state}' {x3.table_error}")
     if x3.table_state != "ready":
         return
-    rig.seconds(6.0)                                                   # settle: the discovery rule's first 5 s
-    prog = x3.progress
-    calm = dict(prog.types(x3.brain_name))
-    r.metrics.update(types=len(x3.table), calm_discoveries=len(calm), calm_examples=sorted(calm)[:6])
+    prog = x3.ensure_progress()
+    before = set(prog.types(x3.brain_name))
+    # 3.0 day 2 review: the window was not calm. The bot's hand sat on the fly's head (rig.frames' default mouse), so the fly
+    # smelled the tool every frame (a 'scent' poke, so never calm by the game's rule), and the check judged every type
+    # discovered since the rig started, including the earlier play legs'. Now the hand rests over the brain panel (2D) or
+    # the player steps back (3D), and only what is discovered in this window is judged. The criterion is unchanged.
+    away = None if rig.three_d else (rig.k2.PLAY_W + 40, 40)
+    rig.step_back()
+    rig.seconds(6.0, mouse=away)                                       # settle: the discovery rule's first 5 s
+    calm = {n: v for n, v in prog.types(x3.brain_name).items() if n not in before}
+    r.metrics.update(types=len(x3.table), calm_discoveries=len(calm), calm_examples=sorted(calm)[:6],
+                     discovered_before=len(before))
     wrong = {n: v["how"] for n, v in calm.items() if v["how"] != "rest"}
     r.expect(not wrong, f"calm discoveries not tagged 'rest': {dict(list(wrong.items())[:5])}")
     target = next((t for t in ("LPLC2", "DNp01", "MDN") if x3.table.index(t) is not None), None)
@@ -925,7 +1093,7 @@ def extra_share(rig: Rig, r: Result) -> None:
     g._apply_surgery()
 
 
-def extra_bundle(backend: str, r: Result, tmp: Path) -> None:
+def extra_bundle(backend: str, tmp: Path, r: Result) -> None:
     """3.0: run a tiny protocol, bundle it, rerun the bundle: bit-exact on the CPU backends, statistical on GPU."""
     from kickthefly.lab import bundle, protocol
 
@@ -1240,10 +1408,16 @@ def run(brains=("adult", "larva"), out: Path | None = None, quick: bool = False,
                     add(Result(id="extra:neurodex", group="extra", brain="adult"), extra_neurodex, rig2)
                     add(Result(id="extra:killcam", group="extra", brain="adult"), extra_killcam, rig2)
                     add(Result(id="extra:share-codes", group="extra", brain="adult"), extra_share, rig2)
+                    add(Result(id="extra:toolkit-pages", group="extra", brain="adult"), extra_toolkit_pages, rig2)
                 finally:
                     if rig2 is not None:
                         rig2.close()
                 add(Result(id="extra:surgery", group="extra", brain="adult"), extra_surgery, backend)
+                add(Result(id="extra:genetics", group="extra", brain="adult"), extra_genetics, backend)
+                add(Result(id="extra:thermogenetics", group="extra", brain="adult"), extra_thermogenetics, backend)
+                add(Result(id="extra:patch", group="extra", brain="adult"), extra_patch, backend)
+                add(Result(id="extra:imaging", group="extra", brain="adult"), extra_imaging, backend, tmp)
+                add(Result(id="extra:pharmacology", group="extra", brain="adult"), extra_pharmacology, backend)
                 add(Result(id="extra:bundle-rerun", group="extra", brain="adult"), extra_bundle, backend, tmp)
                 add(Result(id="extra:individuality", group="extra", brain="adult"), extra_individuality, backend)
             add(Result(id="extra:pet-catch-up", group="extra"), extra_pet, tmp)

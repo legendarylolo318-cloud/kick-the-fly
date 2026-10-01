@@ -118,7 +118,15 @@ class LaserState:
         return rows
 
     def _scan_rows(self, brain, tt: str) -> np.ndarray:
-        """One-off full-table scan for matching rows (exact > prefix > contains)."""
+        """One-off full-table scan for matching rows (exact > prefix > contains). `line:SS00727` (3.0 day 2) selects the
+        cell types a split-GAL4 line is reported to label (lab/genetics.py)."""
+        if tt.startswith("line:"):
+            from kickthefly.lab import genetics
+
+            try:
+                return genetics.rows_of_lines(brain.types, tt)
+            except genetics.GeneticsError:
+                return np.array([], dtype=int)
         types = np.char.lower(brain.types.astype(str))
         exact = np.flatnonzero(types == tt)
         if len(exact):

@@ -346,5 +346,16 @@
   "unassigned": "unassigned",
   "the game assigns signs by a rule": "the game assigns signs by a rule",
   "Collect cell types in the Neurodex (default key D): a type is discovered the first time its neurons fire well above their own calm rate (tagged 'in play', 'by stimulation', or 'at rest' for a spontaneous burst). The numbers in an entry come from the dataset (Connectome); what counts as discovered, and the collection, are game rules. Off stops collecting; what you found stays.": "Collect cell types in the Neurodex (default key D): a type is discovered the first time its neurons fire well above their own calm rate (tagged 'in play', 'by stimulation', or 'at rest' for a spontaneous burst). The numbers in an entry come from the dataset (Connectome); what counts as discovered, and the collection, are game rules. Off stops collecting; what you found stays.",
-  "discovered at rest (a spontaneous burst, nothing touching the fly)": "discovered at rest (a spontaneous burst, nothing touching the fly)"
+  "discovered at rest (a spontaneous burst, nothing touching the fly)": "discovered at rest (a spontaneous burst, nothing touching the fly)",
+  "10 Hz": "10 Hz",
+  "20 Hz": "20 Hz",
+  "30 Hz": "30 Hz",
+  "40 Hz": "40 Hz",
+  "GCaMP6f": "GCaMP6f",
+  "GCaMP6s": "GCaMP6s",
+  "GCaMP8m": "GCaMP8m",
+  "Imaging frame rate": "Imaging frame rate",
+  "Imaging indicator": "Imaging indicator",
+  "Lab > Calcium imaging: frames per second of the simulated imaging (the 5 ms simulation step quantizes it). MODEL, not a measurement.": "Lab > Calcium imaging: frames per second of the simulated imaging (the 5 ms simulation step quantizes it). MODEL, not a measurement.",
+  "Lab > Calcium imaging: which GCaMP the simulated imaging uses. MODEL: spikes from the simulation convolved with the indicator's kernel plus photon shot noise, not a measurement. The rise and decay come from Chen 2013 (GCaMP6s/6f, its Supplementary Table 3: mouse cortex, single spikes) and Zhang 2023 (jGCaMP8m, fly visual responses). Off until you turn Imaging mode on.": "Lab > Calcium imaging: which GCaMP the simulated imaging uses. MODEL: spikes from the simulation convolved with the indicator's kernel plus photon shot noise, not a measurement. The rise and decay come from Chen 2013 (GCaMP6s/6f, its Supplementary Table 3: mouse cortex, single spikes) and Zhang 2023 (jGCaMP8m, fly visual responses). Off until you turn Imaging mode on."
 }
