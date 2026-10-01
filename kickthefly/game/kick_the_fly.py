@@ -1373,8 +1373,9 @@ for wtip in WING:
 LINK_LEN = [float(np.hypot(*(REST[a] - REST[b]))) for a, b, _, _ in LINKS]
 MAX_HEALTH = 100.0
 # New arenas are only ever appended: a save state from before 2.7 names its arena by index alone (savestate.py).
-ARENAS = ("room", "fan", "flypaper", "pool", "lamp", "escaperoom", "field", "orchard", "thermo")
+ARENAS = ("room", "fan", "flypaper", "pool", "lamp", "escaperoom", "field", "orchard", "thermo", "kitchen")
 OUTDOOR_ARENAS = ("field", "orchard")            # 3D only: large open worlds (kickthefly/game/outdoors.py)
+THREE_D_ONLY = OUTDOOR_ARENAS + ("kitchen",)     # 3.0 day 3: the kitchen (kickthefly/game/kitchen.py) is 3D only too
 # Thermo arena (GAME RULE): the temperature runs linearly from 15 C at the left wall to 35 C at the right, and the
 # fly's cold (TRN_VP3) or hot (TRN_VP2) antennal neurons are driven by how far it is from the comfortable middle.
 THERMO_MID_X, THERMO_HALF_X = 445.0, 365.0     # 2D pixels; the 3D room uses its own width (kick3d.py)
@@ -2545,10 +2546,10 @@ class Game:
                     if hasattr(self, "menu"):
                         self.menu.flash(reason, menu_ui.AMBER)
                     return
-            if not self.three_d and name in OUTDOOR_ARENAS:
+            if not self.three_d and name in THREE_D_ONLY:
                 self.note(f"ARENA    {name} needs the 3D game; staying in the room")
                 if hasattr(self, "menu"):
-                    self.menu.flash("Open field and Orchard need the 3D game (OpenGL 3.3). The 2D game stays "
+                    self.menu.flash("Open field, Orchard and Kitchen need the 3D game (OpenGL 3.3). The 2D game stays "
                                     "indoors.", menu_ui.AMBER)
                 name = "room"
             i = ARENAS.index(name) if name in ARENAS else 0
@@ -6872,7 +6873,7 @@ class Game:
             self.surgery_open = not self.surgery_open
         elif action == "arena":
             i = (self.arena_i + 1) % len(ARENAS)
-            while not self.three_d and ARENAS[i] in OUTDOOR_ARENAS:     # the 2D game has no outdoor worlds
+            while not self.three_d and ARENAS[i] in THREE_D_ONLY:     # the 2D game has no outdoor worlds or kitchen
                 i = (i + 1) % len(ARENAS)
             self.set_setting("brain.arena", ARENAS[i])
         elif action == "spawn":

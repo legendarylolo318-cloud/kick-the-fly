@@ -57,7 +57,7 @@ def make_context(host) -> sc.Context:
     x3 = host.x3
     if getattr(x3, "_type_names", None) is None or x3._type_names[0] is not host.brain:
         x3._type_names = (host.brain, set(np.unique(np.asarray(host.brain.types).astype(str))) - {""})
-    arenas = {a for a in k.ARENAS if host.three_d or a not in k.OUTDOOR_ARENAS}
+    arenas = {a for a in k.ARENAS if host.three_d or a not in k.THREE_D_ONLY}
     return sc.Context(
         tools=set(lo.BY_NAME), lab_params={n: (p[4], p[5]) for n, p in lab.BY_NAME.items()},
         current_params={n: host.lab_params.get(n, lab.DEFAULTS[n]) for n in lab.DEFAULTS},

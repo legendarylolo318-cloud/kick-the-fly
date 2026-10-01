@@ -171,7 +171,7 @@ SETTINGS: tuple[Setting, ...] = (
       "drives its real cold- and hot-sensing antennal neurons. Open field and Orchard are large outdoor 3D worlds "
       "(the 2D game stays indoors). The sensory neurons each arena drives are real; the places themselves are game "
       "rules. Hotkey E cycles them.",
-      options=("room", "fan", "flypaper", "pool", "lamp", "thermo", "escaperoom", "field", "orchard"),
+      options=("room", "fan", "flypaper", "pool", "lamp", "thermo", "escaperoom", "field", "orchard", "kitchen"),
       labels=("Room", "Fan", "Flypaper", "Pool", "Lamp", "Thermo", "Escape room", "Open field", "Orchard"),
       tag=GAME_RULE),
     S("brain.song_buzz", "Brain", "Courtship song buzz", "bool", True,

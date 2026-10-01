@@ -59,6 +59,17 @@ PARAMS = (
      "how the two antennae split it by heading is a game rule."),
     ("field.wind_speed", "Open field: wind speed (m/s)", "rule", 3.0, 0.0, 10.0, 0.5, "{:.1f}",
      "Steady wind strength in the open field. 6 m/s and above drives the wind neurons fully (game rule)."),
+    ("weather.rain", "Weather: rain intensity", "rule", 0.0, 0.0, 1.0, 0.05, "{:.2f}",
+     "Rain in the open field and the orchard (0 = none). Drops hit the body by part and fire the real touch neurons (head, "
+     "body, legs, wings), the air drives the humidity neurons, and enough rain wets the wings so the fly can't take off, "
+     "as after the pool. The hit rate, strengths, parts and wetting are game rules."),
+    ("weather.gust_hz", "Weather: gusts per second", "rule", 0.0, 0.0, 0.5, 0.02, "{:.2f}",
+     "How often a gust blows in the open field and the orchard. A gust is extra wind speed (2-6 m/s for 1-3 s) fed through "
+     "the existing wind -> Johnston's organ JO-C/E transduction. The gust's size, length and turn are game rules."),
+    ("weather.storm", "Weather: storm (0 off, 1 on)", "rule", 0.0, 0.0, 1.0, 1.0, "{:.0f}",
+     "A storm is at least 70% rain, 0.2 gusts a second and +3 m/s of wind, a darker scene, and lightning every 5-14 s that "
+     "drives the photoreceptors (the screen swells slowly instead of flashing with Reduced flashing on). Thunder follows "
+     "the flash. The storm preset is a game rule."),
     ("outdoor.sun_az", "Outdoors: sun azimuth (deg)", "rule", 135.0, 0.0, 355.0, 5.0, "{:.0f}",
      "Where the sun stands. Sunlight drives the real photoreceptors, split between the eyes by heading (game rule)."),
     ("outdoor.sun_el", "Outdoors: sun elevation (deg)", "rule", 45.0, -10.0, 90.0, 5.0, "{:.0f}",

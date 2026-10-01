@@ -80,7 +80,10 @@ Z_SIGMAS, MIN_RISE, MIN_DELTA_HZ, WINDOW = 4.0, 1.15, 0.5, 20
 TOOL_PLAN = {"hand": ("hold", 3.0), "flick": ("click", 15.0), "swatter": ("click", 15.0), "bomb": ("click", 15.0),
              "zapper": ("click", 15.0), "torch": ("hold", 10.0), "freeze": ("hold", 8.0), "cleaner": ("hold", 12.0),
              "alcohol": ("item", 8.0), "cva": ("once", 3.0), "sugar": ("item", 8.0), "fruit": ("item", 8.0),
-             "spider": ("once", 25.0), "decoy": ("item", 4.0), "laser": ("hold", 3.0)}
+             "spider": ("once", 25.0), "decoy": ("item", 4.0), "laser": ("hold", 3.0),
+             # 3.0 day 3: predators. One use each; the mantis needs most of its creep (about 12 s at 10 cm/s) before it strikes
+             "frog": ("once", 20.0), "dragonfly": ("once", 15.0), "mantis": ("once", 30.0)}
+PREDATORS = ("frog", "dragonfly", "mantis")
 SAVE_LOAD_AT_S = 1.0        # seconds after the tool is first used: before anything has died
 QUICK_ARENAS = ("room", "orchard")
 
@@ -594,6 +597,8 @@ def game_leg(rig: Rig, arena: str, tool: str, min_ratio: float, tmp: Path, save_
             rig.seconds(0.25)
             elapsed += 0.25
             grabbed = grabbed or rig.slot.fly.grabbed is not None
+            if tool == "dragonfly":                                   # it only hunts a fly in the air: keep the fly aloft, as a
+                rig.slot.fly.escape_until = max(rig.slot.fly.escape_until, g.clock.now + 1.0)   # startled one would be
             touched = touched or getattr(rig.slot.fly, "decoy_contact_until", 0.0) > g.clock.now   # lasts 0.35 s > a sample
             if kind in ("hold", "click") and rig.three_d and tool != "hand":
                 rig.face_fly()                                        # a player keeps the tool on the fly as it moves
@@ -618,7 +623,7 @@ def game_leg(rig: Rig, arena: str, tool: str, min_ratio: float, tmp: Path, save_
                 except OSError:
                     pass
                 spent += time.perf_counter() - t1
-                if kind == "hold" or (tool == "spider" and g.spider is None):
+                if kind == "hold" or (tool == "spider" and g.spider is None) or (tool in PREDATORS and not g.preds.list):
                     rig.use(tool)                                      # a load lets go of the tool: pick it up again
                 rig.seconds(0.25)                                      # and it runs on after the load
         rig.release()
@@ -704,7 +709,7 @@ def gate_2d_outdoor(rig2d: Rig) -> list[Result]:
     from kickthefly.game import kick_the_fly as k2
 
     out = []
-    for arena in sorted(k2.OUTDOOR_ARENAS):
+    for arena in sorted(k2.THREE_D_ONLY):
         r = Result(id=f"gate:2d:{arena}:*", group="gate", brain="adult", arena=arena, status=GATED)
 
         def run():
@@ -1413,7 +1418,7 @@ def run(brains=("adult", "larva"), out: Path | None = None, quick: bool = False,
                     for r in gate_2d_outdoor(rig2):
                         add(r)
                     if not quick:
-                        for arena in (a for a in all_arenas if a not in k2.OUTDOOR_ARENAS):
+                        for arena in (a for a in all_arenas if a not in k2.THREE_D_ONLY):
                             for tool in all_tools:
                                 if lo.available(tool, lab=True, larva=False):
                                     add(game_leg(rig2, arena, tool, min_ratio, tmp, save_load=False, rest=rest.get(tool)))

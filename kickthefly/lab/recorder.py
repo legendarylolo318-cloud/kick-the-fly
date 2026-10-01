@@ -84,9 +84,9 @@ def metadata(brain=None, game=None, extra: dict | None = None) -> dict:
         if w is not None:
             meta["wiring"] = w.as_dict()
         arena = k.ARENAS[game.arena_i]
-        if arena in k.OUTDOOR_ARENAS:                  # the weather and fruit settings the run was made under
+        if arena in k.THREE_D_ONLY:                    # the weather and fruit settings the run was made under
             meta["arena_params"] = {n: v for n, v in game.lab_params.items()
-                                    if n.startswith(("field.", "outdoor.", "orchard."))}
+                                    if n.startswith(("field.", "outdoor.", "orchard.", "weather."))}
         meta.update(mode="3d" if game.three_d else "2d", arena=k.ARENAS[game.arena_i],
                     lab_params=dict(game.lab_params), lab_params_modified=lab.modified(game.lab_params),
                     surgery={label: mode for (label, _), mode in zip(k.SURGERY, game.surgery_modes) if mode},

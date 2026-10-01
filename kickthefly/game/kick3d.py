@@ -30,6 +30,8 @@ import pygame
 from kickthefly.core import crash
 from kickthefly.game import kick_the_fly as k2
 from kickthefly.game import gamepad, outdoors
+from kickthefly.game import kitchen
+from kickthefly.game import weather as weather_rules
 from kickthefly.game.kick_the_fly import (ABD, FOOT, HEAD, KNEE, LINKS, MAX_HEALTH, N_P, PULL, RADIUS, REST, THRESH, THX, TOOLS,
                           TORCH_KEYS, TRIPOD, WING, drop_item)
 from kickthefly.game.render3d import (P_BOOKS, P_CEIL, P_EYE, P_GRASS, P_ICE, P_NONE, P_PAPER, P_RUG, P_SKYDOME, P_STRIPES,
@@ -118,9 +120,14 @@ def scene_setup(game) -> tuple[dict, tuple, float]:
         up = max(0.0, float(sun[1]))
         day = 0.12 + 0.88 * outdoors.dusk(el)          # 1 unless the sun is low: night falls with the day/night cycle
         w = outdoors.spec(arena)
-        haze = tuple(np.array((0.72, 0.78, 0.84)) * day)
-        lights = dict(u_sun_dir=-sun, u_sun_col=tuple(np.array((1.05, 0.98, 0.86)) * (0.25 + 0.9 * up ** 0.5) * day),
-                      u_sky=tuple(np.array(w.sky) * (0.45 + 0.55 * up) * day), u_ground=w.ground, u_lp0=(0.0, 100.0, 0.0),
+        boost = 1.0
+        wx = getattr(game, "weather", None)
+        if wx is not None and (wx.rain > 0 or wx.flash_at is not None):          # 3.0 day 3: a storm darkens the scene and flashes
+            day *= 1.0 - wx.darkness()
+            boost += 2.5 * wx.screen_flash(bool(game.cfg["access.reduced_flashing"]))    # reduced flashing: one slow swell
+        haze = tuple(np.minimum(np.array((0.72, 0.78, 0.84)) * day * boost, 1.0))
+        lights = dict(u_sun_dir=-sun, u_sun_col=tuple(np.array((1.05, 0.98, 0.86)) * (0.25 + 0.9 * up ** 0.5) * day * boost),
+                      u_sky=tuple(np.array(w.sky) * (0.45 + 0.55 * up) * day * boost), u_ground=w.ground, u_lp0=(0.0, 100.0, 0.0),
                       u_lc0=(0, 0, 0), u_lp1=(0.0, 100.0, 0.0), u_lc1=(0, 0, 0), u_fog=(*haze, DRAW_DIST * 2.0))
         return lights, haze, OUTDOOR_FAR
     lamp_on = arena == "lamp"
@@ -136,7 +143,8 @@ def set_world(arena: str, trees=()) -> None:
     w = outdoors.spec(arena)
     RX, RY, RZ = w.rx, w.ry, w.rz
     FLY_RX, FLY_RY, FLY_RZ = w.fly_rx, w.fly_ry, w.fly_rz
-    COLLIDERS = list(outdoors.tree_colliders(trees)) if arena in outdoors.OUTDOOR else list(ROOM_COLLIDERS)
+    COLLIDERS = (list(outdoors.tree_colliders(trees)) if arena in outdoors.OUTDOOR else
+                 list(kitchen.colliders()) if arena == "kitchen" else list(ROOM_COLLIDERS))
 
 HELP3D = (
     ("WASD", "walk (Shift sprint, Ctrl crouch)"),
@@ -150,7 +158,7 @@ HELP3D = (
     ("O", "brain surgery"),
     ("T", "training: teach it to fear or like a smell (saved)"),
     ("X", "1v1 duel: the fly gets a blaster and can kill you"),
-    ("E", "arena: room, fan, flypaper, pool, lamp, escape room, open field, orchard, thermo"),
+    ("E", "arena: room, fan, flypaper, pool, lamp, escape room, open field, orchard, thermo, kitchen"),
     ("J", "outdoors: call back a fly that flew out of sight"),
     ("P / I", "pain neurons / immortal mode"),
     ("M", "mute"),
@@ -262,6 +270,20 @@ class Fly3D:
     def dead(self) -> bool:
         return self.dead_at is not None
 
+    def in_water_thorax(self) -> bool:
+        """The thorax is in (or within 30 px of the surface of) the pool or the kitchen's sink water."""
+        if self.arena == "pool":
+            return bool(self.p[THX, 1] < WATER3 + 30 * S)
+        return bool(kitchen.in_sink(self.p[THX]) and self.p[THX, 1] < kitchen.SINK_WATER + 30 * S)
+
+    def water_mask(self):
+        """Which body points are in water: the whole pool, or the kitchen sink's basin. None where there is no water."""
+        if self.arena == "pool":
+            return self.p[:, 1] < WATER3
+        if self.arena == "kitchen":
+            return kitchen.sink_submerged(self.p)
+        return None
+
     @property
     def flying(self) -> bool:
         return (self.escape_until > 0 and self.grabbed is None and not self.dead and not self.wrapped and self.melt < 0.3
@@ -340,7 +362,7 @@ class Fly3D:
         height = self.p[THX, 1] - STAND3
         stiff = (1 - self.melt) ** 0.5 * (1 - self.frost) * (1 - self.venom)
         strength = self.recover * (1.0 if flying else float(np.clip(1 - height / (160 * S), 0, 1)) * stiff)
-        if self.grabbed is not None or (self.arena == "pool" and not flying and self.p[THX, 1] < WATER3 + 30 * S):
+        if self.grabbed is not None or (self.arena in ("pool", "kitchen") and not flying and self.in_water_thorax()):
             strength = 0.0
         shrink = 1 - 0.35 * self.melt
 
@@ -350,8 +372,8 @@ class Fly3D:
         self.prev = self.p.copy()
         self.p += v
         self.p[:, 1] -= GRAV * (1 - strength)
-        if self.arena == "pool":
-            sub = self.p[:, 1] < WATER3
+        if self.arena in ("pool", "kitchen"):
+            sub = self.water_mask()
             if sub.any():
                 self.p[sub, 1] += 1.35 * S
                 self.p[sub] -= (self.p[sub] - self.prev[sub]) * 0.12
@@ -647,6 +669,7 @@ class Game3D(k2.Game):
         set_world("room")                              # the room's furniture is built at the room's size
         self._room = self._build_room()
         self.world, self.scenery, self.orchard = "room", outdoors.scenery("room"), None
+        self.kitchen = None
         self.on_arena_changed(self.clock.now)          # config.toml may have chosen an outdoor arena (or the escape room)
         self.quit_armed = False
         self.view_w, self.hud_h = k2.PLAY_W, k2.H
@@ -936,6 +959,8 @@ class Game3D(k2.Game):
         self.shards3: list = []
         self.popups3 = []
         self.spider3: dict | None = None
+        self.weather = weather_rules.Weather(seed=int(time.time()) & 0xFFFF)      # 3.0 day 3: rain, gusts, storms
+        self._weather_t = None
         from kickthefly.game.predator_play import PredatorPlay
         self.preds = PredatorPlay(self, True)            # 3.0 day 3: frog, dragonfly, mantis (shared with the 2D game)
         self.pellets3: list = []
@@ -1325,6 +1350,8 @@ class Game3D(k2.Game):
         if self.spider3 is not None and self.spider3["state"] in ("drop", "hunt"):
             out.append(("spider", self.spider3["p"].copy(), 0.1))
         out.extend(self.preds.threats())                 # 3.0 day 3: the same looming measure as every other object
+        if getattr(self, "kitchen", None) is not None:
+            out.extend(self.kitchen.cook.threats())      # the cook's swatter, going down
         for b in self.bombs3:
             out.append((("bomb", id(b)), b["p"].copy(), 0.08))
         for other in self.flies:                      # other flies loom too: a real, symmetric dodge reaction
@@ -1421,6 +1448,16 @@ class Game3D(k2.Game):
         set_world(arena, self.scenery["trees"])
         self.world = arena
         self.orchard = None
+        self.kitchen = None
+        if arena == "kitchen":
+            p = self.lab_params
+            self.orchard = kitchen.bowl_orchard(seed=int(self.cfg["brain.seed"]), feeds=int(p.get("orchard.feeds", outdoors.DEFAULT_FEEDS)),
+                                                regrow_s=float(p.get("orchard.regrow_s", outdoors.DEFAULT_REGROW_S)),
+                                                cap=int(p.get("orchard.cap", outdoors.DEFAULT_CAP)))
+            for f in self.orchard.fruit:
+                if f.regrow_at is not None:
+                    f.regrow_at += now
+            self.kitchen = kitchen.KitchenState(kitchen.Cook(np.random.default_rng(int(self.cfg["brain.seed"]) + 3)))
         if arena == "orchard":
             p = self.lab_params
             self.orchard = outdoors.Orchard(self.scenery["trees"], feeds=int(p.get("orchard.feeds", outdoors.DEFAULT_FEEDS)),
@@ -1446,12 +1483,21 @@ class Game3D(k2.Game):
 
     def arena_status(self) -> list[str]:
         arena = k2.ARENAS[self.arena_i]
+        if arena == "kitchen" and self.kitchen is not None:
+            c = self.orchard.counts()
+            out = [f"fruit {c['ripe']}", f"{len(self.kitchen.trapped)} in the trap", f"cook swats {self.kitchen.cook.swats}"]
+            if self.kitchen.cook.state in ("windup", "swat"):
+                out.append("SWAT INCOMING")
+            return out
         if arena not in outdoors.OUTDOOR:
             return []
         p = self.lab_params
         out = []
         if arena == "field":
             out.append(f"wind {p.get('field.wind_speed', 3.0):.0f} m/s from {p.get('field.wind_dir', 180.0):.0f}°")
+        wx = self.weather
+        if wx.rain > 0 or wx.storm:
+            out.append(("STORM" if wx.storm else "rain") + f" {wx.rain:.0%}" + (f", gusts {wx.wind(0, 0)[0]:.0f} m/s" if wx.gusts else ""))
         if self.orchard is not None:
             c = self.orchard.counts()
             out.append(f"fruit {c['ripe']} ({c['fermented']} fermented)")
@@ -1502,11 +1548,18 @@ class Game3D(k2.Game):
                 slot.lost = False
 
     def _weather(self, slot, arena: str, now: float) -> None:
-        """Outdoor wind and sunlight onto the real wind and light neurons. The transduction is a GAME RULE."""
+        """Outdoor wind, rain, lightning and sunlight onto the real wind, touch, humidity and light neurons. The
+        transduction is a GAME RULE (see game/weather.py and game/outdoors.py)."""
         fly, br = slot.fly, slot.brain
         p = self.lab_params
+        wx = self.weather
         if arena == "field":
             wd, ws = float(p.get("field.wind_dir", 180.0)), float(p.get("field.wind_speed", 3.0))
+        else:
+            wd, ws = float(p.get("field.wind_dir", 180.0)), 0.0                  # the orchard has no steady wind, only gusts
+        if wx.gusts or wx.storm:
+            ws, wd = wx.wind(ws, wd)                                       # gusts: more wind speed into the same transduction
+        if arena == "field" or ws > 0:
             fly.wind = outdoors.wind_vector(wd, ws) * 0.0006           # how hard the air pushes the body (game rule)
             if not fly.dead and self.frame % 3 == 0 and ws > 0:
                 left, right = outdoors.wind_drive(fly.yaw, wd, ws)
@@ -1514,11 +1567,28 @@ class Game3D(k2.Game):
                     br.poke("wind", "L", left)
                 if right > 0.02:
                     br.poke("wind", "R", right)
-            if random.random() < 0.25 * min(1.0, ws / 4):
+            if arena == "field" and random.random() < 0.25 * min(1.0, ws / 4):
                 me = self.player.eye
                 src = me + np.array([random.uniform(-6, 6), random.uniform(0.2, 2.5), random.uniform(-6, 6)])
                 self.parts.append(dict(p=src, v=outdoors.wind_vector(wd, ws) / 60, t=now, life=1.2, kind="streak",
                                        size=0.02))
+        if wx.rain > 0 and not fly.dead:                                   # rain: touch by body part, wet air, wet wings
+            wing_hits = 0
+            for region, side, s_ in wx.hits(1 / 60):
+                br.poke(region, side, s_)
+                wing_hits += region == "wing"
+            h = wx.humid(1 / 60) if slot is self.flies[0] else 0.0
+            if h > 0:
+                br.poke("humid", None, h)
+            slot.rain_wet = _wet = weather_rules.soak(getattr(slot, "rain_wet", 0.0), 1 / 60, wx.rain, wing_hits)
+            if _wet >= 1.0:
+                fly.wet = max(fly.wet, weather_rules.WET_FOR_S)
+        elif getattr(slot, "rain_wet", 0.0) > 0:
+            slot.rain_wet = weather_rules.soak(slot.rain_wet, 0.0 + 1 / 60, 0.0, 0)
+        light = wx.lightning()
+        if light > 0 and not fly.dead:                                     # lightning drives the photoreceptors, both eyes
+            br.poke("light", "L", light, recruit=0.6 * light)
+            br.poke("light", "R", light, recruit=0.6 * light)
         if not fly.dead and self.frame % 2 == 0:
             day_s = self.cfg["brain.day_night"]
             az, el = outdoors.sun_now(p, now, day_s)
@@ -1613,15 +1683,156 @@ class Game3D(k2.Game):
             fly.perch = target                                               # hold there on arrival, don't wander
             self.note("TO FRUIT flies to a fruit", source="rule")
 
+    # --- the kitchen (kickthefly/game/kitchen.py): sink, burner, vinegar trap, cook; the fruit bowl is the orchard's fruit code --------
+    def _alcohol_hz(self, slot) -> float:
+        """DM1/DM2/DP1m firing (Hz per neuron) over the last 150 ms, read from the brain's own spikes."""
+        from kickthefly.core import neurodex as nd
+
+        br = slot.brain
+        rows = br.sense.get(("scent", "alcohol"))
+        if rows is None or not len(rows):
+            return 0.0
+        mask = getattr(slot, "_alc_mask", None)
+        if mask is None or mask.shape[0] != br.n:
+            mask = np.zeros(br.n, bool)
+            mask[np.asarray(rows, np.int64)] = True
+            slot._alc_mask = mask
+        spikes, steps = nd.window_spikes(br.sim.activity)
+        return kitchen.group_rate_hz(spikes, mask, int(mask.sum()), max(1, steps) * br.dt)
+
+    def _kitchen_tick(self, slot, now: float) -> None:
+        """One fly's kitchen: the sink's water, the burner's heat, the vinegar's smell (and, if the fly's own DM1/DM2/DP1m
+        neurons fire for it, a trip to the jar), and the trap. CONNECTOME for what is poked; the rest is GAME RULE."""
+        fly, br, k = slot.fly, slot.brain, self.kitchen
+        key = id(slot)
+        if fly.dead:
+            k.release(key)
+            return
+        head, thx = fly.p[HEAD], fly.p[THX]
+        # the sink: the pool's water rules in the basin
+        sub = kitchen.sink_submerged(fly.p)
+        if sub.any():
+            if fly.wet <= 0 and float(np.max((fly.prev - fly.p)[sub, 1])) > 4 * S:
+                self.sound.play("splash")
+                self.puff(np.array([thx[0], kitchen.SINK_WATER, thx[2]]), 10, 3)
+            fly.wet = 3.0
+            if self.frame % 4 == 0:
+                br.poke("humid", None, 0.9)
+                br.poke("body", None, 0.25)
+            if head[1] < kitchen.SINK_WATER - 6 * S:
+                self.damage(slot, 0.05, "drowning in the sink")
+        # the burner: the lamp's heat rules
+        heat, touching = kitchen.burner_heat(head)
+        if heat > 0.05 and self.frame % 2 == 0:
+            br.poke("heat", None, 0.8 * heat)
+        if touching:
+            br.poke("legs", "L", 0.5)
+            br.poke("legs", "R", 0.5)
+            self.damage(slot, 0.1, "the stove burner")
+            away = (thx - kitchen.BURNER_POS) * np.array([1.0, 0.0, 1.0])
+            away /= max(float(np.linalg.norm(away)), 1e-6)
+            for i in (HEAD, THX, ABD):
+                fly.impulse(i, away * 1.5 * S + np.array([0.0, 1.0 * S, 0.0]))
+        # the vinegar's smell on DM1/DM2/DP1m, and whether those neurons say "go there"
+        s = kitchen.scent_strength(head)
+        if s > 0 and self.frame % 2 == 0:
+            br.poke("scent", "alcohol", s)
+        tr = k.tracker(key)
+        if self.frame % 6 == 0:
+            tr.update(6 / 60, self._alcohol_hz(slot), s > 0)
+        busy = (fly.wrapped or fly.frozen_at is not None or fly.grabbed is not None or fly.wet > 0
+                or getattr(slot, "fruit", None) is not None or len(fly.stuck) >= 2 or key in k.trapped)
+        if tr.smelling and not busy and now >= fly.escape_until and now >= getattr(slot, "trap_ready", 0.0):
+            slot.trap_ready = now + 6.0
+            self._fly_to(fly, now, kitchen.mouth() + np.array([0.0, 0.15, 0.0]), 8.0)
+            self.note("TO VINEGAR its DM1/DM2/DP1m neurons fire for the smell: it flies to the trap", source="rule")
+        # the trap: hover over the mouth and fall in; once in, stuck and slowly drowning
+        if key in k.trapped:
+            k.trapped[key] += 1 / 60
+            fly.grabbed = THX
+            fly.wet = 3.0
+            if self.frame % 6 == 0:
+                br.poke("legs", "L", 0.4)
+                br.poke("legs", "R", 0.4)
+                br.poke("humid", None, 0.5)
+            self.damage(slot, kitchen.TRAP_DROWN, "the vinegar trap")
+            if getattr(self, "immortal", False) and k.trapped[key] > kitchen.TRAP_IMMORTAL_ESCAPE_S:
+                k.release(key)
+                fly.grabbed = None
+                fly.last_hit = kitchen.TRAP_POS.copy()
+                fly.escape(now)
+                self.popup(fly.p[HEAD] + (0, 0.5, 0), "BROKE FREE!", (255, 225, 120), force=True)
+        elif kitchen.over_mouth(thx) and fly.grabbed is None:
+            k.hover[key] = k.hover.get(key, 0.0) + 1 / 60
+            if k.hover[key] >= kitchen.HOVER_TO_FALL_S:
+                k.trapped[key] = 0.0
+                fly.grabbed = THX
+                fly.escape_until = 0.0
+                self.sound.play("splash", 0.6)
+                self.popup(fly.p[HEAD] + (0, 0.6, 0), "STUCK IN THE TRAP!", (230, 200, 120), force=True)
+                self.note("TRAPPED  fell into the vinegar trap", source="rule")
+        else:
+            k.hover.pop(key, None)
+
+    def kitchen_pin_for(self, slot):
+        k = self.kitchen
+        if k is None or id(slot) not in k.trapped:
+            return None
+        return k.inside_point(id(slot), k.trapped[id(slot)])
+
+    def _cook_tick(self, now: float) -> None:
+        """The cook: paces, and every 10-20 s swings a swatter down at where a fly was. Looming does the noticing."""
+        k = self.kitchen
+        live = [s for s in self.flies if not (s.fly.dead or s.fly.dissolved_at is not None or s.fly.shattered_at is not None)]
+        for ev in k.cook.step(1 / 60, [s.fly.p[THX] for s in live]):
+            if ev.kind == "windup":
+                self.popup(np.array([k.cook.x, 2.2, kitchen.COOK_Z + 0.4]), "THE COOK RAISES A SWATTER", (240, 220, 200))
+            elif ev.kind == "impact":
+                self._cook_impact(ev.at, live, now)
+
+    def _cook_impact(self, at: np.ndarray, live: list, now: float) -> None:
+        self.shake_until = now + 0.15
+        self.sound.play("whack")
+        self.puff(np.array([at[0], 0.02, at[2]]), 12, 4)
+        for slot in live:
+            fly = slot.fly
+            if not self.kitchen.cook.hit(fly.p[THX]):
+                continue
+            near = [i for i in range(N_P) if math.hypot(fly.p[i, 0] - at[0], fly.p[i, 2] - at[2]) < kitchen.COOK_REACH]
+            fly.last_hit = at.copy() + np.array([0.0, 1.0, 0.0])
+            for i in near:
+                fly.impulse(i, np.array([0.0, -30 * S, 0.0]) + (fly.p[i] - at) * 0.1)
+                self.hit(slot, i, 1.0)
+            fly.stun(now, 1.8)
+            self.damage(slot, kitchen.COOK_DAMAGE, "the cook's swatter")
+            self.popup(fly.p[THX] + (0, 0.45, 0), "SWAT!", (255, 230, 120))
+
     # --- arenas and ongoing effects -------------------------------------------------------------------------------------------
+    def _weather_tick(self, now: float) -> None:
+        """Advance the rain, gusts and lightning once a frame (outdoors only). Off, it costs two dictionary reads."""
+        p = self.lab_params
+        rain, gust, storm = float(p.get("weather.rain", 0.0)), float(p.get("weather.gust_hz", 0.0)), bool(p.get("weather.storm", 0.0))
+        last, self._weather_t = self._weather_t, now
+        w = self.weather
+        if not (rain > 0 or gust > 0 or storm or w.gusts or w.rain > 0 or w.flash_at is not None or w.thunder):
+            return
+        dt = 1 / 60 if last is None else float(np.clip(now - last, 0.0, 0.1))
+        w.update(dt, rain, gust, storm)
+        for _ in range(w.thunder_due()):
+            self.sound.play("boom", 0.55)
+
     def _environment(self, now: float, mouse=None) -> None:
         arena = k2.ARENAS[self.arena_i]
+        if arena in outdoors.OUTDOOR:
+            self._weather_tick(now)
         for slot in self.flies:
             self._environment_one(slot, arena, now)
         if arena in outdoors.OUTDOOR:
             self._check_lost(now)
-            if self.orchard is not None:
-                self._orchard_tick(now)
+        if self.orchard is not None:                 # the orchard's trees, or the kitchen's fruit bowl: the same fruit code
+            self._orchard_tick(now)
+        if self.kitchen is not None:
+            self._cook_tick(now)
 
     def _environment_one(self, slot: "k2.FlySlot", arena: str, now: float) -> None:
         fly, br = slot.fly, slot.brain
@@ -1683,6 +1894,8 @@ class Game3D(k2.Game):
                 fly.fly_target = LAMP3 + np.array([random.uniform(-0.6, 0.6), -random.uniform(0.3, 0.8), random.uniform(-0.6, 0.6)])
         elif arena == "thermo":
             self._thermo_tick(slot, float(fly.p[THX, 0]) / THERMO_HALF3, fly.p[THX, 1] < STAND3 + 20 * S)
+        elif arena == "kitchen":
+            self._kitchen_tick(slot, now)
         elif arena == "escaperoom":
             # 1. Fan wind from left
             gust = 0.75 + 0.25 * math.sin(now * 1.3) + 0.15 * math.sin(now * 4.1)
@@ -1742,7 +1955,8 @@ class Game3D(k2.Game):
                     record_score("escaperoom_speedrun", run_time, "low")
                     self.sound.play("yum")
                     self.note(f"ESCAPEROOM CLEAR {run_time:.2f}s ({self.escaperoom_code})")
-        if arena != "pool" or not (fly.p[:, 1] < WATER3).any():
+        wm = fly.water_mask() if arena in ("pool", "kitchen") else None
+        if wm is None or not wm.any():
             fly.wet = max(0.0, fly.wet - 1 / 60)
 
     def _kick(self, now: float) -> None:
@@ -2018,7 +2232,7 @@ class Game3D(k2.Game):
                            (f.frozen_at is not None, "frozen solid"), (f.dead, "dead"), (bool(f.stuck), "stuck on flypaper")):
             if cond:
                 return word
-        if f.arena == "pool" and (f.p[:, 1] < WATER3).any() and now >= f.escape_until:
+        if f.arena in ("pool", "kitchen") and (f.water_mask() is not None and f.water_mask().any()) and now >= f.escape_until:
             return "swimming"
         if f.wrapped:
             return "wrapped in silk"
@@ -2099,6 +2313,9 @@ class Game3D(k2.Game):
             held = self.preds.pin_for(slot)
             if held is not None:
                 pin = held
+            trapped = self.kitchen_pin_for(slot)
+            if trapped is not None:
+                pin = trapped
             for i, sp in fly.step(now, pin):
                 s = float(np.clip((sp - 9) / 35, 0.05, 1))
                 self.hit(slot, i, s)
@@ -2349,15 +2566,111 @@ class Game3D(k2.Game):
         R.append(("cylinder", trs((0, RY - 0.06, 0), None, (0.3, 0.06, 0.3)), (1.0, 0.97, 0.9), P_NONE, 1.3))
         return R
 
+    def _build_kitchen_room(self) -> list:
+        """The kitchen's fixed furnishing: the countertop is the floor; tiled walls, cabinets, a window, a fridge, a hood.
+        Looks only: the physics is in kitchen.py and Fly3D."""
+        R = []
+
+        def box(center, size, color, pattern=P_NONE, glow=0.0):
+            R.append(("cube", trs(center, None, size), color, pattern, glow))
+
+        box((0, -0.05, 0), (2 * RX, 0.1, 2 * RZ), (0.74, 0.56, 0.35), P_WOOD)                      # a butcher-block counter
+        box((0, RY + 0.05, 0), (2 * RX, 0.1, 2 * RZ), (0.93, 0.92, 0.9), P_CEIL)
+        wall, tile = (0.9, 0.84, 0.62), (0.9, 0.94, 0.96)
+        for c, s in (((0, RY / 2, -RZ - 0.05), (2 * RX, RY, 0.1)), ((0, RY / 2, RZ + 0.05), (2 * RX, RY, 0.1)),
+                     ((-RX - 0.05, RY / 2, 0), (0.1, RY, 2 * RZ)), ((RX + 0.05, RY / 2, 0), (0.1, RY, 2 * RZ))):
+            box(c, s, wall, P_WALLPAPER)
+        for c, s in (((0, 0.5, -RZ + 0.015), (2 * RX, 1.0, 0.03)), ((0, 0.5, RZ - 0.015), (2 * RX, 1.0, 0.03)),
+                     ((-RX + 0.015, 0.5, 0), (0.03, 1.0, 2 * RZ)), ((RX - 0.015, 0.5, 0), (0.03, 1.0, 2 * RZ))):
+            box(c, s, tile, P_STRIPES)                                                              # the tiled backsplash
+        trim = (0.94, 0.92, 0.88)
+        box((0, 1.0, -RZ + 0.03), (2 * RX, 0.04, 0.06), trim)
+        box((1.4, 1.85, -RZ + 0.012), (1.9, 1.1, 0.02), (1, 1, 1), 8)                                # the window
+        for dx, dy, sx, sy in ((0, 0.57, 2.02, 0.08), (0, -0.57, 2.02, 0.08), (-0.99, 0, 0.08, 1.22), (0.99, 0, 0.08, 1.22),
+                               (0, 0, 0.05, 1.12)):
+            box((1.4 + dx, 1.85 + dy, -RZ + 0.04), (sx, sy, 0.06), trim)
+        cab, door = (0.55, 0.38, 0.24), (0.62, 0.43, 0.27)
+        box((-2.2, 2.45, -RZ + 0.2), (3.8, 0.9, 0.4), cab)                                           # upper cabinets
+        for x in (-3.65, -2.75, -1.85, -0.95):
+            box((x, 2.45, -RZ + 0.41), (0.84, 0.82, 0.03), door)
+            R.append(("sphere", trs((x + 0.34, 2.3, -RZ + 0.44), None, (0.03, 0.03, 0.03)), (0.85, 0.72, 0.35), P_NONE, 0.2))
+        box((-RX + 0.4, 1.05, -2.65), (0.8, 2.1, 1.4), (0.92, 0.93, 0.95))                           # the fridge
+        box((-RX + 0.82, 1.5, -2.65), (0.04, 1.2, 0.04), (0.6, 0.62, 0.66))
+        hx, hz = float(kitchen.BURNER_POS[0]), float(kitchen.BURNER_POS[2])
+        box((hx, 2.55, hz), (1.4, 0.18, 1.1), (0.7, 0.72, 0.75))                                      # the range hood
+        R.append(("cylinder", trs((hx, 2.64, hz), None, (0.22, 0.4, 0.22)), (0.65, 0.67, 0.7), P_NONE, 0.0))
+        box((0, RY - 0.03, 0), (2.0, 0.04, 0.5), (1.0, 0.97, 0.9), P_NONE, 1.3)                       # the ceiling light
+        # the sink's rim and tap
+        x0, x1, z0, z1 = kitchen.SINK
+        rim_h = kitchen.SINK_WATER + 0.12
+        for c, s in (((((x0 + x1) / 2), rim_h / 2, z0), (x1 - x0 + 0.08, rim_h, 0.08)), ((((x0 + x1) / 2), rim_h / 2, z1), (x1 - x0 + 0.08, rim_h, 0.08)),
+                     ((x0, rim_h / 2, (z0 + z1) / 2), (0.08, rim_h, z1 - z0)), ((x1, rim_h / 2, (z0 + z1) / 2), (0.08, rim_h, z1 - z0))):
+            box(c, s, (0.78, 0.8, 0.84))
+        R.append(("cylinder", trs(((x0 + x1) / 2, 0.0, z1 + 0.15), None, (0.05, 0.9, 0.05)), (0.8, 0.82, 0.86), P_NONE, 0.0))
+        R.append(("cylinder", segment(((x0 + x1) / 2, 0.9, z1 + 0.15), ((x0 + x1) / 2, 0.9, z1 - 0.35), 0.04), (0.8, 0.82, 0.86), P_NONE, 0.0))
+        return R
+
+    def _draw_kitchen(self, rd: Renderer, now: float) -> None:
+        """The kitchen's moving parts: the sink's water, the burner, the bowl and its fruit, the jar, the cook."""
+        k = self.kitchen
+        x0, x1, z0, z1 = kitchen.SINK
+        rd.add("cube", trs(((x0 + x1) / 2, kitchen.SINK_WATER, (z0 + z1) / 2), None, (x1 - x0, 0.01, z1 - z0)), (0.2, 0.45, 0.65, 0.55), P_WATER)
+        rd.add("cube", trs(((x0 + x1) / 2, kitchen.SINK_WATER / 2, (z0 + z1) / 2), None, (x1 - x0 - 0.02, kitchen.SINK_WATER, z1 - z0 - 0.02)),
+               (0.1, 0.3, 0.45, 0.22), P_NONE)
+        bp = kitchen.BURNER_POS                                                                      # the burner: a hot coil
+        rd.add("cylinder", trs(bp + (0, 0.0, 0), None, (kitchen.BURNER_R + 0.08, 0.04, kitchen.BURNER_R + 0.08)), (0.1, 0.1, 0.11))
+        flick = 0.85 + 0.15 * math.sin(now * 9.0)
+        for r in (0.18, 0.32, 0.46):
+            rd.add("torus", trs(bp + (0, 0.05, 0), None, (r, 0.6, r)), (1.0, 0.35, 0.1), P_NONE, 2.2 * flick)
+        rd.particle(bp + (0, 0.25, 0), 0.5, (1.0, 0.45, 0.15, 0.1 * flick), additive=True)
+        bw = kitchen.BOWL_POS                                                                        # the fruit bowl
+        rd.add("cylinder", trs(bw + (0, 0.0, 0), None, (kitchen.BOWL_R * 0.55, 0.04, kitchen.BOWL_R * 0.55)), (0.8, 0.74, 0.62))
+        rd.add("cylinder", trs(bw + (0, 0.04, 0), None, (kitchen.BOWL_R, kitchen.BOWL_H - 0.04, kitchen.BOWL_R)), (0.86, 0.8, 0.7, 0.55), P_NONE)
+        rd.add("torus", trs(bw + (0, kitchen.BOWL_H, 0), None, (kitchen.BOWL_R, 0.3, kitchen.BOWL_R)), (0.9, 0.85, 0.76))
+        if self.orchard is not None:
+            eye, fwd = self._camera()
+            self._draw_fruit(rd, now, eye, fwd)
+        tp = kitchen.TRAP_POS                                                                        # the vinegar trap: a jar
+        rd.add("cylinder", trs(tp + (0, 0.0, 0), None, (kitchen.TRAP_R, 0.3, kitchen.TRAP_R)), (0.55, 0.32, 0.12, 0.85), P_NONE)
+        rd.add("cylinder", trs(tp + (0, 0.3, 0), None, (kitchen.TRAP_R, kitchen.TRAP_H - 0.3, kitchen.TRAP_R)), (0.8, 0.9, 0.95, 0.22), P_NONE)
+        rd.add("torus", trs(tp + (0, kitchen.TRAP_H, 0), None, (kitchen.TRAP_MOUTH + 0.1, 0.4, kitchen.TRAP_MOUTH + 0.1)), (0.8, 0.88, 0.92))
+        rd.add("cube", trs(tp + (0.0, 0.5, kitchen.TRAP_R + 0.005), None, (0.34, 0.2, 0.01)), (0.9, 0.86, 0.6))        # a label
+        for j in range(2):                                                                           # the smell rising
+            ph = (now * 0.35 + j * 0.5) % 1.0
+            rd.particle(tp + (0.04 * math.sin(now * 2 + j), kitchen.TRAP_H + 0.1 + 0.9 * ph, 0.04 * math.cos(now * 2 + j)),
+                        0.1 + 0.14 * ph, (0.95, 0.85, 0.5, 0.15 * (1 - ph)), additive=True)
+        c = k.cook                                                                                   # the cook
+        cx, cz = c.x, kitchen.COOK_Z
+        for dx in (-0.22, 0.22):
+            rd.add("cylinder", trs((cx + dx, 0.0, cz), None, (0.13, 1.1, 0.13)), (0.2, 0.22, 0.3))
+        rd.add("cylinder", trs((cx, 1.1, cz), None, (0.36, 0.85, 0.24)), (0.95, 0.95, 0.96))
+        rd.add("sphere", trs((cx, 2.1, cz), None, (0.2, 0.22, 0.2)), (0.92, 0.72, 0.6))
+        rd.add("cylinder", trs((cx, 2.25, cz), None, (0.2, 0.28, 0.2)), (0.98, 0.98, 0.98))
+        hand = c.pos
+        rd.add("cylinder", segment((cx + 0.3, 1.8, cz + 0.05), hand, 0.07), (0.95, 0.95, 0.96))
+        up = np.array([0.0, 1.0, 0.0])
+        rd.add("cylinder", segment(hand, hand + up * 0.45, 0.02), (0.5, 0.33, 0.18))
+        rd.add("cube", trs(hand + up * 0.55, None, (0.34, 0.04, 0.4)), (0.82, 0.16, 0.18))
+        if c.state in ("windup", "swat"):
+            rd.particle(hand + up * 0.55, 0.45, (1.0, 0.9, 0.5, 0.1), additive=True)
+
     def draw_world(self, rd: Renderer, now: float) -> None:
         arena = k2.ARENAS[self.arena_i]
         if arena in outdoors.OUTDOOR:
             self._draw_outdoors(rd, now)
+        elif arena == "kitchen":
+            if getattr(self, "_kitchen_room", None) is None:
+                self._kitchen_room = self._build_kitchen_room()
+            for mesh, model, color, pattern, glow in self._kitchen_room:
+                rd.add(mesh, model, color, pattern, glow)
         else:
             for mesh, model, color, pattern, glow in self._room:
                 rd.add(mesh, model, color, pattern, glow)
         if arena in outdoors.OUTDOOR:
             pass
+        elif arena == "kitchen":
+            if self.kitchen is not None:
+                self._draw_kitchen(rd, now)
         elif arena == "fan":
             self._draw_fan(rd, now)
         elif arena == "flypaper":
@@ -2420,6 +2733,18 @@ class Game3D(k2.Game):
         d = np.linalg.norm(v, axis=1)
         return (d < max_dist + radius) & ((v @ fwd) > -0.35 * d - radius)
 
+    _RAIN = np.random.default_rng(7).random((90, 3))              # fixed streak offsets (0-1): no per-streak state to keep
+
+    def _draw_rain(self, rd: Renderer, eye: np.ndarray, now: float) -> None:
+        """Cheap rain: up to 90 short streaks that fall past the camera. GAME RULE (looks only; the hits are in _weather)."""
+        n = int(10 + 80 * self.weather.rain)
+        off = self._RAIN[:n]
+        for u, v, w_ in off:
+            x = eye[0] + (u - 0.5) * 16.0
+            z = eye[2] + (w_ - 0.5) * 16.0
+            y = (v * 9.0 - now * 9.0) % 9.0
+            rd.add("cylinder", segment((x, y + 0.3, z), (x, y, z), 0.004), (0.75, 0.82, 0.92, 0.5), P_NONE)
+
     def _draw_outdoors(self, rd: Renderer, now: float) -> None:
         eye, fwd = self._camera()
         w = outdoors.spec(self.world)
@@ -2430,6 +2755,8 @@ class Game3D(k2.Game):
         sc = self.scenery
         if sc.get("_models") is None:                 # static scenery: build every model matrix once per arena
             sc["_models"] = self._scenery_models(sc)
+        if self.weather.rain > 0:
+            self._draw_rain(rd, eye, now)
         for kind, max_d, rad in (("rocks", DRAW_DIST, 1.0), ("tufts", TUFT_DIST, 0.3), ("trees", DRAW_DIST, 2.5)):
             pos, rows = sc["_models"][kind]
             if not len(pos):
