@@ -33,5 +33,5 @@ Tests: `tests/test_neurodex.py` (+2), `tests/test_protocols_day2.py` (+2), `test
 
 ## Known issues / not done
 - Old English tips replaced in `config.py` leave their old entries in the locale catalogs (harmless; the sync tool never removes entries).
-- The F0 and frame-rate Settings apply on the next imaging session, like the other imaging settings; not tried in a visible window.
+- The F0 and frame-rate Settings are read when the game starts (both now carry the `restart` flag so the UI says "applies on the next launch"; the frame rate was already read only at launch). Only the indicator can be changed live, in Lab > Calcium imaging. Not tried in a visible window. A live control for them would be a small follow-up if you want it.
 - Thermogenetic hysteresis (Pulver) is a documented gap, not built.
