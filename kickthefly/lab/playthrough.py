@@ -831,6 +831,310 @@ def extra_thermogenetics(backend: str, r: Result) -> None:
     r.expect(not fly.brain.injecting, "an effector current was left on the brain")
 
 
+def _window_check(r: Result, rec, name: str, calm_s: tuple, got_s: tuple, what: str) -> None:
+    """The bot's own method for tools (Probe.summarize), on a Recording: the peak firing over 100 ms windows after the stimulus must
+    reach max(calm mean + 4 sd, 1.15 x calm mean, calm mean + 0.5 Hz). The mean rates are recorded too, so a reader can see both."""
+    import numpy as np
+
+    t, rows = rec.spikes()
+    grp = rec.groups[name]
+    mask = np.isin(rows, grp)
+    win = 0.1
+
+    def per_window(lo, hi):
+        edges = np.arange(lo, hi + 1e-9, win)
+        c, _ = np.histogram(t[mask], bins=edges)
+        return c / (win * max(1, len(grp)))
+
+    base, after = per_window(*calm_s), per_window(*got_s)
+    mu, sd = float(base.mean()), float(base.std(ddof=1)) if len(base) > 1 else 0.0
+    need = max(mu + Z_SIGMAS * sd, mu * MIN_RISE, mu + MIN_DELTA_HZ)
+    peak = float(np.convolve(after, np.ones(1), "valid").max())
+    r.metrics[name + "_check"] = dict(calm_mean_hz=round(mu, 3), calm_sd_hz=round(sd, 3), peak_100ms_hz=round(peak, 3),
+                                      needed_hz=round(need, 3), mean_hz_after=round(float(after.mean()), 3),
+                                      mean_ratio=round(float(after.mean()) / max(mu, 0.05), 2))
+    r.expect(peak >= need, f"{what}: peak {peak:.2f} Hz over 100 ms, needed {need:.2f} (calm {mu:.2f} +- {sd:.2f}); mean {after.mean():.2f} Hz")
+
+
+def extra_weather(backend: str, r: Result) -> None:
+    """3.0 day 3 (game rules on real neurons): rain fires the wing, body, head and leg touch groups and the humidity neurons; a gust
+    fires the wind neurons JO-C/E; lightning fires the photoreceptors; with everything off none of them rises. Reduced flashing keeps
+    the screen's flash to one slow swell."""
+    from kickthefly.game import weather
+    from kickthefly.lab.api import Fly
+
+    groups = {"wing": "wing", "body": "body", "head": "head", "legs": "legs", "humid": "humid", "wind": "wind", "light": "light"}
+    fly = Fly(seed=44, backend=backend, warmup_s=1.0, learn=False)
+    rec = fly.record(groups)
+    fly.step(3.0)
+    calm = rec.rates(0.5, 3.0)
+    fly.weather(rain=1.0)
+    fly.step(6.0)
+    for g_ in ("wing", "body", "head", "legs", "humid"):
+        _window_check(r, rec, g_, (0.5, 3.0), (3.5, 9.0), f"rain on '{g_}'")
+    fly.weather()
+    fly.step(3.0)
+    fly.weather(gust_hz=0.5)
+    fly.step(10.0)
+    _window_check(r, rec, "wind", (0.5, 3.0), (12.5, 22.0), "gusts on the wind neurons JO-C/E")
+    fly.weather()
+    fly.step(3.0)
+    t0 = fly.t
+    fly.weather(storm=True)
+    fly.step(24.0)
+    _window_check(r, rec, "light", (0.5, 3.0), (t0 + 0.5, t0 + 24.0), "lightning on the photoreceptors")
+    fly.weather()
+    t1 = fly.t
+    fly.step(4.0)
+    after = rec.rates(t1 + 1.0, t1 + 4.0)
+    r.expect(after["wing"] <= max(1.5 * calm["wing"], calm["wing"] + 0.5), f"after the weather stopped the wing touch group stayed up: {after['wing']:.2f} Hz")
+    w = weather.Weather(9)
+    seq = []
+    for _ in range(40 * 60):
+        w.update(1 / 60, storm=True)
+        seq.append(w.screen_flash(reduced=True))
+    r.expect(max(seq) <= weather.REDUCED_FLASH_PEAK + 1e-9 and max(abs(a - b) for a, b in zip(seq, seq[1:])) < 0.01,
+             "with reduced flashing the screen's lightning is not one slow swell")
+
+
+def extra_mic(backend: str, r: Result) -> None:
+    """3.0 day 3 (a SYNTHETIC hum: this check never opens a microphone): a 200 Hz hum fires JO-A, a 50 Hz hum fires JO-B more than a
+    600 Hz hum does, silence fires neither, the analysis reads the hum's frequency, and the P1 cluster rises. The song motor neurons
+    are reported, not judged (lab/audio.py says what is expected and why)."""
+    from kickthefly.core import mic
+    from kickthefly.lab.api import Fly
+
+    fly = Fly(seed=45, backend=backend, warmup_s=1.0, learn=False)
+    a, b = mic.jo_rows(fly.brain)
+    quiet = fly.hear(hz=200.0, seconds=1.5, amp=0.0)
+    s200 = fly.hear(hz=200.0, seconds=1.5, amp=0.1)
+    fly.step(1.0)
+    s50 = fly.hear(hz=50.0, seconds=1.5, amp=0.1)
+    fly.step(1.0)
+    s600 = fly.hear(hz=600.0, seconds=1.5, amp=0.1)
+    r.metrics.update(jo_a=len(a), jo_b=len(b), quiet=quiet, hum200=s200, hum50=s50, hum600=s600)
+    r.expect(len(a) == 50 and len(b) == 88, f"expected 50 JO-A and 88 JO-B neurons, found {len(a)} and {len(b)}")
+    r.expect(quiet["jo_a_hz"] < 1.0 and quiet["jo_b_hz"] < 1.0, f"silence fired JO-A {quiet['jo_a_hz']:.2f} Hz and JO-B {quiet['jo_b_hz']:.2f} Hz")
+    r.expect(s200["jo_a_hz"] > 10 * max(quiet["jo_a_hz"], 0.5), f"a 200 Hz hum fired JO-A at only {s200['jo_a_hz']:.1f} Hz")
+    r.expect(abs(s200["peak_hz"] - 200.0) < 5.0, f"the analysis read a 200 Hz hum as {s200['peak_hz']:.1f} Hz")
+    r.expect(s50["jo_b_hz"] > 2 * max(s600["jo_b_hz"], 0.5), f"a 50 Hz hum fired JO-B {s50['jo_b_hz']:.1f} Hz, a 600 Hz hum {s600['jo_b_hz']:.1f} Hz")
+    f2 = Fly(seed=45, backend=backend, warmup_s=1.0, learn=False)
+    rec = f2.record({"p1": "p1", "ps1": "ps1"})
+    f2.step(3.0)
+    calm = rec.rates(0.5, 3.0)
+    f2.hear(hz=200.0, seconds=3.0, ipi_ms=35.0)
+    got = rec.rates(3.5, 6.0)
+    r.metrics.update(p1_calm_hz=calm["p1"], p1_pulses_hz=got["p1"], ps1_calm_hz=calm["ps1"], ps1_pulses_hz=got["ps1"])
+    r.expect(got["p1"] >= 1.15 * calm["p1"], f"the 200 Hz / 35 ms pulse train left the P1 cluster at {got['p1']:.2f} Hz (calm {calm['p1']:.2f})")
+    r.note(f"song motor neurons (ps1): {calm['ps1']:.2f} Hz calm -> {got['ps1']:.2f} Hz during the pulse train (reported, not judged)")
+
+
+def extra_predators(backend: str, r: Result) -> None:
+    """3.0 day 3: each predator's attack, as looming on LPLC2/LC4, ends in a capture of a fly that stays; the mantis's creep never
+    looms; its strike does; the frog's tongue and the dragonfly's dive loom fast. Whether DNp01 crossed the escape threshold is
+    reported, not judged (it is a prediction)."""
+    from kickthefly.game import kick_the_fly as k
+    from kickthefly.game import predators as pr
+    from kickthefly.lab.api import Fly
+
+    for kind in pr.KINDS:
+        res = Fly(seed=46, backend=backend, warmup_s=1.0, learn=False).attack(kind)
+        r.metrics[kind] = {k_: res[k_] for k_ in ("escaped", "captured", "latency_s", "lead_s", "peak_level", "max_loom_before_strike",
+                                                  "strike_loom_peak")}
+        r.expect(res["captured"], f"the {kind} never captured a fly that stayed still")
+        r.expect(res["strike_loom_peak"] > k.LOOM_MIN + 2.0, f"the {kind}'s strike expanded at only {res['strike_loom_peak']:.1f} rad/s")
+        if kind == "mantis":
+            r.expect(res["max_loom_before_strike"] < k.LOOM_MIN, f"the mantis's creep reached {res['max_loom_before_strike']:.2f} rad/s")
+            r.expect(not res["noticed_before_strike"], "DNp01 crossed the escape threshold during the mantis's creep")
+    r.note("whether each fly escaped is a MODEL PREDICTION, reported in the metrics: " +
+           ", ".join(f"{kd}={r.metrics[kd]['escaped']}" for kd in pr.KINDS))
+
+
+def _put(rig: "Rig", xyz) -> None:
+    """Stand the fly's whole body at a point, at rest (the kitchen check holds it at each station like a subject in a holder)."""
+    from kickthefly.game import kick3d
+
+    fly = rig.slot.fly
+    fly.p += np.asarray(xyz, float) - fly.p[kick3d.THX]
+    fly.prev = fly.p.copy()
+    fly.hover = fly.p[kick3d.THX].copy()
+
+
+def extra_kitchen(rig: Rig, r: Result) -> None:
+    """3.0 day 3 (3D game): each part of the kitchen drives the neurons it documents, judged the way tools are: the sink the humidity
+    neurons, the burner the heat sensors, the vinegar's smell the fermentation glomeruli DM1/DM2/DP1m, the trap (a fly hovering over
+    the mouth is stuck), the bowl feeds it (taste and reward neurons) and the cook's swat is seen as looming and hurts. The arena is in
+    the E cycle."""
+    from kickthefly.core import loadout as lo
+    from kickthefly.game import kick3d, kick_the_fly as k2, kitchen
+
+    g = rig.game
+    rig.set_arena("kitchen")
+    rig.reset()
+    r.expect(k2.ARENAS[g.arena_i] == "kitchen" and g.kitchen is not None, "the kitchen did not start")
+    br, slot = rig.brain, rig.slot
+    stand = kick3d.STAND3
+    seen = set()
+    for _ in range(len(k2.ARENAS)):
+        g.menu_action("arena")
+        seen.add(k2.ARENAS[g.arena_i])
+    r.expect("kitchen" in seen, "the E key never reached the kitchen")
+    rig.set_arena("kitchen")
+    rig.reset()
+    br, slot = rig.brain, rig.slot
+
+    def station(name, xyz, seconds, probes, engaged=None, hold=True):
+        _put(rig, (0.0, stand, 0.5))
+        rig.probe = Probe(br, probes)
+        rig.seconds(1.5)
+        use = rig.probe.n
+        t = 0.0
+        while t < seconds:
+            if hold:
+                _put(rig, xyz)
+            rig.seconds(0.25)
+            t += 0.25
+        sub = Result(id=f"kitchen:{name}", group="extra")
+        judge_probes(sub, rig.probe, use, f"kitchen:{name}", engaged)
+        r.metrics[name] = sub.metrics.get("probes")
+        for f in sub.failures:
+            r.expect(False, f"{name}: {f}")
+        for n in sub.notes:
+            r.note(f"{name}: {n}")
+        if sub.status == SKIP and r.status != FAIL:
+            r.status = SKIP
+        rig.probe = None
+
+    station("sink", (3.0, 0.2, 2.3), 3.0, ((("humid", None),),))
+    station("burner", kitchen.BURNER_POS + (0.5, stand, 0.0), 3.0, ((("heat", None),),))
+    station("vinegar", kitchen.TRAP_POS + (1.0, stand, 0.0), 4.0, ((("scent", "alcohol"),),))
+    rig.reset()
+    br, slot = rig.brain, rig.slot
+    _put(rig, kitchen.TRAP_POS + (-1.5, 1.2, 0.0))                 # a fly on its way to the jar, as the vinegar attraction sends it
+    slot.trap_trip = kitchen.mouth() + np.array([0.0, 0.15, 0.0])
+    g._fly_to(slot.fly, g.clock.now, slot.trap_trip, 8.0)
+    slot.fly.perch = "vinegar"                                          # exactly what the attraction does (kick3d._kitchen_tick)
+    t = 0.0
+    while t < 9.0 and id(slot) not in g.kitchen.trapped:
+        rig.seconds(0.25)
+        t += 0.25
+    r.metrics["trapped"] = id(slot) in g.kitchen.trapped
+    r.expect(id(slot) in g.kitchen.trapped, "a fly flying to the vinegar jar's mouth was not trapped")
+    rig.reset()
+    br, slot = rig.brain, rig.slot
+    health0 = slot.fly.health
+    g.kitchen.cook = cook = kitchen.Cook(np.random.default_rng(7))      # a new fly keeps the room (and the cook's timer): start his timer fresh
+    rig.probe = Probe(br, (lo.LOOM,))
+    rig.seconds(1.5)
+    use, t = rig.probe.n, 0.0
+    from kickthefly.game.kick_the_fly import THRESH
+    peak_escape = 0.0
+    while t < 25.0 and cook.swats == 0:
+        _put(rig, (0.0, stand, -1.0))                                  # held where the swat will land (a subject in a holder)
+        rig.seconds(0.05)
+        t += 0.05
+        if cook.state == "swat":
+            peak_escape = max(peak_escape, br.level("escape"))
+    rig.seconds(1.0)
+    r.metrics["cook_peak_escape_level"] = round(peak_escape, 2)
+    r.note(f"the held fly's giant fiber reached {peak_escape:.1f}x calm during the swing (escape threshold {THRESH['escape']}x); held, "
+           f"so the dodge was not allowed: the dodge probability is a MODEL PREDICTION and is not judged here")
+    sub = Result(id="kitchen:cook", group="extra")
+    judge_probes(sub, rig.probe, use, "kitchen:cook", True)
+    rig.probe = None
+    r.metrics["cook_swats"] = cook.swats
+    r.expect(cook.swats > 0, "the cook never swatted in 25 s")
+    r.expect(slot.fly.health < health0, "a fly held where the swatter lands was not hurt")
+    for f in sub.failures:
+        r.expect(False, f"cook: {f}")
+    rig.reset()
+    br, slot = rig.brain, rig.slot
+    ripe0 = g.orchard.counts()["ripe"]
+    r.expect(ripe0 >= 1, "the fruit bowl is empty")
+    _put(rig, (-2.0, stand, 1.0))
+    rig.probe = Probe(br, (lo.TASTE, lo.REWARD))
+    rig.seconds(1.5)
+    use, t = rig.probe.n, 0.0
+    fed = False
+    while t < 45.0 and not fed:
+        rig.seconds(0.5)
+        t += 0.5
+        fed = any(f.feeds_left < f.feeds_max for f in g.orchard.fruit if f.ripe) or any(not f.ripe and f.fell_at is not None for f in g.orchard.fruit)
+    rig.seconds(1.0)
+    sub = Result(id="kitchen:bowl", group="extra")
+    judge_probes(sub, rig.probe, use, "kitchen:bowl", fed)
+    rig.probe = None
+    r.metrics["bowl_fed"] = fed
+    for f in sub.failures:
+        r.expect(False, f"bowl: {f}")
+    if sub.status == SKIP and r.status != FAIL:
+        r.status = SKIP
+    for n in sub.notes:
+        r.note(f"bowl: {n}")
+
+
+def extra_live_inputs(rig: Rig, r: Result) -> None:
+    """3.0 day 3: the microphone's and Streamer mode's switches start off; a chat vote (against an in-memory fake server, never the
+    network) changes the tool; both show a red indicator in a real rendered frame; nothing connects in a headless run; turning them off
+    removes every trace (no current on the brain, no connection listed)."""
+    import socket
+    import threading
+
+    import pygame
+
+    from kickthefly.core import netguard, streamer as st
+    from kickthefly.game import kick_the_fly as k2
+
+    g = rig.game
+    rig.reset()
+    live = g.live
+    r.expect(not live.mic_on and not live.stream_on and live.indicators() == [], "the microphone or Streamer mode was on at launch")
+    live.channel = "mychannel"
+    r.expect(live.set_stream(True) is False and "network is off" in live.stream_error and not netguard.connections(),
+             "Streamer mode connected (or did not say why not) in a headless run")
+    client, server = socket.socketpair()
+
+    def script():
+        server.settimeout(5.0)
+        buf = b""
+        end = time.time() + 5
+        while b"USER" not in buf and time.time() < end:
+            buf += server.recv(4096)
+        server.sendall(b":tmi.twitch.tv 001 justinfan1 :Welcome\r\n")
+        for i in range(4):
+            server.sendall(f":v{i}!v{i}@x.tmi.twitch.tv PRIVMSG #mychannel :!tool swatter\r\n".encode())
+        time.sleep(1.0)
+
+    th = threading.Thread(target=script, daemon=True)
+    th.start()
+    live.chat_factory = lambda ch: st.TwitchChat(ch, sock_factory=lambda: client)
+    g.cfg.set("stream.window_s", 5.0)
+    if "swatter" not in g.loadout.tools:
+        g.loadout.tools.append("swatter")
+    g.select_tool("hand")
+    r.expect(live.set_stream(True), f"Streamer mode did not start with a fake server: {live.stream_error}")
+    ind = live.indicators()
+    surf = pygame.Surface((k2.W, k2.H), pygame.SRCALPHA)
+    live.draw(surf, g.f_small, k2.PLAY_W)
+    px = surf.get_at((14, 28))
+    r.expect(any("TWITCH CHAT" in s for s in ind) and px[0] > 100 and px[3] > 0, f"no red Twitch indicator was drawn: {ind} {tuple(px)}")
+    live.mic_on = True
+    surf.fill((0, 0, 0, 0))
+    live.draw(surf, g.f_small, k2.PLAY_W)
+    r.expect(any("MIC ON" in s for s in live.indicators()), "no MIC ON indicator")
+    live.mic_on = False
+    t0 = time.time()
+    while time.time() - t0 < 9.0 and g.tool_name() != "swatter":
+        rig.seconds(0.25)
+    r.metrics["tool_after_vote"] = g.tool_name()
+    r.expect(g.tool_name() == "swatter", f"the chat vote did not change the tool (it is {g.tool_name()})")
+    live.set_stream(False)
+    th.join(2.0)
+    r.expect(not netguard.connections() and live.indicators() == [], "a connection or an indicator was left after switching off")
+    live.chat_factory = st.TwitchChat
+    r.note("no real network was used: the server is an in-memory socket pair")
+
+
 def extra_patch(backend: str, r: Result) -> None:
     """The isolated unit never fires below the LIF rheobase and never slower with more current; in the wired brain, current
     raises the firing of a neuron that is otherwise quiet and the electrode leaves nothing behind. (MODEL, not electrophysiology.)"""
@@ -1408,6 +1712,7 @@ def run(brains=("adult", "larva"), out: Path | None = None, quick: bool = False,
                     add(Result(id="extra:duel", group="extra", brain="adult"), extra_duel, rig3)
                     add(Result(id="extra:render", group="extra", brain="adult"), extra_render, rig3)
                     add(Result(id="extra:multi-fly-3d", group="extra", brain="adult"), extra_multi_fly, rig3)
+                    add(Result(id="extra:kitchen", group="extra", brain="adult"), extra_kitchen, rig3)
                 finally:
                     if rig3 is not None:
                         rig3.close()
@@ -1427,6 +1732,7 @@ def run(brains=("adult", "larva"), out: Path | None = None, quick: bool = False,
                     add(Result(id="extra:killcam", group="extra", brain="adult"), extra_killcam, rig2)
                     add(Result(id="extra:share-codes", group="extra", brain="adult"), extra_share, rig2)
                     add(Result(id="extra:toolkit-pages", group="extra", brain="adult"), extra_toolkit_pages, rig2)
+                    add(Result(id="extra:live-inputs", group="extra", brain="adult"), extra_live_inputs, rig2)
                 finally:
                     if rig2 is not None:
                         rig2.close()
@@ -1436,6 +1742,9 @@ def run(brains=("adult", "larva"), out: Path | None = None, quick: bool = False,
                 add(Result(id="extra:patch", group="extra", brain="adult"), extra_patch, backend)
                 add(Result(id="extra:imaging", group="extra", brain="adult"), extra_imaging, backend, tmp)
                 add(Result(id="extra:pharmacology", group="extra", brain="adult"), extra_pharmacology, backend)
+                add(Result(id="extra:weather", group="extra", brain="adult"), extra_weather, backend)
+                add(Result(id="extra:mic", group="extra", brain="adult"), extra_mic, backend)
+                add(Result(id="extra:predators", group="extra", brain="adult"), extra_predators, backend)
                 add(Result(id="extra:bundle-rerun", group="extra", brain="adult"), extra_bundle, backend, tmp)
                 add(Result(id="extra:individuality", group="extra", brain="adult"), extra_individuality, backend)
             add(Result(id="extra:pet-catch-up", group="extra"), extra_pet, tmp)

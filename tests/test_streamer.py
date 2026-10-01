@@ -240,3 +240,20 @@ def test_the_chat_module_has_no_way_to_send_a_message():
 
     src = inspect.getsource(st)
     assert "PRIVMSG #" not in src.replace('"PRIVMSG"', "") and "PASS " not in src.replace("no PASS", "").replace("PASS,", "")
+
+
+# --- the self-test (optional checks that never open the microphone or the network) ---------------------------------------------------------
+def test_selftest_checks_for_the_microphone_and_the_network_are_optional_and_open_nothing(monkeypatch):
+    from kickthefly.core import mic, selftest
+
+    opened = []
+    monkeypatch.setattr(mic.Mic, "start", lambda self: opened.append("mic"))
+    monkeypatch.setattr(socket, "create_connection", lambda *a, **k: opened.append("net"))
+    monkeypatch.setattr(mic, "devices", lambda: [])
+    m, n, d = selftest.check_microphone(), selftest.check_network(), selftest.check_day3()
+    assert m.status == n.status == d.status == selftest.PASS, "an optional feature that isn't there is not a warning"
+    assert "optional" in m.name.lower() and "optional" in n.name.lower()
+    assert "did not connect" in n.detail or "off here" in n.detail
+    assert opened == []
+    monkeypatch.setattr(mic, "devices", lambda: ["Built-in Audio"])
+    assert "did not open it" in selftest.check_microphone().detail and opened == []

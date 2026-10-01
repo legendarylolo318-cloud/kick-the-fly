@@ -1742,9 +1742,16 @@ class Game3D(k2.Game):
             tr.update(6 / 60, self._alcohol_hz(slot), s > 0)
         busy = (fly.wrapped or fly.frozen_at is not None or fly.grabbed is not None or fly.wet > 0
                 or getattr(slot, "fruit", None) is not None or len(fly.stuck) >= 2 or key in k.trapped)
+        trip = getattr(slot, "trap_trip", None)
+        if trip is not None and (key in k.trapped or now >= fly.escape_until or not np.allclose(fly.fly_target, trip)):
+            slot.trap_trip = None                                     # arrived and fell in, ran out of time, or its neurons sent it elsewhere
+            if fly.perch == "vinegar":
+                fly.perch = None
         if tr.smelling and not busy and now >= fly.escape_until and now >= getattr(slot, "trap_ready", 0.0):
             slot.trap_ready = now + 6.0
-            self._fly_to(fly, now, kitchen.mouth() + np.array([0.0, 0.15, 0.0]), 8.0)
+            slot.trap_trip = kitchen.mouth() + np.array([0.0, 0.15, 0.0])
+            self._fly_to(fly, now, slot.trap_trip, 8.0)
+            fly.perch = "vinegar"                                     # hold over the mouth on arrival, don't wander off (as at a fruit)
             self.note("TO VINEGAR its DM1/DM2/DP1m neurons fire for the smell: it flies to the trap", source="rule")
         # the trap: hover over the mouth and fall in; once in, stuck and slowly drowning
         if key in k.trapped:
@@ -1783,6 +1790,10 @@ class Game3D(k2.Game):
     def _cook_tick(self, now: float) -> None:
         """The cook: paces, and every 10-20 s swings a swatter down at where a fly was. Looming does the noticing."""
         k = self.kitchen
+        ids = {id(s) for s in self.flies}
+        for d in (k.trapped, k.hover, k.trackers, k.jitter):          # a fly that is gone (R, a new fly) leaves nothing behind
+            for key in [x for x in d if x not in ids]:
+                del d[key]
         live = [s for s in self.flies if not (s.fly.dead or s.fly.dissolved_at is not None or s.fly.shattered_at is not None)]
         for ev in k.cook.step(1 / 60, [s.fly.p[THX] for s in live]):
             if ev.kind == "windup":
@@ -2650,7 +2661,7 @@ class Game3D(k2.Game):
         rd.add("cylinder", segment((cx + 0.3, 1.8, cz + 0.05), hand, 0.07), (0.95, 0.95, 0.96))
         up = np.array([0.0, 1.0, 0.0])
         rd.add("cylinder", segment(hand, hand + up * 0.45, 0.02), (0.5, 0.33, 0.18))
-        rd.add("cube", trs(hand + up * 0.55, None, (0.34, 0.04, 0.4)), (0.82, 0.16, 0.18))
+        rd.add("cube", trs(hand + up * 0.55, None, (0.5, 0.05, 0.56)), (0.82, 0.16, 0.18))
         if c.state in ("windup", "swat"):
             rd.particle(hand + up * 0.55, 0.45, (1.0, 0.9, 0.5, 0.1), additive=True)
 

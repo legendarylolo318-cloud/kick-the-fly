@@ -36,6 +36,7 @@ class LiveInputs:
         self._last_t = -1.0
         self._rows: dict = {}
         self.chat: streamer.TwitchChat | None = None
+        self.chat_factory = streamer.TwitchChat            # the playthrough bot and the tests swap in a fake connection
         self.stream_on = False
         self.stream_error = ""
         self.channel = ""
@@ -87,7 +88,7 @@ class LiveInputs:
         try:
             chan = streamer.clean_channel(self.channel if channel is None else channel)
             self.channel = chan
-            self.chat = streamer.TwitchChat(chan)
+            self.chat = self.chat_factory(chan)
             self.chat.start()
         except (streamer.StreamError, netguard.NetworkBlocked) as e:
             self.stream_error = str(e)

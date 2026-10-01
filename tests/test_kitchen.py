@@ -280,6 +280,10 @@ def test_a_fly_whose_vinegar_neurons_fire_flies_to_the_jar_and_one_whose_do_not_
     g3._alcohol_hz = lambda s: 30.0
     _frames(g3, 2)
     assert np.allclose(slot.fly.fly_target, kt.mouth() + (0.0, 0.15, 0.0)), "the neurons fire: it flies to the mouth"
+    assert slot.fly.perch == "vinegar" and np.allclose(slot.trap_trip, slot.fly.fly_target), "and it holds over the mouth, not wandering off"
+    slot.fly.fly_target = slot.fly.fly_target + 5.0                             # its escape neurons sent it elsewhere: the hold is let go
+    _frames(g3, 0.1)
+    assert slot.fly.perch is None and slot.trap_trip is None
 
 
 def test_the_sink_floats_a_fly_and_wets_its_wings(g3):
@@ -367,3 +371,15 @@ def test_the_fruit_bowl_state_is_saved_and_restored(g3, tmp_path):
 
     assert k2.ARENAS[g3.arena_i] == "kitchen" and g3.kitchen is not None
     assert [x.feeds_left for x in g3.orchard.fruit] == left
+
+
+def test_a_fly_that_is_gone_leaves_nothing_in_the_traps_books(g3):
+    slot = g3.flies[0]
+    _place(slot.fly, kt.TRAP_POS + (0.0, kt.TRAP_H + 0.15, 0.0))
+    _frames(g3, 1.0)
+    assert id(slot) in g3.kitchen.trapped and "1 in the trap" in " ".join(g3.arena_status())
+    g3.flies.clear()                                              # as R (reset to one fresh fly) does
+    g3.flies.append(type(slot)(slot.fly, slot.brain) if False else slot)
+    g3.flies.clear()
+    _frames(g3, 0.1)
+    assert g3.kitchen.trapped == {} and g3.kitchen.trackers == {} and g3.kitchen.hover == {}

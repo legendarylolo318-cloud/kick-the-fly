@@ -60,10 +60,10 @@ TRAP_IMMORTAL_ESCAPE_S = 8.0
 # the cook (GAME RULES)
 COOK_EVERY_S = (10.0, 20.0)
 COOK_FIRST_S = (6.0, 10.0)
-COOK_WINDUP_S, COOK_SWAT_S, COOK_RECOVER_S = 0.7, 0.28, 1.6
+COOK_WINDUP_S, COOK_SWAT_S, COOK_RECOVER_S = 0.7, 0.9, 1.6   # the first version swung in 0.28 s with an ease-in: the fly saw it only in its last 3 frames
 COOK_REACH = 0.55                              # a fly within this far (horizontally) of the impact point, and low, is hit
 COOK_HIT_HEIGHT = 0.95
-COOK_SWATTER_R = 0.34                          # looming radius of the swatter
+COOK_SWATTER_R = 0.5                           # looming radius of the swatter and the forearm behind it (the first version used 0.34)
 COOK_HAND_HEIGHT = 2.0
 COOK_DAMAGE = 38.0
 COOK_SPEED = 0.6                               # m/s he paces along the counter
@@ -215,7 +215,7 @@ class Cook:
                 ev.append(CookEvent("swat", self.aim.copy()))
         elif self.state == "swat":
             e = min(1.0, self.t / COOK_SWAT_S)
-            ease = e * e                                                        # it speeds up as it comes down
+            ease = e                                                            # a steady swing, so its growth is visible early
             self.pos = self.hand0 * (1 - ease) + self.aim * ease + np.array([0.0, 0.25 * math.sin(math.pi * e), 0.0])
             if self.t >= COOK_SWAT_S:
                 self.state, self.t = "recover", 0.0

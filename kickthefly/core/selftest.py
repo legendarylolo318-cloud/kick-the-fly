@@ -419,6 +419,48 @@ def check_toolkit() -> Check:
                  "" if nwb is None else "Patch clamp and imaging still export CSV (and imaging TIFF). For NWB: pip install pynwb.")
 
 
+def check_day3() -> Check:
+    """3.0 day 3: the predators, weather, kitchen, microphone and streamer modules load and their tables are consistent. None of them
+    needs anything outside the game's own requirements; this check opens no device and no connection."""
+    try:
+        from kickthefly.core import mic, streamer
+        from kickthefly.game import kitchen, predators, weather
+        from kickthefly.lab import audio, predators as lab_predators
+
+        assert set(predators.SPECS) == set(predators.KINDS) == set(lab_predators.pr.KINDS)
+        assert all(0 <= v <= 1 for _, v in [(n, w) for n, w in weather.PART_WEIGHTS]) and abs(sum(w for _, w in weather.PART_WEIGHTS) - 1) < 1e-9
+        assert kitchen.colliders() and len(kitchen.bowl_orchard(0).fruit) == 6
+        mic.Analyzer().push(mic.hum(200.0, 0.1))
+        assert set(audio.CONDITIONS) and streamer.clean_channel("selftest") == "selftest"
+    except Exception as e:
+        return Check("day3", "Predators, weather, kitchen, mic, streamer", WARN, f"a 3.0 day 3 module can't be used: {type(e).__name__}: {e}",
+                     "Reinstall the game; those features may not work until its files are restored.")
+    return Check("day3", "Predators, weather, kitchen, mic, streamer", PASS,
+                 f"{len(predators.KINDS)} predators, rain/gusts/storm, the kitchen, the microphone analysis and the vote counter all load")
+
+
+def check_microphone() -> Check:
+    """Optional. Looks for a capture device WITHOUT opening it: the self-test never listens. The microphone feature is off at every
+    launch and is turned on by the player (Esc > Mic and streamer); a machine without a microphone just can't use it."""
+    from kickthefly.core import mic
+
+    ok, why = mic.availability()
+    return Check("microphone", "Microphone (optional)", PASS,
+                 (f"{why}; the self-test did not open it, and the feature is off until you turn it on" if ok else
+                  f"not available: {why} (optional: only the microphone feature needs it)"), data=dict(available=ok))
+
+
+def check_network() -> Check:
+    """Optional. Reports whether the one network feature (Streamer mode: read-only Twitch chat) is allowed here. The self-test never
+    connects to anything, and there is no telemetry."""
+    from kickthefly.core import netguard
+
+    ok, why = netguard.allowed()
+    return Check("network", "Network features (optional)", PASS,
+                 ("Streamer mode could connect to irc.chat.twitch.tv (port 6697) if you turn it on; it is off at every launch and the "
+                  "self-test did not connect" if ok else f"off here: {why}") + "; nothing else in the game uses the network", data=dict(allowed=ok))
+
+
 def _writable(d: Path) -> str | None:
     try:
         d.mkdir(parents=True, exist_ok=True)
@@ -546,7 +588,8 @@ def run(*, backends_only: list[str] | None = None, smoke: bool = True, graphics:
     steps = [check_build, check_brainpack_adult, check_brainpack_larva, lambda: check_backends(backends_only)]
     if graphics:
         steps.append(check_graphics)
-    steps += [check_audio, check_ffmpeg, check_folders, check_neurodex, check_toolkit, check_resources, check_display]
+    steps += [check_audio, check_ffmpeg, check_folders, check_neurodex, check_toolkit, check_day3, check_microphone, check_network,
+              check_resources, check_display]
     if smoke:
         steps.append(check_smoke)
     checks: list[Check] = []
