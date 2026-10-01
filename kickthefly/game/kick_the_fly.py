@@ -379,6 +379,36 @@ the panel counts the synapses affected at each level and can leave out low-confi
 confidence cut. Octopamine and dopamine are left out: those synapses are not in the simulated matrix. The simulator's slow global gain
 works against any drug that changes overall synaptic strength, so effects are read soon after a drug goes on.
 
+Predators (3.0 day 3; game/predators.py, game/predator_play.py, lab/predators.py, docs/predators.md). Tools in the Creatures category,
+next to the spider: FROG (a very fast tongue), DRAGONFLY (a chase from above that takes only a fly in the air), MANTIS (a 10 cm/s creep, then
+a strike). GAME RULE: all of the predators' behaviour: when they hop, creep, chase, aim and strike, how fast, how far, how many strikes
+(no real animal is measured and no published value is used). CONNECTOME: detection goes only through the existing looming transduction
+(LPLC2/LC4 -> DNp01 -> DODGE), so "sneak up slowly and it won't notice" is a consequence of the looming threshold (a game rule), and a capture
+fires the real touch neurons by body part (head BM_*/JO-*, body SNta*, legs SNpp*, wings WG*). Assay predator_escape: escape probability by
+predator over seeds with a Wilson 95% CI (MODEL PREDICTION; the fly does not move, so "escape" is DNp01 above the game's escape threshold
+before the capture). 2D and 3D.
+
+Rain, gusts and storms (3.0 day 3; game/weather.py, docs/weather.md; open field and orchard, 3D). CONNECTOME: what is driven: raindrop hits fire
+the touch neurons by body part, wet air the humidity neurons (HRN), a gust the wind neurons JO-C/E through the existing wind
+transduction, lightning the photoreceptors. GAME RULE: everything else (the hit rate, strength and part table, when wings count as wet, the
+gusts, the lightning's timing, the storm preset, the darkening). Lab parameters weather.rain, weather.gust_hz, weather.storm (all off by
+default, so every existing outdoor result is unchanged). Reduced flashing: the screen's lightning is one slow swell, never a flash.
+
+Kitchen arena (3.0 day 3; game/kitchen.py, docs/kitchen.md; 3D only, E cycles to it; the counter is the floor). CONNECTOME: the fruit bowl
+is the orchard's feeding (taste + PAM reward neurons), the vinegar trap's scent is the fermentation glomeruli DM1/DM2/DP1m (and the fly flies to
+the jar only if its own DM1/DM2/DP1m firing is far above its calm rate), the sink is the pool's water (humidity neurons), the burner is the
+lamp's heat (heat sensors), the cook's swat is seen as looming. GAME RULE: the layout, the trap physics (hover over the mouth, fall in, stuck,
+drowning), the basin, the burner, the cook (10-20 s between swats, a 0.9 s steady swing at where a fly was) and every number.
+
+Microphone to Johnston's organ (3.0 day 3; core/mic.py, lab/audio.py, docs/microphone.md). OPT-IN, off at every launch, a red MIC ON pill on screen
+while on, nothing recorded or sent. CONNECTOME: JO-A (50) and JO-B (88) neurons. LITERATURE: A and B are the sound-sensitive groups (Kamikouchi
+2009); B prefers below ~100 Hz and A higher (a 2019 review). GAME RULE: the whole transduction (band-passes, loudness mapping, gate, equal
+current per neuron). MODEL PREDICTION: the hum demo (a synthetic 200 Hz hum, steady and in 35 ms pulses): it drives P1, not the song motor neurons.
+
+Streamer mode (3.0 day 3; core/streamer.py, core/netguard.py, docs/streamer.md). OPT-IN, off at every launch, never during tests, --validate or
+any headless run. GAME RULE: all of it: viewers of a Twitch channel (read-only, anonymous, no token, no names kept) vote !tool, !arena, !surgery;
+the streamer picks which commands count; a winner runs the game's own action. Every connection is shown on screen. No telemetry, ever.
+
 Fly individuality (2.11; Kain et al. 2012, Linneweber et al. 2020).
 - GAME RULE: Per-fly variation, deterministic from each fly's seed, implemented as per-neuron scaling
   so the shared weight matrix is unchanged: W_fly = D_post · W · D_pre, where D_pre and D_post are
@@ -2048,13 +2078,18 @@ REACTION_SOURCE = {
     "PHOTO MODE": "rule", "ALCOHOL": "rule", "INEBRIATED": "rule", "STUMBLE": "rule", "SIP": "rule", "DRINKING": "rule",
     "TO FRUIT": "rule", "LOST": "rule", "RECALL": "rule", "LUNGE": "rule", "FIGHT": "rule", "SLEEP": "rule",
     "cVA PUFF": "rule", "DECOY FEMALE": "rule", "COURTSHIP": "rule",
+    # 3.0 day 3: predators, the kitchen, the microphone and Streamer mode are all game rules on the connectome's own neurons
+    "CAUGHT": "rule", "TRAPPED": "rule", "TO VINEGAR": "rule", "MIC": "rule", "STREAM": "rule", "CHAT VOTED": "rule",
 }
 POPUP_SOURCE = {"DODGE!": "real", "YIKES!": "real", "ROLL!": "rule", "NOPE!": "rule", "RUN AWAY!": "rule", "YUM!": "rule",
                 "SWEET!": "rule", "NOM NOM": "rule", "K.O.!": "rule", "BROKE FREE!": "rule", "FLY WINS!": "rule",
                 "GOTCHA!": "rule", "PEW PEW!": "rule", "TAKE THAT!": "rule", "AUTOPILOT": "rule", "SPECTATOR": "rule",
                 "PHOTO MODE": "rule", "*HIC*": "rule", "SIP...": "rule", "GLUG!": "rule", "STUMBLE!": "rule",
                 "ALL GONE": "rule", "♪ BUZZ ♪": "rule", "LUNGE!": "rule", "ZZZ": "rule",
-                "COURTSHIP": "rule", "cVA PUFF": "rule", "DECOY FEMALE": "rule"}
+                "COURTSHIP": "rule", "cVA PUFF": "rule", "DECOY FEMALE": "rule",
+                "A FROG!": "rule", "A DRAGONFLY!": "rule", "A MANTIS!": "rule", "SNAP!": "rule", "ZAP!": "rule", "GULP!": "rule",
+                "GRABBED!": "rule", "SNATCH!": "rule", "STRIKE!": "rule", "SWAT!": "rule", "STUCK IN THE TRAP!": "rule",
+                "THE COOK RAISES A SWATTER": "rule"}
 SOURCE_TIP = {"real": "REAL: triggered by the connectome sim's own neurons firing above a threshold.",
               "rule": "RULE: a game rule, not something the connectome sim produced."}
 

@@ -1,6 +1,6 @@
 # Tool loadouts (2.13)
 
-The game has fifteen tools. A **loadout** is the short list of them that sits on the hotbar, on the number keys. Every other
+The game has eighteen tools. A **loadout** is the short list of them that sits on the hotbar, on the number keys. Every other
 tool stays one gesture away on the tool wheel. A loadout is a convenience: it decides which tools you can reach with one
 key and nothing else, so it never changes what a tool does to the fly, and the validation results are the same with any
 loadout (nothing in `kickthefly/lab/` reads it).
@@ -16,7 +16,7 @@ loadout (nothing in `kickthefly/lab/` reads it).
   Esc. A key that is taken swaps with the action that had it, as before. Before 2.13 the number keys, - and = were fixed.
 - The **hand** is in every loadout, in slot 1, and can't be removed or moved.
 - **Lab-only tools** (the laser) only appear in Lab mode. Switching to Play puts the laser down for the hand.
-- **Larva mode** hides the tools that have no larval sensory mapping (bomb, spider, alcohol, cVA, decoy, laser): the larva has no
+- **Larva mode** hides the tools that have no larval sensory mapping (bomb, spider, frog, dragonfly, mantis, alcohol, cVA, decoy, laser): the larva has no
   looming detectors, fermentation glomeruli, DA1 glomerulus or foreleg taste neurons in this model. The editor says why.
 
 ## Presets
@@ -24,7 +24,7 @@ loadout (nothing in `kickthefly/lab/` reads it).
 | preset | tools (the hand is always first) |
 |---|---|
 | Base (Play's default) | hand, swatter, blowtorch, freeze spray, sugar |
-| Chaos | bomb, blowtorch, brake cleaner, zapper, spider, alcohol |
+| Chaos | bomb, blowtorch, brake cleaner, zapper, spider, alcohol |   <!-- 3.0 day 3 added frog, dragonfly and mantis (Creatures) to All and Lab only -->
 | Chemist | brake cleaner, alcohol, cVA, sugar, freeze spray |
 | Lab (Lab's default) | every tool, the laser included |
 | All | every tool the mode allows, in the order the number keys always had |

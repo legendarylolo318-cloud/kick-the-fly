@@ -390,6 +390,60 @@ ASSUMPTIONS = (
      "gain works against any drug that changes overall synaptic strength, so effects are read soon after a drug goes on.",
      "kickthefly/lab/pharmacology.py · kickthefly/sim/wiring.py · Lab > Pharmacology"),
 
+    ("Predators: a game rule that reaches the fly only as something growing in its view",
+     "GAME RULE",
+     "The frog (a tongue that takes 0.07 s), the dragonfly (a chase from above that only takes a fly in the air) and the mantis (a "
+     "10 cm/s creep, then a 0.06 s strike) are state machines with numbers chosen for play. Each shows up to the fly only as a growing "
+     "circle, through the game's existing looming transduction onto LPLC2/LC4 -> DNp01; a capture fires the real touch neurons by body "
+     "part. Whether the mantis's creep is noticed follows from the looming threshold (itself a game rule). The escape probabilities of "
+     "the Predator escape assay are MODEL PREDICTIONS with 95% Wilson intervals.",
+     "No real frog, dragonfly or mantis is measured or implied: no published speed, reach or timing is used. The fly in the assay does "
+     "not move, so an 'escape' is DNp01 crossing the game's escape threshold before the capture, not a flight path that clears the "
+     "tongue. The larva has no looming detectors in this model, so it has no predators.",
+     "kickthefly/game/predators.py · kickthefly/game/predator_play.py · kickthefly/lab/predators.py · Lab > Assays > Predator escape"),
+
+    ("Rain, gusts and storms: touch, humidity, wind and light pokes with game-rule numbers",
+     "GAME RULE",
+     "Raindrop hits poke the real touch neurons by body part (wings, body, head, legs), the wet air pokes the humidity neurons, a gust "
+     "adds wind speed to the existing wind -> JO-C/E transduction, and lightning pokes the photoreceptors. How often drops hit, which "
+     "part (by exposed area), how hard, when the wings count as wet (the pool's rule), the gusts' size and length, the lightning's "
+     "timing and the storm preset are game rules. Reduced flashing turns the screen's lightning into one slow swell.",
+     "Raindrops are not simulated: a hit is a touch pulse of a set strength. No shelter under the trees, no evaporation, no cooling, "
+     "no wind shear. The humidity neurons idle at about 18 Hz in this model, so rain moves their mean rate only about 14%, though "
+     "their 100 ms peaks rise clearly.",
+     "kickthefly/game/weather.py · kickthefly/game/kick3d.py · Lab > Parameters (weather.*) · protocol weather:"),
+
+    ("The kitchen: every part is a game rule on the neurons the fly already has",
+     "GAME RULE",
+     "Fruit in the bowl is the orchard's feeding (taste and PAM reward neurons). The vinegar trap pokes the fermentation glomeruli "
+     "DM1/DM2/DP1m, and the fly flies to it only if those neurons' own firing is well above its calm rate; a fly that hovers over the "
+     "mouth falls in and is stuck (trap physics are a game rule). The sink is the pool's water in a basin (humidity neurons, wet wings, "
+     "drowning); the burner is the lamp's heat. The cook swats every 10-20 s at where a fly was, slowly enough to be seen coming.",
+     "The counter is the floor; the room is the 3D room with different furniture. No real vinegar chemistry, no real trap catch rates, "
+     "no stove heat transfer. Whether a given fly dodges a swat is a MODEL PREDICTION, not a measurement.",
+     "kickthefly/game/kitchen.py · kickthefly/game/kick3d.py · arena E > kitchen (3D only)"),
+
+    ("Microphone to Johnston's organ: air pressure treated as antennal vibration",
+     "GAME RULE",
+     "The microphone's sound is band-passed into JO-B (10-100 Hz) and JO-A (100-1,000 Hz) and becomes current on those neurons (50 and "
+     "88 in the dataset); JO-C/E are left to the wind. A 2019 review says JO-B prefers low and JO-A higher frequencies, and that "
+     "JO-A/B are the sound-sensitive groups (Kamikouchi 2009). Everything else, the filters, the loudness mapping, the noise gate and "
+     "the equal current per neuron, is a game rule. The hum demo's P1 and song-motor-neuron ratios are MODEL PREDICTIONS.",
+     "A microphone is not an antenna; the real organ is a mechanical resonator and each neuron has its own tuning. Humming drives the "
+     "P1 courtship cluster here but not the song motor neurons, and the model is not tuned to the song's 35 ms rhythm (a 70 ms rhythm "
+     "drives P1 about as much). The song numbers (about 220 Hz pulses every ~35 ms) were read in search-result summaries, not the "
+     "papers. Opt-in, off at every launch; nothing is recorded or sent.",
+     "kickthefly/core/mic.py · kickthefly/lab/audio.py · Esc > Mic and streamer · assay hum_demo"),
+
+    ("Streamer mode: chat votes through the game's own actions",
+     "GAME RULE",
+     "Viewers of a Twitch channel vote (!tool, !arena, !surgery) and the winner runs the same action a player would. The streamer "
+     "chooses which commands count; a round, a cooldown, a minimum vote count and rate limits are all game rules. It only reads chat "
+     "anonymously (no login, no token), keeps no names, and shows its connection on screen.",
+     "Nothing here touches the connectome. The anonymous login is described in Twitch developer-forum threads, not the current "
+     "official documentation, so Twitch may stop allowing it. Off at every launch and never during validation, protocols or tests.",
+     "kickthefly/core/streamer.py · kickthefly/core/netguard.py · Esc > Mic and streamer"),
+
     ("Hemifield lesion as static connectome wiring ablation",
      "DATASET",
      "One-click surgery silences visual pathways (LC10, LPLC2, LC4, LPTC, VS, HS) on one hemifield or an entire hemibrain, reported strictly as a wiring outcome.",

@@ -38,6 +38,14 @@ clamp's isolated and embedded I-F curves (extra:patch), imaging a driven type sh
 cholinergic block lowers and picrotoxin raises whole-brain firing and washout restores the weights exactly (extra:pharmacology),
 and the five Lab screens draw on the real brain (extra:toolkit-pages).
 
+Also covered (3.0 day 3, criteria written before the first run): rain, gusts and lightning fire the documented neuron groups and the
+screen's lightning is one slow swell under reduced flashing (extra:weather); a SYNTHETIC hum fires JO-A and JO-B by frequency and
+raises P1 (extra:mic; the song motor neurons are reported, not judged); each predator's attack ends in a capture and the mantis's creep
+never looms (extra:predators, plus each predator as a tool in the room); each kitchen station drives the neurons it documents, a fly
+flying to the jar is trapped, the cook's swat is seen as looming and hurts a held fly, and E reaches the arena (extra:kitchen); the
+microphone and Streamer mode start off, a chat vote against an in-memory fake server changes the tool and both show a red indicator,
+with no real connection ever made (extra:live-inputs).
+
 Also covered: multi-fly spawn and despawn up to 8, brain surgery on and off, training with 5 pairings, a duel start and
 end, pet mode catch-up over a simulated 3-day gap, individuality off / subtle / strong, and every loadout preset in
 every mode. The 3D renderer runs offscreen where OpenGL is available; with no GL its checks are SKIPPED, never failed.
