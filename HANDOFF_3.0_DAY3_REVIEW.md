@@ -6,7 +6,7 @@ offscreen GL for the frames and the benchmark, with no GPU error. **The micropho
 
 ## Read this first
 
-1. **18 bugs found and fixed, each with a regression test that failed before its fix** (`tests/test_day3_review.py`, 37 tests, plus
+1. **20 bugs found and fixed; all but the page layout (16) have a regression test that failed before its fix** (`tests/test_day3_review.py`, plus
    updated `tests/test_live_inputs.py`). The four that matter most: a click with any tool pulled a fly out of a frog's mouth and the frog
    ate it anyway; turning Streamer mode off and on while it was connecting left a **second, hidden Twitch connection** that the on-screen
    list no longer showed; a chat vote for `!arena`/`!surgery` could still win after the streamer had switched that command off; and
@@ -23,7 +23,15 @@ offscreen GL for the frames and the benchmark, with no GPU error. **The micropho
    storm ~15-17% (3 runs each). Clear weather itself is identical on e55adf8, 40205e2 and this branch; this machine is slower today than in
    Sonnet's session for all three. The outdoor budget in docs/performance.md is 1.00x real time with one fly: weather does not meet it
    here, and clear weather doesn't today either. I found nothing cheap to win (below). **Your decision.**
-5. RESULTS_PLACEHOLDER
+5. **The flaky `game2d:adult:flypaper:spider` leg is not load noise.** The playthrough rig is lockstep (it steps the brain itself; no
+   brain thread runs; the loom measure is per frame, not wall clock), so CPU load cannot change what the brain receives. I reproduced the
+   FAIL **in isolation on a quiet machine** (4.3 Hz vs 8.7 needed). The loom peak ranges from 4 to 48 Hz (most runs 42-48) and differs between fresh
+   processes given identical inputs, so something in the 2D frame loop is nondeterministic. Ruled out: a brain thread, the brain-view
+   thread, the asynchronous Neurodex build, Python hash ordering, the memory autosave, the fly's wall-clock timestamps. **Root cause not
+   found.** It is very likely the same thing the Day 2 review saw on `flypaper:bomb` (4.574 Hz vs 8.725, "history-dependent"). The criterion
+   was not touched. Recommendation: make the 2D game legs deterministic first (a per-leg trace of every `random`/`np.random` call and every
+   poke would find the divergence), then judge the leg.
+6. **The follow-ups you approved during the session are merged in** (section below), including the test-suite memory leak.
 
 ## What I ran
 
@@ -42,7 +50,8 @@ offscreen GL for the frames and the benchmark, with no GPU error. **The micropho
 | artifacts made by release/3.0 (e55adf8), loaded here: save state (orchard), config.toml, three share codes, a bundle, a replay | all load; the save gets the three `weather.*` keys at off; bundle MATCH bit-exact; replay identical; mic and stream off |
 | frames rendered offscreen and looked at | below |
 | outdoor benchmark, 25 s each, 3 repeats | below |
-| 2D playthrough matrix repeated (the `flypaper:spider` question) | MATRIX_PLACEHOLDER |
+| the full 2D playthrough matrix, 3 times in one process (as `run()` builds it) | **0 FAIL in every 2D leg, all 3 times**; `flypaper:spider` loom peak 8.06 / 32.97 / 47.75 Hz (needed ~6.8) |
+| `flypaper:spider` alone, 3 legs per process, 13 fresh processes (with and without the view thread, Neurodex built synchronously, `PYTHONHASHSEED=0`) | peaks 4.3-48.2 Hz, most at 42-48 but 4.3, 13.3, 13.4, 13.7, 17.5 and 28.3 too; **1 FAIL in isolation on a quiet machine: 4.315 Hz vs 8.725 needed** |
 
 ## Bugs found and fixed (each has a regression test in `tests/test_day3_review.py` unless noted)
 
@@ -146,6 +155,26 @@ and the real extra spiking they cause, which I may not change. So: **not inside 
 - The normal (not reduced) lightning flash's pulses on screen (captures missed them; covered by tests).
 - Lillvis et al. 2024 and Bennet-Clark & Ewing 1969 full texts.
 - Pre-existing, not touched: the video/timelapse REC badges also use "●" and will show the same missing-glyph box on this machine.
+
+## Follow-ups you approved in the session (branch `opus/3.0-day3-followups`, merged here)
+
+| change | why | test |
+|---|---|---|
+| **Test-suite memory leak fixed.** Each `LiveInputs` (Day 3) called `atexit.register(self.stop_all)`, which kept every game ever created, brains included (~1 GB each on the real pack), alive until the process ended. One module-level hook over a `WeakSet` now. | The first full run's second half grew to **20 GB (4.8 GB RAM + 15.5 GB swap)** and was force-stopped at 95% (0 failures to that point); this is also why each half took ~40 min | `test_a_finished_game_is_freed` (fails without the fix) |
+| **Frog, mantis and dragonfly redrawn in 3D**: ellipsoid bodies, jointed limbs, eyes, wings; the frog's head is built around the engine's mouth point so the tongue leaves between the lips. Each is still scaled from its own looming radius, so what the fly sees is unchanged. | you: "that does not look like a frog"; the tongue came out of the chin | draw tests; looked at from 4 angles, at rest and mid-strike |
+| **Frog and mantis in the Chaos preset** (appended: keys 1-7 unchanged; the dragonfly stays in All and Lab: it only hunts a flying fly) | your decision | `test_loadout.py` |
+| **Streamer mode is off in Lab mode** (refused, and stopped if Lab mode starts while streaming); the playthrough bot checks it | a chat vote could silence a neuron group in the middle of a recording | `test_streamer_mode_is_refused_in_lab_mode...` |
+| **Recordings say whether the microphone was on** (`live_inputs` in the metadata) | its JO-A/B current is not a logged stimulus | `test_a_recording_says_whether_the_microphone_was_on` |
+| **neuPrint shape download is opt-in**: Settings > Brain > "Download real neuron shapes" (default off) and a one-time question after the tutorial; shapes already cached still load; the brain view says how to turn it on | the project rule: network use is opt-in. Drawing only: every neuron is simulated as a point either way | `test_the_neuprint_download_is_opt_in_and_asked_once` |
+
+Not done, flagged as separate tasks (they need more than a review's change): delivering **all** live-game stimuli in brain time (weather alone would
+put rain on a different clock from every tool, wind and the sun; today every live stimulus is delivered per screen frame, so a brain below real time
+gets more stimulation per simulated second; Lab protocols, assays and the API are lockstep and unaffected); comparing the predator assay with
+published data (papers to be read, criteria pre-registered); and the root cause of the 2D flypaper nondeterminism.
+
+## First full run (before the follow-ups), for the record
+pytest half 1 555 passed / 19 skipped / 0 failed (41.5 min); half 2 light part 0 failures up to 95%, then stopped (the leak); validation tests 22
+passed (17.5 min); playthrough adult 338 passed / 0 failed / 4 gated / 9 skipped, larva 55 / 0 / 100 / 0; `--validate` identical (below).
 
 ## Decisions that are yours (with my recommendation)
 
