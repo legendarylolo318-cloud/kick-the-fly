@@ -305,6 +305,9 @@ def run_headless_replay(args) -> int:
 
 def main(args) -> int:
     prepare()
+    from kickthefly.core import netguard
+    netguard.disable("a headless run")                  # 3.0 day 3: no network feature (Streamer mode) in --validate, protocols or assays
+    os.environ["KTF_NO_NETWORK"] = "1"                  # and none in the worker processes they start
     from kickthefly.sim.connectome import backends
     choice = getattr(args, "sim_backend", None) or getattr(args, "backend", None)
     if choice in backends.BACKEND_NAMES:                # inherited by the validation/assay worker processes

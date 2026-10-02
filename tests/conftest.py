@@ -12,6 +12,33 @@ sys.path.insert(0, str(ROOT))
 os.environ["SDL_VIDEODRIVER"] = os.environ.get("KTF_TEST_SDL_VIDEODRIVER", "dummy")
 os.environ["SDL_AUDIODRIVER"] = os.environ.get("KTF_TEST_SDL_AUDIODRIVER", "dummy")
 os.environ.setdefault("KICK_THE_FLY_OFFLINE", "1")            # never contact neuPrint from the tests (or CI)
+os.environ["KTF_NO_NETWORK"] = "1"                            # 3.0 day 3: no network feature (Streamer mode) may connect in a test; forced, not defaulted
+
+
+def _no_network_connect():
+    """3.0 day 3 review: belt and braces under KTF_NO_NETWORK. Any connect() to an internet address in the test process raises,
+    so a test (or code under test) that tries to reach Twitch, neuPrint or anywhere else fails loudly instead of connecting.
+    Unix sockets (socketpair, the fake chat servers) are unaffected."""
+    import socket
+
+    real_connect, real_connect_ex = socket.socket.connect, socket.socket.connect_ex
+
+    def guard(sock, address):
+        if sock.family in (socket.AF_INET, socket.AF_INET6):
+            raise OSError(f"the test suite never opens a network connection (tried {address!r})")
+
+    def connect(self, address):
+        guard(self, address)
+        return real_connect(self, address)
+
+    def connect_ex(self, address):
+        guard(self, address)
+        return real_connect_ex(self, address)
+
+    socket.socket.connect, socket.socket.connect_ex = connect, connect_ex
+
+
+_no_network_connect()
 
 
 @pytest.fixture(autouse=True)

@@ -38,6 +38,7 @@ LARVA_RESTRICTED_REASONS = {
     "orchard": "The orchard requires flying between tree canopies to reach fruit.",
     "fan": "Strong fan wind sweeps larvae away; larvae cannot fly through headwinds.",
     "escaperoom": "The escape room puzzle requires adult jumping and aerial navigation.",
+    "kitchen": "The kitchen needs an adult: its fruit bowl, vinegar trap and swatting cook all work through flight and looming.",
 }
 
 

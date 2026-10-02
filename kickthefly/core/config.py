@@ -146,6 +146,32 @@ SETTINGS: tuple[Setting, ...] = (
       "A small card at launch with one curated cell type, a fact with its citation (from the literature, not measured "
       "here) and a Try it button that sets up a one-click experiment. Separate from the real-science popups. Which type, "
       "the card and Try it are game rules.", tag=GAME_RULE),
+    S("brain.neuron_shapes", "Brain", "Download real neuron shapes", "bool", False,
+      "Lets the brain view download the EM skeletons of ten neurons (two each of DNp01, DNa02, MBON01, MBON14 and KCg) from "
+      "Janelia's neuPrint, once, into a cache. Off by default: it is the game's only network use outside Streamer mode. "
+      "Shapes are drawing only: the simulation treats every neuron as a point either way, so no result depends on this. "
+      "Shapes already in the cache load without the network. Never used in headless runs or tests.", restart=True),
+    S("brain.mic_sensitivity", "Brain", "Microphone sensitivity", "float", 1.0,
+      "Esc > Mic and streamer: how loud a band must be to drive the Johnston's organ JO-A/JO-B neurons fully (the sound is band-passed "
+      "into JO-B, below ~100 Hz, and JO-A, higher; neurons from the dataset, the transduction and every number a GAME RULE). Only the "
+      "sensitivity is saved: the microphone itself is off every time the game starts, shows a red MIC ON pill while on, and nothing it "
+      "hears is saved or sent.", lo=0.1, hi=10.0, step=0.1, fmt="{:.1f}x", tag=GAME_RULE),
+    S("stream.allow_tool", "Brain", "Streamer mode: viewers may vote !tool", "bool", True,
+      "Esc > Mic and streamer: whether Twitch viewers can change the tool in hand by chat vote (!tool NAME, only tools on your hotbar). "
+      "GAME RULE. Streamer mode itself is off every time the game starts and only reads chat anonymously.", tag=GAME_RULE),
+    S("stream.allow_arena", "Brain", "Streamer mode: viewers may vote !arena", "bool", False,
+      "Whether viewers can change the arena by chat vote (!arena NAME). Off until you switch it on. GAME RULE.", tag=GAME_RULE),
+    S("stream.allow_surgery", "Brain", "Streamer mode: viewers may vote !surgery", "bool", False,
+      "Whether viewers can silence or restore a neuron group by chat vote (!surgery NAME). Off until you switch it on. GAME RULE.",
+      tag=GAME_RULE),
+    S("stream.window_s", "Brain", "Streamer mode: vote window", "float", 20.0,
+      "Seconds a chat vote stays open after the first vote. The winner needs at least the minimum votes. GAME RULE.",
+      lo=5.0, hi=120.0, step=5.0, fmt="{:.0f} s", tag=GAME_RULE),
+    S("stream.cooldown_s", "Brain", "Streamer mode: cooldown", "float", 30.0,
+      "Seconds after a vote ends during which new votes are ignored. GAME RULE.", lo=5.0, hi=300.0, step=5.0, fmt="{:.0f} s",
+      tag=GAME_RULE),
+    S("stream.min_votes", "Brain", "Streamer mode: minimum votes", "int", 2,
+      "The fewest votes the winning option needs to take effect. GAME RULE.", lo=1, hi=50, step=1, tag=GAME_RULE),
     S("brain.imaging_indicator", "Brain", "Imaging indicator", "choice", "gcamp6s",
       "Lab > Calcium imaging: which GCaMP the simulated imaging uses. MODEL: spikes from the simulation convolved with the "
       "indicator's kernel plus photon shot noise, not a measurement. The rise and decay come from Chen 2013 (GCaMP6s/6f, its "
@@ -171,8 +197,8 @@ SETTINGS: tuple[Setting, ...] = (
       "drives its real cold- and hot-sensing antennal neurons. Open field and Orchard are large outdoor 3D worlds "
       "(the 2D game stays indoors). The sensory neurons each arena drives are real; the places themselves are game "
       "rules. Hotkey E cycles them.",
-      options=("room", "fan", "flypaper", "pool", "lamp", "thermo", "escaperoom", "field", "orchard"),
-      labels=("Room", "Fan", "Flypaper", "Pool", "Lamp", "Thermo", "Escape room", "Open field", "Orchard"),
+      options=("room", "fan", "flypaper", "pool", "lamp", "thermo", "escaperoom", "field", "orchard", "kitchen"),
+      labels=("Room", "Fan", "Flypaper", "Pool", "Lamp", "Thermo", "Escape room", "Open field", "Orchard", "Kitchen"),
       tag=GAME_RULE),
     S("brain.song_buzz", "Brain", "Courtship song buzz", "bool", True,
       "Plays a synthesized pulse-song buzz when its ps1 wing motor neurons fire (SONG). The neurons are real "
@@ -335,7 +361,7 @@ SCHEMA_VERSION = 3
 # 2.13 (schema < 3) had players on keys 1-9, 0, - and =, which then reached every tool, so it migrates to the All
 # preset (nobody's muscle memory breaks) with a one-time notice pointing at the loadout editor, and it counts as
 # already onboarded (no first-launch tutorial; Settings > Help replays it). A fresh install gets Base and the tutorial.
-FIRST_RUN_DEFAULTS = {"tutorial_done": False, "loadout_notice": False}
+FIRST_RUN_DEFAULTS = {"tutorial_done": False, "loadout_notice": False, "neuron_shapes_asked": False}
 
 
 class Config:

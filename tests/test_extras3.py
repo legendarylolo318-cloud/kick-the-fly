@@ -305,7 +305,10 @@ def test_first_run_notices_show_the_card_after_onboarding(synthetic_pack):
     g = make_game()
     g.cfg.first_run["tutorial_done"] = True
     g.cfg.first_run["loadout_notice"] = False
-    g.show_first_run_notices()
+    g.show_first_run_notices()                       # 3.0 day 3 review: the one-time neuPrint question comes first, alone
+    assert g.menu.screen == "neuron_shapes_ask" and g.x3.notd is None
+    g.menu.close()
+    g.show_first_run_notices()                       # asked once; from then on the card
     assert g.x3.notd is not None
 
 

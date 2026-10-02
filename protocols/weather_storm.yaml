@@ -1,0 +1,14 @@
+# 3.0 day 3, Rain and storms: a stimulus protocol. Rain on the touch neurons by body part, gusts on the wind neurons JO-C/E, lightning on
+# the photoreceptors (game/weather.py; game rules on the connectome's own neurons). Compare with the same protocol without `weather:`.
+name: weather-storm
+seed: 1000
+flies: 2
+warmup_s: 1
+duration_s: 12
+weather: {rain: 0.8, gust_hz: 0.3, storm: true, wind_speed: 2}
+recordings:
+  - {name: wing touch, neurons: "wing"}
+  - {name: body touch, neurons: "body"}
+  - {name: humidity, neurons: "humid"}
+  - {name: wind JO-C/E, neurons: "wind"}
+  - {name: photoreceptors, neurons: "light"}

@@ -131,3 +131,6 @@ and its numbers are in `kickthefly/core/neurodex.py` and [docs/neurodex.md](neur
 | `fly.patch(neuron, amplitudes, duration_ms, repeats, mode="embedded" \| "isolated")` | virtual current clamp, I-F curve and recording | MODEL |
 | `fly.image(seconds, rois=None, indicator="gcamp6s", fps=20)` | simulated GCaMP imaging of the next seconds; returns an `ImagingResult` | MODEL |
 | `fly.drug(name, dose, include_low_confidence=True, cut=0.7)`, `fly.washout()` | synaptic scaling by predicted transmitter | MODEL PREDICTION |
+| `fly.attack(kind, seed=None)` | a frog, dragonfly or mantis attack through the looming pathway; whether DNp01 crossed the escape threshold before the capture (3.0 day 3) | GAME RULE attack, MODEL PREDICTION result |
+| `fly.weather(rain, gust_hz, storm, wind_speed, wind_dir)` | rain on touch neurons, humid air, gusts on JO-C/E, lightning on the eyes (all off clears) | GAME RULE |
+| `fly.hear(hz, seconds, ipi_ms=None, amp=0.1)` | a synthetic hum through the microphone's analysis onto JO-A/B; never a microphone | GAME RULE |
