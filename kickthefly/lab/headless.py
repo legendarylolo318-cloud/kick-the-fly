@@ -137,6 +137,44 @@ def run_critical_path(args) -> int:
     return 0
 
 
+def run_sensitivity(args) -> int:
+    """--sensitivity: vary each LIF parameter across its documented range and re-run the validated behaviors (analysis only)."""
+    from kickthefly.lab import recorder, sensitivity, validation
+
+    seeds = parse_seeds(args.seeds, validation.SEEDS)
+    values = {}
+    for item in getattr(args, "sens_values", None) or ():
+        name, _, text = item.partition("=")
+        try:
+            values[name] = [float(x) for x in text.split(",") if x]
+        except ValueError:
+            print(f"error: --sens-values {item!r}: use PARAM=V1,V2", file=sys.stderr)
+            return 2
+    folder = Path(args.out) if args.out else recorder.exports_dir() / f"{time.strftime('%Y%m%d-%H%M%S')}-sensitivity"
+    if (folder / sensitivity.PROGRESS_NAME).exists() and not getattr(args, "resume", False):
+        print(f"note: {folder} holds an earlier run; pass --resume to continue it, or --out elsewhere (this run starts over)",
+              file=sys.stderr)
+    t0 = time.time()
+    last = [0.0]
+
+    def progress(done, total, label):
+        if time.time() - last[0] > 5 or label.endswith("done") or "already" in label:
+            last[0] = time.time()
+            print(f"  {done}/{total} cells  {label} ({time.time() - t0:.0f}s)", flush=True)
+
+    try:
+        res = sensitivity.run(params=getattr(args, "sens_params", None), tests=getattr(args, "sens_tests", None), seeds=seeds,
+                              values=values or None, workers=args.workers, folder=folder,
+                              resume=bool(getattr(args, "resume", False)), progress=progress)
+    except sensitivity.SensitivityError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 2
+    sensitivity.save(res, folder)
+    print(sensitivity.summary(res))
+    print(f"results written to {folder}")
+    return 0
+
+
 def audit_asymmetry(seconds: float = 5.0, seed: int = 0, mirror: bool = False) -> dict:
     """Audit bilateral asymmetry between left and right hemibrains:
     - Measures baseline turning bias with no input over a calm run
@@ -344,6 +382,20 @@ def main(args) -> int:
             return run_signflip(args)
         if getattr(args, "critical_path", None):
             return run_critical_path(args)
+        if getattr(args, "sensitivity", False):
+            return run_sensitivity(args)
+        if getattr(args, "tournament", None):
+            from kickthefly.lab import tournament
+            return tournament.main(args)
+        if getattr(args, "race", False):
+            from kickthefly.lab import racing
+            return racing.main(args)
+        if getattr(args, "netsci", None):
+            from kickthefly.lab import netsci
+            return netsci.main(args)
+        if getattr(args, "sleep_deprivation", False):
+            from kickthefly.lab import sleepdep
+            return sleepdep.main(args)
         if args.validate:
             return run_validate(args)
         if args.protocol:
@@ -356,7 +408,8 @@ def main(args) -> int:
         print(f"error: {e}", file=sys.stderr)
         return 2
     print("nothing to do: use --validate, --protocol FILE, --playthrough, --replay FILE, --audit-asymmetry, --benchmark, "
-          "--threshold-sweep, --signflip-test, --critical-path TARGET, --rerun-bundle ZIP or --share-decode CODE", file=sys.stderr)
+          "--threshold-sweep, --signflip-test, --critical-path TARGET, --sensitivity, --tournament N, --race, --netsci, "
+          "--sleep-deprivation, --rerun-bundle ZIP or --share-decode CODE", file=sys.stderr)
     return 2
 
 

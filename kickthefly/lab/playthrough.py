@@ -46,6 +46,17 @@ flying to the jar is trapped, the cook's swat is seen as looming and hurts a hel
 microphone and Streamer mode start off, a chat vote against an in-memory fake server changes the tool and both show a red indicator,
 with no real connection ever made (extra:live-inputs).
 
+Also covered (3.0 day 4, criteria written before the first run): a 4-fly tournament of short real-brain duels (every winner is one of the
+two flies in its match, a match replayed from the same seeds gives the same result, each personality card is measured, the analysis runs,
+and a Fly.duel through the Python API runs) (extra:tournament); a 3-lane race on the real brains (each fly moves, the order is
+consistent with the distances, the odds sum to 1, a points bet settles in a temporary wallet and never goes below the free top-up)
+(extra:race); the network science of the larva pack end to end (cached, the checksum caught a tampered cache) and the adult pack's degree
+and reciprocity counts (extra:netsci); a short paired sleep-deprivation run (the deprivation raises sleep pressure above the control's
+and the disturbed fly sleeps less during the window) (extra:sleepdep); a sensitivity smoke run (one parameter, one behavior, 3 seeds:
+the baseline cell and a changed cell both come back with the validation criteria's fields) (extra:sensitivity); and the arcade and three
+new Lab pages draw on a real game, in every accessibility palette, with their buttons registered for the mouse and the gamepad
+(extra:day4-pages).
+
 Also covered: multi-fly spawn and despawn up to 8, brain surgery on and off, training with 5 pairings, a duel start and
 end, pet mode catch-up over a simulated 3-day gap, individuality off / subtle / strong, and every loadout preset in
 every mode. The 3D renderer runs offscreen where OpenGL is available; with no GL its checks are SKIPPED, never failed.
@@ -1521,6 +1532,184 @@ def extra_pet(tmp: Path, r: Result) -> None:
         pet.time = real_time
 
 
+def extra_tournament(backend: str, r: Result) -> None:
+    """3.0 day 4: a bracket of 4 real brains in short duels. Judged: the structure (3 matches, each winner one of its two flies, the
+    champion won every round it played), a rematch from the same seeds is identical (lockstep CPU), the cards are measured, the
+    analysis runs, and Fly.duel works. Who wins is a MODEL PREDICTION and is reported, never judged."""
+    from kickthefly.lab import tournament as tn
+    from kickthefly.lab.api import Fly
+
+    seeds = [61, 62, 63, 64]
+    b = tn.run_bracket(seeds, seconds=3.0, mode="subtle", favorite=62, workers=1, backend=backend)
+    flat = [m for rnd in b["rounds"] for m in rnd]
+    r.expect(len(b["rounds"]) == 2 and len(flat) == 3, f"a bracket of 4 should have 2 rounds and 3 matches, not {len(b['rounds'])} and {len(flat)}")
+    r.expect(all(m["winner"] in (m["a"], m["b"]) for m in flat), "a match was won by a fly that was not in it")
+    r.expect(b["champion"] == b["rounds"][-1][0]["winner"] and b["rounds_won"][b["champion"]] == 2, "the champion did not win both its rounds")
+    r.expect(all(c["measured"] and c["title"] for c in b["cards"].values()) and len(b["cards"]) == 4, "a personality card was not measured")
+    r.expect(b["favorite_won"] in (True, False) and 0 <= b["favorite_rounds_won"] <= 2, "the favorite was not tracked")
+    m0 = b["rounds"][0][0]
+    again = tn._match_task((m0["a"], m0["b"], 0, 0, 3.0, "subtle", backend, False))
+    if m0["attempts"] == 1:                              # the first attempt is the one `again` plays: identical on a lockstep CPU backend
+        r.expect(str(again["winner"]) == str(m0["winner"]) and again["hp"] == m0["hp"],
+                 f"the same match from the same seeds came out differently: {again['hp']} vs {m0['hp']}")
+    an = tn.analyze([b])
+    r.expect(len(an["tests"]) == 3 and all("p_holm" in t for t in an["tests"]), "the analysis did not return its three tests")
+    r.metrics.update(champion=b["champion"], winners=[m["winner"] for m in flat], shots=[m["shots"] for m in flat], hits=[m["hits"] for m in flat],
+                     cards=[b["cards"][s]["title"] for s in seeds])
+    fa, fb = Fly(seed=65, backend=backend, warmup_s=1.0, learn=False), Fly(seed=66, backend=backend, warmup_s=1.0, learn=False)
+    res = fa.duel(fb, seconds=2.0)
+    r.expect(res["winner"] in ("self", "other", None) and res["steps"] > 0, "Fly.duel did not run")
+    r.note("who won is a MODEL PREDICTION: " + ", ".join(f"{m['a']} v {m['b']} -> {m['winner']}" for m in flat))
+
+
+def extra_race(backend: str, tmp: Path, r: Result) -> None:
+    """3.0 day 4: three real flies race for a short time cap. Judged: every fly moved, the order matches the distances, the odds are
+    probabilities, a point bet settles in a temporary wallet. Who is fastest is a MODEL PREDICTION and is reported."""
+    from kickthefly.core import points
+    from kickthefly.lab import racing
+
+    seeds = [71, 72, 73]
+    race = racing.run_race(seeds, mode="subtle", repeats=1, workers=1, cap_s=25.0, backend=backend)
+    lanes = race["runs"]["0"]
+    r.expect(all(l["distance"] > 0.3 for l in lanes.values()), f"a fly barely moved: {[l['distance'] for l in lanes.values()]}")
+    dist = [lanes[str(s)]["distance"] for s in race["orders"][0]]
+    r.expect(all(a >= b - 1e-9 for a, b in zip(dist, dist[1:])), f"the finishing order does not follow the distances: {dist}")
+    p = [race["odds"][str(s)]["p_win"] for s in seeds]
+    r.expect(abs(sum(p) - 1) < 1e-9 and all(race["odds"][str(s)]["decimal_odds"] >= points.MIN_ODDS for s in seeds), f"the odds are not probabilities: {p}")
+    w = points.Wallet(tmp / "arcade_points.json")
+    before = w.points
+    out = racing.settle_bets(race, [dict(fly=seeds[0], stake=10)], w)
+    r.expect(w.points == before + out[0]["delta"] and w.points >= points.TOP_UP_BELOW, "the bet did not settle in points")
+    r.metrics.update(order=race["orders"][0], distance=dist, odds={s: race["odds"][str(s)]["decimal_odds"] for s in seeds}, winner=race["winner"])
+    r.note("the fastest fly is a MODEL PREDICTION; the bet used a temporary wallet of game points (no money)")
+
+
+def extra_netsci(backend: str, tmp: Path, r: Result) -> None:
+    """3.0 day 4: network science end to end on the larva pack (small), then the adult pack's degree and reciprocity counts (the full
+    adult analysis takes minutes and is tested in tests/ and by --netsci). Judged: the counts equal the pack's, the cache round trip
+    works and a tampered cache is recomputed."""
+    import json as _json
+
+    from kickthefly.lab import netsci
+    from kickthefly.sim import brainpack
+
+    if brainpack.find(brain="larva") is not None:
+        res = netsci.compute("larva", nulls=2, wedges=20000)
+        r.expect(res["degrees"]["n"] > 1000 and res["communities"]["modularity"] > 0.2, f"larva: n {res['degrees']['n']}, Q {res['communities']['modularity']:.2f}")
+        r.expect(len(res["motifs"]) == 13 and res["reciprocity"]["enrichment"] > 1.0, "larva: motifs or reciprocity are off")
+        hit = netsci.compute("larva", nulls=2, wedges=20000)
+        r.expect(hit.get("from_cache") is True, "the second compute did not come from the cache")
+        path = netsci.cache_path("larva", res["pack_sha256"], res["settings"])
+        wrapper = _json.loads(path.read_text(encoding="utf-8"))
+        wrapper["result"]["degrees"]["connections"] += 1
+        path.write_text(_json.dumps(wrapper), encoding="utf-8")
+        r.expect(netsci.load_cached("larva", res["settings"]) is None, "a tampered cache was trusted")
+        r.metrics.update(larva_modularity=res["communities"]["modularity"], larva_communities=res["communities"]["communities"])
+    g = netsci.load_edges("adult")
+    from kickthefly.core import simcore
+
+    _, W, _ = simcore.pack("adult")
+    r.expect(g["n"] == 166700 and abs(len(g["src"]) - W.nnz) <= 5000, f"adult: {g['n']} neurons, {len(g['src'])} connections vs W.nnz {W.nnz}")
+    rec = netsci.reciprocity(g["src"], g["dst"], g["syn"], g["n"])
+    r.expect(0.0 < rec["binary"] < 1.0 and rec["reciprocal_pairs"] > 0, f"adult reciprocity {rec}")
+    r.metrics.update(adult_connections=int(len(g["src"])), adult_reciprocity=rec["binary"])
+    r.note("the full adult analysis (motifs, null model, communities) is a background job of minutes: run it with --netsci")
+
+
+def extra_sleepdep(backend: str, r: Result) -> None:
+    """3.0 day 4: a short paired sleep-deprivation run (two flies). Judged: the disturbed fly ends the window with more sleep pressure
+    and sleeps less in it than its own control. The rebound size is reported (it is a MODEL PREDICTION of a game rule)."""
+    from kickthefly.lab import sleepdep
+
+    res = sleepdep.run([81, 82], mode="off", workers=1, deprive_s=20.0, recover_s=25.0)
+    m = res["mean"]
+    r.expect(m["pressure_deprived"] > m["pressure_control"], f"deprivation did not raise sleep pressure: {m['pressure_deprived']:.2f} vs {m['pressure_control']:.2f}")
+    r.expect(m["deprivation_sleep_deprived"] <= m["deprivation_sleep_control"] + 1e-9, "the deprived flies slept more than their controls during the window")
+    r.expect(set(res["criteria"]) == {"S1", "S2", "S3"} and "p_text" in res, "the criteria were not scored")
+    r.metrics.update(mean=m, criteria={k: v["passed"] for k, v in res["criteria"].items()})
+    r.note("rebound sleep, deprived minus control: %.1f s (n = 2; the full assay uses 10 seeds)" % (m["recovery_sleep_deprived"] - m["recovery_sleep_control"]))
+
+
+def extra_sensitivity(backend: str, tmp: Path, r: Result) -> None:
+    """3.0 day 4: a sensitivity smoke run (one parameter at one value, one behavior, 3 seeds): the baseline and the changed cell both
+    come back through validation's own criteria, it resumes without rerunning, and the exports write. Underpowered by design."""
+    from kickthefly.lab import sensitivity
+
+    folder = tmp / "sensitivity"
+    kw = dict(params=["noise_std"], tests=["looming_escape"], seeds=[1000, 1001, 1002], values={"noise_std": [0.075]}, workers=2, folder=folder)
+    res = sensitivity.run(**kw)
+    r.expect(len(res["cells"]) == 2 and res["underpowered"], "expected a baseline and one changed cell, marked underpowered")
+    for c in res["cells"]:
+        b = c["behaviors"].get("looming_escape")
+        r.expect(b is not None and {"passed", "effect", "control", "effect_size_dz", "p_value", "n"} <= set(b), f"cell {c['key']} lacks the criteria's fields")
+    ran = []
+    again = sensitivity.run(**kw, resume=True, progress=lambda d, n, label: ran.append(label))
+    r.expect(ran and all("already done" in x for x in ran) and again["cells"] == res["cells"], "a resumed run did not reuse its finished cells")
+    files = sensitivity.save(res, folder)
+    r.expect(all(f.exists() and f.stat().st_size > 0 for f in files) and "<svg" in (folder / "sensitivity_heatmap.svg").read_text(), "an export is missing")
+    r.metrics.update(effects={c["key"]: c["behaviors"]["looming_escape"]["effect"] for c in res["cells"]})
+    r.note("analysis only: nothing about the defaults was changed")
+
+
+def extra_day4_pages(rig: Rig, r: Result) -> None:
+    """3.0 day 4: the Fly arcade and the three new Lab pages draw on a real game (a bracket and a race drawn from synthetic results, so
+    this is about the pages), in each accessibility palette, and their buttons are registered with the menu (which the mouse and the
+    gamepad both use)."""
+    import pygame
+
+    from kickthefly.game import kick_the_fly as k2
+    from kickthefly.lab import labday4, racing, sensitivity, tournament as tn
+    from kickthefly.ui import arcade_ui
+
+    g = rig.game
+    rig.reset()
+    surf = pygame.Surface((k2.W, k2.H))
+
+    def fake(task):
+        if task[0] == "card":
+            s = task[1]
+            return dict(seed=s, mode="subtle", loom_latency_s=0.1 + 0.01 * (s % 7), loom_crossed=True, sugar_ratio=1.8 + 0.05 * (s % 5), turning_ratio=1.0 + 0.01 * (s % 3),
+                        turning_log_ratio=0.01 * (s % 3), walk_level_calm=1.0 + 0.02 * (s % 4), title="Alert Steady", summary="Alert · Steady", traits=[], measured=True)
+        a, b = task[0], task[1]
+        frames = [[i / 10, -3, 0, 0, 100, 3, 0, 3.14, 90 - i, [[0, 0, 0]]] for i in range(40)]
+        return dict(winner=str(a), hp={str(a): 100.0, str(b): 50.0}, shots={str(a): 3, str(b): 2}, hits={str(a): 3, str(b): 0}, seconds=4.0, knockout=False,
+                    max_levels={str(a): dict(fire=4.0, escape=1.0, run=1.0, walk=1.0), str(b): dict(fire=3.0, escape=1.0, run=1.0, walk=1.0)},
+                    events=[["hit", 1.0, str(a)]], frames=frames, steps=800, attempt=0, match_seed=1)
+
+    bracket = tn.run_bracket([1, 2, 3, 4], seconds=4.0, play=fake, favorite=3, drivers=False)
+    st = arcade_ui.state(g.menu)
+    st.bracket, st.sel_match = bracket, (0, 0)
+    st.field = [fake(("card", s, "subtle")) for s in (11, 12, 13)]
+    st.odds = racing.odds_table(st.field)
+    st.bet_fly = 12
+    lanes = {str(s): dict(finish_s=10.0 + s, distance=8.0, trace=[[0, 0], [10.0 + s, 8.0]], lures_touched=[0], max_walk_level=2.0, seconds=10.0 + s) for s in (11, 12, 13)}
+    st.race = dict(seeds=[11, 12, 13], track_m=8.0, lures=[[2.0, "sugar"], [4.0, "fruit"]], runs={"0": lanes}, orders=[[11, 12, 13]], winner=11,
+                   odds={str(s): dict(p_win=1 / 3, decimal_odds=2.7, form=0.0) for s in (11, 12, 13)})
+    st.bet_result = [dict(fly=12, stake=10, odds=2.7, won=False, delta=-10, points=90)]
+    labday = labday4._st(g.menu)
+    labday.sens = {"seeds": [1000, 1001, 1002], "tests": ["looming_escape"], "underpowered": True, "seconds": 1.0,
+                   "parameters": [dict(id="noise_std", label="Membrane noise", kind="lif", default=0.05, note="", values=[0.075])],
+                   "cells": [dict(key="baseline", parameter="baseline", value=None, behaviors=dict(looming_escape=dict(passed=True, effect=11.0, control=0.8, metric="x", effect_size_dz=3.0, p_value=0.001, n=3))),
+                             dict(key="noise_std=0.075", parameter="noise_std", value=0.075, behaviors=dict(looming_escape=dict(passed=False, effect=1.2, control=0.9, metric="x", effect_size_dz=0.4, p_value=0.3, n=3)))]}
+    pages = [("arcade", "tournament"), ("arcade", "race"), ("lab_netsci", None), ("lab_sleepdep", None), ("lab_sensitivity", None)]
+    for palette in ("default", "blue-yellow", "high-contrast"):
+        g.cfg.set("access.palette", palette)
+        for page, tab in pages:
+            r.expect(page in g.menu.pages, f"{page} is not registered")
+            if tab:
+                st.tab = tab
+            g.menu.show(page)
+            g.menu.mouse = (5, 5)
+            g.menu.draw(surf, (5, 5), time.perf_counter())
+            if tab == "tournament":
+                ids = [h[2].get("id") for h in g.menu.hits if h[1] == "button"]
+                r.expect("arc_run" in ids, "the Run tournament button is not registered with the menu")
+    g.cfg.set("access.palette", "default")
+    g.menu.close()
+    labels = [x[0] for x in g.lab_pages()]
+    r.expect(all(x in labels for x in ("Network science", "Sleep deprivation", "Sensitivity analysis")), f"Lab hub entries missing: {labels}")
+
+
 def extra_individuality(backend: str, r: Result) -> None:
     from kickthefly.core import individuality, simcore
 
@@ -1757,6 +1946,7 @@ def run(brains=("adult", "larva"), out: Path | None = None, quick: bool = False,
                     add(Result(id="extra:share-codes", group="extra", brain="adult"), extra_share, rig2)
                     add(Result(id="extra:toolkit-pages", group="extra", brain="adult"), extra_toolkit_pages, rig2)
                     add(Result(id="extra:live-inputs", group="extra", brain="adult"), extra_live_inputs, rig2)
+                    add(Result(id="extra:day4-pages", group="extra", brain="adult"), extra_day4_pages, rig2)
                 finally:
                     if rig2 is not None:
                         rig2.close()
@@ -1769,6 +1959,11 @@ def run(brains=("adult", "larva"), out: Path | None = None, quick: bool = False,
                 add(Result(id="extra:weather", group="extra", brain="adult"), extra_weather, backend)
                 add(Result(id="extra:mic", group="extra", brain="adult"), extra_mic, backend)
                 add(Result(id="extra:predators", group="extra", brain="adult"), extra_predators, backend)
+                add(Result(id="extra:tournament", group="extra", brain="adult"), extra_tournament, backend)
+                add(Result(id="extra:race", group="extra", brain="adult"), extra_race, backend, tmp)
+                add(Result(id="extra:netsci", group="extra", brain="adult"), extra_netsci, backend, tmp)
+                add(Result(id="extra:sleepdep", group="extra", brain="adult"), extra_sleepdep, backend)
+                add(Result(id="extra:sensitivity", group="extra", brain="adult"), extra_sensitivity, backend, tmp)
                 add(Result(id="extra:bundle-rerun", group="extra", brain="adult"), extra_bundle, backend, tmp)
                 add(Result(id="extra:individuality", group="extra", brain="adult"), extra_individuality, backend)
             add(Result(id="extra:pet-catch-up", group="extra"), extra_pet, tmp)

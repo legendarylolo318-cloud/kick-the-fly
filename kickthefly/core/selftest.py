@@ -439,6 +439,43 @@ def check_day3() -> Check:
                  f"{len(predators.KINDS)} predators, rain/gusts/storm, the kitchen, the microphone analysis and the vote counter all load")
 
 
+def check_day4() -> Check:
+    """3.0 day 4: network science, tournament, racing, sleep deprivation and sensitivity analysis load, and their small pure parts run
+    (a planted-community graph through the community finder, the 13 motif classes, the odds, the points rule, the grids against the
+    Lab parameter ranges). SciPy's exact tests are their one dependency. No brain is built, no network used, nothing written."""
+    try:
+        import numpy as np
+        from scipy import stats
+
+        from kickthefly.core import points
+        from kickthefly.game import flyduel, flyrace
+        from kickthefly.lab import lab, netsci, racing, sensitivity, sleepdep, tournament
+
+        assert stats.binomtest(8, 10, 0.5).pvalue > 0 and stats.wilcoxon([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], alternative="greater").pvalue < 0.01
+        assert sorted(set(netsci._TABLE[netsci._TABLE >= 0].tolist())) == list(range(13)) and len(netsci.MOTIFS) == 13
+        rng = np.random.default_rng(0)
+        n, k = 120, 4                                          # a planted partition: dense inside, sparse between
+        lab_true = np.repeat(np.arange(k), n // k)
+        src, dst = np.where((rng.random((n, n)) < np.where(lab_true[:, None] == lab_true[None, :], 0.30, 0.01)) & ~np.eye(n, dtype=bool))
+        labels, q = netsci.louvain(src, dst, np.ones(len(src)), n, np.random.default_rng(1))
+        assert q > 0.4 and netsci.nmi(labels, lab_true) > 0.8
+        cards = [dict(sugar_ratio=1.5 + 0.2 * i, walk_level_calm=1.0 + 0.1 * i) for i in range(5)]
+        p = racing.win_probabilities(cards)
+        assert abs(p.sum() - 1) < 1e-9 and np.all(np.diff(p) > 0) and points.decimal_odds(0.5) >= points.MIN_ODDS
+        assert flyrace.speed_of(99.0, 3.0) == flyrace.V_MAX and tournament.SIZES == (4, 8, 16) and flyduel.TICK_STEPS == 4
+        for prm in sensitivity.PARAMETERS:
+            if prm["kind"] == "lif":
+                spec = lab.BY_NAME[prm["id"]]
+                assert all(spec[4] <= v <= spec[5] for v in prm["values"]) and abs(spec[3] - prm["default"]) < 1e-12, prm["id"]
+        assert sleepdep.DFB_CURRENT_AT_FULL > 0 and len(sensitivity.validated_behaviors()) == 12
+    except Exception as e:
+        return Check("day4", "Network science, tournament, racing, sleep, sensitivity", WARN,
+                     f"a 3.0 day 4 module can't be used: {type(e).__name__}: {e}",
+                     "Reinstall the game (and SciPy, which its statistics need); those features may not work until then.")
+    return Check("day4", "Network science, tournament, racing, sleep, sensitivity", PASS,
+                 "the community finder, the 13 motif classes, the odds, the points rule and the parameter grids all check out")
+
+
 def check_microphone() -> Check:
     """Optional. Looks for a capture device WITHOUT opening it: the self-test never listens. The microphone feature is off at every
     launch and is turned on by the player (Esc > Mic and streamer); a machine without a microphone just can't use it."""
@@ -589,7 +626,7 @@ def run(*, backends_only: list[str] | None = None, smoke: bool = True, graphics:
     steps = [check_build, check_brainpack_adult, check_brainpack_larva, lambda: check_backends(backends_only)]
     if graphics:
         steps.append(check_graphics)
-    steps += [check_audio, check_ffmpeg, check_folders, check_neurodex, check_toolkit, check_day3, check_microphone, check_network,
+    steps += [check_audio, check_ffmpeg, check_folders, check_neurodex, check_toolkit, check_day3, check_day4, check_microphone, check_network,
               check_resources, check_display]
     if smoke:
         steps.append(check_smoke)

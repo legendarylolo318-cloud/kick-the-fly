@@ -133,6 +133,8 @@ def _check_day2(p: dict, where: str) -> None:
             _check_predator_escape(p.get("assay_options") or {}, where)
         if p.get("assay") == "hum_demo":
             _check_hum_demo(p.get("assay_options") or {}, where)
+        if p.get("assay") == "sleep_deprivation":
+            _check_sleep_deprivation(p, where)
         return
     _check_day3(p, where)
     if "thermogenetics" in p:
@@ -237,6 +239,23 @@ def _check_day3(p: dict, where: str) -> None:
         if not isinstance(d, dict) or set(d) - {"kind", "at_s"} or not isinstance(d.get("kind"), str) or d["kind"] not in pr.SPECS:
             raise ProtocolError(f"{where}: predator needs kind: one of {', '.join(pr.KINDS)} (and optionally at_s)")
         p["predator"] = dict(kind=d["kind"], at_s=_num(d.get("at_s", 0.0), 0, 3600, "predator.at_s", where))
+
+
+def _check_sleep_deprivation(p: dict, where: str) -> None:
+    """The sleep_deprivation assay (3.0 day 4): options become keyword arguments of sleepdep.fly_pair. It is a paired design (each
+    seed is its own control), so it takes no surgery."""
+    opts = p.get("assay_options") or {}
+    if not isinstance(opts, dict):
+        raise ProtocolError(f"{where}: sleep_deprivation assay_options must be a mapping (deprive_s, recover_s, mode)")
+    bad = set(opts) - {"deprive_s", "recover_s", "mode"}
+    if bad:
+        raise ProtocolError(f"{where}: sleep_deprivation options are deprive_s, recover_s and mode, not {sorted(bad)}")
+    _num(opts.get("deprive_s", 45.0), 5, 120, "sleep_deprivation deprive_s", where)
+    _num(opts.get("recover_s", 60.0), 5, 180, "sleep_deprivation recover_s", where)
+    if opts.get("mode", "off") not in ("off", "subtle", "strong"):
+        raise ProtocolError(f"{where}: sleep_deprivation mode must be off, subtle or strong")
+    if p.get("surgery"):
+        raise ProtocolError(f"{where}: sleep_deprivation is a paired design (each seed is its own control) and takes no surgery")
 
 
 def _check_hum_demo(opts: dict, where: str) -> None:

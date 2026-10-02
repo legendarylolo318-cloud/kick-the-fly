@@ -378,6 +378,21 @@ class Fly:
         return dict(peak_hz=res["peak_hz"], drive_a=res["mean_drive_a"], drive_b=res["mean_drive_b"], steps=res["steps"],
                     jo_a_hz=res["counts"]["jo_a"] / max(1, len(a)) / (n * DT), jo_b_hz=res["counts"]["jo_b"] / max(1, len(b)) / (n * DT))
 
+    # --- 3.0 day 4: a measured personality card, and a duel against another fly --------------------------------------------
+    def card(self, mode: str = "subtle") -> dict:
+        """This fly's personality card MEASURED from its brain (looming latency to its dodge threshold, sugar -> MN9 ratio, steering
+        R/L ratio): CONNECTOME readouts of the individual this seed builds (lab/tournament.measure_card). Builds its own brain."""
+        from kickthefly.lab import tournament
+
+        return tournament.measure_card(self.seed, mode)
+
+    def duel(self, other: "Fly", seconds: float = 20.0, seed: int = 0) -> dict:
+        """1v1 against another Fly: both brains steer, shoot, dodge and run (game/flyduel.py). The arena and blaster are GAME RULE,
+        what the neurons do with what they see is the CONNECTOME, the winner is a MODEL PREDICTION. Steps both brains."""
+        from kickthefly.game import flyduel
+
+        return flyduel.run_duel(self.brain, other.brain, seed=seed, seconds=seconds, names=("self", "other"))
+
     # --- time --------------------------------------------------------------------------------------------------------
     def step(self, seconds: float | None = None, *, steps: int | None = None) -> np.ndarray:
         """Advance the brain (5 ms per step). Returns the last step's spikes (a bool array over all neurons)."""
@@ -501,3 +516,48 @@ class Fly:
             nwbexport.write(rec, p, recorder.metadata(self.brain, None, extra))
             files.append(p)
         return files
+
+
+# --- 3.0 day 4: network science, tournaments, racing, sleep deprivation, sensitivity -------------------------------------------
+def network_science(brain: str = "adult", **kw) -> dict:
+    """Degree distributions, reciprocity, 3-node motifs against a degree-preserving null, rich club, communities and per-region
+    summaries of the brain pack (CONNECTOME: computed from the wiring; the analysis choices are GAME RULE). Cached on disk with a
+    checksum; adult takes minutes the first time. kw: nulls, wedges, seed, progress, force, cache (lab/netsci.py)."""
+    from kickthefly.lab import netsci
+
+    return netsci.compute(brain, **kw)
+
+
+def tournament(seeds, **kw) -> dict:
+    """A bracket of 4, 8 or 16 flies (one individuality seed each) in 1v1 duels where both sides are brains. Returns the bracket,
+    each fly's measured personality card, the champion's drivers, and (key "analysis") whether personality predicted winning.
+    kw: seconds, mode, favorite, workers, bracket_seed (lab/tournament.py). MODEL PREDICTION."""
+    from kickthefly.lab import tournament as t
+
+    b = t.run_bracket(seeds, **kw)
+    b["analysis"] = t.analyze([b])
+    return b
+
+
+def race(seeds, **kw) -> dict:
+    """Flies race down a track with sugar and fruit lures, each through its own brain; the odds come from the measured personality
+    card (points only, never money). kw: mode, repeats, workers, race_seed (lab/racing.py). MODEL PREDICTION."""
+    from kickthefly.lab import racing
+
+    return racing.run_race(seeds, **kw)
+
+
+def sleep_deprivation(seeds=range(1000, 1010), **kw) -> dict:
+    """Keep each fly awake through part of the night (GAME RULE pressure and disturbances) and measure rebound sleep against its own
+    undisturbed control; the dFB readout is the CONNECTOME's (lab/sleepdep.py). kw: mode, workers, deprive_s, recover_s."""
+    from kickthefly.lab import sleepdep
+
+    return sleepdep.run(seeds, **kw)
+
+
+def sensitivity(**kw) -> dict:
+    """Vary each LIF parameter across its documented range and re-run the validated behaviors with validation's own criteria
+    (lab/sensitivity.py). Analysis only. kw: params, tests, seeds, values, workers, folder, resume, progress."""
+    from kickthefly.lab import sensitivity as s
+
+    return s.run(**kw)
