@@ -616,3 +616,23 @@ def test_the_neuprint_download_is_opt_in_and_asked_once(synthetic_pack, monkeypa
     g.menu.back()
     g.show_first_run_notices()
     assert g.menu.screen != "neuron_shapes_ask", "asked once"
+
+
+# --- memory: a game that is gone is freed (the microphone's atexit hook kept every game, and its brains, alive until exit) --------
+def test_a_finished_game_is_freed(synthetic_pack):
+    import weakref
+
+    import test_extras3 as t3
+
+    g = _game(True)
+    ref, brain_ref = weakref.ref(g), weakref.ref(g.flies[0].brain)
+    t3._GAMES.remove(g)
+    g.view_stop = True
+    for slot in g.flies:
+        slot.brain.stop()
+    for th in threading.enumerate():
+        if th.name == "brain-view":
+            th.join(timeout=2.0)
+    del g, slot
+    gc.collect()
+    assert ref() is None and brain_ref() is None, "something still holds the game (and its brains) after it is gone"

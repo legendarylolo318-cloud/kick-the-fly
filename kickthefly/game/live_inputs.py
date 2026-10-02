@@ -15,7 +15,9 @@ winning vote through the same game actions a player uses (select a tool, change 
 """
 from __future__ import annotations
 
+import atexit
 import time
+import weakref
 
 import numpy as np
 import pygame
@@ -29,6 +31,22 @@ PILL_MIN_X = 256                    # never left of this: the status card (x 10,
 PILL_PAD = 36                       # the dot and the margins
 LAB_LOCK = "Streamer mode is off in Lab mode, so chat can't change an experiment (Play or Pet mode allows it)"
 STALE_S = 0.5                       # no new sound for this long and the microphone's drive goes to zero (GAME RULE)
+
+
+# 3.0 day 3 review: each LiveInputs used to register `atexit.register(self.stop_all)`, which kept every game ever made (and its
+# brains, ~1 GB each on the real pack) alive until the process ended: the test suite grew to 20 GB. One hook, weak references.
+_LIVE: "weakref.WeakSet[LiveInputs]" = weakref.WeakSet()
+
+
+def _stop_all_at_exit() -> None:
+    for live in list(_LIVE):
+        try:
+            live.stop_all()
+        except Exception:
+            pass
+
+
+atexit.register(_stop_all_at_exit)
 
 
 class LiveInputs:
@@ -49,8 +67,7 @@ class LiveInputs:
         self.history: list[str] = []
         self._opts_at = 0.0
         self.jo_firing = (0.0, 0.0, 0, 0)            # (JO-A Hz, JO-B Hz, JO-A neurons firing, JO-B neurons firing)
-        import atexit
-        atexit.register(self.stop_all)                # the microphone and the connection never outlive the game
+        _LIVE.add(self)                               # the microphone and the connection never outlive the game (see _stop_all_at_exit)
 
     # --- the switches (session only) ---------------------------------------------------------------------------------
     def set_mic(self, on: bool) -> bool:
