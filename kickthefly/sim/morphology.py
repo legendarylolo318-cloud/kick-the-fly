@@ -47,8 +47,13 @@ def default_cache_dir() -> Path:
 
 
 def network_allowed() -> bool:
-    """KICK_THE_FLY_OFFLINE=1 keeps the game (and the test suite) from contacting neuPrint; cached skeletons still load."""
-    return os.environ.get("KICK_THE_FLY_OFFLINE", "").strip() not in ("1", "true", "yes")
+    """KICK_THE_FLY_OFFLINE=1 keeps the game (and the test suite) from contacting neuPrint; cached skeletons still load. 3.0 day 3
+    review: the fetch also goes through core/netguard, so a headless run (--validate, --playthrough, protocols, which call
+    netguard.disable and set KTF_NO_NETWORK) and the tests never contact neuPrint either."""
+    if os.environ.get("KICK_THE_FLY_OFFLINE", "").strip() in ("1", "true", "yes"):
+        return False
+    from kickthefly.core import netguard
+    return netguard.allowed()[0]
 
 
 def parse_swc(text: str, n_samples: int = 21) -> np.ndarray | None:

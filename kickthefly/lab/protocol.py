@@ -234,7 +234,7 @@ def _check_day3(p: dict, where: str) -> None:
                           sensitivity=_num(a.get("sensitivity", 1.0), mic.SENSITIVITY[0], mic.SENSITIVITY[1], "audio.sensitivity", where))
     if "predator" in p:
         d = p["predator"]
-        if not isinstance(d, dict) or set(d) - {"kind", "at_s"} or d.get("kind") not in pr.SPECS:
+        if not isinstance(d, dict) or set(d) - {"kind", "at_s"} or not isinstance(d.get("kind"), str) or d["kind"] not in pr.SPECS:
             raise ProtocolError(f"{where}: predator needs kind: one of {', '.join(pr.KINDS)} (and optionally at_s)")
         p["predator"] = dict(kind=d["kind"], at_s=_num(d.get("at_s", 0.0), 0, 3600, "predator.at_s", where))
 
@@ -243,11 +243,13 @@ def _check_hum_demo(opts: dict, where: str) -> None:
     """The hum_demo assay's options become keyword arguments of audio.demo_fly."""
     from kickthefly.lab import audio
 
+    if not isinstance(opts, dict):
+        raise ProtocolError(f"{where}: hum_demo assay_options must be a mapping (conditions, seconds, amp)")
     bad = set(opts) - {"conditions", "seconds", "amp"}
     if bad:
         raise ProtocolError(f"{where}: hum_demo options are conditions, seconds and amp, not {sorted(bad)}")
     c = opts.get("conditions", list(audio.CONDITIONS))
-    if not isinstance(c, list) or not 1 <= len(c) <= len(audio.CONDITIONS) or not all(x in audio.CONDITIONS for x in c):
+    if not isinstance(c, list) or not 1 <= len(c) <= len(audio.CONDITIONS) or not all(isinstance(x, str) and x in audio.CONDITIONS for x in c):
         raise ProtocolError(f"{where}: hum_demo conditions must be a list of {', '.join(audio.CONDITIONS)}")
     _num(opts.get("seconds", audio.SECONDS), 0.2, 30, "hum_demo seconds", where)
     _num(opts.get("amp", audio.HUM_AMP), 0.0, 1.0, "hum_demo amp", where)
@@ -257,11 +259,13 @@ def _check_predator_escape(opts: dict, where: str) -> None:
     """The predator_escape assay's options become keyword arguments of predators.escape_fly (3.0 day 3)."""
     from kickthefly.game import predators as pr
 
+    if not isinstance(opts, dict):
+        raise ProtocolError(f"{where}: predator_escape assay_options must be a mapping (kinds, trials)")
     bad = set(opts) - {"kinds", "trials"}
     if bad:
         raise ProtocolError(f"{where}: predator_escape options are kinds and trials, not {sorted(bad)}")
     kinds = opts.get("kinds", list(pr.KINDS))
-    if not isinstance(kinds, list) or not 1 <= len(kinds) <= len(pr.KINDS) or not all(k in pr.SPECS for k in kinds):
+    if not isinstance(kinds, list) or not 1 <= len(kinds) <= len(pr.KINDS) or not all(isinstance(k, str) and k in pr.SPECS for k in kinds):
         raise ProtocolError(f"{where}: predator_escape kinds must be a list of {', '.join(pr.KINDS)}")
     trials = opts.get("trials", 3)
     if isinstance(trials, bool) or not isinstance(trials, int) or not 1 <= trials <= 20:

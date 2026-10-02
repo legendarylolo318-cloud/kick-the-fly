@@ -24,6 +24,7 @@ from kickthefly.core import mic as micmod
 from kickthefly.core import netguard, streamer
 
 RED = (235, 70, 70)
+STALE_S = 0.5                       # no new sound for this long and the microphone's drive goes to zero (GAME RULE)
 
 
 class LiveInputs:
@@ -127,10 +128,19 @@ class LiveInputs:
             self.set_mic(False)
             return
         r = self.mic.latest()
+        now = time.monotonic()
+        if r.t != self._last_t:
+            self._fresh_at = now
+        elif now - getattr(self, "_fresh_at", now) > STALE_S and (r.drive_a or r.drive_b):
+            # 3.0 day 3 review: a device that stops delivering (unplugged, or a capture error) left its last sound on JO-A/B for
+            # good. No new sound for STALE_S: the drive goes to zero; the switch and its pill stay as the player left them.
+            r = micmod.Reading(t=r.t)
+            self._rows_applied = None
         self.reading = r
-        if r.t == self._last_t and all(id(s.brain) in self._rows for s in self.g.flies):
+        key = (r.t, r.drive_a, r.drive_b)
+        if key == getattr(self, "_rows_applied", None) and all(id(s.brain) in self._rows for s in self.g.flies):
             return
-        self._last_t = r.t
+        self._last_t, self._rows_applied = r.t, key
         for slot in self.g.flies:
             rows = self._rows.get(id(slot.brain))
             if rows is None:
@@ -188,7 +198,7 @@ class LiveInputs:
         now = time.monotonic()
         if now - self._opts_at > 1.0:
             self._opts_at = now
-            self.board.rules = self.rules()
+            self.board.set_rules(self.rules())
             self.board.set_options(self.options())
         for user, text in chat.drain():
             self.board.submit(user, text, now)
@@ -201,6 +211,8 @@ class LiveInputs:
         from kickthefly.game import kick_the_fly as k2
 
         g = self.g
+        if res.command not in self.rules().allow:                         # the streamer's allowlist as it is now, not when the vote opened
+            return
         label = f"CHAT VOTED  {res.command} {res.label} ({res.votes} of {res.total})"
         if res.command == "tool":
             names = [t for t in g.loadout.tools if streamer.slug(t) == res.slug]

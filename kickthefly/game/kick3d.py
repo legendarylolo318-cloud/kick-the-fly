@@ -1448,6 +1448,12 @@ class Game3D(k2.Game):
         self.scenery = outdoors.scenery(arena)
         set_world(arena, self.scenery["trees"])
         self.world = arena
+        old_kitchen = getattr(self, "kitchen", None)
+        if old_kitchen is not None:                  # 3.0 day 3 review: a fly in the vinegar trap stayed held once the trap was gone
+            for slot in self.flies:
+                if id(slot) in old_kitchen.trapped and not slot.fly.wrapped:
+                    slot.fly.grabbed = None
+                slot.trap_trip = None
         self.orchard = None
         self.kitchen = None
         if arena == "kitchen":
@@ -1578,7 +1584,7 @@ class Game3D(k2.Game):
             for region, side, s_ in wx.hits(1 / 60):
                 br.poke(region, side, s_)
                 wing_hits += region == "wing"
-            h = wx.humid(1 / 60) if slot is self.flies[0] else 0.0
+            h = getattr(self, "_wx_humid", 0.0)
             if h > 0:
                 br.poke("humid", None, h)
             slot.rain_wet = _wet = weather_rules.soak(getattr(slot, "rain_wet", 0.0), 1 / 60, wx.rain, wing_hits)
@@ -1826,10 +1832,14 @@ class Game3D(k2.Game):
         rain, gust, storm = float(p.get("weather.rain", 0.0)), float(p.get("weather.gust_hz", 0.0)), bool(p.get("weather.storm", 0.0))
         last, self._weather_t = self._weather_t, now
         w = self.weather
+        self._wx_humid = 0.0
         if not (rain > 0 or gust > 0 or storm or w.gusts or w.rain > 0 or w.flash_at is not None or w.thunder):
             return
         dt = 1 / 60 if last is None else float(np.clip(now - last, 0.0, 0.1))
         w.update(dt, rain, gust, storm)
+        # the wet air's poke, once a frame for every fly (3.0 day 3 review: it was drawn inside the first fly's turn, so only
+        # the first fly's humidity neurons ever felt it, and none did while the first fly was dead)
+        self._wx_humid = w.humid(1 / 60) if w.rain > 0 else 0.0
         for _ in range(w.thunder_due()):
             self.sound.play("boom", 0.55)
 

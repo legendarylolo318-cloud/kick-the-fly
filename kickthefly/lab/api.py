@@ -32,6 +32,7 @@ What is connectome and what is a game rule is the same as everywhere else (kickt
 """
 from __future__ import annotations
 
+import math
 from pathlib import Path
 
 import numpy as np
@@ -318,7 +319,7 @@ class Fly:
         from kickthefly.game import predators as pr
         from kickthefly.lab import predators as lp
 
-        if kind not in pr.SPECS:
+        if not isinstance(kind, str) or kind not in pr.SPECS:
             raise ValueError(f"unknown predator {kind!r}; use one of {', '.join(pr.KINDS)}")
         return lp.escape_trial(self.brain, pr.trace(kind, self.seed if seed is None else int(seed)))
 
@@ -365,6 +366,11 @@ class Fly:
         from kickthefly.core import mic
         from kickthefly.lab import audio
 
+        # the protocol audio: block's ranges (3.0 day 3 review: seconds=1e6 tried to build 22 billion samples)
+        for name, v, lo, hi in (("hz", hz, 10, 2000), ("seconds", seconds, 0.05, 600), ("amp", amp, 0, 1),
+                                ("sensitivity", sensitivity, *mic.SENSITIVITY)) + ((("ipi_ms", ipi_ms, 10, 500),) if ipi_ms is not None else ()):
+            if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) or not lo <= v <= hi:
+                raise ValueError(f"hear: {name} must be a number from {lo:g} to {hi:g}")
         a, b = mic.jo_rows(self.brain)
         watch = {"jo_a": a, "jo_b": b}
         res = audio.hear(self.brain, mic.hum(hz, seconds, mic.RATE, amp, ipi_ms), sensitivity=sensitivity, watch=watch)

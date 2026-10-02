@@ -217,7 +217,7 @@ More in [docs/selftest-and-bugreport.md](docs/selftest-and-bugreport.md).
 - **Streamer mode** (Esc > Mic and streamer; **opt-in, off at every launch**, never during tests or `--validate`): Twitch viewers vote `!tool`, `!arena`, `!surgery` through a read-only, anonymous chat reader with an on-screen tally; the streamer chooses which commands count; no token, no names kept, the connection is shown on screen, no telemetry. [docs/streamer.md](docs/streamer.md)
 - **Pharmacology** (Lab > Pharmacology; picrotoxin moved here): picrotoxin, cholinergic block, glutamate-Cl block and a GABA-A agonist scale synapses by predicted transmitter, with a dose slider, the synapses affected at each confidence level, and an option to exclude low-confidence predictions (**MODEL PREDICTION**). Octopamine/dopamine are left out. [docs/pharmacology.md](docs/pharmacology.md)
 
-None of these uses the network or the microphone, none runs during `--validate` or in tests, and none changes a simulation result.
+Only the microphone and Streamer mode use a device or the network; both are opt-in, off at every launch, and never run during `--validate`, a protocol, the playthrough or a test (the protocol `audio:` block is a synthetic hum). None of these changes a validation result: the `weather.*` Lab parameters are off by default.
 
 ## Play: challenges and real-science cards
 

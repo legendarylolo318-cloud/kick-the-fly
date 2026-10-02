@@ -1,7 +1,9 @@
 """Where the game may use the network, and where it may not (3.0 day 3). No telemetry, ever: nothing here sends anything anywhere.
 
-The only network feature is Streamer mode (core/streamer.py), which is OFF at every launch and shows every connection it makes
-on screen. This module is the one switch every network feature goes through:
+Streamer mode (core/streamer.py) is OFF at every launch and shows every connection it makes on screen. The other network use,
+older than this module, is the brain view's download of ten neurons' EM skeletons from neuPrint (sim/morphology.py), once, into a
+cache; KICK_THE_FLY_OFFLINE=1 turns it off and it also obeys this switch (3.0 day 3 review). Building the brain pack downloads the
+dataset, only when you run the build. This module is the one switch the in-game network features go through:
 
   disable(reason)   no network feature may open a connection from now on (headless runs and --validate call this first)
   allowed()         (True, "") or (False, why not); also False when KTF_NO_NETWORK is set (the test suite sets it)

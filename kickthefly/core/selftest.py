@@ -451,14 +451,15 @@ def check_microphone() -> Check:
 
 
 def check_network() -> Check:
-    """Optional. Reports whether the one network feature (Streamer mode: read-only Twitch chat) is allowed here. The self-test never
-    connects to anything, and there is no telemetry."""
+    """Optional. Reports whether the network features (Streamer mode: read-only Twitch chat; the brain view's one-time neuPrint
+    skeleton download) are allowed here. The self-test never connects to anything, and there is no telemetry."""
     from kickthefly.core import netguard
 
     ok, why = netguard.allowed()
     return Check("network", "Network features (optional)", PASS,
                  ("Streamer mode could connect to irc.chat.twitch.tv (port 6697) if you turn it on; it is off at every launch and the "
-                  "self-test did not connect" if ok else f"off here: {why}") + "; nothing else in the game uses the network", data=dict(allowed=ok))
+                  "self-test did not connect" if ok else f"off here: {why}") + "; the only other network use is the brain view's one-time "
+                 "download of ten neuron skeletons from neuPrint (KICK_THE_FLY_OFFLINE=1 turns it off); no telemetry", data=dict(allowed=ok))
 
 
 def _writable(d: Path) -> str | None:

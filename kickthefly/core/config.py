@@ -193,7 +193,7 @@ SETTINGS: tuple[Setting, ...] = (
       "(the 2D game stays indoors). The sensory neurons each arena drives are real; the places themselves are game "
       "rules. Hotkey E cycles them.",
       options=("room", "fan", "flypaper", "pool", "lamp", "thermo", "escaperoom", "field", "orchard", "kitchen"),
-      labels=("Room", "Fan", "Flypaper", "Pool", "Lamp", "Thermo", "Escape room", "Open field", "Orchard"),
+      labels=("Room", "Fan", "Flypaper", "Pool", "Lamp", "Thermo", "Escape room", "Open field", "Orchard", "Kitchen"),
       tag=GAME_RULE),
     S("brain.song_buzz", "Brain", "Courtship song buzz", "bool", True,
       "Plays a synthesized pulse-song buzz when its ps1 wing motor neurons fire (SONG). The neurons are real "

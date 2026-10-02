@@ -104,7 +104,10 @@ class PredatorPlay:
         out = []
         for slot in self.g.flies:
             f = slot.fly
-            out.append(pr.Target(slot, self.to_m(f.p[k2.THX]), flying=bool(f.flying), alive=self._targetable(slot)))
+            # a fly already in a predator's mouth is not prey for another one (3.0 day 3 review: a frog and a mantis could both
+            # catch it, damaging it twice, and the first then left without eating)
+            out.append(pr.Target(slot, self.to_m(f.p[k2.THX]), flying=bool(f.flying),
+                                 alive=self._targetable(slot) and slot not in self.held))
         return out
 
     def threats(self) -> list:
@@ -124,6 +127,8 @@ class PredatorPlay:
     def step(self, now: float) -> None:
         if not self.list:
             return
+        from kickthefly.game import kick_the_fly as k2
+
         targets = self._targets()
         for p in list(self.list):
             for ev in p.step(pr.DT, targets):
@@ -133,6 +138,10 @@ class PredatorPlay:
         for slot, p in list(self.held.items()):
             if p not in self.list or slot not in self.g.flies or not self._targetable(slot):
                 self._release(slot)
+            elif not getattr(slot.fly, "wrapped", False):
+                # held until the predator lets go, as the vinegar trap holds (3.0 day 3 review: every left mouse-up sets
+                # fly.grabbed = None in both games, so any click pulled the fly out of the frog's mouth, and it was eaten anyway)
+                slot.fly.grabbed = k2.THX
 
     def _event(self, p: pr.Predator, ev: pr.Event, now: float) -> None:
         g, slot = self.g, ev.target

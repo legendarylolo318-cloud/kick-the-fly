@@ -201,6 +201,10 @@ def test_the_winner_of_an_arena_vote_and_a_surgery_vote_use_the_games_own_action
 
     g = _game(True)
     g.live._execute(st.Result("arena", "kitchen", "kitchen", 4, 5))
+    assert k2.ARENAS[g.arena_i] == "room", "!arena is off by default: its winner does nothing (3.0 day 3 review)"
+    g.cfg.set("stream.allow_arena", True)                       # the streamer switches !arena and !surgery on
+    g.cfg.set("stream.allow_surgery", True)
+    g.live._execute(st.Result("arena", "kitchen", "kitchen", 4, 5))
     assert k2.ARENAS[g.arena_i] == "kitchen"
     assert g.cfg["brain.arena"] != "kitchen" or True
     k = 0

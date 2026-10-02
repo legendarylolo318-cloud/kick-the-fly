@@ -15,7 +15,8 @@ What is what (every rule here is a GAME RULE; nothing touches the connectome):
              messages a second; a message longer than MAX_MESSAGE is ignored; only whole-line commands in the allowlist are read.
   privacy    only messages that begin with ! are kept, for one frame, to be counted. A viewer's name is hashed with a random
              salt made at start-up and only the hashes of this round are held (to stop double votes), in memory, and dropped when the
-             round ends; the screen shows counts, never names. Nothing is written to disk.
+             round ends (those of the last USER_MIN_INTERVAL_S stay for the flood limit); the screen shows counts, never names.
+             Nothing is written to disk.
 
 The connection (TwitchChat): TLS to irc.chat.twitch.tv port 6697, nickname justinfan<random digits>, no password, JOIN one
 channel, answer PING. Twitch documents the IRC interface at https://dev.twitch.tv/docs/chat/irc/ ; the anonymous "justinfan"
@@ -46,6 +47,7 @@ USER_MIN_INTERVAL_S = 2.0
 MAX_PER_SECOND = 30
 MAX_MESSAGE = 200
 CONNECT_TIMEOUT_S = 10.0
+RECV_POLL_S = 0.25                 # how often the reader checks whether it was switched off
 CHANNEL_RE = re.compile(r"^[a-z0-9_]{3,25}$")
 SLUG_RE = re.compile(r"[^a-z0-9]+")
 
@@ -141,6 +143,13 @@ class VoteBoard:
     def set_options(self, options: dict) -> None:
         self.options = options
 
+    def set_rules(self, rules: Rules) -> None:
+        """New rules from the streamer's settings. Votes already cast for a command that is no longer allowed are dropped, so a
+        command switched off while a round is open can't win it (3.0 day 3 review)."""
+        self.rules = rules
+        for h in [h for h, (c, _, _) in self._votes.items() if c not in rules.allow]:
+            del self._votes[h]
+
     def _h(self, user: str) -> bytes:
         return hashlib.sha256(self._salt + user.lower().encode("utf-8", "ignore")).digest()[:12]
 
@@ -204,6 +213,9 @@ class VoteBoard:
         rows = self.tally()
         total = len(self._votes)
         self._votes.clear()
+        # 3.0 day 3 review: the docstring promises a round's viewer hashes are dropped when it ends; the flood limit's own book kept
+        # them for up to a minute. Only the last USER_MIN_INTERVAL_S, which that limit needs, are kept now.
+        self._last_seen = {k: v for k, v in self._last_seen.items() if now - v < USER_MIN_INTERVAL_S}
         self.state, self._cool_end = "cooldown", now + self.rules.cooldown_s
         if rows and rows[0][3] >= self.rules.min_votes:
             c, a, label, n = rows[0]
@@ -254,57 +266,66 @@ class TwitchChat:
             return
         if self._factory is None:
             netguard.require("Streamer mode")
-        self._stop.clear()
+        # 3.0 day 3 review: each run has its own stop flag, socket and on-screen entry. With one shared flag, off-then-on while the
+        # first connect was still blocked cleared the flag the old reader was waiting on, so two readers ran and the old one's
+        # connection was no longer shown on screen.
+        stop = threading.Event()
+        self._stop = stop
         self.state, self.error = "connecting", ""
-        self._conn_id = netguard.register("Twitch chat (read-only, anonymous)", self.host, self.port, f"#{self.channel}")
-        self._thread = threading.Thread(target=self._run, name="streamer-chat", daemon=True)
+        cid = netguard.register("Twitch chat (read-only, anonymous)", self.host, self.port, f"#{self.channel}")
+        self._conn_id = cid
+        self._thread = threading.Thread(target=self._run, args=(stop, cid), name="streamer-chat", daemon=True)
         self._thread.start()
 
     def stop(self) -> None:
+        """Ask the reader to hang up and wait briefly for it. Only the reader thread touches its socket (an SSL socket must not
+        be used from two threads at once); it notices within RECV_POLL_S, says QUIT, closes, and takes itself off the screen.
+        A reader still stuck in connecting stays listed on screen until its connect gives up, which is the truth."""
         self._stop.set()
-        s = self._sock
-        if s is not None:
-            try:
-                s.sendall(b"QUIT\r\n")
-            except Exception:
-                pass
-            try:
-                s.close()
-            except Exception:
-                pass
         t = self._thread
         if t is not None and t is not threading.current_thread():
             t.join(timeout=3.0)
-        self._finish("off", "")
+        self.state, self.error = "off", ""
+        self._conn_id = None
 
     def _finish(self, state: str, error: str) -> None:
         self.state, self.error = state, error
-        if self._conn_id is not None:
-            netguard.unregister(self._conn_id)
-            self._conn_id = None
 
     def _connect(self):
         if self._factory is not None:
             return self._factory()
         raw = socket.create_connection((self.host, self.port), timeout=CONNECT_TIMEOUT_S)
-        if self.tls:
+        if not self.tls:
+            return raw
+        try:
             ctx = ssl.create_default_context()
             return ctx.wrap_socket(raw, server_hostname=self.host)
-        return raw
+        except BaseException:
+            raw.close()                                         # 3.0 day 3 review: a failed handshake left the TCP connection open
+            raise
 
-    def _send(self, line: str) -> None:
-        self._sock.sendall(line.encode("utf-8") + b"\r\n")
+    @staticmethod
+    def _line(text: str) -> bytes:
+        """One IRC line. Nothing may add a second command: CR, LF and NUL are refused (3.0 day 3 review: a PING payload with a CR
+        in it was echoed into the PONG)."""
+        if any(c in text for c in "\r\n\0"):
+            raise StreamError("refused to send a line with a line break in it")
+        return text.encode("utf-8") + b"\r\n"
 
-    def _run(self) -> None:
+    def _run(self, stop: threading.Event, cid: int) -> None:
+        sock = None
         try:
-            self._sock = self._connect()
-            self._sock.settimeout(5.0)
-            self._send(f"NICK {self.nick}")                        # anonymous: no PASS, no token, nothing to store
-            self._send(f"USER {self.nick} 0 * :{self.nick}")
+            sock = self._connect()
+            if stop.is_set():
+                return
+            self._sock = sock
+            sock.settimeout(RECV_POLL_S)
+            sock.sendall(self._line(f"NICK {self.nick}"))            # anonymous: no PASS, no token, nothing to store
+            sock.sendall(self._line(f"USER {self.nick} 0 * :{self.nick}"))
             buf, joined, t0 = b"", False, time.monotonic()
-            while not self._stop.is_set():
+            while not stop.is_set():
                 try:
-                    data = self._sock.recv(4096)
+                    data = sock.recv(4096)
                 except socket.timeout:
                     if not joined and time.monotonic() - t0 > CONNECT_TIMEOUT_S:
                         raise StreamError("Twitch did not answer (no welcome within 10 seconds)")
@@ -321,11 +342,13 @@ class TwitchChat:
                         continue
                     self.lines_read += 1
                     if ev[0] == "ping":
-                        self._send(f"PONG :{ev[1]}" if ev[1] else "PONG")
+                        payload = re.sub(r"[\r\n\0]", "", ev[1])
+                        sock.sendall(self._line(f"PONG :{payload}" if payload else "PONG"))
                     elif ev[0] == "numeric" and ev[1] == "001" and not joined:
                         joined = True
-                        self._send(f"JOIN #{self.channel}")
-                        self.state, self.since = "live", time.time()
+                        sock.sendall(self._line(f"JOIN #{self.channel}"))
+                        if not stop.is_set():
+                            self.state, self.since = "live", time.time()
                     elif ev[0] == "numeric" and ev[1] in ("464", "465"):
                         raise StreamError("Twitch refused the anonymous login (it may no longer allow it)")
                     elif ev[0] == "notice" and ("authentication failed" in ev[1].lower() or "improperly formatted" in ev[1].lower()):
@@ -334,17 +357,22 @@ class TwitchChat:
                         with self._lock:
                             self._q.append((ev[1], ev[3]))
                             self.commands_read += 1
+            try:
+                sock.sendall(b"QUIT\r\n")
+            except Exception:
+                pass
         except Exception as e:
-            if not self._stop.is_set():
+            if not stop.is_set():
                 self._finish("error", str(e) if isinstance(e, StreamError) else f"couldn't reach Twitch chat: {e}")
-                return
         finally:
-            s = self._sock
-            if s is not None:
+            if sock is not None:
                 try:
-                    s.close()
+                    sock.close()
                 except Exception:
                     pass
+            if self._sock is sock:
+                self._sock = None
+            netguard.unregister(cid)                                    # off the screen only once the socket is really closed
 
     def drain(self) -> list[tuple[str, str]]:
         with self._lock:
