@@ -1,6 +1,6 @@
 # Handoff: 3.0 day 3 (written by Sonnet on branch `sonnet/3.0-day3`, from `release/3.0` at e55adf8, for Opus to test and merge)
 
-Seven commits, nothing pushed. 53 files, +5,944 lines. Everything below was run on this machine on the real adult pack (166,700 neurons), Python 3.14.7,
+9 commits, nothing pushed. 53 files, +5,944 lines. Everything below was run on this machine on the real adult pack (166,700 neurons), Python 3.14.7,
 the existing GPU driver untouched (the only GPU use was SDL's offscreen GL for the benchmark and the screenshots; nothing failed, nothing installed or changed).
 
 ## Read this first
