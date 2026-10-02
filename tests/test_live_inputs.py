@@ -220,19 +220,22 @@ def test_the_red_indicator_and_the_tally_draw_in_both_games(synthetic_pack, thre
 
     g = _game(three_d)
     surf = pygame.Surface((k2.W, k2.H), pygame.SRCALPHA)
+    pill = pygame.Rect(k2.PLAY_W // 2 - 150, 58, 300, 30)
     g.live.draw(surf, g.f_small, k2.PLAY_W)
-    assert surf.get_at((20, 22))[3] == 0, "nothing is drawn while both are off"
+    assert pygame.transform.average_color(surf, pill)[3] == 0, "nothing is drawn while both are off"
     FakeMic().install(monkeypatch)
     g.live.set_mic(True)
     surf.fill((0, 0, 0, 0))
     g.live.draw(surf, g.f_small, k2.PLAY_W)
-    px = surf.get_at((14, 14 + 14))
-    assert px[0] > 100 and px[3] > 0, f"a red pill at the top left: {tuple(px)}"
+    px = pygame.transform.average_color(surf, pill)
+    assert px[0] > px[1] + 40 and px[3] > 0, f"a red pill under the health bar: {tuple(px)}"
     g.live.stream_on = True
     g.live.board.set_options({"tool": {"frog": "FROG"}})
     g.live.board.rules = st.Rules(allow=frozenset({"tool"}))
     g.live.board.submit("a", "!tool frog", time.monotonic())
     g.live.draw(surf, g.f_small, k2.PLAY_W)
+    tally = pygame.Rect(k2.PLAY_W - 330, 90, 300, 60)
+    assert pygame.transform.average_color(surf, tally)[3] > 0, "the vote tally is drawn below the pill"
     g.live.stream_on = False
 
 

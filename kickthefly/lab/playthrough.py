@@ -597,6 +597,7 @@ def game_leg(rig: Rig, arena: str, tool: str, min_ratio: float, tmp: Path, save_
         kind, window = TOOL_PLAN[tool]
         item = rig.last_item(tool)
         grabbed = touched = False
+        pursued = False                                                # the dragonfly took a chase up (it only hunts a fly in the air)
         if kind == "item":
             rig.step_back()
         spent = 0.0                                                    # wall seconds spent saving and loading
@@ -605,6 +606,7 @@ def game_leg(rig: Rig, arena: str, tool: str, min_ratio: float, tmp: Path, save_
             rig.seconds(0.25)
             elapsed += 0.25
             grabbed = grabbed or rig.slot.fly.grabbed is not None
+            pursued = pursued or any(pd.state in ("pursue", "eat") for pd in g.preds.list)
             if tool == "dragonfly":                                   # it only hunts a fly in the air: keep the fly aloft, as a
                 rig.slot.fly.escape_until = max(rig.slot.fly.escape_until, g.clock.now + 1.0)   # startled one would be
             touched = touched or getattr(rig.slot.fly, "decoy_contact_until", 0.0) > g.clock.now   # lasts 0.35 s > a sample
@@ -646,6 +648,8 @@ def game_leg(rig: Rig, arena: str, tool: str, min_ratio: float, tmp: Path, save_
             engaged = grabbed
         elif tool == "decoy":                                          # only foreleg contact drives LgLG5-8
             engaged = touched
+        elif tool == "dragonfly":                                      # a fly stuck on paper or floating can't fly: not prey (game rule)
+            engaged = pursued
         judge_probes(r, rig.probe, use_step, tool, engaged, rest)
         rig.probe = None
         fly = rig.slot.fly
@@ -1124,8 +1128,8 @@ def extra_live_inputs(rig: Rig, r: Result) -> None:
     ind = live.indicators()
     surf = pygame.Surface((k2.W, k2.H), pygame.SRCALPHA)
     live.draw(surf, g.f_small, k2.PLAY_W)
-    px = surf.get_at((14, 28))
-    r.expect(any("TWITCH CHAT" in s for s in ind) and px[0] > 100 and px[3] > 0, f"no red Twitch indicator was drawn: {ind} {tuple(px)}")
+    px = pygame.transform.average_color(surf, pygame.Rect(k2.PLAY_W // 2 - 150, 58, 300, 30))
+    r.expect(any("TWITCH CHAT" in s for s in ind) and px[0] > px[1] + 40 and px[3] > 0, f"no red Twitch indicator was drawn: {ind} {tuple(px)}")
     live.mic_on = True
     surf.fill((0, 0, 0, 0))
     live.draw(surf, g.f_small, k2.PLAY_W)

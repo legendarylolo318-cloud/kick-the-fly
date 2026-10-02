@@ -236,22 +236,26 @@ class LiveInputs:
 
     def draw(self, surf, font, play_w: int) -> None:
         """The red pills (always) and the vote tally (while streaming)."""
-        y = 14
+        y = 58                                          # the free strip under the health bar and the hint line, centred on the play area
         for text in self.indicators():
             img = font.render("●  " + text, True, (255, 235, 235))
-            r = pygame.Rect(12, y, img.get_width() + 18, img.get_height() + 10)
+            while img.get_width() > play_w - 60 and len(text) > 24:       # a long channel name never runs off the play area
+                text = text[:-6] + "..."
+                img = font.render("●  " + text, True, (255, 235, 235))
+            r = pygame.Rect(0, y, img.get_width() + 18, img.get_height() + 10)
+            r.centerx = play_w // 2
             pygame.draw.rect(surf, (120, 20, 24), r, border_radius=r.h // 2)
             pygame.draw.rect(surf, RED, r, 2, border_radius=r.h // 2)
             surf.blit(img, (r.x + 9, r.y + 5))
             y = r.bottom + 6
         if self.stream_on:
-            self._draw_tally(surf, font, play_w)
+            self._draw_tally(surf, font, play_w, y + 2)
 
-    def _draw_tally(self, surf, font, play_w: int) -> None:
+    def _draw_tally(self, surf, font, play_w: int, top: int = 64) -> None:
         b = self.board
         rows = b.tally()[:5]
         lh = font.get_linesize() + 4                       # rows follow the font, so Larger text still fits
-        w, x, y = max(300, int(font.size("tool SWATTER  9999")[0] * 1.5)), 0, 64
+        w, x, y = max(300, int(font.size("tool SWATTER  9999")[0] * 1.5)), 0, top
         x = play_w - w - 12
         h = 44 + lh * max(1, len(rows)) + (lh - 2) * len(self.history[:2])
         pygame.draw.rect(surf, (10, 12, 18, 215) if surf.get_flags() & pygame.SRCALPHA else (10, 12, 18), (x, y, w, h), border_radius=10)
@@ -299,10 +303,9 @@ def page(m, surf, rect, mouse) -> None:
     m.toggle(surf, (x + 150, y, 50, 28), live.mic_on, lambda v: live.set_mic(bool(v)), id="live_mic", enabled=ok or live.mic_on,
              tip="Off every time the game starts. Sound is analysed in memory and thrown away: nothing is recorded, saved or sent.")
     if live.mic_on:
-        m.text(surf, "ON: listening. Nothing is saved or sent.", (x + 220, y + 14), (255, 140, 140), m.f_small, "midleft")
+        m.text(surf, "ON: listening. Nothing is saved or sent.", (x + 270, y + 14), (255, 140, 140), m.f_small, "midleft")
     else:
-        m.text(surf, live.mic_error or (why if not ok else "off (" + why + ")"), (x + 220, y + 14), ui.BAD if live.mic_error or not ok else ui.LABEL,
-               m.f_small, "midleft")
+        m.text(surf, live.mic_error or why, (x + 270, y + 14), ui.BAD if live.mic_error or not ok else ui.LABEL, m.f_small, "midleft")
     y += 36
     m.text(surf, "Sensitivity", (x, y + 14), ui.TEXT, m.f_text, "midleft")
     m.slider(surf, (x + 150, y, 240, 28), float(cfg.get("brain.mic_sensitivity", 1.0)), micmod.SENSITIVITY[0], micmod.SENSITIVITY[1], 0.1,
@@ -336,23 +339,23 @@ def page(m, surf, rect, mouse) -> None:
     m.toggle(surf, (x + 150, y, 50, 28), live.stream_on, lambda v: live.set_stream(bool(v)), id="live_stream", enabled=nok or live.stream_on,
              tip="Off every time the game starts. Connects to irc.chat.twitch.tv (port 6697) anonymously and only reads: it never logs in, "
                  "never sends, never stores a token. The connection is shown on screen while it is open.")
-    m.text(surf, "channel", (x + 230, y + 14), ui.TEXT, m.f_small, "midleft")
-    m.text_field(surf, (x + 290, y, 220, 28), live.channel, lambda v: setattr(live, "channel", v.strip()), id="live_chan", limit=26,
+    m.text(surf, "channel", (x + 280, y + 14), ui.TEXT, m.f_small, "midleft")
+    m.text_field(surf, (x + 345, y, 220, 28), live.channel, lambda v: setattr(live, "channel", v.strip()), id="live_chan", limit=26,
                  tip="A Twitch channel name, for example  mychannel . Letters, digits and underscores only.")
     if live.stream_on and live.chat is not None:
-        m.text(surf, f"{live.chat.state}: {live.chat.describe()}   commands read: {live.chat.commands_read}", (x + 530, y + 14),
+        m.text(surf, f"{live.chat.state}: {live.chat.describe()}   commands read: {live.chat.commands_read}", (x + 585, y + 14),
                (255, 140, 140), m.f_small, "midleft")
     else:
-        m.text(surf, live.stream_error or ("off" if nok else nwhy), (x + 530, y + 14), ui.BAD if live.stream_error else ui.LABEL, m.f_small, "midleft")
+        m.text(surf, live.stream_error or ("" if nok else nwhy), (x + 585, y + 14), ui.BAD if live.stream_error else ui.LABEL, m.f_small, "midleft")
     y += 38
     m.text(surf, "Viewers may vote", (x, y + 14), ui.TEXT, m.f_text, "midleft")
     cx = x + 150
     for name, default in (("tool", True), ("arena", False), ("surgery", False)):
         m.text(surf, "!" + name, (cx, y + 14), ui.TEXT, m.f_small, "midleft")
-        m.toggle(surf, (cx + 80, y, 50, 28), bool(cfg.get(f"stream.allow_{name}", default)),
+        m.toggle(surf, (cx + 90, y, 50, 28), bool(cfg.get(f"stream.allow_{name}", default)),
                  lambda v, n=name: cfg.set(f"stream.allow_{n}", bool(v)), id=f"live_allow_{name}",
                  tip=f"Whether viewers can change the {name} by voting. You choose; the default is tools only.")
-        cx += 150
+        cx += 210
     y += 36
     m.text(surf, "Vote window", (x, y + 14), ui.TEXT, m.f_text, "midleft")
     m.slider(surf, (x + 150, y, 160, 28), float(cfg.get("stream.window_s", 20.0)), 5, 120, 5, "{:.0f} s",
