@@ -448,3 +448,59 @@ def test_the_hum_demo_protocol_exports_its_per_fly_scores(synthetic_pack, tmp_pa
     folder = P.run(p, tmp_path, workers=1)
     rows = (folder / "per_fly.csv").read_text().splitlines()
     assert len(rows) == 3, rows
+
+
+# --- drawing: a zero-length segment (a predator's tongue the frame its strike begins) is a finite matrix ---------------------------
+def test_a_zero_length_segment_gives_a_finite_model_matrix():
+    import warnings
+
+    from kickthefly.game.render3d import segment
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        m = segment((1.0, 2.0, 3.0), (1.0, 2.0, 3.0), 0.03)
+    assert np.isfinite(m).all()
+
+
+# --- the red pills: inside the free strip (not over the status card, not under the REC badge), the dot drawn, not a glyph ---------
+@pytest.mark.parametrize("larger", [False, True])
+def test_the_pills_stay_clear_of_the_status_card_and_the_rec_badge(synthetic_pack, larger):
+    from kickthefly.game import kick_the_fly as k2
+    from kickthefly.game import live_inputs as li
+
+    g = _game(True)
+    if larger:
+        g.set_setting("access.larger_text", True, save=False)
+    live = g.live
+    live.mic_on, live.mic._dev = True, object()
+    live.chat_factory = _Chat
+    assert live.set_stream(True, "averyveryverylongchannelx")           # 25 characters: the longest Twitch allows
+    rects, texts = [], []
+    real_rect = pygame.draw.rect
+
+    def rec(surf, col, r, *a, **k):
+        rects.append(pygame.Rect(r))
+        return real_rect(surf, col, r, *a, **k)
+
+    class F:
+        def __init__(self, f):
+            self.f = f
+
+        def render(self, t, *a):
+            texts.append(t)
+            return self.f.render(t, *a)
+
+        def __getattr__(self, n):
+            return getattr(self.f, n)
+
+    li.pygame.draw.rect = rec
+    try:
+        live.draw(pygame.Surface((k2.W, k2.H), pygame.SRCALPHA), F(g.f_bold), k2.PLAY_W)
+    finally:
+        li.pygame.draw.rect = real_rect
+    pills = [r for r in rects if r.y < li.PILL_TOP + 80 and r.x < k2.PLAY_W - 340]
+    assert len(pills) >= 2
+    for r in pills:
+        assert r.x >= li.PILL_MIN_X, f"a pill at x={r.x} is drawn over the status card (it ends at {li.PILL_MIN_X - 10})"
+        assert r.right <= k2.PLAY_W - 14 and r.y >= li.PILL_TOP
+    assert not any("●" in t for t in texts), "the dot is a glyph many fallback fonts don't have (drawn as a box)"

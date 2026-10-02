@@ -24,6 +24,9 @@ from kickthefly.core import mic as micmod
 from kickthefly.core import netguard, streamer
 
 RED = (235, 70, 70)
+PILL_TOP = 90                       # the red pills' top: below the video REC badge and the "saved" line
+PILL_MIN_X = 256                    # never left of this: the status card (x 10, 236 wide) and the panels under it
+PILL_PAD = 36                       # the dot and the margins
 STALE_S = 0.5                       # no new sound for this long and the microphone's drive goes to zero (GAME RULE)
 
 
@@ -248,17 +251,23 @@ class LiveInputs:
 
     def draw(self, surf, font, play_w: int) -> None:
         """The red pills (always) and the vote tally (while streaming)."""
-        y = 58                                          # the free strip under the health bar and the hint line, centred on the play area
+        # 3.0 day 3 review: below the REC badge and the "saved" line (both centred at y 62-86), right of the status card, the dot
+        # drawn as a circle (the HUD's fallback font on Linux has no U+25CF and showed a missing-glyph box), and the text cut to fit
+        y = PILL_TOP
+        max_w = play_w - 14 - PILL_MIN_X
         for text in self.indicators():
-            img = font.render("●  " + text, True, (255, 235, 235))
-            while img.get_width() > play_w - 60 and len(text) > 24:       # a long channel name never runs off the play area
-                text = text[:-6] + "..."
-                img = font.render("●  " + text, True, (255, 235, 235))
-            r = pygame.Rect(0, y, img.get_width() + 18, img.get_height() + 10)
+            img = font.render(text, True, (255, 235, 235))
+            while img.get_width() + PILL_PAD > max_w and len(text) > 12:   # a long channel name never runs over the status card
+                text = text[:-4].rstrip() + "..."
+                img = font.render(text, True, (255, 235, 235))
+            r = pygame.Rect(0, y, img.get_width() + PILL_PAD, img.get_height() + 10)
             r.centerx = play_w // 2
+            if r.x < PILL_MIN_X:
+                r.x = PILL_MIN_X
             pygame.draw.rect(surf, (120, 20, 24), r, border_radius=r.h // 2)
             pygame.draw.rect(surf, RED, r, 2, border_radius=r.h // 2)
-            surf.blit(img, (r.x + 9, r.y + 5))
+            pygame.draw.circle(surf, (255, 90, 90), (r.x + 15, r.centery), max(4, r.h // 5))
+            surf.blit(img, (r.x + 27, r.y + 5))
             y = r.bottom + 6
         if self.stream_on:
             self._draw_tally(surf, font, play_w, y + 2)
@@ -307,20 +316,25 @@ def page(m, surf, rect, mouse) -> None:
                           "are on, and neither is ever on during validation, assays, protocols or tests.",
                           [("GAME RULE", "every rule here is a game rule"), ("CONNECTOME", "mic: the JO-A/B neurons it drives")])
     x = rect.x + 24
+    # 3.0 day 3 review: the label column follows the font (with Larger text "Viewers may vote" ran into "!tool"), and the
+    # streamer's status has its own line (it ran off the panel's right edge, even at the normal size)
+    lw = max(150, max(m.f_text.size(t)[0] for t in ("Microphone", "Sensitivity", "Streamer mode", "Viewers may vote",
+                                                    "Vote window")) + 16)
+    c = x + lw
     # --- microphone -------------------------------------------------------------------------------------------------------------
     m.text(surf, "MICROPHONE  ->  JOHNSTON'S ORGAN (JO-A and JO-B)", (x, y), ui.INK, m.f_text)
     y += 28
     ok, why = micmod.availability()
     m.text(surf, "Microphone", (x, y + 14), ui.TEXT, m.f_text, "midleft")
-    m.toggle(surf, (x + 150, y, 50, 28), live.mic_on, lambda v: live.set_mic(bool(v)), id="live_mic", enabled=ok or live.mic_on,
+    m.toggle(surf, (c, y, 50, 28), live.mic_on, lambda v: live.set_mic(bool(v)), id="live_mic", enabled=ok or live.mic_on,
              tip="Off every time the game starts. Sound is analysed in memory and thrown away: nothing is recorded, saved or sent.")
     if live.mic_on:
-        m.text(surf, "ON: listening. Nothing is saved or sent.", (x + 270, y + 14), (255, 140, 140), m.f_small, "midleft")
+        m.text(surf, "ON: listening. Nothing is saved or sent.", (c + 120, y + 14), (255, 140, 140), m.f_small, "midleft")
     else:
-        m.text(surf, live.mic_error or why, (x + 270, y + 14), ui.BAD if live.mic_error or not ok else ui.LABEL, m.f_small, "midleft")
+        m.text(surf, live.mic_error or why, (c + 120, y + 14), ui.BAD if live.mic_error or not ok else ui.LABEL, m.f_small, "midleft")
     y += 36
     m.text(surf, "Sensitivity", (x, y + 14), ui.TEXT, m.f_text, "midleft")
-    m.slider(surf, (x + 150, y, 240, 28), float(cfg.get("brain.mic_sensitivity", 1.0)), micmod.SENSITIVITY[0], micmod.SENSITIVITY[1], 0.1,
+    m.slider(surf, (c, y, 240, 28), float(cfg.get("brain.mic_sensitivity", 1.0)), micmod.SENSITIVITY[0], micmod.SENSITIVITY[1], 0.1,
              "{:.1f}x", lambda v: (cfg.set("brain.mic_sensitivity", float(v)), live.mic.set_sensitivity(float(v))), lambda: None,
              id="live_sens", tip="How loud a band must be to drive its neurons fully (game rule). Saved; the switch is not.")
     y += 40
@@ -340,7 +354,7 @@ def page(m, surf, rect, mouse) -> None:
     m.text(surf, f"JO-B drive {r.drive_b / micmod.MAX_CURRENT:4.0%}   {nb} of 88 neurons firing", (box.right - 180, box.y + 36), ui.TEXT, m.f_small, "midtop")
     m.text(surf, "B prefers below ~100 Hz, A higher (LITERATURE); the split is a game rule", (box.right - 180, box.y + 66), ui.LABEL, m.f_small, "midtop")
     y = box.bottom + 8
-    m.button(surf, (x, y, 330, 34), "Run the hum demo (no microphone)", lambda: _open_demo(m), id="live_demo",
+    m.button(surf, (x, y, max(330, m.f_text.size("Run the hum demo (no microphone)")[0] + 40), 34), "Run the hum demo (no microphone)", lambda: _open_demo(m), id="live_demo",
              tip="A synthetic 200 Hz hum, steady and in 35 ms pulses, through the same analysis, onto real JO-A/B: does it reach the courtship pathway?")
     y += 48
     # --- streamer mode ------------------------------------------------------------------------------------------------------------
@@ -348,20 +362,22 @@ def page(m, surf, rect, mouse) -> None:
     y += 28
     m.text(surf, "Streamer mode", (x, y + 14), ui.TEXT, m.f_text, "midleft")
     nok, nwhy = netguard.allowed()
-    m.toggle(surf, (x + 150, y, 50, 28), live.stream_on, lambda v: live.set_stream(bool(v)), id="live_stream", enabled=nok or live.stream_on,
+    m.toggle(surf, (c, y, 50, 28), live.stream_on, lambda v: live.set_stream(bool(v)), id="live_stream", enabled=nok or live.stream_on,
              tip="Off every time the game starts. Connects to irc.chat.twitch.tv (port 6697) anonymously and only reads: it never logs in, "
                  "never sends, never stores a token. The connection is shown on screen while it is open.")
-    m.text(surf, "channel", (x + 280, y + 14), ui.TEXT, m.f_small, "midleft")
-    m.text_field(surf, (x + 345, y, 220, 28), live.channel, lambda v: setattr(live, "channel", v.strip()), id="live_chan", limit=26,
+    m.text(surf, "channel", (c + 130, y + 14), ui.TEXT, m.f_small, "midleft")
+    m.text_field(surf, (c + 195, y, 220, 28), live.channel, lambda v: setattr(live, "channel", v.strip()), id="live_chan", limit=26,
                  tip="A Twitch channel name, for example  mychannel . Letters, digits and underscores only.")
+    y += 34
     if live.stream_on and live.chat is not None:
-        m.text(surf, f"{live.chat.state}: {live.chat.describe()}   commands read: {live.chat.commands_read}", (x + 585, y + 14),
-               (255, 140, 140), m.f_small, "midleft")
+        status, col = f"{live.chat.state}: {live.chat.describe()}   commands read: {live.chat.commands_read}", (255, 140, 140)
     else:
-        m.text(surf, live.stream_error or ("" if nok else nwhy), (x + 585, y + 14), ui.BAD if live.stream_error else ui.LABEL, m.f_small, "midleft")
-    y += 38
+        status, col = live.stream_error or ("" if nok else nwhy), ui.BAD if live.stream_error else ui.LABEL
+    if status:
+        m.wrapped(surf, status, (c, y), rect.right - 24 - c, col, m.f_small, 2)
+    y += 2 * m.f_small.get_linesize() + 4
     m.text(surf, "Viewers may vote", (x, y + 14), ui.TEXT, m.f_text, "midleft")
-    cx = x + 150
+    cx = c
     for name, default in (("tool", True), ("arena", False), ("surgery", False)):
         m.text(surf, "!" + name, (cx, y + 14), ui.TEXT, m.f_small, "midleft")
         m.toggle(surf, (cx + 90, y, 50, 28), bool(cfg.get(f"stream.allow_{name}", default)),
@@ -370,17 +386,21 @@ def page(m, surf, rect, mouse) -> None:
         cx += 210
     y += 36
     m.text(surf, "Vote window", (x, y + 14), ui.TEXT, m.f_text, "midleft")
-    m.slider(surf, (x + 150, y, 160, 28), float(cfg.get("stream.window_s", 20.0)), 5, 120, 5, "{:.0f} s",
+    m.slider(surf, (c, y, 160, 28), float(cfg.get("stream.window_s", 20.0)), 5, 120, 5, "{:.0f} s",
              lambda v: cfg.set("stream.window_s", float(v)), lambda: None, id="live_win")
-    m.text(surf, "cooldown", (x + 330, y + 14), ui.TEXT, m.f_small, "midleft")
-    m.slider(surf, (x + 410, y, 160, 28), float(cfg.get("stream.cooldown_s", 30.0)), 5, 300, 5, "{:.0f} s",
+    sx = c + 180
+    m.text(surf, "cooldown", (sx, y + 14), ui.TEXT, m.f_small, "midleft")
+    sx += max(80, m.f_small.size("cooldown")[0] + 14)
+    m.slider(surf, (sx, y, 160, 28), float(cfg.get("stream.cooldown_s", 30.0)), 5, 300, 5, "{:.0f} s",
              lambda v: cfg.set("stream.cooldown_s", float(v)), lambda: None, id="live_cool")
-    m.text(surf, "min votes", (x + 590, y + 14), ui.TEXT, m.f_small, "midleft")
-    m.slider(surf, (x + 670, y, 140, 28), float(cfg.get("stream.min_votes", 2)), 1, 50, 1, "{:.0f}",
+    sx += 180
+    m.text(surf, "min votes", (sx, y + 14), ui.TEXT, m.f_small, "midleft")
+    sx += max(80, m.f_small.size("min votes")[0] + 14)
+    m.slider(surf, (sx, y, 140, 28), float(cfg.get("stream.min_votes", 2)), 1, 50, 1, "{:.0f}",
              lambda v: cfg.set("stream.min_votes", int(v)), lambda: None, id="live_min")
     y += 38
     m.wrapped(surf, "Only chat lines that start with ! are read, for one frame, to be counted. A viewer's name is hashed with a random salt and "
-                    "held only for the round; the screen shows counts, never names. YouTube is not supported (it can't be done without storing a key).",
+                    "held only for the round (and the 2 s flood limit); the screen shows counts, never names. YouTube is not supported (it can't be done without storing a key).",
               (x, y), rect.w - 60, ui.LABEL, m.f_small, 3)
     labtoolkit._back(m, rect, "live")
 

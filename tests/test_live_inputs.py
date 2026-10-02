@@ -14,6 +14,7 @@ import pytest
 
 from kickthefly.core import mic as micmod
 from kickthefly.core import netguard, streamer as st
+from kickthefly.game import live_inputs
 
 
 def _game(three_d):
@@ -224,7 +225,7 @@ def test_the_red_indicator_and_the_tally_draw_in_both_games(synthetic_pack, thre
 
     g = _game(three_d)
     surf = pygame.Surface((k2.W, k2.H), pygame.SRCALPHA)
-    pill = pygame.Rect(k2.PLAY_W // 2 - 150, 58, 300, 30)
+    pill = pygame.Rect(k2.PLAY_W // 2 - 150, live_inputs.PILL_TOP, 300, 30)
     g.live.draw(surf, g.f_small, k2.PLAY_W)
     assert pygame.transform.average_color(surf, pill)[3] == 0, "nothing is drawn while both are off"
     FakeMic().install(monkeypatch)
@@ -238,7 +239,7 @@ def test_the_red_indicator_and_the_tally_draw_in_both_games(synthetic_pack, thre
     g.live.board.rules = st.Rules(allow=frozenset({"tool"}))
     g.live.board.submit("a", "!tool frog", time.monotonic())
     g.live.draw(surf, g.f_small, k2.PLAY_W)
-    tally = pygame.Rect(k2.PLAY_W - 330, 90, 300, 60)
+    tally = pygame.Rect(k2.PLAY_W - 330, live_inputs.PILL_TOP + 30, 300, 60)
     assert pygame.transform.average_color(surf, tally)[3] > 0, "the vote tally is drawn below the pill"
     g.live.stream_on = False
 

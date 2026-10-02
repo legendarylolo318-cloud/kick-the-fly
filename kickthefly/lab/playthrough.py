@@ -1096,6 +1096,7 @@ def extra_live_inputs(rig: Rig, r: Result) -> None:
 
     from kickthefly.core import netguard, streamer as st
     from kickthefly.game import kick_the_fly as k2
+    from kickthefly.game import live_inputs as li
 
     g = rig.game
     rig.reset()
@@ -1128,7 +1129,7 @@ def extra_live_inputs(rig: Rig, r: Result) -> None:
     ind = live.indicators()
     surf = pygame.Surface((k2.W, k2.H), pygame.SRCALPHA)
     live.draw(surf, g.f_small, k2.PLAY_W)
-    px = pygame.transform.average_color(surf, pygame.Rect(k2.PLAY_W // 2 - 150, 58, 300, 30))
+    px = pygame.transform.average_color(surf, pygame.Rect(k2.PLAY_W // 2 - 150, li.PILL_TOP, 300, 30))
     r.expect(any("TWITCH CHAT" in s for s in ind) and px[0] > px[1] + 40 and px[3] > 0, f"no red Twitch indicator was drawn: {ind} {tuple(px)}")
     live.mic_on = True
     surf.fill((0, 0, 0, 0))
