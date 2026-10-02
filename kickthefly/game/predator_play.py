@@ -201,71 +201,140 @@ def _norm(v):
     return v / n if n > 1e-9 else v
 
 
+def _basis(fwd, up=(0.0, 1.0, 0.0)) -> np.ndarray:
+    """Columns (forward, up, side): a sphere scaled (length, height, width) by trs() becomes an ellipsoid pointing along fwd."""
+    f = _norm(np.asarray(fwd, float))
+    u = np.asarray(up, float)
+    side = _norm(np.cross(f, u))
+    if float(np.linalg.norm(side)) < 1e-6:
+        side = np.array([0.0, 0.0, 1.0])
+    u = _norm(np.cross(side, f))
+    return np.stack([f, u, side], 1)
+
+
 def draw3d(play: PredatorPlay, rd, now: float) -> None:
-    """The predators in the 3D scene. A handful of spheres and cylinders each; nothing here touches the brain."""
+    """The predators in the 3D scene, built from ellipsoids and jointed limbs (3.0 day 3 review: the first version, a few
+    spheres and cylinders, did not read as a frog, a mantis or a dragonfly). Drawing only: nothing here touches the brain, and
+    each animal is scaled from its own looming radius, so what the fly sees is unchanged."""
     import math
 
     from kickthefly.game.render3d import P_NONE, segment, trs
 
+    up = np.array([0.0, 1.0, 0.0])
     for p in play.list:
         sc = p.spec.body_r / ART_R[p.kind]
         x, y, z = p.p
-        face = p.face
+        face = _norm(np.array([p.face[0], 0.0, p.face[2]])) if float(np.hypot(p.face[0], p.face[2])) > 1e-6 else np.array([1.0, 0, 0])
         side = np.array([-face[2], 0.0, face[0]])
-        up = np.array([0.0, 1.0, 0.0])
+        base = np.array([x, y, z])
 
-        def sph(c, r3, col, *a):
-            rd.add("sphere", trs(c, None, tuple(v * sc for v in r3)), col, *a)
+        def at(f=0.0, u=0.0, s=0.0, origin=None):
+            o = base if origin is None else origin
+            return o + (face * f + up * u + side * s) * sc
 
-        def cyl(a, b, r, col, *rest):
+        def ell(c, fwd, size, col, *rest):
+            rd.add("sphere", trs(c, _basis(fwd), tuple(v * sc for v in size)), col, *rest)
+
+        def limb(a, b, r, col, *rest):
             rd.add("cylinder", segment(a, b, r * sc), col, *rest)
+            rd.add("sphere", trs(b, None, (r * sc,) * 3), col, *rest)      # a rounded joint
 
         if p.kind == "frog":
-            g1, g2 = (0.25, 0.5, 0.2), (0.35, 0.62, 0.25)
-            body = np.array([x, y + 0.08 * sc, z])
-            sph(body, (0.15, 0.09, 0.17), g1)
-            sph(body + face * 0.14 * sc + up * 0.04 * sc, (0.1, 0.07, 0.1), g2)
+            g1, g2, belly, dark = (0.30, 0.52, 0.18), (0.38, 0.62, 0.22), (0.86, 0.84, 0.62), (0.16, 0.30, 0.10)
+            tilt = _norm(face * math.cos(0.42) + up * math.sin(0.42))      # sits with its head raised
+            body = at(0.0, 0.10)
+            ell(body, tilt, (0.15, 0.085, 0.12), g1)
+            ell(body - up * 0.03 * sc + tilt * 0.01 * sc, tilt, (0.13, 0.06, 0.105), belly)
+            head = body + tilt * 0.13 * sc + up * 0.02 * sc
+            ell(head, face, (0.085, 0.055, 0.105), g2)
+            ell(head - up * 0.025 * sc + face * 0.01 * sc, face, (0.08, 0.03, 0.098), belly)    # throat and lower jaw
+            for k in range(-1, 2):                                         # dark spots on the back
+                ell(body + up * 0.07 * sc + side * 0.05 * k * sc - tilt * 0.03 * abs(k) * sc, tilt, (0.025, 0.012, 0.022), dark)
             for sg in (-1, 1):
-                eye = body + face * 0.17 * sc + side * 0.06 * sc * sg + up * 0.1 * sc
-                sph(eye, (0.03, 0.03, 0.03), (0.95, 0.85, 0.3))
-                sph(eye + face * 0.02 * sc + up * 0.005 * sc, (0.014, 0.014, 0.014), (0.05, 0.05, 0.05))
-                hip = body - face * 0.1 * sc + side * 0.12 * sc * sg
-                cyl(hip, hip - face * 0.12 * sc + side * 0.06 * sc * sg - up * 0.05 * sc, 0.025, g1)
+                eye = head + up * 0.05 * sc + side * 0.055 * sg * sc + face * 0.01 * sc
+                rd.add("sphere", trs(eye, None, (0.032 * sc,) * 3), (0.85, 0.72, 0.25))
+                ell(eye + face * 0.022 * sc + side * 0.008 * sg * sc, face, (0.012, 0.012, 0.022), (0.04, 0.04, 0.04))
+                ell(head + face * 0.08 * sc + up * 0.012 * sc + side * 0.02 * sg * sc, face, (0.004, 0.004, 0.004), dark)  # nostril
+                sh = body + tilt * 0.07 * sc + side * 0.08 * sg * sc - up * 0.02 * sc                   # front leg: arm and hand
+                h = at(0.17, 0.0, 0.11 * sg)
+                hand = np.array([h[0], 0.012 * sc, h[2]])
+                elbow = (sh + hand) / 2 + side * 0.02 * sg * sc
+                limb(sh, elbow, 0.016, g1)
+                limb(elbow, hand, 0.013, g1)
+                ell(hand, face + side * 0.4 * sg, (0.03, 0.006, 0.025), g2)
+                hip = body - tilt * 0.09 * sc + side * 0.08 * sg * sc                                   # hind leg, folded
+                knee = at(0.06, 0.07, 0.17 * sg)
+                ankle = at(-0.12, 0.03, 0.14 * sg)
+                limb(hip, knee, 0.03, g1)
+                limb(knee, ankle, 0.022, g1)
+                foot = np.array([ankle[0], 0.012 * sc, ankle[2]]) + face * 0.06 * sc
+                limb(ankle, np.array([ankle[0], 0.012 * sc, ankle[2]]), 0.015, g1)
+                ell(foot, face + side * 0.3 * sg, (0.075, 0.006, 0.04), g2)                             # long webbed foot
             if p.tip is not None:
                 rd.add("cylinder", segment(p.mouth, p.tip, 0.03), (0.9, 0.35, 0.4), P_NONE)
                 rd.add("sphere", trs(p.tip, None, (p.spec.tip_r,) * 3), (0.95, 0.45, 0.5), P_NONE)
         elif p.kind == "mantis":
-            col, dark = (0.45, 0.62, 0.22), (0.3, 0.45, 0.15)
-            base = np.array([x, y + 0.12 * sc, z])
-            neck = base + face * 0.06 * sc + up * 0.16 * sc
-            cyl(base - face * 0.22 * sc - up * 0.02 * sc, base + up * 0.02 * sc, 0.03, col)
-            cyl(base + up * 0.02 * sc, neck, 0.022, col)
-            sph(neck + face * 0.03 * sc + up * 0.03 * sc, (0.035, 0.03, 0.03), dark)
+            col, dark, wing = (0.46, 0.64, 0.22), (0.30, 0.46, 0.14), (0.55, 0.72, 0.30)
+            mid = at(-0.01, 0.075)                                         # the thorax the walking legs hang from
+            ell(at(-0.11, 0.085), _norm(-face * 0.2 + face + up * 0.12), (0.10, 0.026, 0.03), col)      # abdomen
+            ell(at(-0.09, 0.105), face + up * 0.08, (0.11, 0.008, 0.032), wing)                       # folded wings
+            ell(mid, face, (0.03, 0.022, 0.022), col)
+            neck = at(0.06, 0.17)
+            limb(mid + up * 0.01 * sc, neck, 0.011, col)                    # the long prothorax, raised
+            headc = neck + up * 0.022 * sc + face * 0.012 * sc
+            ell(headc, face, (0.016, 0.02, 0.03), col)                      # a wide, triangular-ish head
+            ell(headc - up * 0.02 * sc + face * 0.006 * sc, face, (0.01, 0.012, 0.014), col)          # the mouthparts below
             for sg in (-1, 1):
-                sph(neck + face * 0.045 * sc + side * 0.022 * sc * sg + up * 0.045 * sc, (0.012, 0.012, 0.012), (0.1, 0.1, 0.08))
-                leg = base - face * 0.1 * sc + side * 0.04 * sc * sg
-                cyl(leg, leg + side * 0.07 * sc * sg - up * 0.12 * sc, 0.007, dark)
-                arm = neck + side * 0.025 * sc * sg
+                rd.add("sphere", trs(headc + side * 0.027 * sg * sc + up * 0.008 * sc, None, (0.012 * sc,) * 3),
+                       (0.70, 0.78, 0.40))                                  # big compound eyes on the corners
+                ant = headc + up * 0.012 * sc + side * 0.008 * sg * sc
+                rd.add("cylinder", segment(ant, ant + (face * 0.05 + up * 0.06 + side * 0.03 * sg) * sc, 0.0018 * sc), dark)
+                for off in (0.0, -0.035):                                   # four walking legs
+                    hip = mid + face * off * sc + side * 0.018 * sg * sc
+                    knee = hip + (side * 0.06 * sg + up * 0.045 + face * (0.03 if off == 0 else -0.04)) * sc
+                    foot = np.array([knee[0], 0.004 * sc, knee[2]]) + (side * 0.03 * sg) * sc
+                    limb(hip, knee, 0.006, dark)
+                    limb(knee, foot, 0.005, dark)
+                sh = neck - up * 0.02 * sc + side * 0.015 * sg * sc         # the raptorial forelegs
                 if p.tip is not None and p.state in ("strike", "retract", "eat"):
-                    rd.add("cylinder", segment(arm, p.tip, 0.02), col)
+                    elbow = (sh + p.tip) / 2 + up * 0.03 * sc + side * 0.01 * sg * sc
+                    limb(sh, elbow, 0.011, col)
+                    limb(elbow, p.tip, 0.008, dark)
                     rd.add("sphere", trs(p.tip, None, (p.spec.tip_r,) * 3), dark, P_NONE)
-                else:
-                    elbow = arm + face * 0.05 * sc + up * 0.04 * sc
-                    cyl(arm, elbow, 0.01, col)
-                    cyl(elbow, elbow + face * 0.03 * sc - up * 0.07 * sc, 0.008, dark)
-        else:                                                   # dragonfly
+                else:                                                       # folded, "praying"
+                    knee = sh + (face * 0.035 - up * 0.04 + side * 0.006 * sg) * sc
+                    limb(sh, knee, 0.011, col)                              # the spiny femur, down and forward
+                    claw = knee + (up * 0.05 - face * 0.005) * sc
+                    limb(knee, claw, 0.007, dark)                           # the tibia folded back up against it
+                    for k in range(3):                                      # spines along the femur
+                        spn = sh + (knee - sh) * (0.3 + 0.25 * k)
+                        rd.add("cylinder", segment(spn, spn + (face * 0.01 + up * 0.008) * sc, 0.002 * sc), dark)
+        else:                                                               # dragonfly
             dirn = _norm(p.vel) if float(np.linalg.norm(p.vel)) > 1e-3 else face
-            body = np.array([x, y, z])
-            blue = (0.15, 0.45, 0.75)
-            cyl(body - dirn * 0.2 * sc, body + dirn * 0.05 * sc, 0.012, blue)
-            sph(body + dirn * 0.06 * sc, (0.028, 0.026, 0.028), (0.1, 0.6, 0.35))
-            sd = np.array([-dirn[2], 0.0, dirn[0]])
-            flap = 0.25 + 0.2 * math.sin(now * 55)
+            flat = _norm(np.array([dirn[0], 0.0, dirn[2]])) if float(np.hypot(dirn[0], dirn[2])) > 1e-6 else face
+            sd = np.array([-flat[2], 0.0, flat[0]])
+            body = base
+            thorax_c = body
+            ell(thorax_c, dirn, (0.03, 0.022, 0.02), (0.20, 0.42, 0.30))
+            headc = body + dirn * 0.035 * sc
+            for sg in (-1, 1):                                              # two huge compound eyes that meet on top
+                rd.add("sphere", trs(headc + sd * 0.012 * sg * sc + up * 0.004 * sc, None, (0.017 * sc,) * 3), (0.15, 0.55, 0.45))
+            ab0 = body - dirn * 0.03 * sc
+            for i in range(6):                                              # a long, thin, banded abdomen
+                a0 = ab0 - dirn * 0.03 * i * sc
+                limb(a0, a0 - dirn * 0.03 * sc, 0.007 * (1 - 0.06 * i), (0.12, 0.40, 0.72) if i % 2 == 0 else (0.08, 0.22, 0.40))
+            flap = 0.18 * math.sin(now * 55)
             for sg in (-1, 1):
-                for off, ln in ((0.02, 0.17), (-0.03, 0.15)):
-                    a = body + dirn * off * sc
-                    rd.add("cylinder", segment(a, a + sd * ln * sc * sg + up * flap * ln * 0.6 * sc, 0.006 * sc),
-                           (0.85, 0.9, 0.95, 0.55), P_NONE)
+                for off, ln, wd in ((0.008, 0.10, 0.017), (-0.012, 0.095, 0.021)):      # fore- and hindwings
+                    span = _norm(sd * sg + up * (flap if off > 0 else -flap * 0.6))
+                    c = body + dirn * off * sc + span * ln * sc
+                    m = trs(c, np.stack([span, _norm(np.cross(dirn, span)) * sg, dirn], 1), (ln * sc, 0.0015 * sc, wd * sc))
+                    rd.add("sphere", m, (0.85, 0.92, 0.98, 0.45), P_NONE)
+                    rd.add("cylinder", segment(body + dirn * off * sc, body + dirn * off * sc + span * 2 * ln * sc, 0.0012 * sc),
+                           (0.25, 0.30, 0.35), P_NONE)                     # the leading-edge vein
+                for k in range(3):                                          # legs tucked under, as when it carries prey
+                    hip = body - up * 0.012 * sc + dirn * (0.01 - 0.01 * k) * sc
+                    limb(hip, hip + (dirn * 0.02 - up * 0.02 + sd * 0.01 * sg) * sc, 0.0025, (0.1, 0.1, 0.1))
         rd.add("sphere", trs(np.array([x, 0.005, z]), None, (0.14 * sc, 0.004, 0.14 * sc)), (0.0, 0.0, 0.0, 0.25), P_NONE)
 
 
