@@ -8,12 +8,14 @@ What is what:
   CONNECTOME      the neurons and everything the simulation does between JO-A/B and the readouts.
   GAME RULE       the sound-to-current transduction (core/mic.py), the demo's sounds, and THRESH["song"] (the multiple of calm
                   at which the game calls the ps1 firing SONG).
-  LITERATURE      the song's rhythm the demo's pulse train imitates: pulse song is a train of pulses of about 220 Hz that recur
-                  every ~35 ms (the interpulse interval), and the sine song is a continuous hum of about 140-170 Hz. Read in
-                  search-result summaries of Current Biology 2024 ("Nested neural circuits generate distinct acoustic signals
-                  during Drosophila courtship", doi 10.1016/j.cub.2024.01.015), eLife 2015;4:e08477 and Bennet-Clark & Ewing 1969
-                  (Anim Behav 17:755, "Pulse interval as a critical parameter in the courtship song of Drosophila melanogaster"),
-                  not in the papers themselves: treat the numbers as approximate and unverified by a person.
+  LITERATURE      the song's rhythm the demo's pulse train imitates. Zhou et al. 2015, eLife 4:e08477 ("Central neural circuitry
+                  mediating courtship song perception in male Drosophila"; full text read by the 3.0 day 3 review, PMC4575990):
+                  D. melanogaster pulse song has a ~35 ms interpulse interval and the sine song is ~160 Hz (introduction, citing
+                  Bennet-Clark & Ewing 1967 and others); their synthetic pulse song used a 220 Hz carrier and their sine stimulus
+                  140 Hz (methods). The same paper reports that pC1 neurons respond to pulse song with band-pass tuning to
+                  interpulse intervals of about 35-65 ms, and only above 80 dB (Figure 6): a selectivity this model does NOT
+                  reproduce (see the demo's result). Lillvis et al. 2024, Curr Biol 34 (doi 10.1016/j.cub.2024.01.015) is about
+                  the song motor circuits; its abstract gives no song numbers and its full text was not read.
   MODEL PREDICTION the response ratios this prints. They are what this model does with this model of a sound, not what a real
                   fly's circuit does.
 

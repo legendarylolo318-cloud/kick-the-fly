@@ -425,14 +425,14 @@ ASSUMPTIONS = (
 
     ("Microphone to Johnston's organ: air pressure treated as antennal vibration",
      "GAME RULE",
-     "The microphone's sound is band-passed into JO-B (10-100 Hz) and JO-A (100-1,000 Hz) and becomes current on those neurons (50 and "
-     "88 in the dataset); JO-C/E are left to the wind. A 2019 review says JO-B prefers low and JO-A higher frequencies, and that "
-     "JO-A/B are the sound-sensitive groups (Kamikouchi 2009). Everything else, the filters, the loudness mapping, the noise gate and "
+     "The microphone's sound is band-passed into JO-B (10-100 Hz) and JO-A (100-1,000 Hz) and becomes current on those neurons (88 and "
+     "50 in the dataset); JO-C/E are left to the wind. JO-A/B are the sound-sensitive groups (Kamikouchi 2009); JO-B prefers low and "
+     "JO-A higher frequencies (Ishikawa et al. 2019, Front Physiol, citing Matsuo 2014 and Patella & Wilson 2018). Everything else, the filters, the loudness mapping, the noise gate and "
      "the equal current per neuron, is a game rule. The hum demo's P1 and song-motor-neuron ratios are MODEL PREDICTIONS.",
      "A microphone is not an antenna; the real organ is a mechanical resonator and each neuron has its own tuning. Humming drives the "
      "P1 courtship cluster here but not the song motor neurons, and the model is not tuned to the song's 35 ms rhythm (a 70 ms rhythm "
-     "drives P1 about as much). The song numbers (about 220 Hz pulses every ~35 ms) were read in search-result summaries, not the "
-     "papers. Opt-in, off at every launch; nothing is recorded or sent.",
+     "drives P1 about as much), whereas real pC1 neurons are tuned to 35-65 ms intervals (Zhou et al. 2015, eLife), so here the "
+     "model disagrees with a measurement. The song numbers (pulses every ~35 ms, a 220 Hz carrier) are from Zhou et al. 2015. Opt-in, off at every launch; nothing is recorded or sent.",
      "kickthefly/core/mic.py · kickthefly/lab/audio.py · Esc > Mic and streamer · assay hum_demo"),
 
     ("Streamer mode: chat votes through the game's own actions",

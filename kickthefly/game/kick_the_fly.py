@@ -402,8 +402,9 @@ drowning), the basin, the burner, the cook (10-20 s between swats, a 0.9 s stead
 
 Microphone to Johnston's organ (3.0 day 3; core/mic.py, lab/audio.py, docs/microphone.md). OPT-IN, off at every launch, a red MIC ON pill on screen
 while on, nothing recorded or sent. CONNECTOME: JO-A (50) and JO-B (88) neurons. LITERATURE: A and B are the sound-sensitive groups (Kamikouchi
-2009); B prefers below ~100 Hz and A higher (a 2019 review). GAME RULE: the whole transduction (band-passes, loudness mapping, gate, equal
-current per neuron). MODEL PREDICTION: the hum demo (a synthetic 200 Hz hum, steady and in 35 ms pulses): it drives P1, not the song motor neurons.
+2009); B prefers below ~100 Hz and A higher (Ishikawa et al. 2019, citing Matsuo 2014, Patella & Wilson 2018). GAME RULE: the whole transduction (band-passes, loudness mapping, gate, equal
+current per neuron). MODEL PREDICTION: the hum demo (a synthetic 200 Hz hum, steady and in 35 ms pulses): it drives P1, not the song motor neurons, and not
+selectively at 35 ms, unlike real pC1 neurons (Zhou et al. 2015 measured 35-65 ms band-pass tuning): a disagreement with a measurement.
 
 Streamer mode (3.0 day 3; core/streamer.py, core/netguard.py, docs/streamer.md). OPT-IN, off at every launch, never during tests, --validate or
 any headless run. GAME RULE: all of it: viewers of a Twitch channel (read-only, anonymous, no token, no names kept) vote !tool, !arena, !surgery;

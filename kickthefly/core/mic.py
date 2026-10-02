@@ -8,10 +8,11 @@ What is what:
                the deflection (gravity, wind) ones: Kamikouchi et al. 2009, Nature 458:165 (doi:10.1038/nature07810, abstract
                read: "gravity- and sound-sensitive neurons differ in their response characteristics"). The game already
                drives JO-C/E with wind; this drives A/B and leaves C/E alone.
-  LITERATURE   what A and B prefer, as stated in a 2019 review of Johnston's organ (Frontiers in Physiology 10:1552, read
-               through a summarising tool, not by a person): "JO-B neurons show a low frequency preference at about <100 Hz,
-               while JO-A neurons preferentially respond to higher frequency", the two together covering about 10 Hz to
-               about 1,000 Hz.
+  LITERATURE   what A and B prefer, as stated in the introduction of Ishikawa et al. 2019 (Front. Physiol. 10:1552, doi
+               10.3389/fphys.2019.01552; a research article, not a review), citing Matsuo et al. 2014 and Patella & Wilson 2018:
+               "When measured separately, the JO-B neurons show a low frequency preference at about <100 Hz, while JO-A neurons
+               preferentially respond to higher frequency", the two together "ranging from ~10 Hz up to ~1,000 Hz". Checked
+               word for word in the full text (Europe PMC, PMC6960095) by the 3.0 day 3 review.
   GAME RULE    the whole transduction, every number: the two band-pass filters (B: 10-100 Hz, A: 100-1,000 Hz, from the
                ranges above), how loud a band must be to drive its neurons fully (FULL_RMS) and the noise gate (GATE_RMS), the
                current at full drive (MAX_CURRENT, the validation suite's activation current), the sensitivity setting, and
