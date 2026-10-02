@@ -37,9 +37,9 @@ offscreen GL for the frames and the benchmark, with no GPU error. **The micropho
 
 | run | result |
 |---|---|
-| `--validate` baseline e55adf8 vs the merge, cpu, 6 workers | VALIDATE_PLACEHOLDER |
-| full pytest, two halves one after the other | PYTEST_PLACEHOLDER |
-| `--playthrough adult` / `larva`, cpu | PLAYTHROUGH_PLACEHOLDER |
+| `--validate` baseline e55adf8 vs the final code (follow-ups included), cpu, 6 workers | **identical**: 2,024 values compared; the only differences are the 3 new keys `weather.rain`, `weather.gust_hz`, `weather.storm` (all 0.0) in the recorded Lab parameters, plus the run time and date; 21 tests, **12 PASS / 9 FAIL in both** (the documented results). Also identical on the pre-follow-up code |
+| full pytest, final code | **1,032 passed, 20 skipped, 0 failed.** The non-validation tests ran as 4 chunks, 2 at a time (chunk 1: 242 passed / 19 skipped, 8.6 min; 2: 287 / 1, 11.9 min; 3: 263 passed, 6.7 min; 4: 218 passed, 1.4 min; about **15 min of wall time instead of ~83**). The 22 validation tests passed earlier (17.5 min) and were not rerun on the final code: they run the same simulations as `--validate`, which is identical there. Earlier full run: half 1 555 passed / 19 skipped; half 2 stopped at 95% by the memory leak with 0 failures. The whole suite runs with the network guard in `tests/conftest.py` |
+| `--playthrough adult` / `larva`, cpu, final code | **adult 334 passed, 0 failed**, 4 gated, 13 skipped; **larva 55 passed, 0 failed**, 100 gated (the new tools are hidden for the larva). Day 3 checks weather, mic, predators, kitchen, live-inputs (now also: Streamer mode refused in Lab mode) PASS; `game2d:adult:flypaper:spider` PASS this time. The 13 skips are all "inconclusive: the item never reached the fly" (hand on flypaper and in the escape room, sugar/alcohol/fruit in the pool or by the lamp, the dragonfly that only hunts a flying fly in flypaper and the pool); which legs land there varies between runs (9 on the earlier run), very likely the same nondeterminism as item 5 |
 | `predator_escape` assay, seeds 1000-1009 (before / after the capture-frame fix) | frog 0/30, mantis 0/30 both times; dragonfly 2/30 (lead 0.0 s, both) -> 0/30; max loom before the strike 5.0 / 14.8 / 0.09 rad/s; **P1 PASS, P2 PASS (10/10)** |
 | `hum_demo` assay, seeds 1000-1009 | P1 x calm: silence 0.94 [0.88, 1.00], steady 200 Hz 1.40 [1.32, 1.47], 35 ms pulses 1.39 [1.29, 1.48], 70 ms 1.32 [1.21, 1.42], 50 Hz 1.30, 600 Hz 1.20; ps1 0.87-1.09. **H1 PASS (8/10), H2 PASS (10/10), H3 PASS (10/10)**: identical to Sonnet's |
 | streamer fuzz: 200,000 random lines (CRLF, NUL, huge, unicode, bidi, odd tags) through `parse_line`, `parse_command`, `slug`, `clean_channel` | 0 exceptions; `clean_channel` never returned anything outside `[a-z0-9_]`. Found: a PING payload with a CR was echoed into the PONG (fixed) |
@@ -150,6 +150,10 @@ and the real extra spiking they cause, which I may not change. So: **not inside 
 
 ## Not verified
 
+- **Test-suite memory is still high after the leak fix:** per-process peaks of 3.6 / 5.5 / 6.9 / 9.9 GB (RAM + swap) for the four chunks.
+  Something else keeps state between tests (likely real-pack games that tests don't stop, or module caches). Running two chunks at a
+  time fits in 16 GB; three does not. Worth a follow-up with `tracemalloc` per test file.
+
 - A real microphone, a real Twitch connection (TLS, the server's real behaviour), a visible window with real input and a gamepad, GPU
   compute backends, exe/AppImage builds, `nwbinspector` (as before).
 - The normal (not reduced) lightning flash's pulses on screen (captures missed them; covered by tests).
@@ -176,14 +180,14 @@ published data (papers to be read, criteria pre-registered); and the root cause 
 pytest half 1 555 passed / 19 skipped / 0 failed (41.5 min); half 2 light part 0 failures up to 95%, then stopped (the leak); validation tests 22
 passed (17.5 min); playthrough adult 338 passed / 0 failed / 4 gated / 9 skipped, larva 55 / 0 / 100 / 0; `--validate` identical (below).
 
-## Decisions that are yours (with my recommendation)
+## Decisions (made by you in the session, after my recommendations)
 
-| question | recommendation |
+| question | what was decided |
 |---|---|
-| Predators in the Chaos preset? | Yes for the frog and the mantis (they're fun and end in a capture you can watch); keep the dragonfly out (it only hunts a flying fly, so in Chaos it mostly patrols). Either way the tool keys are unchanged. |
-| Frogs and mantises a held-still fly never escapes (0/30 each; now the dragonfly too, 0/30) | Keep: it's what the wiring does with these strikes, it's labelled MODEL PREDICTION, and in the game the fly moves, so a fly already dodging can still be missed. Don't slow the strikes to create escapes; if you want escapable predators, make it an explicit, labelled game rule (a wind-up the fly can see). |
-| "A cook you can dodge" = the fly dodges, not the player | Keep the fly reading: the cook's swing targets where a fly was, and a swat that can hit you would be a new rule for the player, not the fly. If you want both, add it as a separate, labelled game rule. |
-| Streamer defaults (`!tool` on; `!arena`, `!surgery` off) | Keep. With bug 5 fixed, switching one off now takes effect immediately, even mid-round. |
-| ~10% (rain) to ~16% (storm) brain slowdown | Accept for now (weather is off by default and Lab-only as parameters), and say it in docs/weather.md; revisit with a GPU backend. |
-| The neuPrint skeleton fetch is on by default (pre-dates Day 3; the rule says network use is opt-in) | Make it opt-in or ask once at first launch; it is now at least blocked in every headless run and the tests. |
-| Sonnet's list: predators not in Chaos, tool keys appended, the cook reading, streamer defaults, switches never persisted, README screenshots not remade | Agree with all; remake the screenshots once these decisions are settled. |
+| Predators in the Chaos preset? | **Done:** frog and mantis appended to Chaos (keys 1-7 unchanged); the dragonfly stays in All and Lab, since it only hunts a flying fly. |
+| 0/30 escapes for every predator (held-still fly) | **Kept** as a labelled MODEL PREDICTION; no strike slowed to create escapes. A comparison with published data is a separate task (papers to be read; criteria pre-registered). |
+| "A cook you can dodge" = the fly dodges | **Kept:** the dodge runs through the real looming neurons; a cook that hits the player would be a pure game rule. |
+| Streamer defaults | **Kept** (`!tool` on, `!arena`/`!surgery` off), and **Streamer mode is now off in Lab mode**. |
+| ~10% (rain) to ~16% (storm) brain slowdown | **Accepted.** The accuracy issue underneath (every live stimulus is delivered per screen frame, so a slow brain gets more per simulated second) is a separate game-wide task; Lab protocols and assays are lockstep and exact. |
+| The neuPrint skeleton download | **Done:** opt-in (default off), a one-time question after the tutorial, cached shapes still load. |
+| Sonnet's other choices: tool keys appended, switches never persisted, README screenshots not remade | Agree; the README screenshots should be remade now that these are settled (`tools/make_screenshots.py`, not run in this review). |
