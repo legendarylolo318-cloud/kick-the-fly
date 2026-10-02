@@ -242,19 +242,23 @@ def draw3d(play: PredatorPlay, rd, now: float) -> None:
         if p.kind == "frog":
             g1, g2, belly, dark = (0.30, 0.52, 0.18), (0.38, 0.62, 0.22), (0.86, 0.84, 0.62), (0.16, 0.30, 0.10)
             tilt = _norm(face * math.cos(0.42) + up * math.sin(0.42))      # sits with its head raised
-            body = at(0.0, 0.10)
-            ell(body, tilt, (0.15, 0.085, 0.12), g1)
-            ell(body - up * 0.03 * sc + tilt * 0.01 * sc, tilt, (0.13, 0.06, 0.105), belly)
-            head = body + tilt * 0.13 * sc + up * 0.02 * sc
-            ell(head, face, (0.085, 0.055, 0.105), g2)
-            ell(head - up * 0.025 * sc + face * 0.01 * sc, face, (0.08, 0.03, 0.098), belly)    # throat and lower jaw
+            # the head is built around the engine's mouth point (where the tongue starts; it sets the strike's geometry, so the
+            # art follows it, not the other way round): the lips meet there (3.0 day 3 review: the tongue came out of the chin)
+            mouth = base + up * p.spec.body_r * 0.7 + face * p.spec.body_r * 0.8
+            head = mouth - face * 0.072 * sc + up * 0.012 * sc
+            body = head - tilt * 0.125 * sc - up * 0.012 * sc
+            ell(body, tilt, (0.15, 0.075, 0.12), g1)
+            ell(body - up * 0.025 * sc + tilt * 0.01 * sc, tilt, (0.13, 0.055, 0.105), belly)
+            ell(head, face, (0.08, 0.05, 0.105), g2)                         # upper head, down to the lips
+            ell(mouth - face * 0.05 * sc - up * 0.014 * sc, face, (0.06, 0.022, 0.092), belly)        # lower jaw and throat
+            ell(mouth - face * 0.012 * sc, face, (0.012, 0.004, 0.07), (0.25, 0.12, 0.12))           # the line of the lips
             for k in range(-1, 2):                                         # dark spots on the back
                 ell(body + up * 0.07 * sc + side * 0.05 * k * sc - tilt * 0.03 * abs(k) * sc, tilt, (0.025, 0.012, 0.022), dark)
             for sg in (-1, 1):
-                eye = head + up * 0.05 * sc + side * 0.055 * sg * sc + face * 0.01 * sc
+                eye = head + up * 0.048 * sc + side * 0.055 * sg * sc - face * 0.005 * sc
                 rd.add("sphere", trs(eye, None, (0.032 * sc,) * 3), (0.85, 0.72, 0.25))
                 ell(eye + face * 0.022 * sc + side * 0.008 * sg * sc, face, (0.012, 0.012, 0.022), (0.04, 0.04, 0.04))
-                ell(head + face * 0.08 * sc + up * 0.012 * sc + side * 0.02 * sg * sc, face, (0.004, 0.004, 0.004), dark)  # nostril
+                ell(head + face * 0.074 * sc + up * 0.02 * sc + side * 0.02 * sg * sc, face, (0.004, 0.004, 0.004), dark)  # nostril
                 sh = body + tilt * 0.07 * sc + side * 0.08 * sg * sc - up * 0.02 * sc                   # front leg: arm and hand
                 h = at(0.17, 0.0, 0.11 * sg)
                 hand = np.array([h[0], 0.012 * sc, h[2]])
