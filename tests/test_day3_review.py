@@ -358,3 +358,93 @@ def test_a_microphone_that_goes_quiet_releases_the_jo_neurons(synthetic_pack, mo
     g.live.tick()
     assert np.allclose(np.asarray(br.inject)[rows], 0.0), "the last sound kept driving JO-A/B after the microphone went quiet"
     assert g.live.mic_on, "the switch and its red pill stay as the player left them"
+
+
+# --- --record-replay refuses the audio block (its current is not a replay event: the replay did not reproduce the spikes) --------
+def test_record_replay_refuses_a_synthetic_hum(tmp_path, capsys):
+    from kickthefly.lab import protocol as P
+
+    f = tmp_path / "hum.yaml"
+    f.write_text("name: hum\nseeds: [1]\nduration_s: 1\naudio: {hz: 200, seconds: 0.5}\n")
+    assert P.record_replay(f, tmp_path / "x.ktfreplay") == 2
+    assert "audio" in capsys.readouterr().out
+    assert not (tmp_path / "x.ktfreplay").exists()
+
+
+# --- the predator assay: a giant-fiber crossing in the capture frame itself is not an escape --------------------------------------
+class _Brain:
+    """Stands in for a brain whose DNp01 crosses the escape threshold at one chosen frame (counted in level() calls)."""
+
+    def __init__(self, cross_at_call):
+        self.calls, self.cross = 0, cross_at_call
+
+    def poke(self, *a, **k):
+        pass
+
+    def _step(self):
+        pass
+
+    def level(self, group):
+        self.calls += 1
+        return 9.0 if self.calls >= self.cross else 1.0
+
+
+def _trace(n=20, capture=19, strike=17):
+    from kickthefly.game import predators as pr
+
+    head = np.array([0.0, 0.39, 0.0])
+    frames = [[(("frog", "body"), head + (0, 0, 2.0 - 0.09 * i), 0.45)] for i in range(n)]
+    return dict(kind="frog", seed=0, head=head, frames=frames, capture_frame=capture, aim_frame=strike - 2, strike_frame=strike, dt=pr.DT)
+
+
+def test_a_crossing_in_the_capture_frame_is_a_capture_not_an_escape():
+    from kickthefly.lab import predators as lp
+
+    tr = _trace()
+    rates = lp.loom_rates(tr)
+    from kickthefly.game import kick_the_fly as k
+
+    first = next(i for i, r in enumerate(rates) if r > k.LOOM_MIN)
+    start = max(0, first - lp.WARM_FRAMES)
+    at_capture = tr["capture_frame"] - start + 1                        # the level() call made in the capture frame
+    r = lp.escape_trial(_Brain(at_capture), tr)
+    assert not r["escaped"], "DNp01 crossed in the very frame the fly was caught: the game holds it; that is a capture (lead 0 s)"
+    r = lp.escape_trial(_Brain(at_capture - 1), tr)                     # one frame earlier: a real escape with a lead
+    assert r["escaped"] and r["lead_s"] > 0
+
+
+def test_a_run_without_a_capture_still_scores_its_last_frame():
+    from kickthefly.lab import predators as lp
+
+    tr = _trace(capture=None)
+    tr["capture_frame"] = None
+    r = lp.escape_trial(_Brain(10 ** 9), tr)
+    assert not r["escaped"] and not r["captured"]
+
+
+def test_the_assay_summaries_carry_their_pre_registered_verdict():
+    from kickthefly.lab import audio
+    from kickthefly.lab import predators as lp
+
+    cell = lambda r: dict(calm_hz=1.0, hz=r, ratio=r)  # noqa: E731
+    fly = dict(conditions={c: dict(**{k: cell(1.5) for k in audio.READOUTS + ("jo_a", "jo_b")}, analysis=dict(peak_hz=200.0))
+                           for c in ("pulses_200_ipi35", "silence")})
+    s = audio.summarize([fly] * 10)
+    assert s["verdict"] is not None and "H1" in s["verdict"] and s["criteria"] == list(audio.CRITERIA)
+    t = dict(escaped=False, captured=True, latency_s=None, lead_s=None, noticed_before_strike=False, max_loom_before_strike=0.1)
+    s = lp.summarize([dict(seed=i, kinds=["mantis"], trials={"mantis": [t]}) for i in range(10)])
+    assert s["verdict"]["P1"] and s["verdict"]["P2"] and s["criteria"] == list(lp.CRITERIA)
+
+
+# --- the hum demo protocol runs to the end and exports (it crashed in export: its summary had no per_fly) -------------------------
+@pytest.mark.parametrize("conditions", [None, ["silence", "steady_200"]])
+def test_the_hum_demo_protocol_exports_its_per_fly_scores(synthetic_pack, tmp_path, conditions):
+    from kickthefly.lab import protocol as P
+
+    opts = {"seconds": 0.3}
+    if conditions:
+        opts["conditions"] = conditions
+    p = P.check({"name": "hum", "seeds": [1000, 1001], "assay": "hum_demo", "assay_options": opts})
+    folder = P.run(p, tmp_path, workers=1)
+    rows = (folder / "per_fly.csv").read_text().splitlines()
+    assert len(rows) == 3, rows

@@ -658,7 +658,9 @@ def record_replay(path: Path, dest: Path, out: Path | None = None) -> int:
         p = load(path)
         if "assay" in p:
             raise ProtocolError("--record-replay records a stimulus protocol; assay protocols aren't supported")
-        used = [k for k in DAY2_KEYS if k in p]
+        # 3.0 day 3 review: audio is a current too (Brain.set_current), so a replay of it did not reproduce the spikes; weather and
+        # predator blocks are pokes, which are replay events (checked: both replay spike for spike)
+        used = [k for k in DAY2_KEYS + ("audio",) if k in p]
         if used:
             raise ProtocolError(f"--record-replay does not record {', '.join(used)} (their currents are not replay events)")
     except ProtocolError as e:

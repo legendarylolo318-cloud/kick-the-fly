@@ -137,7 +137,17 @@ def summarize(flies: list[dict]) -> dict:
             r[k] = dict(ratio=labstats.mean_ci(ratios), flies_over_1_2=int(sum(x >= P1_RATIO for x in ratios)))
         r["peak_hz"] = float(np.median([f["conditions"][cond]["analysis"]["peak_hz"] for f in flies]))
         rows.append(r)
-    return dict(metric="hum -> JO-A/B -> courtship pathway: firing ratio vs calm (MODEL PREDICTION)", rows=rows, n=len(flies))
+    # 3.0 day 3 review: the pre-registered verdict goes into the run's own summary (it was only ever computed by hand and in tests)
+    scored = all(c in flies[0]["conditions"] for c in ("pulses_200_ipi35", "silence"))
+    return dict(metric="hum -> JO-A/B -> courtship pathway: firing ratio vs calm (MODEL PREDICTION)", rows=rows, n=len(flies),
+                criteria=list(CRITERIA), verdict=verdict(flies) if scored else None,
+                per_fly=[headline(f) for f in flies])        # 3.0 day 3 review: the export needs it (the protocol crashed there)
+
+
+def headline(fly: dict) -> float:
+    """One fly's headline: P1's firing ratio during the 200 Hz pulse train (NaN when that condition was not run)."""
+    c = fly["conditions"].get("pulses_200_ipi35")
+    return float(c["p1"]["ratio"]) if c is not None else float("nan")
 
 
 def verdict(flies: list[dict]) -> dict:

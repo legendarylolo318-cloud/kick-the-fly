@@ -81,7 +81,9 @@ def headline(kind: str, fly: dict) -> float:
     if kind == "predator_escape":
         return float(np.mean([np.mean([t["escaped"] for t in tr]) for tr in fly["trials"].values()]))
     if kind == "hum_demo":
-        return float(fly["conditions"]["pulses_200_ipi35"]["p1"]["ratio"])
+        from kickthefly.lab import audio
+
+        return audio.headline(fly)
     raise ValueError(kind)
 
 

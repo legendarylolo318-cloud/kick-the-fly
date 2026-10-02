@@ -27,10 +27,10 @@ Result on seeds 1000-1009 (10 flies x 3 attacks each, 30 attacks per predator; c
 | predator | escaped | escape probability | 95% CI (Wilson) | max looming before the strike |
 |---|---|---|---|---|
 | frog | 0 / 30 | 0.00 | 0.00 - 0.11 | 5.0 rad/s (its hops) |
-| dragonfly | 2 / 30 | 0.07 | 0.02 - 0.21 | 14.8 rad/s |
+| dragonfly | 0 / 30 | 0.00 | 0.00 - 0.11 | 14.8 rad/s |
 | mantis | 0 / 30 | 0.00 | 0.00 - 0.11 | 0.09 rad/s |
 
-Read it as: in this model, a frog's 0.07 s tongue and a mantis's 0.06 s strike leave DNp01 too little time to cross its 4x threshold (it did in 0 of 60 of those attacks), whereas the dragonfly's longer dive gave it 2 of 30. These are **MODEL PREDICTIONS**: they move if a game rule moves, and the fly does not move in the assay, so an "escape" is the brain's decision to dodge, not a flight that clears the tongue. In the game itself the fly does move, and a strike that arrives after it has already started to escape misses.
+Read it as: in this model, none of the three attacks gives DNp01 time to cross its 4x threshold before the capture (0 of 90). The dragonfly's dive comes closest: in 2 of its 30 attacks DNp01 crossed in the very frame the fly was caught. The first Day 3 run counted those 2 as escapes (2 / 30, 0.07, CI 0.02 - 0.21); the 3.0 day 3 review counted them as captures, because the rule is "before the capture" and in the game a fly that is already held cannot escape (`tests/test_day3_review.py`). Every run now writes the P1/P2 verdict into its own `summary.json`. These are **MODEL PREDICTIONS**: they move if a game rule moves, and the fly does not move in the assay, so an "escape" is the brain's decision to dodge, not a flight that clears the tongue. In the game itself the fly does move, and a strike that arrives after it has already started to escape misses.
 
 ## Python, protocols, tests
 

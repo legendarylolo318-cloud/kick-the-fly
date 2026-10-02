@@ -71,7 +71,11 @@ def escape_trial(br, tr: dict) -> dict:
     first = next((i for i, r in enumerate(rates) if r > k.LOOM_MIN), end)
     start = max(0, first - WARM_FRAMES)                 # nothing is delivered before the first visible loom: a calm brain
     escaped_at, escaped_before_strike, peak, tick = None, False, 0.0, 0
-    for i in range(start, end + 1):
+    # 3.0 day 3 review: only frames BEFORE the capture count. The capture frame was included, so a DNp01 crossing in the very frame
+    # the fly was grabbed scored as an escape with a 0 s lead (both dragonfly "escapes" on seeds 1000-1009); in the game a held fly
+    # can't escape, and the docstring's rule is "before the capture". Without a capture the last frame still counts.
+    stop = end if tr["capture_frame"] is not None else end + 1
+    for i in range(start, stop):
         strength = float(np.clip((rates[i] - k.LOOM_MIN) / k.LOOM_FULL, 0, 1))
         if strength > 0:
             br.poke("loom", None, strength, recruit=0.6 * strength)
@@ -144,6 +148,7 @@ def summarize(flies: list[dict]) -> dict:
                          noticed_before_strike=int(sum(t["noticed_before_strike"] for t in trials)),
                          max_loom_before_strike=float(max(t["max_loom_before_strike"] for t in trials))))
     return dict(metric="escape probability by predator (Wilson 95% CI over trials) - MODEL PREDICTION", rows=rows,
+                criteria=list(CRITERIA), verdict=verdict(flies),
                 per_fly=[float(np.mean([np.mean([t["escaped"] for t in f["trials"][k]]) for k in f["kinds"]]))
                          for f in flies])
 
