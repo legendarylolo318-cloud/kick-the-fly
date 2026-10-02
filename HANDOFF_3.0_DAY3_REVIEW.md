@@ -1,0 +1,160 @@
+# Handoff: 3.0 day 3 review (Opus, branch `opus/3.0-day3-review` from `sonnet/3.0-day3` at 40205e2, merged into `release/3.0`)
+
+Adversarial review of the five Day 3 features (predators, weather, kitchen, microphone, Streamer mode). Real adult pack (166,700
+neurons), Python 3.14.7, this machine, CPU backend. Nothing installed, no driver or system change; the only GPU use was SDL's
+offscreen GL for the frames and the benchmark, with no GPU error. **The microphone was never opened and Twitch was never contacted.**
+
+## Read this first
+
+1. **18 bugs found and fixed, each with a regression test that failed before its fix** (`tests/test_day3_review.py`, 37 tests, plus
+   updated `tests/test_live_inputs.py`). The four that matter most: a click with any tool pulled a fly out of a frog's mouth and the frog
+   ate it anyway; turning Streamer mode off and on while it was connecting left a **second, hidden Twitch connection** that the on-screen
+   list no longer showed; a chat vote for `!arena`/`!surgery` could still win after the streamer had switched that command off; and
+   Settings > Brain was a broken page whenever the kitchen was the arena.
+2. **One reported science number changed:** the predator assay counted a giant-fiber crossing *in the capture frame itself* as an escape
+   (lead 0.0 s). Both dragonfly "escapes" were that. By the module's own rule ("before the capture") and the game's (a held fly can't
+   escape) they are captures: **dragonfly 2/30 -> 0/30** (CI 0.00-0.11). P1 and P2 are unchanged and still PASS (10/10); the criteria
+   were not touched. Hum demo: Sonnet's numbers reproduced exactly (H1 PASS 8/10, H2 10/10, H3 10/10).
+3. **A literature finding the docs now state:** the song numbers come from Zhou et al. 2015 (eLife 4:e08477), which I read in full. The
+   same paper measured **pC1 neurons tuned to 35-65 ms pulse intervals, only above 80 dB**. The model's P1 is not tuned (steady, 35 ms and
+   70 ms raise it alike), so on this point **the model disagrees with a measurement**; it was described as "no song-rhythm filter".
+   The "2019 review" of JO-A/B is a research article (Ishikawa et al. 2019); its sentence was checked word for word.
+4. **Weather slowdown:** today, relative to clear weather in the same session, rain costs the brain ~8-11% of its real-time speed and a
+   storm ~15-17% (3 runs each). Clear weather itself is identical on e55adf8, 40205e2 and this branch; this machine is slower today than in
+   Sonnet's session for all three. The outdoor budget in docs/performance.md is 1.00x real time with one fly: weather does not meet it
+   here, and clear weather doesn't today either. I found nothing cheap to win (below). **Your decision.**
+5. RESULTS_PLACEHOLDER
+
+## What I ran
+
+| run | result |
+|---|---|
+| `--validate` baseline e55adf8 vs the merge, cpu, 6 workers | VALIDATE_PLACEHOLDER |
+| full pytest, two halves one after the other | PYTEST_PLACEHOLDER |
+| `--playthrough adult` / `larva`, cpu | PLAYTHROUGH_PLACEHOLDER |
+| `predator_escape` assay, seeds 1000-1009 (before / after the capture-frame fix) | frog 0/30, mantis 0/30 both times; dragonfly 2/30 (lead 0.0 s, both) -> 0/30; max loom before the strike 5.0 / 14.8 / 0.09 rad/s; **P1 PASS, P2 PASS (10/10)** |
+| `hum_demo` assay, seeds 1000-1009 | P1 x calm: silence 0.94 [0.88, 1.00], steady 200 Hz 1.40 [1.32, 1.47], 35 ms pulses 1.39 [1.29, 1.48], 70 ms 1.32 [1.21, 1.42], 50 Hz 1.30, 600 Hz 1.20; ps1 0.87-1.09. **H1 PASS (8/10), H2 PASS (10/10), H3 PASS (10/10)**: identical to Sonnet's |
+| streamer fuzz: 200,000 random lines (CRLF, NUL, huge, unicode, bidi, odd tags) through `parse_line`, `parse_command`, `slug`, `clean_channel` | 0 exceptions; `clean_channel` never returned anything outside `[a-z0-9_]`. Found: a PING payload with a CR was echoed into the PONG (fixed) |
+| vote-board fuzz: 300 boards x 2,000 messages, random rules, clock jumps of 0 to 10^6 s and backwards, 10,000 viewers in one second | 0 violations (no disallowed winner, no winner under the minimum, bounded memory; 30 counted of 10,000 in a second) |
+| protocol fuzz: 40,000 random protocols with hostile `weather:` / `audio:` / `predator:` blocks and `predator_escape` / `hum_demo` options | **13 TypeErrors before** (unhashable `kind` / `kinds` / `conditions`), **0 after**; no accepted `audio:` block ever carried a key other than the six synthetic-hum keys (no device can be named) |
+| `--record-replay` with each new block, then `--replay` | `weather:` 76 events, identical; `predator:` (10 s) identical; **`audio:` spikes DIFFER** (its current is not a replay event): now refused, like the Day 2 current blocks |
+| `--bundle` with all three blocks, then `--rerun-bundle` | MATCH (bit-exact), 2/2 |
+| artifacts made by release/3.0 (e55adf8), loaded here: save state (orchard), config.toml, three share codes, a bundle, a replay | all load; the save gets the three `weather.*` keys at off; bundle MATCH bit-exact; replay identical; mic and stream off |
+| frames rendered offscreen and looked at | below |
+| outdoor benchmark, 25 s each, 3 repeats | below |
+| 2D playthrough matrix repeated (the `flypaper:spider` question) | MATRIX_PLACEHOLDER |
+
+## Bugs found and fixed (each has a regression test in `tests/test_day3_review.py` unless noted)
+
+**Privacy and network**
+1. **A hidden second Twitch connection.** `TwitchChat` shared one stop flag across runs. Off-then-on while the first connect was still
+   blocked cleared the flag the old reader waited on: two readers ran, and the old one's connection had already been taken off the on-screen
+   list. Now each run has its own stop flag, socket and list entry; a run takes itself off the list only once its socket is closed.
+2. `stop()` called `sendall`/`close` on the SSL socket from the game thread while the reader thread was inside `recv` (an SSL object must
+   not be used from two threads; a blocked `sendall` could also freeze a frame for up to 5 s). Only the reader touches its socket now; it
+   polls every 0.25 s, says QUIT and closes.
+3. A failed TLS handshake left the TCP connection open (raw socket leaked).
+4. Nothing may add a second IRC command: outgoing lines with CR, LF or NUL are refused, and a PING payload is stripped of them (the server
+   could make the client send `PONG :x\rJOIN #other`).
+5. **A vote for a command the streamer switched off mid-round still ran.** The allowlist is checked again when the winner executes, and
+   votes for a command that is switched off are dropped from the open round.
+6. The docstring and the page promised a viewer's hash is dropped when the round ends; the flood limit's book kept them for up to a
+   minute. Only the last 2 s (what the limit needs) are kept now, and the page says so.
+7. **The brain view's neuPrint skeleton fetch ignored the network switch.** `--validate`, `--playthrough` and protocols disable the network
+   (netguard + `KTF_NO_NETWORK`), but `sim/morphology.py` only looked at `KICK_THE_FLY_OFFLINE`. It goes through netguard now. The netguard
+   docstring, the self-test text, `docs/streamer.md` ("the only network feature") and README ("None of these uses the network or the
+   microphone", printed right under the Microphone and Streamer bullets) said otherwise; all corrected.
+8. A stale microphone: a device that stopped delivering (unplugged, or a capture error) left its last sound on JO-A/B forever. After 0.5 s
+   without a new chunk the drive goes to zero; the switch and the pill stay as the player left them.
+9. Test-suite guard (`tests/conftest.py`): any `connect()` to an IPv4/IPv6 address in the test process raises. The full suite ran with it
+   (see the pytest row), so "nothing connects during pytest" is checked, not assumed.
+
+**Game**
+10. **Any click pulled a fly out of a predator's mouth.** Every left mouse-up sets `fly.grabbed = None` (both games), so the fly dropped free
+    while the frog still "carried" it, and was eaten anyway when the frog left. The predator re-asserts its hold each frame, as the vinegar
+    trap does. Also: a fly in one predator's mouth is no longer prey for a second one (a frog and a mantis could both catch it, double damage).
+11. **Settings > Brain broke in the kitchen:** the arena setting had 10 options and 9 labels; the page showed an error instead of the
+    settings. Label added; a test checks every choice setting.
+12. **Wet air reached only the first fly:** the humidity poke was drawn inside fly 0's turn (none at all while fly 0 was dead). Drawn once
+    a frame for every fly now; one fly sees exactly what it did before.
+13. **Leaving the kitchen with a fly in the trap** left it `grabbed`, pinned to the player's hand point in the next arena.
+14. **Loading a save** restored a fly's own `grabbed` part (and the trap's `perch = "vinegar"` and trip), but not what held it (hand,
+    predator, trap are not saved): the fly stayed pinned to the hand point by nothing. Released on load (a spider-wrapped fly keeps its wrap).
+15. The red pills: the "●" was a missing-glyph box (the HUD's fallback font on Linux has no U+25CF; now a drawn circle); a long channel
+    name (25 characters, the Twitch maximum) ran over the status card; at y = 58 they sat under the video REC badge and the "saved" line.
+    Now from y = 90, never left of the status card, text cut to fit. Found by looking at frames.
+16. Mic and streamer page: with Larger text "Viewers may vote" ran into "!tool", the slider labels into their sliders, the hum-demo text out
+    of its button; the streamer's status line ran off the panel's right edge **even at normal size**. Label column and controls are sized
+    from the font, the status has its own line. Looked at in both sizes (no unit test: layout).
+17. `render3d.segment(a, a)` (a tongue on its strike's first frame) built a NaN model matrix.
+
+**Lab**
+18. The predator assay's capture-frame off-by-one (above, "Read this first" 2). `docs/predators.md` updated with both numbers.
+19. `protocols/mic_hum_demo.yaml` **crashed at export** (`KeyError: 'per_fly'`): the hum demo's summary had none. Added, and `headline()`
+    no longer fails when the 35 ms condition isn't in the run. Both assays now write their pre-registered verdict (`criteria`, `verdict`)
+    into `summary.json`; before, the P/H verdicts were only ever computed by hand or in tests.
+20. `--record-replay` accepted an `audio:` block and wrote a replay that does not replay (spikes differ). Refused now.
+21. Protocol validation raised TypeError for unhashable `predator.kind`, `predator_escape` `kinds`, `hum_demo` `conditions` or
+    non-mapping options; `fly.hear(seconds=1e6)` tried to build 22 billion samples (now the protocol block's ranges), `fly.attack([])`
+    raised TypeError.
+
+## Sources (read by me, not through summaries, except where said)
+
+| claim | source | what I found |
+|---|---|---|
+| JO-A/B are the sound-sensitive groups | Kamikouchi et al. 2009, Nature 458:165, abstract (Europe PMC) | quote verbatim |
+| JO-B < ~100 Hz, JO-A higher, ~10-1,000 Hz together | Ishikawa, Fujiwara, Wong, Ura & Kamikouchi 2019, Front. Physiol. 10:1552, full text PMC6960095 | sentence verbatim in its introduction (citing Matsuo et al. 2014; Patella & Wilson 2018). **It is a research article (brief report), not a review**: fixed in `core/mic.py`, `docs/microphone.md`, Model Assumptions, the main docstring |
+| ~35 ms IPI, 220 Hz pulse carrier, ~150 Hz sine | Zhou et al. 2015, eLife 4:e08477, full text PMC4575990 | ~35 ms IPI and ~160 Hz sine (introduction, citing Bennet-Clark & Ewing 1967 among others); 220 Hz carrier and 140 Hz sine are their synthetic stimuli (methods). **pC1 band-pass tuning to 35-65 ms, only above 80 dB** (their Fig. 6): now in the docs as a disagreement with the model |
+| Current Biology 2024 | Lillvis et al. 2024, Curr Biol 34, doi 10.1016/j.cub.2024.01.015 | real; the abstract has no song numbers; full text not open, **not read**; no longer cited for numbers |
+| Bennet-Clark & Ewing 1969 | not open access | **not read**; the numbers no longer rest on it |
+| Twitch IRC host, port, PING | dev.twitch.tv/docs/chat/irc (fetched) | `irc.chat.twitch.tv:6697` TLS, PING/PONG; the documented login is `PASS oauth:...`; nothing about anonymous access |
+| anonymous `justinfan` login | discuss.dev.twitch.com threads 2046 (2015) and 5921, and the Feb 2024 join-limits announcement (54997), read as JSON | both cited threads exist; in 2024 a forum moderator wrote justinfan "was never officially documented" and its fate under the limits was unknown: added to `docs/streamer.md` |
+| JO-A 50, JO-B 88 neurons | the pack | Model Assumptions had them in the wrong order ("JO-B ... and JO-A ... (50 and 88)"): fixed |
+
+## Frames looked at (offscreen, real adult pack; capture script in the session scratchpad, not committed)
+
+- Frog: tongue mid-strike, at the catch (0.82 m of a 1.09 m aim), the fly held on the tongue tip (GRABBED, touch neurons firing,
+  health 45). Mantis: claw at full reach, the fly held. Both 2D predators and the 2D dragonfly drawn holding the fly.
+  At 0.9 m the frog's head sphere overlaps the fly (cosmetic; a player can put a frog that close).
+- MIC ON + TWITCH CHAT pills and the vote tally: default, Larger text, Blue/yellow and High contrast (the palettes only change the brain
+  view; the pills carry text, so they don't depend on red). The Mic and streamer page at both sizes (bugs 15, 16).
+- Orchard storm: rain streaks, darker scene, the touch neurons firing on drops. Reduced flashing: a single slow brightening (play-area
+  mean 69 -> 99 over 0.6 s and back), no strobe. The normal flash's pulses (4 frames) fell between my captures; the frame-to-frame rule
+  is covered by `tests/test_weather.py`.
+- Kitchen: burner, cook mid wind-up, vinegar jar, sink with water, bowl; the fly flew to the bowl and ate.
+- My capture method sometimes returned an all-black frame when two captures were one frame apart (reading the screen right after a swap).
+  It never happened to the game's own photo path, which re-renders; I treated it as an artifact of my script.
+
+## Performance (`tools/bench_outdoor.py`, SDL offscreen, 25 s, one fly, sim/real; 3 runs each, same session)
+
+| arena | clear | rain | rain, streaks not drawn | storm |
+|---|---|---|---|---|
+| field | 0.856 / 0.905 / 0.915 (mean 0.89) | 0.80 / 0.84 / 0.73 (0.79) | 0.93 / 0.83 / 0.82 (0.86) | 0.74 / 0.73 / 0.80 (0.76) |
+| orchard | 0.76 / 0.74 / 0.75 (0.75) | 0.74 / 0.66 / 0.67 (0.69) | 0.74 / 0.84 / 0.70 (0.76) | 0.59 / 0.72 / 0.55 (0.62) |
+
+fps 60.5-62.1 everywhere. Clear weather, interleaved across builds (3 runs each): field e55adf8 0.87, 40205e2 0.88, this branch 0.92;
+orchard 0.81 / 0.74 / 0.80: **no regression from Day 3 or from this review**; this machine is slower today than in Sonnet's session for all
+three. (One rain row may have overlapped 15 s of tests I ran by mistake; the spread is the same without it.)
+Decision material: rain costs ~8-11% and a storm ~15-17% relative to clear. The streaks are already one instanced batch; their Python
+cost per frame is well under a millisecond, and drawing them on vs off differs by less than the run-to-run spread. The rest is the pokes
+and the real extra spiking they cause, which I may not change. So: **not inside a 1.00x budget on this machine, and nothing cheap left.**
+
+## Not verified
+
+- A real microphone, a real Twitch connection (TLS, the server's real behaviour), a visible window with real input and a gamepad, GPU
+  compute backends, exe/AppImage builds, `nwbinspector` (as before).
+- The normal (not reduced) lightning flash's pulses on screen (captures missed them; covered by tests).
+- Lillvis et al. 2024 and Bennet-Clark & Ewing 1969 full texts.
+- Pre-existing, not touched: the video/timelapse REC badges also use "●" and will show the same missing-glyph box on this machine.
+
+## Decisions that are yours (with my recommendation)
+
+| question | recommendation |
+|---|---|
+| Predators in the Chaos preset? | Yes for the frog and the mantis (they're fun and end in a capture you can watch); keep the dragonfly out (it only hunts a flying fly, so in Chaos it mostly patrols). Either way the tool keys are unchanged. |
+| Frogs and mantises a held-still fly never escapes (0/30 each; now the dragonfly too, 0/30) | Keep: it's what the wiring does with these strikes, it's labelled MODEL PREDICTION, and in the game the fly moves, so a fly already dodging can still be missed. Don't slow the strikes to create escapes; if you want escapable predators, make it an explicit, labelled game rule (a wind-up the fly can see). |
+| "A cook you can dodge" = the fly dodges, not the player | Keep the fly reading: the cook's swing targets where a fly was, and a swat that can hit you would be a new rule for the player, not the fly. If you want both, add it as a separate, labelled game rule. |
+| Streamer defaults (`!tool` on; `!arena`, `!surgery` off) | Keep. With bug 5 fixed, switching one off now takes effect immediately, even mid-round. |
+| ~10% (rain) to ~16% (storm) brain slowdown | Accept for now (weather is off by default and Lab-only as parameters), and say it in docs/weather.md; revisit with a GPU backend. |
+| The neuPrint skeleton fetch is on by default (pre-dates Day 3; the rule says network use is opt-in) | Make it opt-in or ask once at first launch; it is now at least blocked in every headless run and the tests. |
+| Sonnet's list: predators not in Chaos, tool keys appended, the cook reading, streamer defaults, switches never persisted, README screenshots not remade | Agree with all; remake the screenshots once these decisions are settled. |

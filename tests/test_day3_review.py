@@ -554,3 +554,14 @@ def test_save_in_the_kitchen_with_a_trapped_and_a_caught_fly_then_load(synthetic
         held_by_something = s in g.preds.held or id(s) in g.kitchen.trapped or s.fly.wrapped
         assert s.fly.grabbed is None or held_by_something, "a loaded fly is held by nothing"
     assert g.kitchen.trapped == {} or all(k in {id(s) for s in g.flies} for k in g.kitchen.trapped)
+
+
+def test_the_suite_itself_cannot_open_a_network_connection():
+    import socket
+
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        with pytest.raises(OSError, match="never opens a network connection"):
+            s.connect(("127.0.0.1", 9))
+    finally:
+        s.close()
