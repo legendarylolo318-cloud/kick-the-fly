@@ -504,3 +504,53 @@ def test_the_pills_stay_clear_of_the_status_card_and_the_rec_badge(synthetic_pac
         assert r.x >= li.PILL_MIN_X, f"a pill at x={r.x} is drawn over the status card (it ends at {li.PILL_MIN_X - 10})"
         assert r.right <= k2.PLAY_W - 14 and r.y >= li.PILL_TOP
     assert not any("●" in t for t in texts), "the dot is a glyph many fallback fonts don't have (drawn as a box)"
+
+
+# --- compatibility: E through every arena with a predator holding the fly; save and load in the kitchen ---------------------------
+@pytest.mark.parametrize("three_d", [False, True])
+def test_e_cycles_every_arena_twice_with_a_predator_and_draws_each(synthetic_pack, three_d):
+    from kickthefly.game import kick_the_fly as k2
+
+    g = _game(three_d)
+    slot, _ = _catch(g, "frog")
+    seen = []
+    for _ in range(2 * len(k2.ARENAS)):
+        g.do_action("arena", g.clock.now)
+        seen.append(k2.ARENAS[g.arena_i])
+        t0 = g.clock.now
+        for i in range(10):
+            g.frame += 1
+            g._environment(t0 + (i + 1) / 60) if three_d else g._environment(t0 + (i + 1) / 60, (300, 300))
+            g.preds.step(t0 + (i + 1) / 60)
+        g.clock.now = t0 + 10 / 60
+        if not three_d:
+            g.draw(g.clock.now, (10, 10))                  # one clock, as in play (streaks are stamped with it)
+    want = set(k2.ARENAS) if three_d else set(k2.ARENAS) - set(k2.THREE_D_ONLY)
+    assert set(seen) == want, f"E reached {sorted(set(seen))}"
+    if not three_d:
+        assert "kitchen" not in seen
+    held = g.preds.pin_for(slot)
+    assert held is None or slot.fly.grabbed is not None, "a pin without a hold"
+    assert slot.fly.grabbed is None or g.preds.held or g.kitchen is not None or slot.fly.wrapped, \
+        "the fly is held by nothing after the arenas changed"
+
+
+def test_save_in_the_kitchen_with_a_trapped_and_a_caught_fly_then_load(synthetic_pack, tmp_path):
+    from kickthefly.core import savestate
+    from kickthefly.game import kick3d, kick_the_fly as k2
+
+    g = _game(True)
+    g.set_setting("brain.arena", "kitchen", save=False)
+    slot, _ = _catch(g, "mantis")
+    g.kitchen.trapped[id(slot)] = 1.0
+    p = tmp_path / "k.ktfsave"
+    savestate.save_game(g, p)
+    g.set_setting("brain.arena", "field", save=False)
+    assert slot.fly.grabbed is None or g.preds.held, "leaving the kitchen let go of the trapped fly"
+    savestate.load_game(g, p)
+    assert k2.ARENAS[g.arena_i] == "kitchen" and g.kitchen is not None
+    g.preds.step(g.clock.now)
+    for s in g.flies:
+        held_by_something = s in g.preds.held or id(s) in g.kitchen.trapped or s.fly.wrapped
+        assert s.fly.grabbed is None or held_by_something, "a loaded fly is held by nothing"
+    assert g.kitchen.trapped == {} or all(k in {id(s) for s in g.flies} for k in g.kitchen.trapped)
