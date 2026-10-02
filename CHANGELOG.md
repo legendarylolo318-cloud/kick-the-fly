@@ -2,6 +2,24 @@
 
 ## 3.0.0 (unreleased)
 
+### Day 4 (network science, sensitivity analysis, sleep deprivation, fly tournament, fly racing)
+Added. Nothing the simulation does changed: `--validate` was diffed against `release/3.0` (2,027 values, identical). The only edits near
+validation are optional arguments (`params`, `only`) that default to the old behavior.
+- **Fly tournament** (Esc > Fly arcade, `--tournament N`): brackets of 4, 8 or 16, brain-vs-brain duels (`game/flyduel.py`), measured
+  personality cards, a favorite, match replays, the champion's drivers, and a pre-registered personality-predicts-winning analysis.
+- **Fly racing** (Esc > Fly arcade, `--race`): lures, brain-driven speed, odds from the cards, **points only** (`core/points.py`), replays and a
+  race assay (repeatability, form, odds calibration).
+- **Network science** (Lab, `--netsci`): degrees, reciprocity, motifs vs a degree-preserving null, rich club, communities, regions, cached with
+  a checksum, CSV export, background job with a progress bar. Adult and larva.
+- **Sleep deprivation assay** (Lab, `--sleep-deprivation`, protocol assay kind `sleep_deprivation`): paired deprivation vs control; GAME RULE
+  pressure, CONNECTOME dFB readout, MODEL PREDICTION rebound.
+- **Sensitivity analysis** (Lab, `--sensitivity`): LIF parameters and the synapse threshold across a documented range against every validated
+  behavior with validation's own criteria; heatmap, CSV/JSON/SVG, resumable, worker processes. Analysis only.
+- Python API (`network_science`, `tournament`, `race`, `sleep_deprivation`, `sensitivity`, `fly.card`, `fly.duel`), `--selftest` day4 check,
+  seven playthrough checks, five Lab > Model assumptions cards, the main docstring, 104 localization strings, five docs pages.
+- `tools/run_tests.py`: the test suite in balanced chunks, a few at a time, with a memory guard and a per-file memory report
+  (`KTF_MEM_REPORT`); `tests/.durations.json` holds the timings it balances by.
+
 ### Day 2 (genetic toolkit, thermogenetics, patch clamp, imaging, pharmacology)
 Added, all in the Lab and all tagged on screen. Existing validation results are unchanged (diffed); the only edits near the simulation
 are inert hooks on `Brain` (named extra currents, a per-step probe) and optional fields on `sim.wiring.Wiring`.

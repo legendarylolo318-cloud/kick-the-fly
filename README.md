@@ -52,6 +52,7 @@ backends, the Python API and the Lab's optional NWB export.
 - [Tool loadouts](#tool-loadouts) and [Help: tutorial, self-test and bug report](#help-tutorial-self-test-and-bug-report)
 - [Neurodex, kill cam, share codes and bundles (3.0)](#neurodex-kill-cam-share-codes-and-bundles-30)
 - [Genetic toolkit, thermogenetics, patch clamp, imaging and pharmacology (3.0)](#genetic-toolkit-thermogenetics-patch-clamp-imaging-and-pharmacology-3.0-lab)
+- [Network science, sensitivity, sleep deprivation, fly tournament and racing (3.0)](#network-science-sensitivity-sleep-deprivation-fly-tournament-and-racing-30)
 - [Play: challenges and real-science cards](#play-challenges-and-real-science-cards)
 - [Screenshots](#screenshots)
 - [Lab mode](#lab-mode), [Validation](#validation), [Performance](#performance), [Python API](#python-api)
@@ -218,6 +219,17 @@ More in [docs/selftest-and-bugreport.md](docs/selftest-and-bugreport.md).
 - **Pharmacology** (Lab > Pharmacology; picrotoxin moved here): picrotoxin, cholinergic block, glutamate-Cl block and a GABA-A agonist scale synapses by predicted transmitter, with a dose slider, the synapses affected at each confidence level, and an option to exclude low-confidence predictions (**MODEL PREDICTION**). Octopamine/dopamine are left out. [docs/pharmacology.md](docs/pharmacology.md)
 
 Only the microphone and Streamer mode use a device or the network; both are opt-in, off at every launch, and never run during `--validate`, a protocol, the playthrough or a test (the protocol `audio:` block is a synthetic hum). None of these changes a validation result: the `weather.*` Lab parameters are off by default.
+
+## Network science, sensitivity, sleep deprivation, fly tournament and racing (3.0)
+
+- **Fly tournament** (Esc > Fly arcade; `--headless --tournament N --seeds ...`; 3.0 day 4): a bracket of 4, 8 or 16 flies, each a different individuality seed with a personality card **measured from its own brain**, fighting 1v1 duels in which **both sides are brains** (turning is DNa01/02, shooting DNp35/DNpe052, the dodge the giant fiber: **CONNECTOME**; the arena, blaster, pairing and tie-break are **GAME RULE**). Pick a favorite, replay any match, see which neurons fired before the champion's landed shots (a correlation, labelled as one). Headless it asks whether personality predicts winning, with a pre-registered analysis and an `--individuality off` control. Who wins is a **MODEL PREDICTION**. [docs/tournament.md](docs/tournament.md)
+- **Fly racing** (Esc > Fly arcade; `--race`): flies race a track with sugar and fruit lures through their own brains (the walking neurons set the speed). Bet **in-game points only: no money, nothing to buy**; the odds come from the measured personality stats. Replays, and a headless race assay on whether individuality predicts the finishing order (each fly runs twice, so it is compared with itself). [docs/racing.md](docs/racing.md)
+- **Network science** (Lab; `--netsci`): degree distributions (in/out), reciprocity, 3-node motifs against a degree-preserving null, rich club, modularity and communities and per-region summaries, for the adult and the larva, computed from the pack's synapse counts (**CONNECTOME**), cached with a checksum, exported to CSV, run off the game thread with a progress bar. [docs/network-science.md](docs/network-science.md)
+- **Sleep deprivation assay** (Lab; `--sleep-deprivation`): keep a fly awake with timed disturbances, then measure rebound sleep against its own undisturbed control (paired). Sleep pressure is a **GAME RULE**, the dFB firing it drives is the **CONNECTOME** readout, the rebound a **MODEL PREDICTION**; the docs and the output say which is which, including that the rebound is expected from the rule. [docs/sleep-deprivation.md](docs/sleep-deprivation.md)
+- **Sensitivity analysis** (Lab; `--sensitivity`): vary each LIF parameter (noise, tonic drive, target rate, sensory gain, gain adaptation) and the synapse threshold across a documented range and re-run every validated behavior with validation's own criteria: a parameter x behavior heatmap of PASS/FAIL and effect size, resumable, worker processes, CSV/JSON/SVG. **Analysis only: the defaults are not changed by it.** [docs/sensitivity.md](docs/sensitivity.md)
+- Python API: `network_science`, `tournament`, `race`, `sleep_deprivation`, `sensitivity`, `fly.card()`, `fly.duel(other)`. Assay kind `sleep_deprivation` in protocols. `--selftest` checks them; the playthrough bot has seven new checks. `tools/run_tests.py` runs the test suite in balanced chunks with a memory guard.
+
+None of them uses the network or the microphone, and none changes a validation result (`--validate` was diffed against `release/3.0`: identical).
 
 ## Play: challenges and real-science cards
 

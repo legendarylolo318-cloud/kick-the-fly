@@ -68,6 +68,20 @@ individuality off / subtle / strong (the gains' spread is the documented sigma, 
 different runs); and every loadout preset in every mode, on both brains, with each slot used. The 3D renderer runs offscreen where
 OpenGL is available (the real `Renderer` into a framebuffer, checked for a non-blank frame); with no GL its checks are **skipped**, never failed.
 
+### 3.0 day 4 checks (criteria written before the first run)
+
+`extra:tournament` runs a 4-fly bracket of short real-brain duels and asserts the structure (3 matches, each winner one of its two flies,
+the champion won both its rounds), that a match replayed from the same seeds is identical, that the personality cards are measured, that
+the analysis returns its three tests and that `Fly.duel` runs. `extra:race` races three real flies for a short cap: each moves, the order
+follows the distances, the odds are probabilities, a points bet settles in a temporary wallet. `extra:netsci` runs the whole network
+science on the larva pack (and checks the cache round trip and that a tampered cache is recomputed) and the adult pack's connection
+and reciprocity counts; the full adult analysis (five minutes) is `--netsci` and the unit tests. `extra:sleepdep` runs a short paired
+deprivation: the disturbed flies end with more sleep pressure and sleep less in the window than their controls. `extra:sensitivity` runs a
+smoke grid (one parameter, one behavior, three seeds: underpowered by design) through validation's criteria, resumes it, and writes the
+exports. `extra:day4-pages` draws the arcade page and the three new Lab pages on a real game in every accessibility palette and checks
+their buttons are registered with the menu (the mouse and the gamepad both use that list). Who wins a duel or a race is a MODEL PREDICTION:
+it is reported in the metrics and never judged.
+
 ## In CI
 
 Every pull request runs `--selftest` and the quick playthrough (`tests.yml`, "selftest and playthrough"); a release also needs the full

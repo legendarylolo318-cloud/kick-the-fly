@@ -80,3 +80,41 @@ def synthetic_pack(_synthetic_pack_file, monkeypatch):
     yield _synthetic_pack_file
     neurodex.reset_cache()
     simcore.pack.cache_clear()
+
+
+# --- memory report per test file (3.0 day 4, a follow-up of the day 3 review) -------------------------------------------------------
+# Off unless KTF_MEM_REPORT=path.json is set (tools/run_tests.py --mem-report does that). After each test module the process is
+# garbage-collected and its resident size recorded: a file whose growth is large and never comes back is a leak, and the running
+# total shows whether the suite as a whole is climbing. Costs nothing when off.
+_MEM_ROWS: list[dict] = []
+
+
+def _rss_mb() -> float:
+    try:
+        with open("/proc/self/statm") as f:
+            return int(f.read().split()[1]) * os.sysconf("SC_PAGE_SIZE") / 1048576
+    except (OSError, ValueError):
+        return 0.0
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _ktf_memory_report(request):
+    path = os.environ.get("KTF_MEM_REPORT")
+    if not path:
+        yield
+        return
+    import gc
+
+    gc.collect()
+    before = _rss_mb()
+    yield
+    gc.collect()
+    after = _rss_mb()
+    _MEM_ROWS.append(dict(file=str(Path(str(request.fspath)).relative_to(ROOT)), before_mb=round(before), after_mb=round(after),
+                          growth_mb=round(after - before)))
+    try:
+        import json
+
+        Path(path).write_text(json.dumps(_MEM_ROWS, indent=1))
+    except OSError:
+        pass
