@@ -27,6 +27,7 @@ RED = (235, 70, 70)
 PILL_TOP = 90                       # the red pills' top: below the video REC badge and the "saved" line
 PILL_MIN_X = 256                    # never left of this: the status card (x 10, 236 wide) and the panels under it
 PILL_PAD = 36                       # the dot and the margins
+LAB_LOCK = "Streamer mode is off in Lab mode, so chat can't change an experiment (Play or Pet mode allows it)"
 STALE_S = 0.5                       # no new sound for this long and the microphone's drive goes to zero (GAME RULE)
 
 
@@ -88,6 +89,10 @@ class LiveInputs:
             self.chat, self.stream_on, self.stream_error = None, False, ""
             self.board.reset()
             self.g.note("STREAM   off")
+            return False
+        if self.lab_locked():
+            self.stream_error = LAB_LOCK
+            self._flash(LAB_LOCK)
             return False
         try:
             chan = streamer.clean_channel(self.channel if channel is None else channel)
@@ -187,7 +192,17 @@ class LiveInputs:
         return streamer.Rules(float(c.get("stream.window_s", streamer.WINDOW_S)), float(c.get("stream.cooldown_s", streamer.COOLDOWN_S)),
                               int(c.get("stream.min_votes", streamer.MIN_VOTES)), frozenset(allow))
 
+    def lab_locked(self) -> bool:
+        """Streamer mode is off in Lab mode: a chat vote could silence a neuron group or change the arena in the middle of an
+        experiment, and nothing in a recording would say so (3.0 day 3 review)."""
+        return self.g.cfg.get("brain.mode", "play") == "lab"
+
     def _stream_tick(self) -> None:
+        if self.lab_locked():
+            self.set_stream(False)
+            self.stream_error = LAB_LOCK
+            self._flash(LAB_LOCK)
+            return
         chat = self.chat
         if chat is None:
             self.set_stream(False)
@@ -362,7 +377,8 @@ def page(m, surf, rect, mouse) -> None:
     y += 28
     m.text(surf, "Streamer mode", (x, y + 14), ui.TEXT, m.f_text, "midleft")
     nok, nwhy = netguard.allowed()
-    m.toggle(surf, (c, y, 50, 28), live.stream_on, lambda v: live.set_stream(bool(v)), id="live_stream", enabled=nok or live.stream_on,
+    m.toggle(surf, (c, y, 50, 28), live.stream_on, lambda v: live.set_stream(bool(v)), id="live_stream",
+             enabled=(nok and not live.lab_locked()) or live.stream_on,
              tip="Off every time the game starts. Connects to irc.chat.twitch.tv (port 6697) anonymously and only reads: it never logs in, "
                  "never sends, never stores a token. The connection is shown on screen while it is open.")
     m.text(surf, "channel", (c + 130, y + 14), ui.TEXT, m.f_small, "midleft")
@@ -372,7 +388,8 @@ def page(m, surf, rect, mouse) -> None:
     if live.stream_on and live.chat is not None:
         status, col = f"{live.chat.state}: {live.chat.describe()}   commands read: {live.chat.commands_read}", (255, 140, 140)
     else:
-        status, col = live.stream_error or ("" if nok else nwhy), ui.BAD if live.stream_error else ui.LABEL
+        status = live.stream_error or (LAB_LOCK if live.lab_locked() else "" if nok else nwhy)
+        col = ui.BAD if live.stream_error else ui.LABEL
     if status:
         m.wrapped(surf, status, (c, y), rect.right - 24 - c, col, m.f_small, 2)
     y += 2 * m.f_small.get_linesize() + 4

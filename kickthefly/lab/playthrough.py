@@ -1103,6 +1103,16 @@ def extra_live_inputs(rig: Rig, r: Result) -> None:
     live = g.live
     r.expect(not live.mic_on and not live.stream_on and live.indicators() == [], "the microphone or Streamer mode was on at launch")
     live.channel = "mychannel"
+    mode = g.cfg.get("brain.mode", "play")
+    g.set_setting("brain.mode", "lab", save=False)                    # 3.0 day 3 review: no chat votes in Lab mode
+    def refuse(ch):
+        raise AssertionError("Streamer mode tried to connect in Lab mode")
+
+    live.chat_factory = refuse
+    r.expect(live.set_stream(True) is False and live.stream_error == li.LAB_LOCK and not netguard.connections(),
+             f"Streamer mode started in Lab mode: {live.stream_error}")
+    live.chat_factory = st.TwitchChat
+    g.set_setting("brain.mode", "play", save=False)
     r.expect(live.set_stream(True) is False and "network is off" in live.stream_error and not netguard.connections(),
              "Streamer mode connected (or did not say why not) in a headless run")
     client, server = socket.socketpair()
@@ -1145,7 +1155,8 @@ def extra_live_inputs(rig: Rig, r: Result) -> None:
     th.join(2.0)
     r.expect(not netguard.connections() and live.indicators() == [], "a connection or an indicator was left after switching off")
     live.chat_factory = st.TwitchChat
-    r.note("no real network was used: the server is an in-memory socket pair")
+    g.set_setting("brain.mode", mode, save=False)
+    r.note("no real network was used: the server is an in-memory socket pair; Lab mode refused it first")
 
 
 def extra_patch(backend: str, r: Result) -> None:

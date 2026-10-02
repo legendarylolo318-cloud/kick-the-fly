@@ -565,3 +565,54 @@ def test_the_suite_itself_cannot_open_a_network_connection():
             s.connect(("127.0.0.1", 9))
     finally:
         s.close()
+
+
+# --- follow-ups the user approved: no chat votes in Lab mode; the live inputs are in a recording's metadata --------------------------
+def test_streamer_mode_is_refused_in_lab_mode_and_stops_when_lab_mode_starts(synthetic_pack):
+    from kickthefly.game import live_inputs as li
+
+    g = _game(True)
+    live = g.live
+    live.chat_factory = _Chat
+    g.set_setting("brain.mode", "lab", save=False)
+    assert live.set_stream(True, "somechannel") is False and live.stream_error == li.LAB_LOCK and live.chat is None
+    g.set_setting("brain.mode", "play", save=False)
+    assert live.set_stream(True, "somechannel")
+    g.set_setting("brain.mode", "lab", save=False)                    # switching to Lab while streaming
+    live.tick()
+    assert not live.stream_on and live.chat is None and live.stream_error == li.LAB_LOCK
+
+
+def test_a_recording_says_whether_the_microphone_was_on(synthetic_pack):
+    from kickthefly.lab import recorder
+
+    g = _game(True)
+    assert recorder.metadata(g.brain, g)["live_inputs"]["microphone_on"] is False
+    g.live.mic_on = True
+    m = recorder.metadata(g.brain, g)["live_inputs"]
+    assert m["microphone_on"] is True and m["mic_sensitivity"] == 1.0
+
+
+def test_the_neuprint_download_is_opt_in_and_asked_once(synthetic_pack, monkeypatch):
+    from kickthefly.core import config
+    from kickthefly.sim import morphology
+
+    monkeypatch.delenv("KICK_THE_FLY_OFFLINE", raising=False)
+    monkeypatch.setenv("KTF_NO_NETWORK", "")
+    assert config.Config(None)["brain.neuron_shapes"] is False, "off by default"
+    morphology.set_opt_in(False)
+    assert not morphology.network_allowed(), "no download without the player's yes"
+    morphology.set_opt_in(True)
+    try:
+        assert morphology.network_allowed()
+    finally:
+        morphology.set_opt_in(False)
+    g = _game(True)
+    g.cfg.first_run.update(tutorial_done=True, loadout_notice=False, neuron_shapes_asked=False)
+    g.show_first_run_notices()
+    assert g.menu.screen == "neuron_shapes_ask" and g.cfg.first_run["neuron_shapes_asked"]
+    g.menu.draw(pygame.Surface((1280, 760)), (0, 0), 1.0)
+    assert getattr(g.menu, "_page_error", None) is None
+    g.menu.back()
+    g.show_first_run_notices()
+    assert g.menu.screen != "neuron_shapes_ask", "asked once"

@@ -24,7 +24,7 @@ loadout (nothing in `kickthefly/lab/` reads it).
 | preset | tools (the hand is always first) |
 |---|---|
 | Base (Play's default) | hand, swatter, blowtorch, freeze spray, sugar |
-| Chaos | bomb, blowtorch, brake cleaner, zapper, spider, alcohol |   <!-- 3.0 day 3 added frog, dragonfly and mantis (Creatures) to All and Lab only -->
+| Chaos | bomb, blowtorch, brake cleaner, zapper, spider, alcohol, frog, mantis (the last two since the 3.0 day 3 review; appended, so keys 1-7 are unchanged; the dragonfly is in All and Lab, as it only hunts a flying fly) |
 | Chemist | brake cleaner, alcohol, cVA, sugar, freeze spray |
 | Lab (Lab's default) | every tool, the laser included |
 | All | every tool the mode allows, in the order the number keys always had |

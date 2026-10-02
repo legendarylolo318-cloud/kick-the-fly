@@ -31,7 +31,8 @@ def test_catalog_covers_exactly_the_games_tools():
 def test_presets_are_the_documented_ones():
     p = lo.PRESETS
     assert p["base"] == ("hand", "swatter", "torch", "freeze", "sugar")
-    assert set(p["chaos"]) == {"hand", "bomb", "torch", "cleaner", "zapper", "spider", "alcohol"}
+    assert set(p["chaos"]) == {"hand", "bomb", "torch", "cleaner", "zapper", "spider", "alcohol", "frog", "mantis"}
+    assert p["chaos"][:7] == ("hand", "bomb", "torch", "cleaner", "zapper", "spider", "alcohol"), "keys 1-7 unchanged"
     assert set(p["chemist"]) == {"hand", "cleaner", "alcohol", "cva", "sugar", "freeze"}
     assert p["lab"] == p["all"] == lo.TOOL_NAMES and "laser" in p["lab"]
     assert set(p["pet"]) == set(p["base"]) | {"fruit"}
@@ -210,7 +211,7 @@ def test_an_old_config_that_already_chose_a_preset_keeps_it(tmp_path):
 def test_a_fresh_install_gets_base_and_the_tutorial(tmp_path):
     c = config.Config.load(tmp_path / "nope" / "config.toml")
     assert c["controls.loadout_preset"] == "auto" and lo.resolve(c).tools == list(lo.PRESETS["base"])
-    assert c.first_run == {"tutorial_done": False, "loadout_notice": False} and c.migrated_from is None
+    assert c.first_run == {"tutorial_done": False, "loadout_notice": False, "neuron_shapes_asked": False} and c.migrated_from is None
 
 
 # --- replays and the Python API -----------------------------------------------------------------------------------------------

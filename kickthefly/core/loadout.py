@@ -134,7 +134,7 @@ assert set(TOOL_NAMES) == set(BY_NAME) and len(TOOL_NAMES) == len(CATALOG)
 # name -> tuple of tool names (the hand is added by build() wherever a preset forgets it)
 PRESETS: dict[str, tuple[str, ...]] = {
     "base": ("hand", "swatter", "torch", "freeze", "sugar"),
-    "chaos": ("hand", "bomb", "torch", "cleaner", "zapper", "spider", "alcohol"),
+    "chaos": ("hand", "bomb", "torch", "cleaner", "zapper", "spider", "alcohol", "frog", "mantis"),   # 3.0 day 3 review: + frog, mantis (appended: keys 1-7 unchanged)
     "chemist": ("hand", "cleaner", "alcohol", "cva", "sugar", "freeze"),
     "lab": TOOL_NAMES,                                     # every tool, the laser included
     "all": TOOL_NAMES,                                     # every tool the mode allows (no laser outside Lab)
@@ -146,7 +146,7 @@ PRESET_LABELS = {"auto": "Auto", "base": "Base", "chaos": "Chaos", "chemist": "C
 PRESET_TIPS = {
     "auto": "Base in Play, Lab in Lab mode, Pet in Pet mode.",
     "base": "Hand, swatter, blowtorch, freeze spray, sugar.",
-    "chaos": "Bomb, blowtorch, brake cleaner, zapper, spider, alcohol.",
+    "chaos": "Bomb, blowtorch, brake cleaner, zapper, spider, alcohol, frog, mantis.",
     "chemist": "Brake cleaner, alcohol, cVA, sugar, freeze spray.",
     "lab": "Every tool, including the laser.",
     "all": "Every tool the mode allows (the laser only in Lab mode).",

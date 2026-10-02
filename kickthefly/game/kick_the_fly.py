@@ -2620,6 +2620,9 @@ class Game:
                 from kickthefly.core.pet import PetManager
                 self.pet = PetManager()
                 self.pet.load_or_create(brain_type=self.brain_type)
+        elif key == "brain.neuron_shapes":
+            from kickthefly.sim import morphology
+            morphology.set_opt_in(bool(c[key]))
         elif key == "brain.pet_real_stakes":
             if getattr(self, "pet", None):
                 self.pet.real_stakes = bool(c[key])
@@ -2836,6 +2839,12 @@ class Game:
             self.open_menu("loadout_notice")
         elif not fr.get("tutorial_done"):
             self.start_tutorial()
+        elif not fr.get("neuron_shapes_asked") and not self.cfg["brain.neuron_shapes"]:
+            fr["neuron_shapes_asked"] = True             # asked once; Settings > Brain changes it later
+            self.cfg.dirty = True
+            self.cfg.save()
+            self.menu.pages["neuron_shapes_ask"] = page_neuron_shapes
+            self.open_menu("neuron_shapes_ask")
         else:
             self.x3.maybe_show_notd()                 # 3.0: the Neuron of the Day card (its own setting, default on)
 
@@ -7231,6 +7240,26 @@ def playable_brain(cfg) -> str:
     return "adult"
 
 
+def page_neuron_shapes(menu, surf, rect, mouse) -> None:
+    """The one-time question (3.0 day 3 review): may the brain view download ten real neuron shapes from neuPrint?"""
+    cx = rect.centerx
+    menu.text(surf, tr("Download real neuron shapes?"), (cx, rect.y + 40), menu_ui.INK, menu.f_head, "midtop")
+    menu.wrapped(surf, tr("The brain view can draw ten neurons (the giant fiber DNp01, DNa02, MBON01, MBON14 and a Kenyon cell type) "
+                          "from their real electron-microscopy skeletons, downloaded once from Janelia's neuPrint and kept in a "
+                          "cache. Without them it draws estimated fibers. Nothing about the simulation changes either way: every "
+                          "neuron is simulated as a point. This is the game's only network use besides Streamer mode, so it is "
+                          "off unless you say yes. Settings > Brain changes it later; it applies on the next launch."),
+                 (rect.x + 60, rect.y + 96), rect.w - 120, menu_ui.TEXT, menu.f_text, max_lines=9)
+
+    def answer(yes: bool) -> None:
+        menu.host.set_setting("brain.neuron_shapes", yes)
+        menu.back()
+
+    menu.button(surf, (cx - 250, rect.bottom - 90, 240, 50), tr("Yes, download them"), lambda: answer(True), id=("ns", "yes"))
+    menu.button(surf, (cx + 10, rect.bottom - 90, 240, 50), tr("No thanks"), lambda: answer(False), style="primary",
+                id=("ns", "no"))
+
+
 def load_brain(out: dict) -> None:
     try:
         from kickthefly.sim import brainpack
@@ -7395,6 +7424,8 @@ def main(argv: list[str] | None = None) -> int:
 
         return headless.main(args)
     cfg = config.Config.load(p.config_file)
+    from kickthefly.sim import morphology
+    morphology.set_opt_in(bool(cfg["brain.neuron_shapes"]))   # 3.0 day 3 review: the neuPrint download is opt-in
     from kickthefly.core import i18n
     i18n.set_language(cfg["access.language"])
     # Disambiguate --backend: if it matches a sim backend, apply to brain.backend; if display backend, use for video

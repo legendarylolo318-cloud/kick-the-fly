@@ -388,5 +388,10 @@
   "Streamer mode: vote window": "Streamer mode: vote window",
   "The fewest votes the winning option needs to take effect. GAME RULE.": "The fewest votes the winning option needs to take effect. GAME RULE.",
   "Whether viewers can change the arena by chat vote (!arena NAME). Off until you switch it on. GAME RULE.": "Whether viewers can change the arena by chat vote (!arena NAME). Off until you switch it on. GAME RULE.",
-  "Whether viewers can silence or restore a neuron group by chat vote (!surgery NAME). Off until you switch it on. GAME RULE.": "Whether viewers can silence or restore a neuron group by chat vote (!surgery NAME). Off until you switch it on. GAME RULE."
+  "Whether viewers can silence or restore a neuron group by chat vote (!surgery NAME). Off until you switch it on. GAME RULE.": "Whether viewers can silence or restore a neuron group by chat vote (!surgery NAME). Off until you switch it on. GAME RULE.",
+  "Bomb, blowtorch, brake cleaner, zapper, spider, alcohol, frog, mantis.": "Bomb, blowtorch, brake cleaner, zapper, spider, alcohol, frog, mantis.",
+  "Download real neuron shapes?": "Download real neuron shapes?",
+  "No thanks": "No thanks",
+  "The brain view can draw ten neurons (the giant fiber DNp01, DNa02, MBON01, MBON14 and a Kenyon cell type) from their real electron-microscopy skeletons, downloaded once from Janelia's neuPrint and kept in a cache. Without them it draws estimated fibers. Nothing about the simulation changes either way: every neuron is simulated as a point. This is the game's only network use besides Streamer mode, so it is off unless you say yes. Settings > Brain changes it later; it applies on the next launch.": "The brain view can draw ten neurons (the giant fiber DNp01, DNa02, MBON01, MBON14 and a Kenyon cell type) from their real electron-microscopy skeletons, downloaded once from Janelia's neuPrint and kept in a cache. Without them it draws estimated fibers. Nothing about the simulation changes either way: every neuron is simulated as a point. This is the game's only network use besides Streamer mode, so it is off unless you say yes. Settings > Brain changes it later; it applies on the next launch.",
+  "Yes, download them": "Yes, download them"
 }

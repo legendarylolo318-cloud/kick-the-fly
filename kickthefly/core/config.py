@@ -146,6 +146,11 @@ SETTINGS: tuple[Setting, ...] = (
       "A small card at launch with one curated cell type, a fact with its citation (from the literature, not measured "
       "here) and a Try it button that sets up a one-click experiment. Separate from the real-science popups. Which type, "
       "the card and Try it are game rules.", tag=GAME_RULE),
+    S("brain.neuron_shapes", "Brain", "Download real neuron shapes", "bool", False,
+      "Lets the brain view download the EM skeletons of ten neurons (two each of DNp01, DNa02, MBON01, MBON14 and KCg) from "
+      "Janelia's neuPrint, once, into a cache. Off by default: it is the game's only network use outside Streamer mode. "
+      "Shapes are drawing only: the simulation treats every neuron as a point either way, so no result depends on this. "
+      "Shapes already in the cache load without the network. Never used in headless runs or tests.", restart=True),
     S("brain.mic_sensitivity", "Brain", "Microphone sensitivity", "float", 1.0,
       "Esc > Mic and streamer: how loud a band must be to drive the Johnston's organ JO-A/JO-B neurons fully (the sound is band-passed "
       "into JO-B, below ~100 Hz, and JO-A, higher; neurons from the dataset, the transduction and every number a GAME RULE). Only the "
@@ -356,7 +361,7 @@ SCHEMA_VERSION = 3
 # 2.13 (schema < 3) had players on keys 1-9, 0, - and =, which then reached every tool, so it migrates to the All
 # preset (nobody's muscle memory breaks) with a one-time notice pointing at the loadout editor, and it counts as
 # already onboarded (no first-launch tutorial; Settings > Help replays it). A fresh install gets Base and the tutorial.
-FIRST_RUN_DEFAULTS = {"tutorial_done": False, "loadout_notice": False}
+FIRST_RUN_DEFAULTS = {"tutorial_done": False, "loadout_notice": False, "neuron_shapes_asked": False}
 
 
 class Config:
