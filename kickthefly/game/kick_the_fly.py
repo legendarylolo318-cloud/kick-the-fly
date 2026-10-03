@@ -7443,6 +7443,9 @@ def parse_args(argv: list[str] | None = None):
                          "individuality seeds; reports whether personality predicts winning")
     ap.add_argument("--match-seconds", dest="match_seconds", type=float,
                     help="with --tournament: the length of a duel in game seconds (default 20)")
+    ap.add_argument("--race-r4", action="store_true",
+                    help="3.0 day 4 review, headless: the pre-registered race test R4 (individuality with the brain state held fixed: "
+                         "8 races of 6, seeds 1000-1047, subtle and the off control; lab/racing.py)")
     ap.add_argument("--race", action="store_true",
                     help="3.0 day 4, headless: the race assay (flies race through their own brains; does individuality "
                          "predict the finishing order?)")

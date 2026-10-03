@@ -387,6 +387,9 @@ def main(args) -> int:
         if getattr(args, "tournament", None):
             from kickthefly.lab import tournament
             return tournament.main(args)
+        if getattr(args, "race_r4", False):
+            from kickthefly.lab import racing
+            return racing.main_r4(args)
         if getattr(args, "race", False):
             from kickthefly.lab import racing
             return racing.main(args)

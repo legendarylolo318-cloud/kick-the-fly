@@ -460,3 +460,74 @@ def test_the_arcade_measures_the_flies_in_play(menu, isolated_home, synthetic_pa
     draw(menu, "arcade")
     assert seen and seen[0][0] == (7, 8) and seen[0][1] == "subtle" and seen[0][2]["noise_std"] == pytest.approx(0.05)
     assert all(s.personality["measured"] for s in slots) and not hit(menu, "arcade_measure_play")["enabled"]
+
+
+# --- decision B: R4 holds the brain state fixed and varies only the individual (the analysis on fakes; the plumbing on the synthetic pack)
+def _r4_play(speed_of_fly, speed_of_state, noise_sd=1.0):
+    def play(task):
+        race, state_seed, iseed, repeat, mode, backend, cap = task
+        rng = np.random.default_rng(hash((iseed, repeat)) & 0xFFFF)
+        t = 40.0 + speed_of_state(state_seed) + speed_of_fly(iseed, mode) + rng.normal(0, noise_sd)
+        return race, iseed, repeat, dict(finish_s=t, distance=8.0, seconds=t)
+    return play
+
+
+def test_r4_design_is_eight_races_of_six_with_one_state_seed_each():
+    from kickthefly.lab import racing
+
+    d = racing.r4_design()
+    assert len(d) == 8 and all(len(x["individuality_seeds"]) == 6 for x in d)
+    assert [x["state_seed"] for x in d] == list(range(1000, 1008))
+    assert sorted(i for x in d for i in x["individuality_seeds"]) == list(range(1000, 1048))
+
+
+def test_r4_ignores_what_the_shared_brain_state_does_to_speed():
+    from kickthefly.lab import racing
+
+    state_only = _r4_play(lambda i, m: 0.0, lambda s: 10.0 * (s - 1000))           # the off control's situation in R1: state, not individual
+    sub = racing.run_r4("subtle", play=state_only)
+    off = racing.run_r4("off", play=state_only)
+    an = racing.analyze_r4(sub, off, n_perm=2000, n_boot=2000)
+    assert abs(an["r_within_subtle"]) < 0.35 and not an["passed"]
+    from scipy import stats
+    pooled = stats.spearmanr([f["times"][0] for f in sub["flies"]], [f["times"][1] for f in sub["flies"]])[0]
+    assert pooled > 0.9, "R1's pooled statistic would call this repeatable: R4's within-race one does not"
+
+
+def test_r4_finds_a_fly_speed_that_comes_from_its_individuality_and_not_from_the_off_control():
+    from kickthefly.lab import racing
+
+    rng = np.random.default_rng(5)
+    own = {i: rng.normal(0, 4.0) for i in range(1000, 1048)}
+    play = _r4_play(lambda i, m: own[i] if m != "off" else 0.0, lambda s: 3.0 * (s - 1000))
+    an = racing.analyze_r4(racing.run_r4("subtle", play=play), racing.run_r4("off", play=play), n_perm=2000, n_boot=2000)
+    assert an["passed"] and an["r_within_subtle"] > 0.6 and an["perm_p_subtle"] < 0.01 and an["ci_difference"][0] > 0
+    assert abs(an["r_within_off"]) < 0.4
+    text = racing.summary_r4(an)
+    assert "R4 PASS" in text and "nan" not in text
+
+
+def test_r4_files_and_the_headless_flag(tmp_path, monkeypatch, capsys):
+    import argparse
+    from kickthefly.lab import racing
+
+    play = _r4_play(lambda i, m: 0.0, lambda s: 0.0)
+    real = racing.run_r4
+    monkeypatch.setattr(racing, "run_r4", lambda mode, **kw: real(mode, play=play))
+    assert racing.main_r4(argparse.Namespace(workers=1, out=str(tmp_path))) == 0
+    assert {p.name for p in tmp_path.iterdir()} == {"race_r4.json", "race_r4_flies.csv", "race_r4_analysis.csv"}
+    assert "R4 FAIL" in capsys.readouterr().out
+    assert len((tmp_path / "race_r4_flies.csv").read_text().splitlines()) == 1 + 96
+
+
+def test_the_individuality_seed_can_differ_from_the_state_seed_and_defaults_to_it(synthetic_pack):
+    from kickthefly.core import individuality, simcore
+
+    a = simcore.new_brain(seed=5, individuality="subtle", warmup=0)
+    b = simcore.new_brain(seed=5, individuality="subtle", individuality_seed=9, warmup=0)
+    n = a.sim.n
+    assert np.array_equal(a.sim.d_pre, individuality.compute_fly_gains(5, n, "subtle")[0])
+    assert np.array_equal(b.sim.d_pre, individuality.compute_fly_gains(9, n, "subtle")[0])
+    assert np.array_equal(a.sim._noise, b.sim._noise), "the noise (state) seed is still 5"
+    c = simcore.new_brain(seed=5, individuality="off", individuality_seed=9, warmup=0)
+    assert c.sim.d_pre is None
