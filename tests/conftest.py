@@ -108,6 +108,7 @@ def _ktf_memory_report(request):
     gc.collect()
     before = _rss_mb()
     yield
+    shutdown_live_games()                          # what the file left running is freed first (3.0 day 4 review), then measured
     gc.collect()
     after = _rss_mb()
     _MEM_ROWS.append(dict(file=str(Path(str(request.fspath)).relative_to(ROOT)), before_mb=round(before), after_mb=round(after),
