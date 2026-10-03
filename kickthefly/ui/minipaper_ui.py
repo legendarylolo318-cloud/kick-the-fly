@@ -197,11 +197,13 @@ def _step_run(m, surf, x, y, w, p, s) -> int:
 
 
 def _run_or_record(m, p, s) -> None:
-    ok, _ = minipapers.available(p)
+    ok, why = minipapers.available(p)
     if ok:
         start(m, p.id)
-    else:
+    elif p.recorded:
         s.results[p.id] = minipapers.run_paper(p.id, minipapers.FULL_SEEDS)       # recorded numbers: instant, no brain
+    else:
+        s.error = why
 
 
 def _step_plot(m, surf, x, y, w, p, s, colors) -> int:
@@ -240,13 +242,13 @@ def _step_compare(m, surf, x, y, w, p, s) -> int:
         tr("run now on {n} flies{kind}", n=len(res["seeds"]), kind="" if res["full"] else tr(" (exploration seeds, a first look)"))
     y = _para(m, surf, x, y, cw, src, ui.LABEL, m.f_small)
     for r in rows:
-        y = _para(m, surf, x, y, cw, tr("The model {v} the paper's direction.", v=tr("REPRODUCES") if r["model_reproduces_paper"] else tr("DOES NOT REPRODUCE")),
+        y = _para(m, surf, x, y, cw, tr("The model {v} the direction the paper's finding points to.", v=tr("REPRODUCES") if r["model_reproduces_paper"] else tr("DOES NOT REPRODUCE")),
                   ui.GOOD if r["model_reproduces_paper"] else ui.BAD, m.f_text, 3)
         y = _para(m, surf, x, y, cw, _fmt(r["measured"]), ui.TEXT, m.f_small, 4)
         y = _para(m, surf, x, y, cw, tr(r["basis"]), ui.LABEL, m.f_small, 5)
         y = _para(m, surf, x, y, cw, tr(r["note"]), ui.TEXT, m.f_small, 12)
         if r["your_hypothesis"]:
-            mt = tr("You expected: {a}. The paper reports: {b}.", a=tr(r["your_hypothesis"]), b=tr(r["paper_direction"]))
+            mt = tr("You expected: {a}. The paper's finding points to: {b}.", a=tr(r["your_hypothesis"]), b=tr(r["paper_direction"]))
             y = _para(m, surf, x, y, cw, mt + " " + (tr("Your hypothesis matched the model.") if r["you_matched_the_model"] else tr("The model went the other way from your hypothesis.")),
                       ui.TEXT, m.f_small, 6)
         y += 6

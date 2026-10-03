@@ -581,5 +581,7 @@
   "sham: no odor anywhere (quadrants as in the odor run)": "",
   "simulating": "",
   "slip {s:+.2f} rad/s": "",
-  "walking trajectory; the stripes lie beyond the edge (not to scale)": ""
+  "walking trajectory; the stripes lie beyond the edge (not to scale)": "",
+  "The model {v} the direction the paper's finding points to.": "",
+  "You expected: {a}. The paper's finding points to: {b}.": ""
 }

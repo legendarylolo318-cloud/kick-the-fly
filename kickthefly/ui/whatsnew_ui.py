@@ -49,8 +49,8 @@ def page(menu, surf, rect, mouse) -> None:
     for head, text, where in ITEMS:
         menu.text(surf, tr(head), (body.x + 8, y), mu.AMBER, menu.f_bold)
         y += menu.f_bold.get_linesize() + 2
-        y = menu.wrapped(surf, tr(text), (body.x + 8, y), width, mu.TEXT, menu.f_text, max_lines=6)
-        y = menu.wrapped(surf, tr("Where: {where}", where=tr(where)), (body.x + 8, y + 2), width, mu.LABEL, menu.f_small, max_lines=3) + 12
+        y = menu.wrapped(surf, tr(text), (body.x + 8, y), width, mu.TEXT, menu.f_text, max_lines=14)
+        y = menu.wrapped(surf, tr("Where: {where}", where=tr(where)), (body.x + 8, y + 2), width, mu.LABEL, menu.f_small, max_lines=5) + 12
     surf.set_clip(prev)
     menu.clip = None
     menu.content_h[key] = max(0, y + off - body.bottom + 8)

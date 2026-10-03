@@ -140,3 +140,13 @@ each number above is from a rerun on the held-out seeds after the review's fixes
   The branch's counts for most of them were wrong; the identities were right.
 - Citations were checked against Crossref; several of the branch's DOIs pointed to unrelated papers.
 - No weights, thresholds or LIF time constants changed; the pass criteria are the ones already in `validation.py`.
+
+## What these results predict for the behavior rigs (3.0 day 5)
+
+Written before the rigs were run on held-out seeds ([rigs.md](rigs.md) has what happened). The optomotor test passes, so a tethered fly turning with a rotating
+panorama (and cancelling part of it in closed loop) was expected to work, and does. The E-PG compass tests fail, so no rig here asks for a heading memory. The
+duel's LC10 tracking rule is not in this table (no test drives LC10 and reads DNa02); a probe on exploration seeds found it steers the right way, and bar and stripe
+fixation passed. Nothing connects an olfactory input to steering or walking in this table, so the olfactory arena's preference test was expected to fail, and it did.
+The mini-papers ([minipapers.md](minipapers.md)) reuse these tests and say, for the failed ones, what the table says here.
+
+Citation fix (3.0 day 5): Ohyama et al. 2015 is doi:10.1038/nature14297 (the larva rows above carried the DOI of an unrelated paper).

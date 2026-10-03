@@ -312,6 +312,8 @@ def run_paper(paper_id: str, seeds=QUICK_SEEDS, workers: int = 1, progress=None,
     source = "live"
     if play is not None:
         got = play(p, seeds)
+    elif not ok and not p.recorded:
+        raise FileNotFoundError(why)                    # an adult paper has no recorded numbers to fall back on
     elif not ok:
         source = "recorded"
         for q in p.questions:
@@ -329,7 +331,7 @@ def run_paper(paper_id: str, seeds=QUICK_SEEDS, workers: int = 1, progress=None,
                                                       deviation_none_deg=float(np.mean([f["none"]["deviation_deg"] for f in flies])),
                                                       transits_stripes=float(np.mean([f["stripes"]["transits"] for f in flies])),
                                                       transits_none=float(np.mean([f["none"]["transits"] for f in flies])), n=len(flies)),
-                                        passed=an["all_passed"],
+                                        passed=an["all_passed"], effects_met=all(c["mean_effect"] >= c["min_effect"] for c in an["criteria"]),
                                         per_seed=[dict(seed=f["seed"], drive=f["stripes"]["deviation_deg"], control=f["none"]["deviation_deg"]) for f in flies])
     else:
         from kickthefly.lab import validation
@@ -341,8 +343,13 @@ def run_paper(paper_id: str, seeds=QUICK_SEEDS, workers: int = 1, progress=None,
         t = got[q.test]
         if q.test.startswith("rig:"):
             m = t["measured"]
-            v = dict(reproduced=bool(t["passed"]), basis="the rig's pre-registered criteria B1 and B2" + ("" if full else " on exploration seeds (a first look)"),
-                     measured=m, n=m["n"])
+            if full:
+                v = dict(reproduced=bool(t["passed"]), basis="the rig's pre-registered criteria B1 and B2 (minimum effects and one-sided Wilcoxon p < 0.01, n = 10)",
+                         measured=m, n=m["n"])
+            else:                                                   # n = 4 cannot reach p < 0.01: the effects' minimums only, like the validation papers' quick runs
+                v = dict(reproduced=bool(t["effects_met"]), measured=m, n=m["n"],
+                         basis=f"the rig's minimum effects (B1 10 degrees, B2 3 transits) only: n = {m['n']} is too few flies for p < 0.01 (the smallest one-sided Wilcoxon p at "
+                               f"n = {m['n']} is {1 / 2 ** m['n']:.3g})")
         else:
             v = _verdict(q.test, t, full)
         qs.append(dict(test=q.test, prompt=q.prompt, expected=q.expected, verdict=v, pairs=_ratio_pairs(t) if "per_seed" in t else [],
@@ -404,9 +411,9 @@ def render(res: dict, answers: dict[str, str] | None = None) -> str:
     for row in compare(res, answers):
         m = row["measured"]
         nums = ", ".join(f"{k} {v:.3g}" if isinstance(v, float) else f"{k} {v}" for k, v in m.items() if k != "passed")
-        lines += ["", f"  Q ({row['test']}): {row['question']}", f"    paper's direction: {row['paper_direction']}",
+        lines += ["", f"  Q ({row['test']}): {row['question']}", f"    the direction the paper's finding points to: {row['paper_direction']}",
                   f"    your hypothesis: {row['your_hypothesis'] or 'not given'}",
-                  f"    the model {'REPRODUCES' if row['model_reproduces_paper'] else 'DOES NOT REPRODUCE'} it ({row['basis']})", f"    numbers: {nums}",
+                  f"    the model {'REPRODUCES' if row['model_reproduces_paper'] else 'DOES NOT REPRODUCE'} that ({row['basis']})", f"    numbers: {nums}",
                   f"    {row['note']}"]
     lines += ["", f"  What this model cannot check: {p.cannot_check}"]
     return "\n".join(lines)

@@ -308,6 +308,22 @@ def test_a_mini_paper_run_is_a_job_collected_by_its_paper(menu, monkeypatch):
     assert called[1][1] == minipapers.FULL_SEEDS
 
 
+def test_a_quick_buridan_run_is_judged_on_the_effects_not_on_a_p_value_it_cannot_reach(monkeypatch):
+    import kickthefly.lab.rigassay as ra
+    from kickthefly.lab import minipapers
+
+    good = lambda seeds: [dict(seed=s, stripes=dict(deviation_deg=3.0, transits=18), none=dict(deviation_deg=42.0 + s, transits=7)) for s in seeds]
+    monkeypatch.setattr(ra, "run_flies", lambda rig, seeds, *a, **k: good(seeds))
+    quick = minipapers.run_paper("colomb_2012", minipapers.QUICK_SEEDS)
+    v = quick["questions"][0]["verdict"]
+    assert v["reproduced"] and "too few flies" in v["basis"] and not quick["full"]
+    full = minipapers.run_paper("colomb_2012", minipapers.FULL_SEEDS)
+    assert full["full"] and full["questions"][0]["verdict"]["reproduced"] and "p < 0.01" in full["questions"][0]["verdict"]["basis"]
+    weak = lambda seeds: [dict(seed=s, stripes=dict(deviation_deg=40.0, transits=7), none=dict(deviation_deg=42.0, transits=7)) for s in seeds]
+    monkeypatch.setattr(ra, "run_flies", lambda rig, seeds, *a, **k: weak(seeds))
+    assert not minipapers.run_paper("colomb_2012", minipapers.QUICK_SEEDS)["questions"][0]["verdict"]["reproduced"]
+
+
 def test_the_larva_paper_shows_recorded_numbers_when_the_pack_is_missing(menu, synthetic_pack):
     from kickthefly.lab import minipapers
 
@@ -316,6 +332,21 @@ def test_the_larva_paper_shows_recorded_numbers_when_the_pack_is_missing(menu, s
     res = minipapers.run_paper("ohyama_2015")
     assert res["source"] == "recorded" and res["full"] and all(not q["verdict"]["reproduced"] for q in res["questions"])
     assert "recorded" in minipapers.render(res)
+
+
+def test_an_adult_paper_without_the_adult_pack_says_why_instead_of_crashing(menu, monkeypatch):
+    from kickthefly.lab import minipapers
+    from kickthefly.ui import minipaper_ui
+
+    monkeypatch.setattr(minipapers, "available", lambda p: (False, "the adult brain pack is not built"))
+    with pytest.raises(FileNotFoundError, match="not built"):
+        minipapers.run_paper("von_reyn_2014")
+    s = minipaper_ui.st(menu)
+    minipaper_ui._run_or_record(menu, minipapers.PAPERS["von_reyn_2014"], s)
+    assert "not built" in s.error and s.job is None
+    minipaper_ui.open_paper(menu, "von_reyn_2014")
+    s.sess.goto_step(2)
+    draw(menu, "lab_minipapers")                                 # and the page shows the error line without raising
 
 
 def test_mini_paper_pad_nav(menu, monkeypatch):
