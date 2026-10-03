@@ -1,0 +1,2666 @@
+{
+ "seeds": [
+  0,
+  1,
+  2,
+  3,
+  4,
+  5,
+  6,
+  7,
+  8,
+  9,
+  10,
+  11,
+  12,
+  13,
+  14,
+  15
+ ],
+ "seconds": 1814.1,
+ "common_gain": 4.35171731634083,
+ "warm": [
+  {
+   "seed": 0,
+   "gain": 4.396473668248315,
+   "walk_base": 2.7626973993392783,
+   "walk_fast": 0.7119582508142127,
+   "whole_brain_hz": 5.556917508676873
+  },
+  {
+   "seed": 1,
+   "gain": 4.277760115970639,
+   "walk_base": 4.051249704172708,
+   "walk_fast": 5.518363124126792,
+   "whole_brain_hz": 5.754562135500421
+  },
+  {
+   "seed": 2,
+   "gain": 4.32120126600082,
+   "walk_base": 5.256412419482892,
+   "walk_fast": 4.923918236403285,
+   "whole_brain_hz": 5.955560508864484
+  },
+  {
+   "seed": 3,
+   "gain": 4.351160593417144,
+   "walk_base": 2.672573086841464,
+   "walk_fast": 2.1416943350410627,
+   "whole_brain_hz": 5.6386642632599635
+  },
+  {
+   "seed": 4,
+   "gain": 4.369988200808766,
+   "walk_base": 4.520205748402156,
+   "walk_fast": 4.81263499326923,
+   "whole_brain_hz": 5.68514674633237
+  },
+  {
+   "seed": 5,
+   "gain": 4.322644845325968,
+   "walk_base": 6.431627440508883,
+   "walk_fast": 3.7716546810968343,
+   "whole_brain_hz": 5.897088783593649
+  },
+  {
+   "seed": 6,
+   "gain": 4.349062519257879,
+   "walk_base": 3.5839573277565946,
+   "walk_fast": 2.6218201751457975,
+   "whole_brain_hz": 5.540579431255188
+  },
+  {
+   "seed": 7,
+   "gain": 4.348551201835161,
+   "walk_base": 4.201972603720431,
+   "walk_fast": 3.4867877218525773,
+   "whole_brain_hz": 5.952834671194214
+  },
+  {
+   "seed": 8,
+   "gain": 4.329641413613231,
+   "walk_base": 2.4520351648611696,
+   "walk_fast": 3.9948073559695656,
+   "whole_brain_hz": 5.89440532307396
+  },
+  {
+   "seed": 9,
+   "gain": 4.4000197049769545,
+   "walk_base": 3.2919278431849,
+   "walk_fast": 3.7602958036261405,
+   "whole_brain_hz": 5.52116654223573
+  },
+  {
+   "seed": 10,
+   "gain": 4.376483779885796,
+   "walk_base": 6.372524003406471,
+   "walk_fast": 5.184534377159014,
+   "whole_brain_hz": 5.75112227635712
+  },
+  {
+   "seed": 11,
+   "gain": 4.335271787133363,
+   "walk_base": 4.818181708830182,
+   "walk_fast": 3.3296936941175588,
+   "whole_brain_hz": 6.035874710772547
+  },
+  {
+   "seed": 12,
+   "gain": 4.394142862959938,
+   "walk_base": 4.878616507053616,
+   "walk_fast": 8.940778262819439,
+   "whole_brain_hz": 5.789229355275625
+  },
+  {
+   "seed": 13,
+   "gain": 4.426479001445963,
+   "walk_base": 1.7515984393974326,
+   "walk_fast": 5.703140463435831,
+   "whole_brain_hz": 5.434898507050575
+  },
+  {
+   "seed": 14,
+   "gain": 4.314429523796499,
+   "walk_base": 5.696738357305779,
+   "walk_fast": 7.038439059531326,
+   "whole_brain_hz": 5.7907506706589515
+  },
+  {
+   "seed": 15,
+   "gain": 4.314166576776846,
+   "walk_base": 6.189755400723375,
+   "walk_fast": 8.99369530350494,
+   "whole_brain_hz": 5.914040289923791
+  }
+ ],
+ "conditions": {
+  "A": {
+   "rho": 0.976470588235294,
+   "p_two_sided": 1.0061504401171971e-10,
+   "times_run1": [
+    33.58,
+    46.46,
+    57.46,
+    35.36,
+    55.86,
+    62.88,
+    42.5,
+    48.02,
+    34.48,
+    42.38,
+    62.22,
+    54.94,
+    55.0,
+    24.7,
+    58.96,
+    59.64
+   ],
+   "times_run2": [
+    35.22,
+    48.28,
+    57.74,
+    34.2,
+    52.04,
+    64.5,
+    44.08,
+    46.56,
+    34.12,
+    36.62,
+    61.94,
+    55.64,
+    51.78,
+    24.88,
+    59.62,
+    58.66
+   ],
+   "unfinished": 0
+  },
+  "B": {
+   "rho": 0.55,
+   "p_two_sided": 0.027293972709730583,
+   "times_run1": [
+    58.42,
+    54.66,
+    36.92,
+    35.08,
+    57.24,
+    52.28,
+    52.42,
+    39.84,
+    55.44,
+    39.38,
+    55.8,
+    42.42,
+    30.78,
+    50.14,
+    46.4,
+    44.2
+   ],
+   "times_run2": [
+    65.64,
+    54.38,
+    46.62,
+    55.9,
+    61.52,
+    57.3,
+    47.58,
+    39.26,
+    55.3,
+    23.62,
+    53.14,
+    38.7,
+    51.84,
+    44.4,
+    59.12,
+    39.42
+   ],
+   "unfinished": 0
+  },
+  "C": {
+   "rho": 0.9411764705882352,
+   "p_two_sided": 5.588937633072706e-08,
+   "times_run1": [
+    33.7,
+    44.2,
+    56.82,
+    32.16,
+    46.48,
+    62.66,
+    48.02,
+    49.0,
+    30.96,
+    39.68,
+    61.06,
+    50.94,
+    52.72,
+    25.76,
+    59.58,
+    67.32
+   ],
+   "times_run2": [
+    33.12,
+    48.98,
+    53.36,
+    33.84,
+    51.78,
+    62.72,
+    41.88,
+    48.0,
+    34.14,
+    39.4,
+    59.5,
+    56.62,
+    54.66,
+    22.6,
+    56.22,
+    59.7
+   ],
+   "unfinished": 0
+  },
+  "D": {
+   "rho": -0.07941176470588236,
+   "p_two_sided": 0.7700253190398251,
+   "times_run1": [
+    49.86,
+    44.24,
+    45.1,
+    50.32,
+    52.12,
+    50.54,
+    48.96,
+    47.1,
+    48.76,
+    50.52,
+    45.94,
+    50.12,
+    47.82,
+    49.38,
+    52.48,
+    48.84
+   ],
+   "times_run2": [
+    54.24,
+    50.22,
+    48.78,
+    48.56,
+    47.5,
+    58.14,
+    48.64,
+    44.54,
+    52.74,
+    46.02,
+    46.92,
+    48.58,
+    51.42,
+    48.54,
+    48.44,
+    46.66
+   ],
+   "unfinished": 0
+  }
+ },
+ "state_vs_time_A": {
+  "gain": {
+   "rho": -0.5088235294117647,
+   "p_two_sided": 0.04413521823498383,
+   "values": [
+    4.396473668248315,
+    4.277760115970639,
+    4.32120126600082,
+    4.351160593417144,
+    4.369988200808766,
+    4.322644845325968,
+    4.349062519257879,
+    4.348551201835161,
+    4.329641413613231,
+    4.4000197049769545,
+    4.376483779885796,
+    4.335271787133363,
+    4.394142862959938,
+    4.426479001445963,
+    4.314429523796499,
+    4.314166576776846
+   ]
+  },
+  "walk_base": {
+   "rho": 0.9823529411764707,
+   "p_two_sided": 1.3641238342610737e-11,
+   "values": [
+    2.7626973993392783,
+    4.051249704172708,
+    5.256412419482892,
+    2.672573086841464,
+    4.520205748402156,
+    6.431627440508883,
+    3.5839573277565946,
+    4.201972603720431,
+    2.4520351648611696,
+    3.2919278431849,
+    6.372524003406471,
+    4.818181708830182,
+    4.878616507053616,
+    1.7515984393974326,
+    5.696738357305779,
+    6.189755400723375
+   ]
+  },
+  "walk_fast": {
+   "rho": 0.3911764705882353,
+   "p_two_sided": 0.13407128619725525,
+   "values": [
+    0.7119582508142127,
+    5.518363124126792,
+    4.923918236403285,
+    2.1416943350410627,
+    4.81263499326923,
+    3.7716546810968343,
+    2.6218201751457975,
+    3.4867877218525773,
+    3.9948073559695656,
+    3.7602958036261405,
+    5.184534377159014,
+    3.3296936941175588,
+    8.940778262819439,
+    5.703140463435831,
+    7.038439059531326,
+    8.99369530350494
+   ]
+  },
+  "whole_brain_hz": {
+   "rho": 0.5647058823529412,
+   "p_two_sided": 0.022663204844184635,
+   "values": [
+    5.556917508676873,
+    5.754562135500421,
+    5.955560508864484,
+    5.6386642632599635,
+    5.68514674633237,
+    5.897088783593649,
+    5.540579431255188,
+    5.952834671194214,
+    5.89440532307396,
+    5.52116654223573,
+    5.75112227635712,
+    6.035874710772547,
+    5.789229355275625,
+    5.434898507050575,
+    5.7907506706589515,
+    5.914040289923791
+   ]
+  }
+ },
+ "lanes": [
+  {
+   "cond": "A",
+   "seed": 0,
+   "repeat": 0,
+   "time": 33.58,
+   "finished": true,
+   "state": {
+    "gain": 4.396473668248315,
+    "walk_base": 2.7626973993392783,
+    "walk_fast": 0.7119582508142127,
+    "whole_brain_hz": 5.556917508676873
+   },
+   "state_before_override": {
+    "gain": 4.396473668248315,
+    "walk_base": 2.7626973993392783,
+    "walk_fast": 0.7119582508142127,
+    "whole_brain_hz": 5.556917508676873
+   }
+  },
+  {
+   "cond": "A",
+   "seed": 0,
+   "repeat": 1,
+   "time": 35.22,
+   "finished": true,
+   "state": {
+    "gain": 4.396473668248315,
+    "walk_base": 2.7626973993392783,
+    "walk_fast": 0.7119582508142127,
+    "whole_brain_hz": 5.556917508676873
+   },
+   "state_before_override": {
+    "gain": 4.396473668248315,
+    "walk_base": 2.7626973993392783,
+    "walk_fast": 0.7119582508142127,
+    "whole_brain_hz": 5.556917508676873
+   }
+  },
+  {
+   "cond": "A",
+   "seed": 1,
+   "repeat": 0,
+   "time": 46.46,
+   "finished": true,
+   "state": {
+    "gain": 4.277760115970639,
+    "walk_base": 4.051249704172708,
+    "walk_fast": 5.518363124126792,
+    "whole_brain_hz": 5.754562135500421
+   },
+   "state_before_override": {
+    "gain": 4.277760115970639,
+    "walk_base": 4.051249704172708,
+    "walk_fast": 5.518363124126792,
+    "whole_brain_hz": 5.754562135500421
+   }
+  },
+  {
+   "cond": "A",
+   "seed": 1,
+   "repeat": 1,
+   "time": 48.28,
+   "finished": true,
+   "state": {
+    "gain": 4.277760115970639,
+    "walk_base": 4.051249704172708,
+    "walk_fast": 5.518363124126792,
+    "whole_brain_hz": 5.754562135500421
+   },
+   "state_before_override": {
+    "gain": 4.277760115970639,
+    "walk_base": 4.051249704172708,
+    "walk_fast": 5.518363124126792,
+    "whole_brain_hz": 5.754562135500421
+   }
+  },
+  {
+   "cond": "A",
+   "seed": 2,
+   "repeat": 0,
+   "time": 57.46,
+   "finished": true,
+   "state": {
+    "gain": 4.32120126600082,
+    "walk_base": 5.256412419482892,
+    "walk_fast": 4.923918236403285,
+    "whole_brain_hz": 5.955560508864484
+   },
+   "state_before_override": {
+    "gain": 4.32120126600082,
+    "walk_base": 5.256412419482892,
+    "walk_fast": 4.923918236403285,
+    "whole_brain_hz": 5.955560508864484
+   }
+  },
+  {
+   "cond": "A",
+   "seed": 2,
+   "repeat": 1,
+   "time": 57.74,
+   "finished": true,
+   "state": {
+    "gain": 4.32120126600082,
+    "walk_base": 5.256412419482892,
+    "walk_fast": 4.923918236403285,
+    "whole_brain_hz": 5.955560508864484
+   },
+   "state_before_override": {
+    "gain": 4.32120126600082,
+    "walk_base": 5.256412419482892,
+    "walk_fast": 4.923918236403285,
+    "whole_brain_hz": 5.955560508864484
+   }
+  },
+  {
+   "cond": "A",
+   "seed": 3,
+   "repeat": 0,
+   "time": 35.36,
+   "finished": true,
+   "state": {
+    "gain": 4.351160593417144,
+    "walk_base": 2.672573086841464,
+    "walk_fast": 2.1416943350410627,
+    "whole_brain_hz": 5.6386642632599635
+   },
+   "state_before_override": {
+    "gain": 4.351160593417144,
+    "walk_base": 2.672573086841464,
+    "walk_fast": 2.1416943350410627,
+    "whole_brain_hz": 5.6386642632599635
+   }
+  },
+  {
+   "cond": "A",
+   "seed": 3,
+   "repeat": 1,
+   "time": 34.2,
+   "finished": true,
+   "state": {
+    "gain": 4.351160593417144,
+    "walk_base": 2.672573086841464,
+    "walk_fast": 2.1416943350410627,
+    "whole_brain_hz": 5.6386642632599635
+   },
+   "state_before_override": {
+    "gain": 4.351160593417144,
+    "walk_base": 2.672573086841464,
+    "walk_fast": 2.1416943350410627,
+    "whole_brain_hz": 5.6386642632599635
+   }
+  },
+  {
+   "cond": "A",
+   "seed": 4,
+   "repeat": 0,
+   "time": 55.86,
+   "finished": true,
+   "state": {
+    "gain": 4.369988200808766,
+    "walk_base": 4.520205748402156,
+    "walk_fast": 4.81263499326923,
+    "whole_brain_hz": 5.68514674633237
+   },
+   "state_before_override": {
+    "gain": 4.369988200808766,
+    "walk_base": 4.520205748402156,
+    "walk_fast": 4.81263499326923,
+    "whole_brain_hz": 5.68514674633237
+   }
+  },
+  {
+   "cond": "A",
+   "seed": 4,
+   "repeat": 1,
+   "time": 52.04,
+   "finished": true,
+   "state": {
+    "gain": 4.369988200808766,
+    "walk_base": 4.520205748402156,
+    "walk_fast": 4.81263499326923,
+    "whole_brain_hz": 5.68514674633237
+   },
+   "state_before_override": {
+    "gain": 4.369988200808766,
+    "walk_base": 4.520205748402156,
+    "walk_fast": 4.81263499326923,
+    "whole_brain_hz": 5.68514674633237
+   }
+  },
+  {
+   "cond": "A",
+   "seed": 5,
+   "repeat": 0,
+   "time": 62.88,
+   "finished": true,
+   "state": {
+    "gain": 4.322644845325968,
+    "walk_base": 6.431627440508883,
+    "walk_fast": 3.7716546810968343,
+    "whole_brain_hz": 5.897088783593649
+   },
+   "state_before_override": {
+    "gain": 4.322644845325968,
+    "walk_base": 6.431627440508883,
+    "walk_fast": 3.7716546810968343,
+    "whole_brain_hz": 5.897088783593649
+   }
+  },
+  {
+   "cond": "A",
+   "seed": 5,
+   "repeat": 1,
+   "time": 64.5,
+   "finished": true,
+   "state": {
+    "gain": 4.322644845325968,
+    "walk_base": 6.431627440508883,
+    "walk_fast": 3.7716546810968343,
+    "whole_brain_hz": 5.897088783593649
+   },
+   "state_before_override": {
+    "gain": 4.322644845325968,
+    "walk_base": 6.431627440508883,
+    "walk_fast": 3.7716546810968343,
+    "whole_brain_hz": 5.897088783593649
+   }
+  },
+  {
+   "cond": "A",
+   "seed": 6,
+   "repeat": 0,
+   "time": 42.5,
+   "finished": true,
+   "state": {
+    "gain": 4.349062519257879,
+    "walk_base": 3.5839573277565946,
+    "walk_fast": 2.6218201751457975,
+    "whole_brain_hz": 5.540579431255188
+   },
+   "state_before_override": {
+    "gain": 4.349062519257879,
+    "walk_base": 3.5839573277565946,
+    "walk_fast": 2.6218201751457975,
+    "whole_brain_hz": 5.540579431255188
+   }
+  },
+  {
+   "cond": "A",
+   "seed": 6,
+   "repeat": 1,
+   "time": 44.08,
+   "finished": true,
+   "state": {
+    "gain": 4.349062519257879,
+    "walk_base": 3.5839573277565946,
+    "walk_fast": 2.6218201751457975,
+    "whole_brain_hz": 5.540579431255188
+   },
+   "state_before_override": {
+    "gain": 4.349062519257879,
+    "walk_base": 3.5839573277565946,
+    "walk_fast": 2.6218201751457975,
+    "whole_brain_hz": 5.540579431255188
+   }
+  },
+  {
+   "cond": "A",
+   "seed": 7,
+   "repeat": 1,
+   "time": 46.56,
+   "finished": true,
+   "state": {
+    "gain": 4.348551201835161,
+    "walk_base": 4.201972603720431,
+    "walk_fast": 3.4867877218525773,
+    "whole_brain_hz": 5.952834671194214
+   },
+   "state_before_override": {
+    "gain": 4.348551201835161,
+    "walk_base": 4.201972603720431,
+    "walk_fast": 3.4867877218525773,
+    "whole_brain_hz": 5.952834671194214
+   }
+  },
+  {
+   "cond": "A",
+   "seed": 7,
+   "repeat": 0,
+   "time": 48.02,
+   "finished": true,
+   "state": {
+    "gain": 4.348551201835161,
+    "walk_base": 4.201972603720431,
+    "walk_fast": 3.4867877218525773,
+    "whole_brain_hz": 5.952834671194214
+   },
+   "state_before_override": {
+    "gain": 4.348551201835161,
+    "walk_base": 4.201972603720431,
+    "walk_fast": 3.4867877218525773,
+    "whole_brain_hz": 5.952834671194214
+   }
+  },
+  {
+   "cond": "A",
+   "seed": 8,
+   "repeat": 0,
+   "time": 34.48,
+   "finished": true,
+   "state": {
+    "gain": 4.329641413613231,
+    "walk_base": 2.4520351648611696,
+    "walk_fast": 3.9948073559695656,
+    "whole_brain_hz": 5.89440532307396
+   },
+   "state_before_override": {
+    "gain": 4.329641413613231,
+    "walk_base": 2.4520351648611696,
+    "walk_fast": 3.9948073559695656,
+    "whole_brain_hz": 5.89440532307396
+   }
+  },
+  {
+   "cond": "A",
+   "seed": 8,
+   "repeat": 1,
+   "time": 34.12,
+   "finished": true,
+   "state": {
+    "gain": 4.329641413613231,
+    "walk_base": 2.4520351648611696,
+    "walk_fast": 3.9948073559695656,
+    "whole_brain_hz": 5.89440532307396
+   },
+   "state_before_override": {
+    "gain": 4.329641413613231,
+    "walk_base": 2.4520351648611696,
+    "walk_fast": 3.9948073559695656,
+    "whole_brain_hz": 5.89440532307396
+   }
+  },
+  {
+   "cond": "A",
+   "seed": 9,
+   "repeat": 0,
+   "time": 42.38,
+   "finished": true,
+   "state": {
+    "gain": 4.4000197049769545,
+    "walk_base": 3.2919278431849,
+    "walk_fast": 3.7602958036261405,
+    "whole_brain_hz": 5.52116654223573
+   },
+   "state_before_override": {
+    "gain": 4.4000197049769545,
+    "walk_base": 3.2919278431849,
+    "walk_fast": 3.7602958036261405,
+    "whole_brain_hz": 5.52116654223573
+   }
+  },
+  {
+   "cond": "A",
+   "seed": 9,
+   "repeat": 1,
+   "time": 36.62,
+   "finished": true,
+   "state": {
+    "gain": 4.4000197049769545,
+    "walk_base": 3.2919278431849,
+    "walk_fast": 3.7602958036261405,
+    "whole_brain_hz": 5.52116654223573
+   },
+   "state_before_override": {
+    "gain": 4.4000197049769545,
+    "walk_base": 3.2919278431849,
+    "walk_fast": 3.7602958036261405,
+    "whole_brain_hz": 5.52116654223573
+   }
+  },
+  {
+   "cond": "A",
+   "seed": 10,
+   "repeat": 0,
+   "time": 62.22,
+   "finished": true,
+   "state": {
+    "gain": 4.376483779885796,
+    "walk_base": 6.372524003406471,
+    "walk_fast": 5.184534377159014,
+    "whole_brain_hz": 5.75112227635712
+   },
+   "state_before_override": {
+    "gain": 4.376483779885796,
+    "walk_base": 6.372524003406471,
+    "walk_fast": 5.184534377159014,
+    "whole_brain_hz": 5.75112227635712
+   }
+  },
+  {
+   "cond": "A",
+   "seed": 10,
+   "repeat": 1,
+   "time": 61.94,
+   "finished": true,
+   "state": {
+    "gain": 4.376483779885796,
+    "walk_base": 6.372524003406471,
+    "walk_fast": 5.184534377159014,
+    "whole_brain_hz": 5.75112227635712
+   },
+   "state_before_override": {
+    "gain": 4.376483779885796,
+    "walk_base": 6.372524003406471,
+    "walk_fast": 5.184534377159014,
+    "whole_brain_hz": 5.75112227635712
+   }
+  },
+  {
+   "cond": "A",
+   "seed": 11,
+   "repeat": 0,
+   "time": 54.94,
+   "finished": true,
+   "state": {
+    "gain": 4.335271787133363,
+    "walk_base": 4.818181708830182,
+    "walk_fast": 3.3296936941175588,
+    "whole_brain_hz": 6.035874710772547
+   },
+   "state_before_override": {
+    "gain": 4.335271787133363,
+    "walk_base": 4.818181708830182,
+    "walk_fast": 3.3296936941175588,
+    "whole_brain_hz": 6.035874710772547
+   }
+  },
+  {
+   "cond": "A",
+   "seed": 12,
+   "repeat": 0,
+   "time": 55.0,
+   "finished": true,
+   "state": {
+    "gain": 4.394142862959938,
+    "walk_base": 4.878616507053616,
+    "walk_fast": 8.940778262819439,
+    "whole_brain_hz": 5.789229355275625
+   },
+   "state_before_override": {
+    "gain": 4.394142862959938,
+    "walk_base": 4.878616507053616,
+    "walk_fast": 8.940778262819439,
+    "whole_brain_hz": 5.789229355275625
+   }
+  },
+  {
+   "cond": "A",
+   "seed": 11,
+   "repeat": 1,
+   "time": 55.64,
+   "finished": true,
+   "state": {
+    "gain": 4.335271787133363,
+    "walk_base": 4.818181708830182,
+    "walk_fast": 3.3296936941175588,
+    "whole_brain_hz": 6.035874710772547
+   },
+   "state_before_override": {
+    "gain": 4.335271787133363,
+    "walk_base": 4.818181708830182,
+    "walk_fast": 3.3296936941175588,
+    "whole_brain_hz": 6.035874710772547
+   }
+  },
+  {
+   "cond": "A",
+   "seed": 13,
+   "repeat": 0,
+   "time": 24.7,
+   "finished": true,
+   "state": {
+    "gain": 4.426479001445963,
+    "walk_base": 1.7515984393974326,
+    "walk_fast": 5.703140463435831,
+    "whole_brain_hz": 5.434898507050575
+   },
+   "state_before_override": {
+    "gain": 4.426479001445963,
+    "walk_base": 1.7515984393974326,
+    "walk_fast": 5.703140463435831,
+    "whole_brain_hz": 5.434898507050575
+   }
+  },
+  {
+   "cond": "A",
+   "seed": 12,
+   "repeat": 1,
+   "time": 51.78,
+   "finished": true,
+   "state": {
+    "gain": 4.394142862959938,
+    "walk_base": 4.878616507053616,
+    "walk_fast": 8.940778262819439,
+    "whole_brain_hz": 5.789229355275625
+   },
+   "state_before_override": {
+    "gain": 4.394142862959938,
+    "walk_base": 4.878616507053616,
+    "walk_fast": 8.940778262819439,
+    "whole_brain_hz": 5.789229355275625
+   }
+  },
+  {
+   "cond": "A",
+   "seed": 13,
+   "repeat": 1,
+   "time": 24.88,
+   "finished": true,
+   "state": {
+    "gain": 4.426479001445963,
+    "walk_base": 1.7515984393974326,
+    "walk_fast": 5.703140463435831,
+    "whole_brain_hz": 5.434898507050575
+   },
+   "state_before_override": {
+    "gain": 4.426479001445963,
+    "walk_base": 1.7515984393974326,
+    "walk_fast": 5.703140463435831,
+    "whole_brain_hz": 5.434898507050575
+   }
+  },
+  {
+   "cond": "A",
+   "seed": 14,
+   "repeat": 1,
+   "time": 59.62,
+   "finished": true,
+   "state": {
+    "gain": 4.314429523796499,
+    "walk_base": 5.696738357305779,
+    "walk_fast": 7.038439059531326,
+    "whole_brain_hz": 5.7907506706589515
+   },
+   "state_before_override": {
+    "gain": 4.314429523796499,
+    "walk_base": 5.696738357305779,
+    "walk_fast": 7.038439059531326,
+    "whole_brain_hz": 5.7907506706589515
+   }
+  },
+  {
+   "cond": "A",
+   "seed": 15,
+   "repeat": 0,
+   "time": 59.64,
+   "finished": true,
+   "state": {
+    "gain": 4.314166576776846,
+    "walk_base": 6.189755400723375,
+    "walk_fast": 8.99369530350494,
+    "whole_brain_hz": 5.914040289923791
+   },
+   "state_before_override": {
+    "gain": 4.314166576776846,
+    "walk_base": 6.189755400723375,
+    "walk_fast": 8.99369530350494,
+    "whole_brain_hz": 5.914040289923791
+   }
+  },
+  {
+   "cond": "A",
+   "seed": 14,
+   "repeat": 0,
+   "time": 58.96,
+   "finished": true,
+   "state": {
+    "gain": 4.314429523796499,
+    "walk_base": 5.696738357305779,
+    "walk_fast": 7.038439059531326,
+    "whole_brain_hz": 5.7907506706589515
+   },
+   "state_before_override": {
+    "gain": 4.314429523796499,
+    "walk_base": 5.696738357305779,
+    "walk_fast": 7.038439059531326,
+    "whole_brain_hz": 5.7907506706589515
+   }
+  },
+  {
+   "cond": "B",
+   "seed": 0,
+   "repeat": 0,
+   "time": 58.42,
+   "finished": true,
+   "state": {
+    "gain": 4.349649043060007,
+    "walk_base": 5.556911416186928,
+    "walk_fast": 4.031426167896295,
+    "whole_brain_hz": 5.745308734889166
+   },
+   "state_before_override": null
+  },
+  {
+   "cond": "A",
+   "seed": 15,
+   "repeat": 1,
+   "time": 58.66,
+   "finished": true,
+   "state": {
+    "gain": 4.314166576776846,
+    "walk_base": 6.189755400723375,
+    "walk_fast": 8.99369530350494,
+    "whole_brain_hz": 5.914040289923791
+   },
+   "state_before_override": {
+    "gain": 4.314166576776846,
+    "walk_base": 6.189755400723375,
+    "walk_fast": 8.99369530350494,
+    "whole_brain_hz": 5.914040289923791
+   }
+  },
+  {
+   "cond": "B",
+   "seed": 0,
+   "repeat": 1,
+   "time": 65.64,
+   "finished": true,
+   "state": {
+    "gain": 4.371246686926659,
+    "walk_base": 6.94098822013223,
+    "walk_fast": 3.7838363152944128,
+    "whole_brain_hz": 5.63504655110967
+   },
+   "state_before_override": null
+  },
+  {
+   "cond": "B",
+   "seed": 2,
+   "repeat": 0,
+   "time": 36.92,
+   "finished": true,
+   "state": {
+    "gain": 4.373380648732006,
+    "walk_base": 2.836234513412643,
+    "walk_fast": 7.424695510636578,
+    "whole_brain_hz": 6.085787723560781
+   },
+   "state_before_override": null
+  },
+  {
+   "cond": "B",
+   "seed": 1,
+   "repeat": 0,
+   "time": 54.66,
+   "finished": true,
+   "state": {
+    "gain": 4.397089797949085,
+    "walk_base": 4.478068665165933,
+    "walk_fast": 6.238900218022228,
+    "whole_brain_hz": 5.545024181180478
+   },
+   "state_before_override": null
+  },
+  {
+   "cond": "B",
+   "seed": 1,
+   "repeat": 1,
+   "time": 54.38,
+   "finished": true,
+   "state": {
+    "gain": 4.345255169823368,
+    "walk_base": 5.231912072435172,
+    "walk_fast": 3.139851038317833,
+    "whole_brain_hz": 5.685281612557811
+   },
+   "state_before_override": null
+  },
+  {
+   "cond": "B",
+   "seed": 3,
+   "repeat": 0,
+   "time": 35.08,
+   "finished": true,
+   "state": {
+    "gain": 4.441678806891663,
+    "walk_base": 3.2689928682943017,
+    "walk_fast": 2.7513921416535227,
+    "whole_brain_hz": 5.53470764406816
+   },
+   "state_before_override": null
+  },
+  {
+   "cond": "B",
+   "seed": 2,
+   "repeat": 1,
+   "time": 46.62,
+   "finished": true,
+   "state": {
+    "gain": 4.382871224430405,
+    "walk_base": 4.4003295401754965,
+    "walk_fast": 5.434632895060038,
+    "whole_brain_hz": 5.670095745301759
+   },
+   "state_before_override": null
+  },
+  {
+   "cond": "B",
+   "seed": 3,
+   "repeat": 1,
+   "time": 55.9,
+   "finished": true,
+   "state": {
+    "gain": 4.3582827953253815,
+    "walk_base": 5.4081088648223234,
+    "walk_fast": 4.833315720226488,
+    "whole_brain_hz": 5.675892392003097
+   },
+   "state_before_override": null
+  },
+  {
+   "cond": "B",
+   "seed": 4,
+   "repeat": 0,
+   "time": 57.24,
+   "finished": true,
+   "state": {
+    "gain": 4.400184411856617,
+    "walk_base": 6.042706207071216,
+    "walk_fast": 7.6275079640747325,
+    "whole_brain_hz": 5.402969626915722
+   },
+   "state_before_override": null
+  },
+  {
+   "cond": "B",
+   "seed": 4,
+   "repeat": 1,
+   "time": 61.52,
+   "finished": true,
+   "state": {
+    "gain": 4.309099180158272,
+    "walk_base": 6.48210436311869,
+    "walk_fast": 9.505361071603417,
+    "whole_brain_hz": 6.132567014047628
+   },
+   "state_before_override": null
+  },
+  {
+   "cond": "B",
+   "seed": 5,
+   "repeat": 0,
+   "time": 52.28,
+   "finished": true,
+   "state": {
+    "gain": 4.344596263273258,
+    "walk_base": 4.304951714731732,
+    "walk_fast": 5.5234121221122265,
+    "whole_brain_hz": 5.813337038569279
+   },
+   "state_before_override": null
+  },
+  {
+   "cond": "B",
+   "seed": 5,
+   "repeat": 1,
+   "time": 57.3,
+   "finished": true,
+   "state": {
+    "gain": 4.34212000205102,
+    "walk_base": 5.090046285324667,
+    "walk_fast": 2.4673731194744977,
+    "whole_brain_hz": 5.71185214687609
+   },
+   "state_before_override": null
+  },
+  {
+   "cond": "B",
+   "seed": 6,
+   "repeat": 0,
+   "time": 52.42,
+   "finished": true,
+   "state": {
+    "gain": 4.339984631428382,
+    "walk_base": 5.413423872105323,
+    "walk_fast": 3.4860414551502226,
+    "whole_brain_hz": 5.800829427178697
+   },
+   "state_before_override": null
+  },
+  {
+   "cond": "B",
+   "seed": 6,
+   "repeat": 1,
+   "time": 47.58,
+   "finished": true,
+   "state": {
+    "gain": 4.3829742901605115,
+    "walk_base": 3.983333753924536,
+    "walk_fast": 4.506352383589898,
+    "whole_brain_hz": 5.722274360828419
+   },
+   "state_before_override": null
+  },
+  {
+   "cond": "B",
+   "seed": 7,
+   "repeat": 0,
+   "time": 39.84,
+   "finished": true,
+   "state": {
+    "gain": 4.36224809944214,
+    "walk_base": 3.1070300080105624,
+    "walk_fast": 4.950872662517947,
+    "whole_brain_hz": 5.666074806229594
+   },
+   "state_before_override": null
+  },
+  {
+   "cond": "B",
+   "seed": 7,
+   "repeat": 1,
+   "time": 39.26,
+   "finished": true,
+   "state": {
+    "gain": 4.367453451759778,
+    "walk_base": 3.5819328753729045,
+    "walk_fast": 8.978052187834498,
+    "whole_brain_hz": 5.811122430765024
+   },
+   "state_before_override": null
+  },
+  {
+   "cond": "B",
+   "seed": 8,
+   "repeat": 0,
+   "time": 55.44,
+   "finished": true,
+   "state": {
+    "gain": 4.333570260389801,
+    "walk_base": 5.390686468156657,
+    "walk_fast": 5.028346676611788,
+    "whole_brain_hz": 5.96318728361338
+   },
+   "state_before_override": null
+  },
+  {
+   "cond": "B",
+   "seed": 9,
+   "repeat": 0,
+   "time": 39.38,
+   "finished": true,
+   "state": {
+    "gain": 4.3244811275985615,
+    "walk_base": 3.5718864806005883,
+    "walk_fast": 3.2041852737212224,
+    "whole_brain_hz": 5.5093608672630205
+   },
+   "state_before_override": null
+  },
+  {
+   "cond": "B",
+   "seed": 8,
+   "repeat": 1,
+   "time": 55.3,
+   "finished": true,
+   "state": {
+    "gain": 4.362275314512186,
+    "walk_base": 5.185535980866986,
+    "walk_fast": 4.340512848664729,
+    "whole_brain_hz": 5.767529582679379
+   },
+   "state_before_override": null
+  },
+  {
+   "cond": "B",
+   "seed": 9,
+   "repeat": 1,
+   "time": 23.62,
+   "finished": true,
+   "state": {
+    "gain": 4.374843759075248,
+    "walk_base": 1.9547325231793087,
+    "walk_fast": 1.9013041537368505,
+    "whole_brain_hz": 5.703692980985194
+   },
+   "state_before_override": null
+  },
+  {
+   "cond": "B",
+   "seed": 10,
+   "repeat": 0,
+   "time": 55.8,
+   "finished": true,
+   "state": {
+    "gain": 4.2974021930523625,
+    "walk_base": 4.841250870675299,
+    "walk_fast": 3.5533381077910393,
+    "whole_brain_hz": 5.8526640781247865
+   },
+   "state_before_override": null
+  },
+  {
+   "cond": "B",
+   "seed": 11,
+   "repeat": 0,
+   "time": 42.42,
+   "finished": true,
+   "state": {
+    "gain": 4.423610022477187,
+    "walk_base": 3.2751962107377524,
+    "walk_fast": 6.382361951269619,
+    "whole_brain_hz": 5.513877592515378
+   },
+   "state_before_override": null
+  },
+  {
+   "cond": "B",
+   "seed": 10,
+   "repeat": 1,
+   "time": 53.14,
+   "finished": true,
+   "state": {
+    "gain": 4.33571912079707,
+    "walk_base": 5.07156860659909,
+    "walk_fast": 1.6000198369937775,
+    "whole_brain_hz": 5.973770953337873
+   },
+   "state_before_override": null
+  },
+  {
+   "cond": "B",
+   "seed": 12,
+   "repeat": 0,
+   "time": 30.78,
+   "finished": true,
+   "state": {
+    "gain": 4.369218605394344,
+    "walk_base": 2.1620111545932517,
+    "walk_fast": 0.26459851999934114,
+    "whole_brain_hz": 5.622071913229489
+   },
+   "state_before_override": null
+  },
+  {
+   "cond": "B",
+   "seed": 11,
+   "repeat": 1,
+   "time": 38.7,
+   "finished": true,
+   "state": {
+    "gain": 4.35552908450025,
+    "walk_base": 3.27425624781767,
+    "walk_fast": 2.4457620688498984,
+    "whole_brain_hz": 5.697595899522013
+   },
+   "state_before_override": null
+  },
+  {
+   "cond": "B",
+   "seed": 12,
+   "repeat": 1,
+   "time": 51.84,
+   "finished": true,
+   "state": {
+    "gain": 4.322447776627977,
+    "walk_base": 5.700614825577742,
+    "walk_fast": 3.632337579419813,
+    "whole_brain_hz": 5.529990646267852
+   },
+   "state_before_override": null
+  },
+  {
+   "cond": "B",
+   "seed": 13,
+   "repeat": 0,
+   "time": 50.14,
+   "finished": true,
+   "state": {
+    "gain": 4.38796009491642,
+    "walk_base": 4.511408369172278,
+    "walk_fast": 2.8288155064706086,
+    "whole_brain_hz": 5.860852104357162
+   },
+   "state_before_override": null
+  },
+  {
+   "cond": "B",
+   "seed": 13,
+   "repeat": 1,
+   "time": 44.4,
+   "finished": true,
+   "state": {
+    "gain": 4.393997360458339,
+    "walk_base": 3.61751435369432,
+    "walk_fast": 4.100955845393401,
+    "whole_brain_hz": 5.890590531386135
+   },
+   "state_before_override": null
+  },
+  {
+   "cond": "B",
+   "seed": 14,
+   "repeat": 0,
+   "time": 46.4,
+   "finished": true,
+   "state": {
+    "gain": 4.328052178934419,
+    "walk_base": 4.233877724258503,
+    "walk_fast": 3.159199187427413,
+    "whole_brain_hz": 5.454262780218222
+   },
+   "state_before_override": null
+  },
+  {
+   "cond": "B",
+   "seed": 15,
+   "repeat": 0,
+   "time": 44.2,
+   "finished": true,
+   "state": {
+    "gain": 4.335579714193138,
+    "walk_base": 3.7648855769029126,
+    "walk_fast": 2.8160873261849924,
+    "whole_brain_hz": 5.709837593185062
+   },
+   "state_before_override": null
+  },
+  {
+   "cond": "B",
+   "seed": 14,
+   "repeat": 1,
+   "time": 59.12,
+   "finished": true,
+   "state": {
+    "gain": 4.329284044644309,
+    "walk_base": 5.288037635717789,
+    "walk_fast": 5.7345228643912005,
+    "whole_brain_hz": 5.536054653141883
+   },
+   "state_before_override": null
+  },
+  {
+   "cond": "B",
+   "seed": 15,
+   "repeat": 1,
+   "time": 39.42,
+   "finished": true,
+   "state": {
+    "gain": 4.355483099552902,
+    "walk_base": 3.6731425796366155,
+    "walk_fast": 4.054566858632381,
+    "whole_brain_hz": 5.674157068574687
+   },
+   "state_before_override": null
+  },
+  {
+   "cond": "C",
+   "seed": 0,
+   "repeat": 0,
+   "time": 33.7,
+   "finished": true,
+   "state": {
+    "gain": 4.35171731634083,
+    "walk_base": 2.7626973993392783,
+    "walk_fast": 0.7119582508142127,
+    "whole_brain_hz": 5.556917508676873
+   },
+   "state_before_override": {
+    "gain": 4.396473668248315,
+    "walk_base": 2.7626973993392783,
+    "walk_fast": 0.7119582508142127,
+    "whole_brain_hz": 5.556917508676873
+   }
+  },
+  {
+   "cond": "C",
+   "seed": 0,
+   "repeat": 1,
+   "time": 33.12,
+   "finished": true,
+   "state": {
+    "gain": 4.35171731634083,
+    "walk_base": 2.7626973993392783,
+    "walk_fast": 0.7119582508142127,
+    "whole_brain_hz": 5.556917508676873
+   },
+   "state_before_override": {
+    "gain": 4.396473668248315,
+    "walk_base": 2.7626973993392783,
+    "walk_fast": 0.7119582508142127,
+    "whole_brain_hz": 5.556917508676873
+   }
+  },
+  {
+   "cond": "C",
+   "seed": 1,
+   "repeat": 0,
+   "time": 44.2,
+   "finished": true,
+   "state": {
+    "gain": 4.35171731634083,
+    "walk_base": 4.051249704172708,
+    "walk_fast": 5.518363124126792,
+    "whole_brain_hz": 5.754562135500421
+   },
+   "state_before_override": {
+    "gain": 4.277760115970639,
+    "walk_base": 4.051249704172708,
+    "walk_fast": 5.518363124126792,
+    "whole_brain_hz": 5.754562135500421
+   }
+  },
+  {
+   "cond": "C",
+   "seed": 1,
+   "repeat": 1,
+   "time": 48.98,
+   "finished": true,
+   "state": {
+    "gain": 4.35171731634083,
+    "walk_base": 4.051249704172708,
+    "walk_fast": 5.518363124126792,
+    "whole_brain_hz": 5.754562135500421
+   },
+   "state_before_override": {
+    "gain": 4.277760115970639,
+    "walk_base": 4.051249704172708,
+    "walk_fast": 5.518363124126792,
+    "whole_brain_hz": 5.754562135500421
+   }
+  },
+  {
+   "cond": "C",
+   "seed": 2,
+   "repeat": 0,
+   "time": 56.82,
+   "finished": true,
+   "state": {
+    "gain": 4.35171731634083,
+    "walk_base": 5.256412419482892,
+    "walk_fast": 4.923918236403285,
+    "whole_brain_hz": 5.955560508864484
+   },
+   "state_before_override": {
+    "gain": 4.32120126600082,
+    "walk_base": 5.256412419482892,
+    "walk_fast": 4.923918236403285,
+    "whole_brain_hz": 5.955560508864484
+   }
+  },
+  {
+   "cond": "C",
+   "seed": 2,
+   "repeat": 1,
+   "time": 53.36,
+   "finished": true,
+   "state": {
+    "gain": 4.35171731634083,
+    "walk_base": 5.256412419482892,
+    "walk_fast": 4.923918236403285,
+    "whole_brain_hz": 5.955560508864484
+   },
+   "state_before_override": {
+    "gain": 4.32120126600082,
+    "walk_base": 5.256412419482892,
+    "walk_fast": 4.923918236403285,
+    "whole_brain_hz": 5.955560508864484
+   }
+  },
+  {
+   "cond": "C",
+   "seed": 3,
+   "repeat": 0,
+   "time": 32.16,
+   "finished": true,
+   "state": {
+    "gain": 4.35171731634083,
+    "walk_base": 2.672573086841464,
+    "walk_fast": 2.1416943350410627,
+    "whole_brain_hz": 5.6386642632599635
+   },
+   "state_before_override": {
+    "gain": 4.351160593417144,
+    "walk_base": 2.672573086841464,
+    "walk_fast": 2.1416943350410627,
+    "whole_brain_hz": 5.6386642632599635
+   }
+  },
+  {
+   "cond": "C",
+   "seed": 3,
+   "repeat": 1,
+   "time": 33.84,
+   "finished": true,
+   "state": {
+    "gain": 4.35171731634083,
+    "walk_base": 2.672573086841464,
+    "walk_fast": 2.1416943350410627,
+    "whole_brain_hz": 5.6386642632599635
+   },
+   "state_before_override": {
+    "gain": 4.351160593417144,
+    "walk_base": 2.672573086841464,
+    "walk_fast": 2.1416943350410627,
+    "whole_brain_hz": 5.6386642632599635
+   }
+  },
+  {
+   "cond": "C",
+   "seed": 4,
+   "repeat": 0,
+   "time": 46.48,
+   "finished": true,
+   "state": {
+    "gain": 4.35171731634083,
+    "walk_base": 4.520205748402156,
+    "walk_fast": 4.81263499326923,
+    "whole_brain_hz": 5.68514674633237
+   },
+   "state_before_override": {
+    "gain": 4.369988200808766,
+    "walk_base": 4.520205748402156,
+    "walk_fast": 4.81263499326923,
+    "whole_brain_hz": 5.68514674633237
+   }
+  },
+  {
+   "cond": "C",
+   "seed": 4,
+   "repeat": 1,
+   "time": 51.78,
+   "finished": true,
+   "state": {
+    "gain": 4.35171731634083,
+    "walk_base": 4.520205748402156,
+    "walk_fast": 4.81263499326923,
+    "whole_brain_hz": 5.68514674633237
+   },
+   "state_before_override": {
+    "gain": 4.369988200808766,
+    "walk_base": 4.520205748402156,
+    "walk_fast": 4.81263499326923,
+    "whole_brain_hz": 5.68514674633237
+   }
+  },
+  {
+   "cond": "C",
+   "seed": 5,
+   "repeat": 0,
+   "time": 62.66,
+   "finished": true,
+   "state": {
+    "gain": 4.35171731634083,
+    "walk_base": 6.431627440508883,
+    "walk_fast": 3.7716546810968343,
+    "whole_brain_hz": 5.897088783593649
+   },
+   "state_before_override": {
+    "gain": 4.322644845325968,
+    "walk_base": 6.431627440508883,
+    "walk_fast": 3.7716546810968343,
+    "whole_brain_hz": 5.897088783593649
+   }
+  },
+  {
+   "cond": "C",
+   "seed": 5,
+   "repeat": 1,
+   "time": 62.72,
+   "finished": true,
+   "state": {
+    "gain": 4.35171731634083,
+    "walk_base": 6.431627440508883,
+    "walk_fast": 3.7716546810968343,
+    "whole_brain_hz": 5.897088783593649
+   },
+   "state_before_override": {
+    "gain": 4.322644845325968,
+    "walk_base": 6.431627440508883,
+    "walk_fast": 3.7716546810968343,
+    "whole_brain_hz": 5.897088783593649
+   }
+  },
+  {
+   "cond": "C",
+   "seed": 6,
+   "repeat": 0,
+   "time": 48.02,
+   "finished": true,
+   "state": {
+    "gain": 4.35171731634083,
+    "walk_base": 3.5839573277565946,
+    "walk_fast": 2.6218201751457975,
+    "whole_brain_hz": 5.540579431255188
+   },
+   "state_before_override": {
+    "gain": 4.349062519257879,
+    "walk_base": 3.5839573277565946,
+    "walk_fast": 2.6218201751457975,
+    "whole_brain_hz": 5.540579431255188
+   }
+  },
+  {
+   "cond": "C",
+   "seed": 6,
+   "repeat": 1,
+   "time": 41.88,
+   "finished": true,
+   "state": {
+    "gain": 4.35171731634083,
+    "walk_base": 3.5839573277565946,
+    "walk_fast": 2.6218201751457975,
+    "whole_brain_hz": 5.540579431255188
+   },
+   "state_before_override": {
+    "gain": 4.349062519257879,
+    "walk_base": 3.5839573277565946,
+    "walk_fast": 2.6218201751457975,
+    "whole_brain_hz": 5.540579431255188
+   }
+  },
+  {
+   "cond": "C",
+   "seed": 7,
+   "repeat": 0,
+   "time": 49.0,
+   "finished": true,
+   "state": {
+    "gain": 4.35171731634083,
+    "walk_base": 4.201972603720431,
+    "walk_fast": 3.4867877218525773,
+    "whole_brain_hz": 5.952834671194214
+   },
+   "state_before_override": {
+    "gain": 4.348551201835161,
+    "walk_base": 4.201972603720431,
+    "walk_fast": 3.4867877218525773,
+    "whole_brain_hz": 5.952834671194214
+   }
+  },
+  {
+   "cond": "C",
+   "seed": 7,
+   "repeat": 1,
+   "time": 48.0,
+   "finished": true,
+   "state": {
+    "gain": 4.35171731634083,
+    "walk_base": 4.201972603720431,
+    "walk_fast": 3.4867877218525773,
+    "whole_brain_hz": 5.952834671194214
+   },
+   "state_before_override": {
+    "gain": 4.348551201835161,
+    "walk_base": 4.201972603720431,
+    "walk_fast": 3.4867877218525773,
+    "whole_brain_hz": 5.952834671194214
+   }
+  },
+  {
+   "cond": "C",
+   "seed": 8,
+   "repeat": 0,
+   "time": 30.96,
+   "finished": true,
+   "state": {
+    "gain": 4.35171731634083,
+    "walk_base": 2.4520351648611696,
+    "walk_fast": 3.9948073559695656,
+    "whole_brain_hz": 5.89440532307396
+   },
+   "state_before_override": {
+    "gain": 4.329641413613231,
+    "walk_base": 2.4520351648611696,
+    "walk_fast": 3.9948073559695656,
+    "whole_brain_hz": 5.89440532307396
+   }
+  },
+  {
+   "cond": "C",
+   "seed": 8,
+   "repeat": 1,
+   "time": 34.14,
+   "finished": true,
+   "state": {
+    "gain": 4.35171731634083,
+    "walk_base": 2.4520351648611696,
+    "walk_fast": 3.9948073559695656,
+    "whole_brain_hz": 5.89440532307396
+   },
+   "state_before_override": {
+    "gain": 4.329641413613231,
+    "walk_base": 2.4520351648611696,
+    "walk_fast": 3.9948073559695656,
+    "whole_brain_hz": 5.89440532307396
+   }
+  },
+  {
+   "cond": "C",
+   "seed": 9,
+   "repeat": 1,
+   "time": 39.4,
+   "finished": true,
+   "state": {
+    "gain": 4.35171731634083,
+    "walk_base": 3.2919278431849,
+    "walk_fast": 3.7602958036261405,
+    "whole_brain_hz": 5.52116654223573
+   },
+   "state_before_override": {
+    "gain": 4.4000197049769545,
+    "walk_base": 3.2919278431849,
+    "walk_fast": 3.7602958036261405,
+    "whole_brain_hz": 5.52116654223573
+   }
+  },
+  {
+   "cond": "C",
+   "seed": 9,
+   "repeat": 0,
+   "time": 39.68,
+   "finished": true,
+   "state": {
+    "gain": 4.35171731634083,
+    "walk_base": 3.2919278431849,
+    "walk_fast": 3.7602958036261405,
+    "whole_brain_hz": 5.52116654223573
+   },
+   "state_before_override": {
+    "gain": 4.4000197049769545,
+    "walk_base": 3.2919278431849,
+    "walk_fast": 3.7602958036261405,
+    "whole_brain_hz": 5.52116654223573
+   }
+  },
+  {
+   "cond": "C",
+   "seed": 10,
+   "repeat": 0,
+   "time": 61.06,
+   "finished": true,
+   "state": {
+    "gain": 4.35171731634083,
+    "walk_base": 6.372524003406471,
+    "walk_fast": 5.184534377159014,
+    "whole_brain_hz": 5.75112227635712
+   },
+   "state_before_override": {
+    "gain": 4.376483779885796,
+    "walk_base": 6.372524003406471,
+    "walk_fast": 5.184534377159014,
+    "whole_brain_hz": 5.75112227635712
+   }
+  },
+  {
+   "cond": "C",
+   "seed": 11,
+   "repeat": 0,
+   "time": 50.94,
+   "finished": true,
+   "state": {
+    "gain": 4.35171731634083,
+    "walk_base": 4.818181708830182,
+    "walk_fast": 3.3296936941175588,
+    "whole_brain_hz": 6.035874710772547
+   },
+   "state_before_override": {
+    "gain": 4.335271787133363,
+    "walk_base": 4.818181708830182,
+    "walk_fast": 3.3296936941175588,
+    "whole_brain_hz": 6.035874710772547
+   }
+  },
+  {
+   "cond": "C",
+   "seed": 10,
+   "repeat": 1,
+   "time": 59.5,
+   "finished": true,
+   "state": {
+    "gain": 4.35171731634083,
+    "walk_base": 6.372524003406471,
+    "walk_fast": 5.184534377159014,
+    "whole_brain_hz": 5.75112227635712
+   },
+   "state_before_override": {
+    "gain": 4.376483779885796,
+    "walk_base": 6.372524003406471,
+    "walk_fast": 5.184534377159014,
+    "whole_brain_hz": 5.75112227635712
+   }
+  },
+  {
+   "cond": "C",
+   "seed": 12,
+   "repeat": 1,
+   "time": 54.66,
+   "finished": true,
+   "state": {
+    "gain": 4.35171731634083,
+    "walk_base": 4.878616507053616,
+    "walk_fast": 8.940778262819439,
+    "whole_brain_hz": 5.789229355275625
+   },
+   "state_before_override": {
+    "gain": 4.394142862959938,
+    "walk_base": 4.878616507053616,
+    "walk_fast": 8.940778262819439,
+    "whole_brain_hz": 5.789229355275625
+   }
+  },
+  {
+   "cond": "C",
+   "seed": 12,
+   "repeat": 0,
+   "time": 52.72,
+   "finished": true,
+   "state": {
+    "gain": 4.35171731634083,
+    "walk_base": 4.878616507053616,
+    "walk_fast": 8.940778262819439,
+    "whole_brain_hz": 5.789229355275625
+   },
+   "state_before_override": {
+    "gain": 4.394142862959938,
+    "walk_base": 4.878616507053616,
+    "walk_fast": 8.940778262819439,
+    "whole_brain_hz": 5.789229355275625
+   }
+  },
+  {
+   "cond": "C",
+   "seed": 11,
+   "repeat": 1,
+   "time": 56.62,
+   "finished": true,
+   "state": {
+    "gain": 4.35171731634083,
+    "walk_base": 4.818181708830182,
+    "walk_fast": 3.3296936941175588,
+    "whole_brain_hz": 6.035874710772547
+   },
+   "state_before_override": {
+    "gain": 4.335271787133363,
+    "walk_base": 4.818181708830182,
+    "walk_fast": 3.3296936941175588,
+    "whole_brain_hz": 6.035874710772547
+   }
+  },
+  {
+   "cond": "C",
+   "seed": 13,
+   "repeat": 0,
+   "time": 25.76,
+   "finished": true,
+   "state": {
+    "gain": 4.35171731634083,
+    "walk_base": 1.7515984393974326,
+    "walk_fast": 5.703140463435831,
+    "whole_brain_hz": 5.434898507050575
+   },
+   "state_before_override": {
+    "gain": 4.426479001445963,
+    "walk_base": 1.7515984393974326,
+    "walk_fast": 5.703140463435831,
+    "whole_brain_hz": 5.434898507050575
+   }
+  },
+  {
+   "cond": "C",
+   "seed": 13,
+   "repeat": 1,
+   "time": 22.6,
+   "finished": true,
+   "state": {
+    "gain": 4.35171731634083,
+    "walk_base": 1.7515984393974326,
+    "walk_fast": 5.703140463435831,
+    "whole_brain_hz": 5.434898507050575
+   },
+   "state_before_override": {
+    "gain": 4.426479001445963,
+    "walk_base": 1.7515984393974326,
+    "walk_fast": 5.703140463435831,
+    "whole_brain_hz": 5.434898507050575
+   }
+  },
+  {
+   "cond": "C",
+   "seed": 14,
+   "repeat": 0,
+   "time": 59.58,
+   "finished": true,
+   "state": {
+    "gain": 4.35171731634083,
+    "walk_base": 5.696738357305779,
+    "walk_fast": 7.038439059531326,
+    "whole_brain_hz": 5.7907506706589515
+   },
+   "state_before_override": {
+    "gain": 4.314429523796499,
+    "walk_base": 5.696738357305779,
+    "walk_fast": 7.038439059531326,
+    "whole_brain_hz": 5.7907506706589515
+   }
+  },
+  {
+   "cond": "C",
+   "seed": 14,
+   "repeat": 1,
+   "time": 56.22,
+   "finished": true,
+   "state": {
+    "gain": 4.35171731634083,
+    "walk_base": 5.696738357305779,
+    "walk_fast": 7.038439059531326,
+    "whole_brain_hz": 5.7907506706589515
+   },
+   "state_before_override": {
+    "gain": 4.314429523796499,
+    "walk_base": 5.696738357305779,
+    "walk_fast": 7.038439059531326,
+    "whole_brain_hz": 5.7907506706589515
+   }
+  },
+  {
+   "cond": "C",
+   "seed": 15,
+   "repeat": 0,
+   "time": 67.32,
+   "finished": true,
+   "state": {
+    "gain": 4.35171731634083,
+    "walk_base": 6.189755400723375,
+    "walk_fast": 8.99369530350494,
+    "whole_brain_hz": 5.914040289923791
+   },
+   "state_before_override": {
+    "gain": 4.314166576776846,
+    "walk_base": 6.189755400723375,
+    "walk_fast": 8.99369530350494,
+    "whole_brain_hz": 5.914040289923791
+   }
+  },
+  {
+   "cond": "D",
+   "seed": 0,
+   "repeat": 0,
+   "time": 49.86,
+   "finished": true,
+   "state": {
+    "gain": 4.396473668248315,
+    "walk_base": 4.308254572186708,
+    "walk_fast": 4.6833884898696,
+    "whole_brain_hz": 5.757052607751592
+   },
+   "state_before_override": {
+    "gain": 4.396473668248315,
+    "walk_base": 2.7626973993392783,
+    "walk_fast": 0.7119582508142127,
+    "whole_brain_hz": 5.556917508676873
+   }
+  },
+  {
+   "cond": "C",
+   "seed": 15,
+   "repeat": 1,
+   "time": 59.7,
+   "finished": true,
+   "state": {
+    "gain": 4.35171731634083,
+    "walk_base": 6.189755400723375,
+    "walk_fast": 8.99369530350494,
+    "whole_brain_hz": 5.914040289923791
+   },
+   "state_before_override": {
+    "gain": 4.314166576776846,
+    "walk_base": 6.189755400723375,
+    "walk_fast": 8.99369530350494,
+    "whole_brain_hz": 5.914040289923791
+   }
+  },
+  {
+   "cond": "D",
+   "seed": 0,
+   "repeat": 1,
+   "time": 54.24,
+   "finished": true,
+   "state": {
+    "gain": 4.396473668248315,
+    "walk_base": 4.308254572186708,
+    "walk_fast": 4.6833884898696,
+    "whole_brain_hz": 5.757052607751592
+   },
+   "state_before_override": {
+    "gain": 4.396473668248315,
+    "walk_base": 2.7626973993392783,
+    "walk_fast": 0.7119582508142127,
+    "whole_brain_hz": 5.556917508676873
+   }
+  },
+  {
+   "cond": "D",
+   "seed": 1,
+   "repeat": 0,
+   "time": 44.24,
+   "finished": true,
+   "state": {
+    "gain": 4.277760115970639,
+    "walk_base": 4.308254572186708,
+    "walk_fast": 4.6833884898696,
+    "whole_brain_hz": 5.757052607751592
+   },
+   "state_before_override": {
+    "gain": 4.277760115970639,
+    "walk_base": 4.051249704172708,
+    "walk_fast": 5.518363124126792,
+    "whole_brain_hz": 5.754562135500421
+   }
+  },
+  {
+   "cond": "D",
+   "seed": 2,
+   "repeat": 0,
+   "time": 45.1,
+   "finished": true,
+   "state": {
+    "gain": 4.32120126600082,
+    "walk_base": 4.308254572186708,
+    "walk_fast": 4.6833884898696,
+    "whole_brain_hz": 5.757052607751592
+   },
+   "state_before_override": {
+    "gain": 4.32120126600082,
+    "walk_base": 5.256412419482892,
+    "walk_fast": 4.923918236403285,
+    "whole_brain_hz": 5.955560508864484
+   }
+  },
+  {
+   "cond": "D",
+   "seed": 1,
+   "repeat": 1,
+   "time": 50.22,
+   "finished": true,
+   "state": {
+    "gain": 4.277760115970639,
+    "walk_base": 4.308254572186708,
+    "walk_fast": 4.6833884898696,
+    "whole_brain_hz": 5.757052607751592
+   },
+   "state_before_override": {
+    "gain": 4.277760115970639,
+    "walk_base": 4.051249704172708,
+    "walk_fast": 5.518363124126792,
+    "whole_brain_hz": 5.754562135500421
+   }
+  },
+  {
+   "cond": "D",
+   "seed": 2,
+   "repeat": 1,
+   "time": 48.78,
+   "finished": true,
+   "state": {
+    "gain": 4.32120126600082,
+    "walk_base": 4.308254572186708,
+    "walk_fast": 4.6833884898696,
+    "whole_brain_hz": 5.757052607751592
+   },
+   "state_before_override": {
+    "gain": 4.32120126600082,
+    "walk_base": 5.256412419482892,
+    "walk_fast": 4.923918236403285,
+    "whole_brain_hz": 5.955560508864484
+   }
+  },
+  {
+   "cond": "D",
+   "seed": 3,
+   "repeat": 0,
+   "time": 50.32,
+   "finished": true,
+   "state": {
+    "gain": 4.351160593417144,
+    "walk_base": 4.308254572186708,
+    "walk_fast": 4.6833884898696,
+    "whole_brain_hz": 5.757052607751592
+   },
+   "state_before_override": {
+    "gain": 4.351160593417144,
+    "walk_base": 2.672573086841464,
+    "walk_fast": 2.1416943350410627,
+    "whole_brain_hz": 5.6386642632599635
+   }
+  },
+  {
+   "cond": "D",
+   "seed": 3,
+   "repeat": 1,
+   "time": 48.56,
+   "finished": true,
+   "state": {
+    "gain": 4.351160593417144,
+    "walk_base": 4.308254572186708,
+    "walk_fast": 4.6833884898696,
+    "whole_brain_hz": 5.757052607751592
+   },
+   "state_before_override": {
+    "gain": 4.351160593417144,
+    "walk_base": 2.672573086841464,
+    "walk_fast": 2.1416943350410627,
+    "whole_brain_hz": 5.6386642632599635
+   }
+  },
+  {
+   "cond": "D",
+   "seed": 4,
+   "repeat": 0,
+   "time": 52.12,
+   "finished": true,
+   "state": {
+    "gain": 4.369988200808766,
+    "walk_base": 4.308254572186708,
+    "walk_fast": 4.6833884898696,
+    "whole_brain_hz": 5.757052607751592
+   },
+   "state_before_override": {
+    "gain": 4.369988200808766,
+    "walk_base": 4.520205748402156,
+    "walk_fast": 4.81263499326923,
+    "whole_brain_hz": 5.68514674633237
+   }
+  },
+  {
+   "cond": "D",
+   "seed": 5,
+   "repeat": 0,
+   "time": 50.54,
+   "finished": true,
+   "state": {
+    "gain": 4.322644845325968,
+    "walk_base": 4.308254572186708,
+    "walk_fast": 4.6833884898696,
+    "whole_brain_hz": 5.757052607751592
+   },
+   "state_before_override": {
+    "gain": 4.322644845325968,
+    "walk_base": 6.431627440508883,
+    "walk_fast": 3.7716546810968343,
+    "whole_brain_hz": 5.897088783593649
+   }
+  },
+  {
+   "cond": "D",
+   "seed": 4,
+   "repeat": 1,
+   "time": 47.5,
+   "finished": true,
+   "state": {
+    "gain": 4.369988200808766,
+    "walk_base": 4.308254572186708,
+    "walk_fast": 4.6833884898696,
+    "whole_brain_hz": 5.757052607751592
+   },
+   "state_before_override": {
+    "gain": 4.369988200808766,
+    "walk_base": 4.520205748402156,
+    "walk_fast": 4.81263499326923,
+    "whole_brain_hz": 5.68514674633237
+   }
+  },
+  {
+   "cond": "D",
+   "seed": 5,
+   "repeat": 1,
+   "time": 58.14,
+   "finished": true,
+   "state": {
+    "gain": 4.322644845325968,
+    "walk_base": 4.308254572186708,
+    "walk_fast": 4.6833884898696,
+    "whole_brain_hz": 5.757052607751592
+   },
+   "state_before_override": {
+    "gain": 4.322644845325968,
+    "walk_base": 6.431627440508883,
+    "walk_fast": 3.7716546810968343,
+    "whole_brain_hz": 5.897088783593649
+   }
+  },
+  {
+   "cond": "D",
+   "seed": 6,
+   "repeat": 1,
+   "time": 48.64,
+   "finished": true,
+   "state": {
+    "gain": 4.349062519257879,
+    "walk_base": 4.308254572186708,
+    "walk_fast": 4.6833884898696,
+    "whole_brain_hz": 5.757052607751592
+   },
+   "state_before_override": {
+    "gain": 4.349062519257879,
+    "walk_base": 3.5839573277565946,
+    "walk_fast": 2.6218201751457975,
+    "whole_brain_hz": 5.540579431255188
+   }
+  },
+  {
+   "cond": "D",
+   "seed": 6,
+   "repeat": 0,
+   "time": 48.96,
+   "finished": true,
+   "state": {
+    "gain": 4.349062519257879,
+    "walk_base": 4.308254572186708,
+    "walk_fast": 4.6833884898696,
+    "whole_brain_hz": 5.757052607751592
+   },
+   "state_before_override": {
+    "gain": 4.349062519257879,
+    "walk_base": 3.5839573277565946,
+    "walk_fast": 2.6218201751457975,
+    "whole_brain_hz": 5.540579431255188
+   }
+  },
+  {
+   "cond": "D",
+   "seed": 7,
+   "repeat": 0,
+   "time": 47.1,
+   "finished": true,
+   "state": {
+    "gain": 4.348551201835161,
+    "walk_base": 4.308254572186708,
+    "walk_fast": 4.6833884898696,
+    "whole_brain_hz": 5.757052607751592
+   },
+   "state_before_override": {
+    "gain": 4.348551201835161,
+    "walk_base": 4.201972603720431,
+    "walk_fast": 3.4867877218525773,
+    "whole_brain_hz": 5.952834671194214
+   }
+  },
+  {
+   "cond": "D",
+   "seed": 7,
+   "repeat": 1,
+   "time": 44.54,
+   "finished": true,
+   "state": {
+    "gain": 4.348551201835161,
+    "walk_base": 4.308254572186708,
+    "walk_fast": 4.6833884898696,
+    "whole_brain_hz": 5.757052607751592
+   },
+   "state_before_override": {
+    "gain": 4.348551201835161,
+    "walk_base": 4.201972603720431,
+    "walk_fast": 3.4867877218525773,
+    "whole_brain_hz": 5.952834671194214
+   }
+  },
+  {
+   "cond": "D",
+   "seed": 8,
+   "repeat": 0,
+   "time": 48.76,
+   "finished": true,
+   "state": {
+    "gain": 4.329641413613231,
+    "walk_base": 4.308254572186708,
+    "walk_fast": 4.6833884898696,
+    "whole_brain_hz": 5.757052607751592
+   },
+   "state_before_override": {
+    "gain": 4.329641413613231,
+    "walk_base": 2.4520351648611696,
+    "walk_fast": 3.9948073559695656,
+    "whole_brain_hz": 5.89440532307396
+   }
+  },
+  {
+   "cond": "D",
+   "seed": 8,
+   "repeat": 1,
+   "time": 52.74,
+   "finished": true,
+   "state": {
+    "gain": 4.329641413613231,
+    "walk_base": 4.308254572186708,
+    "walk_fast": 4.6833884898696,
+    "whole_brain_hz": 5.757052607751592
+   },
+   "state_before_override": {
+    "gain": 4.329641413613231,
+    "walk_base": 2.4520351648611696,
+    "walk_fast": 3.9948073559695656,
+    "whole_brain_hz": 5.89440532307396
+   }
+  },
+  {
+   "cond": "D",
+   "seed": 9,
+   "repeat": 0,
+   "time": 50.52,
+   "finished": true,
+   "state": {
+    "gain": 4.4000197049769545,
+    "walk_base": 4.308254572186708,
+    "walk_fast": 4.6833884898696,
+    "whole_brain_hz": 5.757052607751592
+   },
+   "state_before_override": {
+    "gain": 4.4000197049769545,
+    "walk_base": 3.2919278431849,
+    "walk_fast": 3.7602958036261405,
+    "whole_brain_hz": 5.52116654223573
+   }
+  },
+  {
+   "cond": "D",
+   "seed": 9,
+   "repeat": 1,
+   "time": 46.02,
+   "finished": true,
+   "state": {
+    "gain": 4.4000197049769545,
+    "walk_base": 4.308254572186708,
+    "walk_fast": 4.6833884898696,
+    "whole_brain_hz": 5.757052607751592
+   },
+   "state_before_override": {
+    "gain": 4.4000197049769545,
+    "walk_base": 3.2919278431849,
+    "walk_fast": 3.7602958036261405,
+    "whole_brain_hz": 5.52116654223573
+   }
+  },
+  {
+   "cond": "D",
+   "seed": 10,
+   "repeat": 1,
+   "time": 46.92,
+   "finished": true,
+   "state": {
+    "gain": 4.376483779885796,
+    "walk_base": 4.308254572186708,
+    "walk_fast": 4.6833884898696,
+    "whole_brain_hz": 5.757052607751592
+   },
+   "state_before_override": {
+    "gain": 4.376483779885796,
+    "walk_base": 6.372524003406471,
+    "walk_fast": 5.184534377159014,
+    "whole_brain_hz": 5.75112227635712
+   }
+  },
+  {
+   "cond": "D",
+   "seed": 10,
+   "repeat": 0,
+   "time": 45.94,
+   "finished": true,
+   "state": {
+    "gain": 4.376483779885796,
+    "walk_base": 4.308254572186708,
+    "walk_fast": 4.6833884898696,
+    "whole_brain_hz": 5.757052607751592
+   },
+   "state_before_override": {
+    "gain": 4.376483779885796,
+    "walk_base": 6.372524003406471,
+    "walk_fast": 5.184534377159014,
+    "whole_brain_hz": 5.75112227635712
+   }
+  },
+  {
+   "cond": "D",
+   "seed": 11,
+   "repeat": 0,
+   "time": 50.12,
+   "finished": true,
+   "state": {
+    "gain": 4.335271787133363,
+    "walk_base": 4.308254572186708,
+    "walk_fast": 4.6833884898696,
+    "whole_brain_hz": 5.757052607751592
+   },
+   "state_before_override": {
+    "gain": 4.335271787133363,
+    "walk_base": 4.818181708830182,
+    "walk_fast": 3.3296936941175588,
+    "whole_brain_hz": 6.035874710772547
+   }
+  },
+  {
+   "cond": "D",
+   "seed": 11,
+   "repeat": 1,
+   "time": 48.58,
+   "finished": true,
+   "state": {
+    "gain": 4.335271787133363,
+    "walk_base": 4.308254572186708,
+    "walk_fast": 4.6833884898696,
+    "whole_brain_hz": 5.757052607751592
+   },
+   "state_before_override": {
+    "gain": 4.335271787133363,
+    "walk_base": 4.818181708830182,
+    "walk_fast": 3.3296936941175588,
+    "whole_brain_hz": 6.035874710772547
+   }
+  },
+  {
+   "cond": "D",
+   "seed": 12,
+   "repeat": 1,
+   "time": 51.42,
+   "finished": true,
+   "state": {
+    "gain": 4.394142862959938,
+    "walk_base": 4.308254572186708,
+    "walk_fast": 4.6833884898696,
+    "whole_brain_hz": 5.757052607751592
+   },
+   "state_before_override": {
+    "gain": 4.394142862959938,
+    "walk_base": 4.878616507053616,
+    "walk_fast": 8.940778262819439,
+    "whole_brain_hz": 5.789229355275625
+   }
+  },
+  {
+   "cond": "D",
+   "seed": 12,
+   "repeat": 0,
+   "time": 47.82,
+   "finished": true,
+   "state": {
+    "gain": 4.394142862959938,
+    "walk_base": 4.308254572186708,
+    "walk_fast": 4.6833884898696,
+    "whole_brain_hz": 5.757052607751592
+   },
+   "state_before_override": {
+    "gain": 4.394142862959938,
+    "walk_base": 4.878616507053616,
+    "walk_fast": 8.940778262819439,
+    "whole_brain_hz": 5.789229355275625
+   }
+  },
+  {
+   "cond": "D",
+   "seed": 13,
+   "repeat": 0,
+   "time": 49.38,
+   "finished": true,
+   "state": {
+    "gain": 4.426479001445963,
+    "walk_base": 4.308254572186708,
+    "walk_fast": 4.6833884898696,
+    "whole_brain_hz": 5.757052607751592
+   },
+   "state_before_override": {
+    "gain": 4.426479001445963,
+    "walk_base": 1.7515984393974326,
+    "walk_fast": 5.703140463435831,
+    "whole_brain_hz": 5.434898507050575
+   }
+  },
+  {
+   "cond": "D",
+   "seed": 14,
+   "repeat": 0,
+   "time": 52.48,
+   "finished": true,
+   "state": {
+    "gain": 4.314429523796499,
+    "walk_base": 4.308254572186708,
+    "walk_fast": 4.6833884898696,
+    "whole_brain_hz": 5.757052607751592
+   },
+   "state_before_override": {
+    "gain": 4.314429523796499,
+    "walk_base": 5.696738357305779,
+    "walk_fast": 7.038439059531326,
+    "whole_brain_hz": 5.7907506706589515
+   }
+  },
+  {
+   "cond": "D",
+   "seed": 13,
+   "repeat": 1,
+   "time": 48.54,
+   "finished": true,
+   "state": {
+    "gain": 4.426479001445963,
+    "walk_base": 4.308254572186708,
+    "walk_fast": 4.6833884898696,
+    "whole_brain_hz": 5.757052607751592
+   },
+   "state_before_override": {
+    "gain": 4.426479001445963,
+    "walk_base": 1.7515984393974326,
+    "walk_fast": 5.703140463435831,
+    "whole_brain_hz": 5.434898507050575
+   }
+  },
+  {
+   "cond": "D",
+   "seed": 14,
+   "repeat": 1,
+   "time": 48.44,
+   "finished": true,
+   "state": {
+    "gain": 4.314429523796499,
+    "walk_base": 4.308254572186708,
+    "walk_fast": 4.6833884898696,
+    "whole_brain_hz": 5.757052607751592
+   },
+   "state_before_override": {
+    "gain": 4.314429523796499,
+    "walk_base": 5.696738357305779,
+    "walk_fast": 7.038439059531326,
+    "whole_brain_hz": 5.7907506706589515
+   }
+  },
+  {
+   "cond": "D",
+   "seed": 15,
+   "repeat": 0,
+   "time": 48.84,
+   "finished": true,
+   "state": {
+    "gain": 4.314166576776846,
+    "walk_base": 4.308254572186708,
+    "walk_fast": 4.6833884898696,
+    "whole_brain_hz": 5.757052607751592
+   },
+   "state_before_override": {
+    "gain": 4.314166576776846,
+    "walk_base": 6.189755400723375,
+    "walk_fast": 8.99369530350494,
+    "whole_brain_hz": 5.914040289923791
+   }
+  },
+  {
+   "cond": "D",
+   "seed": 15,
+   "repeat": 1,
+   "time": 46.66,
+   "finished": true,
+   "state": {
+    "gain": 4.314166576776846,
+    "walk_base": 4.308254572186708,
+    "walk_fast": 4.6833884898696,
+    "whole_brain_hz": 5.757052607751592
+   },
+   "state_before_override": {
+    "gain": 4.314166576776846,
+    "walk_base": 6.189755400723375,
+    "walk_fast": 8.99369530350494,
+    "whole_brain_hz": 5.914040289923791
+   }
+  }
+ ]
+}

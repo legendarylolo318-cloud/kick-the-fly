@@ -1,0 +1,27 @@
+parameter,value,is_default,behavior,passed,metric,effect,control,effect_size_dz,p_value,n_seeds,effect_vs_baseline
+baseline,,True,mb_conditioning,True,performance index,1.0,-0.030000000000000006,7.070364372224458,0.0009765625,10,0.0
+noise_std,0.025,False,mb_conditioning,True,performance index,0.99,-0.01,6.123724356957946,0.0009765625,10,-0.010000000000000009
+noise_std,0.0375,False,mb_conditioning,True,performance index,1.0,-0.005000000000000007,7.264533004108344,0.0009765625,10,0.0
+noise_std,0.075,False,mb_conditioning,True,performance index,0.53,-0.04,6.2028219384406,0.0009765625,10,-0.47
+noise_std,0.1,False,mb_conditioning,False,performance index,-0.035,-0.045000000000000005,0.47434164902525683,0.25,10,-1.035
+bias,0.15,False,mb_conditioning,True,performance index,0.655,0.085,2.1358320325200775,0.0009765625,10,-0.345
+bias,0.175,False,mb_conditioning,True,performance index,1.0,0.07500000000000001,9.448947491422109,0.0009765625,10,0.0
+bias,0.225,False,mb_conditioning,False,performance index,0.28500000000000003,-0.04,2.1733850290438768,0.0009765625,10,-0.715
+bias,0.25,False,mb_conditioning,False,performance index,0.19499999999999998,-0.045000000000000005,2.1324559599327326,0.001953125,10,-0.805
+target_rate_hz,2.5,False,mb_conditioning,True,performance index,0.975,-0.04,7.3797854630183,0.0009765625,10,-0.025000000000000022
+target_rate_hz,3.5,False,mb_conditioning,True,performance index,1.0,-0.04,7.9504961864269585,0.0009765625,10,0.0
+target_rate_hz,7.5,False,mb_conditioning,True,performance index,1.0,0.009999999999999998,7.826637208916739,0.0009765625,10,0.0
+target_rate_hz,10.0,False,mb_conditioning,False,performance index,-0.04,-0.1,0.6033613708385916,0.05859375,10,-1.04
+ext_gain,2.0,False,mb_conditioning,True,performance index,1.0,-0.030000000000000006,7.070364372224458,0.0009765625,10,0.0
+ext_gain,3.0,False,mb_conditioning,True,performance index,1.0,-0.045000000000000005,8.034500729382215,0.0009765625,10,0.0
+ext_gain,5.0,False,mb_conditioning,True,performance index,1.0,-0.035,7.31347814326474,0.0009765625,10,0.0
+ext_gain,6.0,False,mb_conditioning,True,performance index,1.0,-0.025,8.487806379910957,0.0009765625,10,0.0
+gain_adapt,0.0,False,mb_conditioning,True,performance index,0.99,5.551115123125783e-18,8.26916378888711,0.0009765625,10,-0.010000000000000009
+gain_adapt,0.001,False,mb_conditioning,True,performance index,1.0,-0.045000000000000005,8.034500729382215,0.0009765625,10,0.0
+gain_adapt,0.004,False,mb_conditioning,True,performance index,1.0,-0.035,6.542281164952136,0.0009765625,10,0.0
+gain_adapt,0.008,False,mb_conditioning,True,performance index,1.0,-0.01,8.127092978905173,0.0009765625,10,0.0
+min_synapses,4.0,False,mb_conditioning,True,performance index,1.0,0.004999999999999999,6.807868544723574,0.0009765625,10,0.0
+min_synapses,5.0,False,mb_conditioning,True,performance index,1.0,-0.025,7.324543410357587,0.0009765625,10,0.0
+min_synapses,6.0,False,mb_conditioning,True,performance index,1.0,-0.015000000000000005,6.72118290441437,0.0009765625,10,0.0
+min_synapses,8.0,False,mb_conditioning,True,performance index,1.0,0.015000000000000008,6.092459756728301,0.0009765625,10,0.0
+min_synapses,10.0,False,mb_conditioning,True,performance index,1.0,0.045,7.224857725754374,0.0009765625,10,0.0

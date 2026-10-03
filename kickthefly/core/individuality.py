@@ -75,12 +75,16 @@ def compute_personality_card(
     tmaze_pi: float | None = None,
     mode: str = "subtle",
 ) -> dict[str, Any]:
-    """Generate a measured, non-scripted personality profile card for a fly.
-    
-    If specific assay metrics are not precomputed, deterministic estimates
-    are measured from the fly's own neuron gain distributions.
+    """A personality card: trait words for three (or four) numbers, by this game's cut-offs above (GAME RULE; they are not from a
+    paper).
+
+    MEASURED only when the caller passes the readouts: lab/tournament.measure_card reads them from the fly's own brain (CONNECTOME).
+    Without them the numbers are DRAWN from a random generator seeded by `seed`: they come from no brain and say nothing about this
+    fly (3.0 day 4 review: the docstring used to say they were "measured from the fly's own neuron gain distributions"; they never
+    were). Such a card is marked measured=False and source="drawn from the seed"; the game no longer shows it (core/cards.py).
     """
-    # Deterministic estimates from gains if direct assay readouts not passed
+    measured = looming_latency is not None and turning_ratio is not None and sugar_ratio is not None
+    # numbers drawn from the seed for whatever was not passed (not measured: see the docstring)
     if turning_ratio is None or looming_latency is None or sugar_ratio is None:
         rng = np.random.default_rng((int(seed) * 31337 + 101) & 0xFFFFFFFF)
         s = SIGMAS.get(mode, 0.05)
@@ -93,7 +97,7 @@ def compute_personality_card(
         if tmaze_pi is None:
             tmaze_pi = float(np.clip(0.55 + rng.normal(0, s), 0.1, 0.95))
 
-    # Determine traits based on published thresholds
+    # trait words by this game's cut-offs (GAME RULE)
     if looming_latency >= THRESH_LOOM_BOLD_S:
         temperament = "Bold"
         temp_desc = f"Looming latency {looming_latency:.2f}s (>= {THRESH_LOOM_BOLD_S}s)"
@@ -154,6 +158,8 @@ def compute_personality_card(
         "steering": (steering, steer_desc),
         "feeding": (feeding, feed_desc),
         "learning": (learning, learn_desc) if learning else None,
+        "measured": bool(measured),
+        "source": "measured from the fly's brain" if measured else "drawn from the seed (not measured from any brain)",
         "metrics": {
             "looming_latency": looming_latency,
             "turning_ratio": turning_ratio,

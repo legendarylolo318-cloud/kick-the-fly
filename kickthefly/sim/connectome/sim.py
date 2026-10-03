@@ -58,6 +58,9 @@ class LIFParams:
     # individuality variation: off | subtle | strong
     individuality: str = field(default_factory=lambda: os.environ.get("KICK_THE_FLY_INDIVIDUALITY", "off"))
     individuality_sigma: float | None = None
+    # 3.0 day 4 review: the seed the per-neuron gains are drawn from, when it should differ from the noise/warm-up seed (the race
+    # assay's R4 holds the brain state fixed and varies only the individual). None, the default, is the sim's own seed, as always.
+    individuality_seed: int | None = None
 
 
 class ActivityBuffer:
@@ -140,8 +143,9 @@ class LIFSim:
         self.individuality = getattr(self.p, "individuality", "off")
         self.individuality_sigma = getattr(self.p, "individuality_sigma", None)
         from kickthefly.core import individuality as indiv_mod
+        iseed = getattr(self.p, "individuality_seed", None)
         self.d_pre, self.d_post = indiv_mod.compute_fly_gains(
-            seed, self.n, self.individuality, self.individuality_sigma
+            seed if iseed is None else int(iseed), self.n, self.individuality, self.individuality_sigma
         )
         from kickthefly.sim.connectome import backends
         self.backend_choice = getattr(self.p, "backend", "auto")

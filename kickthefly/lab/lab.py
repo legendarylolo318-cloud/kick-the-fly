@@ -444,6 +444,78 @@ ASSUMPTIONS = (
      "official documentation, so Twitch may stop allowing it. Off at every launch and never during validation, protocols or tests.",
      "kickthefly/core/streamer.py · kickthefly/core/netguard.py · Esc > Mic and streamer"),
 
+    ("Fly tournament: both sides of every duel are brains; the arena and the blaster are rules",
+     "GAME RULE",
+     "A bracket of 4, 8 or 16 flies, each a different individuality seed (its per-neuron gains come from the seed), fights 1v1 duels in a "
+     "flat 12 m square. A fly turns on DNa01/02 right minus left, shoots when DNp35/DNpe052 rise above the game's own threshold, dodges "
+     "when the giant fiber DNp01 does and runs when the body-touch group does; it sees the other fly the way it sees you in the duel "
+     "(LC10 tracking, small-object detectors, looming from pellets). The arena, the start, the blaster, the hit's touch and reward/"
+     "punishment pulses, the match length, the pairing and the tie-break (two rematches, then a seeded coin toss that is labelled) are "
+     "game rules. The personality card is MEASURED from the fly's own brain. Who wins, which neurons fired before a winner's landed shots "
+     "and whether personality predicts winning are MODEL PREDICTIONS.",
+     "A duel is not a fight between real flies, and no published fight statistic is used. A bracket of n flies has n - 1 matches, so one "
+     "bracket cannot show that personality predicts winning; pool brackets (--tournament N --seeds ...) and run --individuality off as the "
+     "control. The 'drivers' list is a correlation (nothing is silenced), and touch neurons lead it because a hit fly fires them.",
+     "kickthefly/game/flyduel.py · kickthefly/lab/tournament.py · Esc > Fly arcade · --tournament N"),
+
+    ("Personality cards are measured from the fly's brain; the trait words are rules",
+     "GAME RULE",
+     "A card's three numbers are CONNECTOME readouts of the individual a seed builds, at rest: the giant fiber's latency to its dodge "
+     "threshold with the looming detectors driven, the sugar-pathway -> MN9 drive ratio, and the right/left DNa01/02 firing ratio "
+     "(lab/tournament.measure_card). The words (Bold, Skittish, Right-turner, Sugar lover...) and their cut-offs are this game's. Since "
+     "the 3.0 day 4 review the game shows only measured cards: a fly in play or the pet says 'card not measured' until Esc > Fly arcade > "
+     "Measure the flies in play has read it (about 10 s per fly, in the background). Before, the card showed numbers drawn from a random "
+     "generator seeded by the fly's seed, from no brain at all (and the pet's from a seed its brain is not built from).",
+     "A card is a snapshot of one simulated individual at rest, at the default warm-up; no published fly personality statistic is used. "
+     "With individuality off every fly has the same brain and the cards differ only by noise and warm-up state, not individuality "
+     "(the race assay found that state is what makes a fly's speed repeatable: docs/racing.md).",
+     "kickthefly/core/cards.py · kickthefly/lab/tournament.py · Esc > Fly arcade"),
+
+    ("Fly racing: the walking neurons set the speed; the track, the odds and the points are rules",
+     "GAME RULE",
+     "Each fly runs a lane of an 8 m track with sugar and fruit lures. Its speed is V_MAX x clip(DNp09's level / the game's walking "
+     "threshold, 0, 1); a lure ahead drives the real olfactory neurons of its scent and touching it drives the taste and PAM reward "
+     "neurons, with the game's own pulse strengths. The odds are the softmax of a form score (the mean of the z-scores of the fly's measured "
+     "sugar -> MN9 ratio and calm walking drive) and pay a fair price less 10%. Bets are in-game points only: no money, nothing to buy. "
+     "The finishing order and whether individuality predicts it are MODEL PREDICTIONS.",
+     "Flies never touch or block each other (every lane is its own simulation). The form score is a modelling choice, not a finding; the race "
+     "assay measures whether it works (R1-R3, Holm-corrected). With identical brains (--individuality off) differences are noise.",
+     "kickthefly/game/flyrace.py · kickthefly/lab/racing.py · kickthefly/core/points.py · --race"),
+
+    ("Network science: computed from the wiring, with analysis choices that are rules",
+     "DATASET",
+     "Degree distributions, reciprocity, 3-node motif counts against a degree-preserving null, the rich-club coefficient, modularity and "
+     "communities and per-region summaries are computed from the pack's synapse counts (nothing is simulated), cached with a checksum. The "
+     "number of null graphs and wedge samples, the seed, the rich-club cut-offs and the community-detection method are GAME RULE choices "
+     "that change how precisely a number is estimated, not what the wiring is.",
+     "The pack keeps connections of 3 or more synapses and EM coverage is uneven, so every number is about this pack. Motif counts are sampled "
+     "estimates; the community partition is a heuristic (the reported Q is exact for the partition found, not the maximum); no power law is "
+     "fitted. Nothing here is a MODEL PREDICTION.",
+     "kickthefly/lab/netsci.py · Lab > Network science · --netsci"),
+
+    ("Sleep deprivation: pressure is a rule, the dFB readout is the connectome's, the rebound is a prediction",
+     "GAME RULE",
+     "Sleep pressure (0 to 1) rises while the fly is awake and falls while it sleeps, on a compressed clock (the pet's rule); it becomes a "
+     "current on every FB6/FB7 neuron (CONNECTOME: those neurons' firing, read as a multiple of their calm rate, is the game's SLEEP "
+     "readout). Disturbances (a touch every 3 s that holds the fly awake 2 s), the compressed day and what counts as sleep (dFB above its "
+     "threshold for 1 s) are game rules; daylight reaches the photoreceptors and the clock neurons l-LNv/s-LNv. The rebound is a MODEL "
+     "PREDICTION.",
+     "A rebound is expected from the pressure rule: the assay shows that it works through the real dFB neurons, not that the fly's brain has "
+     "a sleep homeostat. The current that pressure becomes was chosen on exploration seeds 11 and 12 from the dFB's response curve and was "
+     "not tuned to a criterion.",
+     "kickthefly/lab/sleepdep.py · Lab > Sleep deprivation · --sleep-deprivation · protocol assay: sleep_deprivation"),
+
+    ("Sensitivity analysis: a map of the model's own parameters, not a reason to change them",
+     "TUNING",
+     "Each LIF parameter (noise, tonic drive, target rate, sensory gain, gain adaptation) and the minimum synapse count is varied across a "
+     "documented range, one at a time, and every validated behavior is re-run with validation's own code and pass criteria. Each heatmap "
+     "cell (PASS or FAIL and an effect size) is a statement about the model. The pathways are CONNECTOME; the ranges and the criteria "
+     "(chosen for this release) are GAME RULE.",
+     "One parameter at a time: interactions are not explored. Fewer than 7 seeds cannot reach p < 0.01, so a small run is marked "
+     "underpowered. The defaults are NOT changed by anything this reports, and a behavior that is robust to a parameter is not evidence "
+     "the default is right.",
+     "kickthefly/lab/sensitivity.py · Lab > Sensitivity analysis · --sensitivity"),
+
     ("Hemifield lesion as static connectome wiring ablation",
      "DATASET",
      "One-click surgery silences visual pathways (LC10, LPLC2, LC4, LPTC, VS, HS) on one hemifield or an entire hemibrain, reported strictly as a wiring outcome.",
@@ -895,6 +967,10 @@ def install(menu: ui.Menu) -> None:
     menu.pages["lab_laser"] = lablaser.page
     menu.pages["lab_psych"] = labpsych.page
     menu.pages["lab_classroom"] = labclassroom.page
+    from kickthefly.lab import labday4
+    menu.pages["lab_netsci"] = labday4.page_netsci                # 3.0 day 4
+    menu.pages["lab_sleepdep"] = labday4.page_sleepdep
+    menu.pages["lab_sensitivity"] = labday4.page_sensitivity
     ui.TAG_COLORS.setdefault("MODEL", (150, 120, 220))
 
 
@@ -1004,7 +1080,7 @@ def page_assays(m: ui.Menu, surf, rect, mouse) -> None:
     x0, y = rect.x + 24, rect.y + 78
     busy = st.job is not None and st.job.running
     m.text(surf, "Assay", (x0, y + 15), ui.TEXT, m.f_text, "midleft")
-    m.segmented(surf, (x0 + 110, y, 700, 30), [labjobs.ASSAY_LABEL[k] for k in labjobs.ASSAYS],
+    m.segmented(surf, (x0 + 110, y, rect.w - 134, 30), [labjobs.ASSAY_LABEL[k] for k in labjobs.ASSAYS],
                 labjobs.ASSAYS.index(st.kind), lambda i: setattr(st, "kind", labjobs.ASSAYS[i]), id="assay_kind",
                 enabled=not busy)
     y += 40
@@ -1113,6 +1189,18 @@ def draw_assay_result(m: ui.Menu, surf, area: pygame.Rect, res: dict) -> None:
         rows = [(r["predator"], f"{r['escapes']}/{r['trials']} escaped, 95% CI {r['ci95'][0]:.2f}-{r['ci95'][1]:.2f}",
                  f"{r['escapes']}/{r['trials']}") for r in t["rows"]]
         rows.append(("MODEL PREDICTION", "the attack is a game rule; an escape = DNp01 above the game's escape rule before the capture", ""))
+    elif kind == "sleep_deprivation":
+        mm = t["mean"]
+        draw_chart(m, surf, chart, ["deprivation window", "recovery window"],
+                   [("control", (200, 200, 200), [dict(mean=mm["deprivation_sleep_control"], lo=float("nan"), hi=float("nan")),
+                                                  dict(mean=mm["recovery_sleep_control"], lo=float("nan"), hi=float("nan"))]),
+                    ("deprived", ui.ACCENT, [dict(mean=mm["deprivation_sleep_deprived"], lo=float("nan"), hi=float("nan")),
+                                             dict(mean=mm["recovery_sleep_deprived"], lo=float("nan"), hi=float("nan"))])],
+                   "window", "sleep (s)", connect=False)
+        rows = [(f"{cid} {'PASS' if x['passed'] else 'FAIL'}", x["label"] + (f", {labstats.fmt_p(x['p'])}" if "p" in x else ""), "")
+                for cid, x in t["criteria"].items()]
+        rows.append(("GAME RULE", "sleep pressure, disturbances, what counts as sleep", ""))
+        rows.append(("CONNECTOME", "the dFB firing the pressure drives; MODEL PREDICTION: the rebound", ""))
     elif kind == "thermo_escape":
         xs = [r["temperature_c"] for r in t["rows"]]
         mk = lambda key: [dict(mean=r[key], lo=float("nan"), hi=float("nan")) for r in t["rows"]]   # noqa: E731

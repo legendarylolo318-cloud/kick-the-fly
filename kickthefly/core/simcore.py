@@ -53,7 +53,8 @@ def symmetrize_weights(g, weights):
 
 def new_brain(seed: int = 0, memory: bool = True, warmup: int = 600, params: dict | None = None,
               isolated_memory: bool = True, mirror_weights: bool = False, wiring=None, backend: str | None = None,
-              brain: str = "adult", individuality: str = "off", individuality_sigma: float | None = None):
+              brain: str = "adult", individuality: str = "off", individuality_sigma: float | None = None,
+              individuality_seed: int | None = None):
     """A warmed-up Brain that is not running on a thread. isolated_memory: start from the untrained connectome and never
     read or write the player's saved training memory. wiring: a sim.wiring.Wiring applied before the warm-up, so the
     brain settles with the changed connectome rather than on top of a brain that settled without it."""
@@ -69,6 +70,7 @@ def new_brain(seed: int = 0, memory: bool = True, warmup: int = 600, params: dic
         lif_params.backend = backend
     lif_params.individuality = individuality
     lif_params.individuality_sigma = individuality_sigma
+    lif_params.individuality_seed = individuality_seed      # None: the gains come from `seed`, as always (3.0 day 4 review, race R4)
     sim = LIFSim(None, lif_params, W_in=W, seed=seed)
     if params:
         lab.apply_to_sim(sim, params)

@@ -1,0 +1,17 @@
+direction,row,type,degree
+in,5,CT1,9184
+in,141,CT1,8466
+in,137444,LT33,3588
+in,381,LT33,3247
+in,42,Li39,3239
+in,569,Li39,3169
+in,72,Am1,3080
+in,279,Li38,3055
+out,5,CT1,7749
+out,141,CT1,7565
+out,37,MeVC11,5306
+out,80,Am1,4859
+out,239,MeVC11,4258
+out,72,Am1,4232
+out,466,LPi4b,3948
+out,569,Li39,3903

@@ -19,7 +19,8 @@ sys.path.insert(0, str(ROOT))
 LOCALES = ROOT / "kickthefly" / "data" / "locales"
 MODULES = ("kickthefly/ui/loadout_ui.py", "kickthefly/ui/tutorial.py", "kickthefly/ui/help_ui.py",
            "kickthefly/ui/crashscreen.py", "kickthefly/game/kick_the_fly.py", "kickthefly/game/kick3d.py",
-           "kickthefly/ui/neurodex_ui.py", "kickthefly/ui/share_ui.py", "kickthefly/game/extras3.py")
+           "kickthefly/ui/neurodex_ui.py", "kickthefly/ui/share_ui.py", "kickthefly/game/extras3.py",
+           "kickthefly/ui/arcade_ui.py", "kickthefly/lab/labday4.py")
 NEW_SETTINGS = ("controls.loadout_preset", "brain.neurodex", "brain.killcam", "brain.neuron_of_day", "brain.imaging_indicator",
                 "brain.imaging_fps", "brain.imaging_f0_tau_s", "brain.mic_sensitivity", "stream.allow_tool",
                 "stream.allow_arena", "stream.allow_surgery", "stream.window_s", "stream.cooldown_s", "stream.min_votes")
@@ -53,7 +54,8 @@ def wanted() -> set[str]:
     # the pause menu's 3.0 entries (their labels and tips are passed to tr() as variables)
     out |= {"Neurodex", "Share", "The cell types you have discovered, with what the dataset says about each. Default key D.",
             "Make a short code for your surgery, loadout, protocol, challenge setup or Lab parameters, or import one "
-            "and see what it would change first."}
+            "and see what it would change first.",
+            "Fly arcade", "A tournament of flies (each brain steers and shoots in 1v1 duels) and fly racing with in-game points. Points are not money."}
     return {x for x in out if x.strip()}
 
 

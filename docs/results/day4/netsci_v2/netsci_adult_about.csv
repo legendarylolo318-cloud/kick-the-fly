@@ -1,0 +1,14 @@
+key,value
+pack,kick_brain.npz
+pack_sha256,a65baf8602b48c62806b63c728d95dc2fc0146ced643e41044078fb6deb87fc0
+modularity,0.7003420010430609
+communities,653
+nmi_with_regions,0.5302535833436007
+version,2
+nulls,3
+wedges,300000
+seed,0
+rich_percentiles,"[50, 75, 90, 95, 98, 99]"
+sweeps_per_level,12
+tag,CONNECTOME for every number; analysis choices GAME RULE; no MODEL PREDICTION
+note,"motif counts are sampled estimates; the community partition is a heuristic, not a unique optimum"

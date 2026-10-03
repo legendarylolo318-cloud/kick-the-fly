@@ -215,6 +215,25 @@ and SLEEP: dorsal fan-shaped body FB6/FB7 above THRESH["sleep"] stops spontaneou
 CONNECTOME: the photoreceptors, the LNvs and everything downstream. A full simulated day never took dFB past 1.46x,
 so the fly doesn't sleep on its own; stimulate FB6/FB7 in surgery.
 
+Fly tournament and fly racing (3.0 day 4; Esc > Fly arcade). CONNECTOME: in a duel both sides are brains: turning is DNa01/02 right minus
+left, shooting DNp35/DNpe052 above THRESH["fire"], the dodge DNp01 above THRESH["escape"], the run the body-touch group; in a race the
+speed is the walking neurons' DNp09 level. A fly's individuality (per-neuron gains from its seed) and its personality card, MEASURED from
+its brain (looming latency to its dodge threshold, sugar -> MN9 ratio, DNa01/02 right/left ratio), are its own. GAME RULE: the arena, the
+blaster, the pairing, the tie-break, the track, the lures, the odds (softmax of a form score) and the points (in-game points only: no
+money, nothing to buy). MODEL PREDICTION: who wins or finishes first, which neurons fired before a winner's landed shots, whether
+personality or individuality predicts the result (headless --tournament N, --race; the criteria are written in lab/tournament.py and
+lab/racing.py before any run).
+
+Network science (Lab; --netsci). CONNECTOME only: degrees, reciprocity, 3-node motifs against a degree-preserving null, rich club,
+communities and per-region summaries computed from the pack's synapse counts, cached with a checksum; the analysis choices are GAME RULE.
+
+Sleep deprivation assay (Lab; --sleep-deprivation). GAME RULE: sleep pressure (rises awake, falls asleep), the disturbances, what counts as
+sleep and the current pressure becomes on FB6/FB7. CONNECTOME: the dFB firing that current produces (the SLEEP readout), daylight on the
+photoreceptors and clock neurons. MODEL PREDICTION: the rebound sleep, which the pressure rule makes expected.
+
+Sensitivity analysis (Lab; --sensitivity). Each LIF parameter and the synapse threshold varied across a documented range, every validated
+behavior re-run with validation's own criteria: a heatmap. Analysis only: no default changes. Every cell is a MODEL PREDICTION.
+
 Validation (validation.py): which published results this sim reproduces, on held-out seeds with pass criteria fixed
 beforehand. Pass: looming -> giant fiber, sugar -> MN9, antennal touch -> aDN, T-maze conditioning, pIP10 -> ps1,
 bitter GRNs -> DNg28, CO2 ORNs -> V PNs, TRN_VP2 -> VP2 PNs, TRN_VP3 -> VP3 PNs, optomotor (T4/T5 -> DNa_R),
@@ -418,9 +437,11 @@ Fly individuality (2.11; Kain et al. 2012, Linneweber et al. 2020).
   Plastic KC->MBON weights learn normally on top. Shared weight matrix structure preserves streaming
   SpMM on batched torch backends. NumPy and Numba stay bit-exact; torch-cpu only with it off. Settings > Brain > Individuality
   (off / subtle / strong, default subtle in Play). Forced OFF for --validate.
-- Personality cards: short profiles per fly (temperament, steering bias, feeding drive, learning) with their
-  thresholds shown. Known issue: without assay metrics (the game's case) the metrics are seeded draws, not measured. Displayed in fly picker (F), pet mode, and
-  neuron inspector header.
+- Personality cards: short profiles per fly (temperament, steering bias, feeding drive) with their thresholds shown. CONNECTOME: the
+  numbers, MEASURED from the fly's own brain (lab/tournament.measure_card). GAME RULE: the words and cut-offs. Since the 3.0 day 4
+  review the game shows only measured cards (core/cards.py): a fly in play or the pet says "card not measured" until Esc > Fly arcade >
+  Measure the flies in play reads it (cached by seed, individuality mode and sigma, LIF parameters and pack). Before, these were
+  numbers drawn from the seed, not measured. Displayed in the focus note (F), pet mode and the neuron inspector header.
 
 Pet mode (2.11; core/pet.py).
 - New mode in Esc > Mode alongside Play and Lab. One fly (adult or larva) persists across real days,
@@ -450,6 +471,7 @@ import os
 import random
 import sys
 import threading
+import weakref
 import time
 from collections import deque
 from pathlib import Path
@@ -1693,6 +1715,27 @@ class Fly:
         return hits
 
 
+def pet_card(pet, slot) -> dict | None:
+    """The pet's personality card: the MEASURED card of the pet fly (the original fly, built from Settings > Brain > Random seed), never
+    the pet file's own seed (3.0 day 4 review: the card was drawn from pet.seed, a different number from the seed the pet's brain is
+    built from). A measured card the pet file carries for that same fly and settings is put back into the card cache; the slot's
+    measured card is written into the pet file, so the pet keeps it."""
+    from kickthefly.core import cards
+
+    if slot is None:
+        return None
+    card = slot.personality if (slot.personality or {}).get("measured") is True else None
+    stored = cards.check_pet_card(getattr(pet, "personality_card", None)) if pet is not None else None
+    if card is None and stored is not None:
+        mode, sigma, params = slot.card_settings()
+        if stored.get("card_key") == cards.key(slot.seed, mode, sigma, params):
+            cards.store(stored)
+            slot.personality = card = stored
+    if pet is not None and card is not None and getattr(pet, "personality_card", None) is not card:
+        pet.personality_card = card
+    return card
+
+
 class FlySlot:
     """One spawned fly: its ragdoll body, its own independent Brain/LIFSim thread, and the episode-scoped bookkeeping
     (hits, pain, reward, loom state...) that used to live directly on Game when there was only ever one fly."""
@@ -1701,9 +1744,29 @@ class FlySlot:
         self.fly, self.brain, self.seed, self.primary = fly, brain, seed, primary
         self.persist_memory = primary          # only the original fly's learning is saved to disk (see README)
         self.hue = (seed * 0.6180339887) % 1.0  # golden-ratio spread so several flies look visually distinct
-        from kickthefly.core.individuality import compute_personality_card
-        self.personality = compute_personality_card(seed)
+        self.refresh_card()
         self.reset_episode()
+
+    def card_settings(self) -> tuple[str, float | None, dict]:
+        """(individuality mode, sigma, LIF parameters) this fly's brain really runs with: what its measured card must match. A brain
+        that asked for individuality but has no gains (the gl backend) runs the shared connectome, so its card is the 'off' one."""
+        sim = getattr(self.brain, "sim", None)
+        if sim is None:
+            return "off", None, {}
+        mode = str(getattr(sim, "individuality", "off") or "off")
+        if getattr(sim, "d_pre", None) is None and getattr(sim, "d_post", None) is None:
+            mode = "off"
+        p = getattr(sim, "p", None)
+        params = {k: float(getattr(p, k)) for k in ("noise_std", "bias", "target_rate_hz", "ext_gain", "gain_adapt") if hasattr(p, k)}
+        return mode, getattr(sim, "individuality_sigma", None), params
+
+    def refresh_card(self) -> None:
+        """This fly's MEASURED personality card from the card cache, or 'card not measured' (3.0 day 4 review, decision A: the card
+        used to be numbers drawn from the seed, shown as if they described this fly; core/cards.py)."""
+        from kickthefly.core import cards
+
+        mode, sigma, params = self.card_settings()
+        self.personality = cards.for_fly(self.seed, mode, sigma, params)
 
     def reset_episode(self) -> None:
         self.hits = 0
@@ -2542,7 +2605,33 @@ class Game:
         from kickthefly.game import live_inputs
         self.live = live_inputs.LiveInputs(self)     # 3.0 day 3: microphone and streamer mode (both off at every launch)
         self.menu.pages["live_inputs"] = live_inputs.page
+        from kickthefly.ui import arcade_ui
+
+        self.menu.pages["arcade"] = arcade_ui.page             # 3.0 day 4: fly tournament and fly racing
+        Game.LIVE.add(self)
         threading.Thread(target=self._view_loop, name="brain-view", daemon=True).start()
+
+    # every Game that has been built and not shut down (3.0 day 4 review: the brain-view thread holds its game, and through it every
+    # brain, until view_stop; test files that never set it kept 1-1.8 GB each. tests/conftest.py shuts these down after each test)
+    LIVE: "weakref.WeakSet[Game]" = weakref.WeakSet()
+
+    def shutdown(self, join: float = 2.0) -> None:
+        """Stop this game's background threads (the brain-view renderer and every fly's brain thread) so it and its brains can be
+        freed. The game is not usable afterwards. Safe to call twice."""
+        self.view_stop = True
+        for slot in list(getattr(self, "flies", []) or []):
+            try:
+                slot.brain.stop()
+            except Exception:
+                pass
+        new = getattr(self, "_new_slot", None)
+        if new is not None:
+            new.brain.stop()
+        Game.LIVE.discard(self)
+        if join:
+            for th in threading.enumerate():
+                if th.name == "brain-view" and getattr(getattr(th, "_target", None), "__self__", None) is self:
+                    th.join(timeout=join)
 
     # --- settings, menu and time ----------------------------------------------------------------------------------
     def make_fonts(self) -> None:
@@ -2876,6 +2965,8 @@ class Game:
             self.menu.show("share")
         elif name == "live_inputs":
             self.menu.show("live_inputs")
+        elif name == "arcade":
+            self.menu.show("arcade")
         elif name == "save_state":
             self.save_state()
         elif name == "load_state":
@@ -3000,7 +3091,13 @@ class Game:
                 ("Calcium imaging", "lab_imaging", "GCaMP dF/F simulated from spikes (MODEL): brain view Imaging mode, ROI traces, "
                  "CSV / NWB / TIFF export."),
                 ("Pharmacology", "lab_pharm", "Picrotoxin, cholinergic block, glutamate-Cl block and a GABA-A agonist as synaptic "
-                 "scaling by predicted transmitter, with the confidence of each prediction shown.")]
+                 "scaling by predicted transmitter, with the confidence of each prediction shown."),
+                ("Network science", "lab_netsci", "Degree distributions, reciprocity, 3-node motifs against a degree-preserving null, rich club, "
+                 "communities and per-region summaries of the brain pack (adult or larva), cached and exportable to CSV."),
+                ("Sleep deprivation", "lab_sleepdep", "Keep a fly awake through the night with timed disturbances, then measure rebound sleep "
+                 "against an undisturbed control (paired). Sleep pressure is a game rule; the dFB readout is the connectome's."),
+                ("Sensitivity analysis", "lab_sensitivity", "Vary each LIF parameter across a documented range and re-run the validated behaviors "
+                 "with validation's own criteria: a parameter x behavior heatmap. Analysis only; defaults never change.")]
 
     def start_recording(self, groups: list[tuple[str, str]], seconds: float, nwb: bool = False) -> None:
         from kickthefly.lab import lab
@@ -3507,9 +3604,9 @@ class Game:
             self.focus = (self.focus + step) % len(self.flies)
             self._manual_focus_until = time.perf_counter() + 5.0
             slot = self.flies[self.focus]
-            pers = getattr(slot, "personality", None)
-            pers_str = f" [{pers['title']}]" if pers else ""
-            self.note(f"FOCUS    fly #{self.focus + 1}/{len(self.flies)}{pers_str}")
+            from kickthefly.core import cards
+
+            self.note(f"FOCUS    fly #{self.focus + 1}/{len(self.flies)} [{cards.label(getattr(slot, 'personality', None))}]")
 
     def _update_focus(self) -> None:
         """The brain panel (and whichever fly training/surgery act on) always follows the fly nearest to you,
@@ -4664,7 +4761,9 @@ class Game:
         slot = self.flies[self.focus] if self.focus < len(self.flies) else None
         pers = getattr(slot, "personality", None)
         if pers:
-            self._text(surf, f"Fly #{self.focus + 1} · {pers['title']}", (x, y), ACCENT, self.f_small)
+            from kickthefly.core import cards
+
+            self._text(surf, f"Fly #{self.focus + 1} · {cards.label(pers)}", (x, y), ACCENT, self.f_small)
             self._text(surf, info["type"], (x, y + 16), INK, self.f_head)
             inst_label = f"   {info['instance']}" if info.get("instance") else ""
             self._text(surf, f"{info['pop']}{inst_label}", (x, y + 38), LABEL, self.f_small)
@@ -6528,9 +6627,10 @@ class Game:
         pygame.draw.rect(card, (10, 12, 18, 180), card.get_rect(), border_radius=10)
         surf.blit(card, (x, y))
 
-        card_p = pet.personality_card or {}
-        title = card_p.get("title", "Pet Fly")
-        self._text(surf, f"PET: {title}", (x + 12, y + 8), ACCENT, self.f_small)
+        from kickthefly.core import cards
+
+        slot = self.flies[0] if getattr(self, "flies", None) else None
+        self._text(surf, f"PET: {cards.label(pet_card(pet, slot))}", (x + 12, y + 8), ACCENT, self.f_small)
 
         bx, bw = x + 12, w - 24
         self._text(surf, f"hunger {int(pet.hunger * 100)}%", (bx, y + 26), TEXT, self.f_small)
@@ -7353,6 +7453,33 @@ def parse_args(argv: list[str] | None = None):
     ap.add_argument("--top", type=int, help="how many candidate cell types --critical-path tries (default 25)")
     ap.add_argument("--types", nargs="+", help="test exactly these cell types instead of the shortlist")
     ap.add_argument("--resume", action="store_true", help="continue an interrupted --critical-path run in --out")
+    ap.add_argument("--sensitivity", action="store_true",
+                    help="3.0 day 4: vary each LIF parameter and re-run the validated behaviors with validation's own criteria "
+                         "(headless; resumable with --resume; writes a heatmap, CSV and JSON into --out)")
+    ap.add_argument("--sens-params", dest="sens_params", nargs="+", metavar="PARAM",
+                    help="with --sensitivity: only these parameters (noise_std bias target_rate_hz ext_gain gain_adapt min_synapses)")
+    ap.add_argument("--sens-tests", dest="sens_tests", nargs="+", metavar="TEST",
+                    help="with --sensitivity: only these validated behaviors (default: every one validation reproduces)")
+    ap.add_argument("--sens-values", dest="sens_values", nargs="+", metavar="PARAM=V1,V2",
+                    help="with --sensitivity: replace a parameter's documented range, e.g. noise_std=0.03,0.07")
+    ap.add_argument("--tournament", type=int, metavar="N",
+                    help="3.0 day 4, headless: a single-elimination bracket of N (4, 8 or 16) flies per --seeds group of N "
+                         "individuality seeds; reports whether personality predicts winning")
+    ap.add_argument("--match-seconds", dest="match_seconds", type=float,
+                    help="with --tournament: the length of a duel in game seconds (default 20)")
+    ap.add_argument("--race-r4", action="store_true",
+                    help="3.0 day 4 review, headless: the pre-registered race test R4 (individuality with the brain state held fixed: "
+                         "8 races of 6, seeds 1000-1047, subtle and the off control; lab/racing.py)")
+    ap.add_argument("--race", action="store_true",
+                    help="3.0 day 4, headless: the race assay (flies race through their own brains; does individuality "
+                         "predict the finishing order?)")
+    ap.add_argument("--races", type=int, metavar="K", help="with --race: how many races (each --seeds group of --lanes flies)")
+    ap.add_argument("--lanes", type=int, metavar="N", help="with --race: flies per race (default 6)")
+    ap.add_argument("--netsci", nargs="?", const="adult", choices=("adult", "larva", "both"), metavar="BRAIN",
+                    help="3.0 day 4, headless: network science of the brain pack (degrees, reciprocity, motifs, rich club, "
+                         "communities, regions); cached; CSV into --out")
+    ap.add_argument("--sleep-deprivation", dest="sleep_deprivation", action="store_true",
+                    help="3.0 day 4, headless: the sleep-deprivation assay (rebound sleep vs undisturbed controls, paired)")
     ap.add_argument("--flies", type=int, nargs="+", help="flies count list for benchmark (default: 1 8 16)")
     ap.add_argument("--seconds", type=float, help="duration per benchmark condition in seconds")
     ap.add_argument("--strict", action="store_true", help="exit 1 if validation differs from the expected results")
@@ -7414,6 +7541,8 @@ def main(argv: list[str] | None = None) -> int:
     if (args.headless or args.validate or args.protocol or getattr(args, "audit_asymmetry", False)
             or getattr(args, "benchmark", False) or getattr(args, "threshold_sweep", False)
             or getattr(args, "signflip_test", False) or getattr(args, "critical_path", None)
+            or getattr(args, "sensitivity", False) or getattr(args, "tournament", None) or getattr(args, "race", False)
+            or getattr(args, "netsci", None) or getattr(args, "sleep_deprivation", False)
             or getattr(args, "replay", None) or getattr(args, "record_replay", None)
             or getattr(args, "rerun_bundle", None) or getattr(args, "share_decode", None)):
         if getattr(args, "replay", None) and not args.headless:

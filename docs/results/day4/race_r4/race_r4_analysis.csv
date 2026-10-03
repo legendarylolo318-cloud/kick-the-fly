@@ -1,0 +1,13 @@
+quantity,value
+flies,48
+races,8
+r_within_subtle,0.9357142857142857
+r_within_off,-0.06082299535498801
+perm_p_subtle,9.999000099990002e-05
+perm_p_off,0.6578342165783422
+difference,0.9965372810692738
+criterion_i,True
+criterion_ii,True
+passed,True
+ci_difference_low,0.7519800937889569
+ci_difference_high,1.2488909174867435

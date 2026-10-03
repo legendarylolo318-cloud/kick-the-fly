@@ -499,6 +499,8 @@ class Menu:
                  ("Mic and streamer", "live_inputs", "normal", True,
                   "Opt-in: sound from your microphone drives the fly's Johnston's organ, and Twitch viewers vote on what happens. "
                   "Both are off every time the game starts and show a red indicator while on."),
+                 ("Fly arcade", "arcade", "normal", True,
+                  "A tournament of flies (each brain steers and shoots in 1v1 duels) and fly racing with in-game points. Points are not money."),
                  ("Share", "share", "normal", True,
                   "Make a short code for your surgery, loadout, protocol, challenge setup or Lab parameters, or import one "
                   "and see what it would change first."),
@@ -509,7 +511,7 @@ class Menu:
                  (f"Mode: {mode_title}", "toggle_mode", "normal", True,
                   "Switch between Play (the game), Lab (research tools), and Pet (one persistent fly). Saved in your settings."),
                  ("Quit", "quit", "danger", True, "Asks first. Training memory is saved.")]
-        bw, bh, gap = 300, 44, 9
+        bw, bh, gap = 300, 40, 7                       # 11 buttons since 3.0 day 4 (Fly arcade)
         y = rect.y + 108
         for label, action, style, enabled, tip in items:
             self.button(surf, (rect.centerx - bw // 2, y, bw, bh), tr(label),

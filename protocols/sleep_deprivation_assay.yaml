@@ -1,0 +1,12 @@
+# 3.0 day 4: the sleep deprivation assay as a protocol (labjobs "sleep_deprivation"). Each seed is its own control (a paired design,
+# so no surgery). GAME RULE: sleep pressure, the disturbances, what counts as sleep. CONNECTOME: the dFB (FB6/FB7) firing it drives.
+# MODEL PREDICTION: the rebound. Validation seeds 1000-1009; the pass criteria are in kickthefly/lab/sleepdep.py, written before the
+# first run. About two minutes of simulated time per fly and condition: shorten the windows for a quick look.
+name: sleep-deprivation-assay
+assay: sleep_deprivation
+seed: 1000
+flies: 10
+assay_options:
+  deprive_s: 45
+  recover_s: 60
+  mode: "off"

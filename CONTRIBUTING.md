@@ -103,7 +103,13 @@ python kick_the_fly.py --smoke 3         # the 3D room actually opens
 python kick_the_fly.py --selftest        # exit 0, or 3 when only warnings (no sound card, no GPU...)
 python kick_the_fly.py --headless --playthrough adult --playthrough-quick --out /tmp/pt
 python tools/i18n_sync.py --check        # every new UI string is in the localization catalog
+python tools/run_tests.py --fast         # the same fast suite in balanced chunks, two at a time, with a memory guard (about 3x faster)
 ```
+
+`tools/run_tests.py` (3.0 day 4) deals the test files into chunks by their recorded durations (`tests/.durations.json`, refreshed by each
+run), runs `--parallel` of them at once once the machine has `--min-free-gb` free, and prints each chunk's peak memory. `--mem-report`
+adds the resident-size growth per test file (a number that grows and never comes back is a leak; the day 3 `LiveInputs` leak looked like
+that). `--only-validation` runs just the validation suite; arguments after `--` go to pytest.
 
 A change to what the simulation does needs `--headless --validate --out before.json` on `main` and `after.json` on your branch, and the
 two must be identical unless the PR says why not. New tools, arenas or reactions also get a `ToolInfo` (with its `probes`) in

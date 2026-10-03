@@ -1,0 +1,482 @@
+[
+ {
+  "graph": "larva (whole)",
+  "neurons": 2952,
+  "connections": 110140,
+  "motifs": [
+   {
+    "motif": "021D",
+    "networkx_name": "021D",
+    "exact": 1318791,
+    "estimate": 1320045.170062,
+    "se": 3162.929848445946,
+    "z": 0.3965216182762156
+   },
+   {
+    "motif": "021U",
+    "networkx_name": "021U",
+    "exact": 1434271,
+    "estimate": 1430237.289225,
+    "se": 3268.27611509666,
+    "z": -1.2342013443624684
+   },
+   {
+    "motif": "021C",
+    "networkx_name": "021C",
+    "exact": 2433100,
+    "estimate": 2444221.912853,
+    "se": 3971.9135474071995,
+    "z": 2.8001397110620454
+   },
+   {
+    "motif": "111a",
+    "networkx_name": "111U",
+    "exact": 683533,
+    "estimate": 682909.941123,
+    "se": 2368.6755122900645,
+    "z": -0.263041042881227
+   },
+   {
+    "motif": "111b",
+    "networkx_name": "111D",
+    "exact": 786610,
+    "estimate": 784764.014929,
+    "se": 2523.3907232581655,
+    "z": -0.7315494401978444
+   },
+   {
+    "motif": "030T",
+    "networkx_name": "030T",
+    "exact": 287705,
+    "estimate": 287210.2162156666,
+    "se": 877.1772024062002,
+    "z": -0.564063661226185
+   },
+   {
+    "motif": "030C",
+    "networkx_name": "030C",
+    "exact": 20809,
+    "estimate": 20781.33965533333,
+    "se": 247.40701156579036,
+    "z": -0.11180097318832453
+   },
+   {
+    "motif": "201",
+    "networkx_name": "201",
+    "exact": 150807,
+    "estimate": 151561.994152,
+    "se": 1151.4030980071198,
+    "z": 0.6557166237495488
+   },
+   {
+    "motif": "120D",
+    "networkx_name": "120D",
+    "exact": 58940,
+    "estimate": 58482.000091999995,
+    "se": 412.37182678094655,
+    "z": -1.1106479110739456
+   },
+   {
+    "motif": "120U",
+    "networkx_name": "120U",
+    "exact": 133821,
+    "estimate": 132768.02211999998,
+    "se": 613.3451192626973,
+    "z": -1.7167787709239557
+   },
+   {
+    "motif": "120C",
+    "networkx_name": "120C",
+    "exact": 61952,
+    "estimate": 61810.099306,
+    "se": 423.70044195475725,
+    "z": -0.33490806227470427
+   },
+   {
+    "motif": "210",
+    "networkx_name": "210",
+    "exact": 92703,
+    "estimate": 92890.15595866666,
+    "se": 516.6278691683515,
+    "z": 0.36226454249928897
+   },
+   {
+    "motif": "300",
+    "networkx_name": "300",
+    "exact": 41253,
+    "estimate": 41031.725870999995,
+    "se": 346.4471923511919,
+    "z": -0.6386951139603994
+   }
+  ],
+  "motif_max_abs_z": 2.8001397110620454,
+  "null_degrees_kept": true,
+  "null_self_loops": 0,
+  "null_repeats": 0,
+  "null_motifs": [
+   {
+    "motif": "021D",
+    "exact": 2790531,
+    "estimate": 2777322.532866,
+    "se": 5007.324894084815
+   },
+   {
+    "motif": "021U",
+    "exact": 2930374,
+    "estimate": 2934933.517748,
+    "se": 5102.3147310735685
+   },
+   {
+    "motif": "021C",
+    "exact": 5103088,
+    "estimate": 5107842.537396,
+    "se": 5848.845151263555
+   },
+   {
+    "motif": "111a",
+    "exact": 173366,
+    "estimate": 174374.343322,
+    "se": 1424.1195439829453
+   },
+   {
+    "motif": "111b",
+    "exact": 177205,
+    "estimate": 178494.35184,
+    "se": 1440.5902092908323
+   },
+   {
+    "motif": "030T",
+    "exact": 155734,
+    "estimate": 155824.46733933332,
+    "se": 767.396935495422
+   },
+   {
+    "motif": "030C",
+    "exact": 41243,
+    "estimate": 41656.55221733332,
+    "se": 402.7231728901295
+   },
+   {
+    "motif": "201",
+    "exact": 3387,
+    "estimate": 3388.0872339999996,
+    "se": 199.96386493486432
+   },
+   {
+    "motif": "120D",
+    "exact": 3131,
+    "estimate": 3061.4771986666665,
+    "se": 109.71662545608118
+   },
+   {
+    "motif": "120U",
+    "exact": 3137,
+    "estimate": 3281.8405959999996,
+    "se": 113.59350452106058
+   },
+   {
+    "motif": "120C",
+    "exact": 5553,
+    "estimate": 5493.344690666666,
+    "se": 146.92341328489294
+   },
+   {
+    "motif": "210",
+    "exact": 278,
+    "estimate": 291.1944893333333,
+    "se": 33.84943622690637
+   },
+   {
+    "motif": "300",
+    "exact": 1,
+    "estimate": 0.0,
+    "se": 0.0
+   }
+  ],
+  "null_reciprocity": 0.02531323769747594,
+  "rich_club": [
+   {
+    "k": 59.0,
+    "phi": 0.05561337744720579,
+    "networkx_phi": 0.05561337744720579
+   },
+   {
+    "k": 92.0,
+    "phi": 0.10214791118395133,
+    "networkx_phi": 0.10214791118395133
+   },
+   {
+    "k": 122.0,
+    "phi": 0.15833045082439756,
+    "networkx_phi": 0.15833045082439756
+   },
+   {
+    "k": 145.0,
+    "phi": 0.18479172490914175,
+    "networkx_phi": 0.18479172490914175
+   },
+   {
+    "k": 174.0,
+    "phi": 0.2033898305084746,
+    "networkx_phi": 0.2033898305084746
+   },
+   {
+    "k": 191.48999999999978,
+    "phi": 0.2160919540229885,
+    "networkx_phi": 0.2160919540229885
+   }
+  ],
+  "rich_club_max_abs_diff": 0.0,
+  "rich_null_degrees_kept": true,
+  "directed_null_skeleton_degree_changed_neurons": 2632,
+  "modularity_ours": 0.5333837980792835,
+  "modularity_networkx_same_partition": 0.5333837980792835,
+  "modularity_networkx_louvain": 0.5483306030131804,
+  "communities_ours": 12,
+  "communities_networkx_louvain": 13,
+  "nmi_ours_vs_networkx_partition": 0.718301508408365,
+  "nmi_with_regions_ours": 0.24278218089245487,
+  "nmi_with_regions_reference": 0.24278218089245485,
+  "seconds": 115.5
+ },
+ {
+  "graph": "adult (induced subgraph of 4000 random neurons, seed 1)",
+  "neurons": 4000,
+  "connections": 5556,
+  "motifs": [
+   {
+    "motif": "021D",
+    "networkx_name": "021D",
+    "exact": 4939,
+    "estimate": 4925.073338,
+    "se": 10.922670673851618,
+    "z": -1.2750235190501213
+   },
+   {
+    "motif": "021U",
+    "networkx_name": "021U",
+    "exact": 7136,
+    "estimate": 7134.21775,
+    "se": 12.532294576363192,
+    "z": -0.1422125843867136
+   },
+   {
+    "motif": "021C",
+    "networkx_name": "021C",
+    "exact": 9268,
+    "estimate": 9259.092403,
+    "se": 13.570654976471516,
+    "z": -0.6563866678095659
+   },
+   {
+    "motif": "111a",
+    "networkx_name": "111U",
+    "exact": 2015,
+    "estimate": 2020.812723,
+    "se": 7.404123231168504,
+    "z": 0.7850656746947002
+   },
+   {
+    "motif": "111b",
+    "networkx_name": "111D",
+    "exact": 2655,
+    "estimate": 2657.310287,
+    "se": 8.39027472679393,
+    "z": 0.27535296223638556
+   },
+   {
+    "motif": "030T",
+    "networkx_name": "030T",
+    "exact": 490,
+    "estimate": 494.58079933333323,
+    "se": 2.1356278468933234,
+    "z": 2.144942687461617
+   },
+   {
+    "motif": "030C",
+    "networkx_name": "030C",
+    "exact": 32,
+    "estimate": 33.18127833333333,
+    "se": 0.5668330307776958,
+    "z": 2.0839969959277354
+   },
+   {
+    "motif": "201",
+    "networkx_name": "201",
+    "exact": 517,
+    "estimate": 525.469023,
+    "se": 3.8782462400018285,
+    "z": 2.183724930265387
+   },
+   {
+    "motif": "120D",
+    "networkx_name": "120D",
+    "exact": 89,
+    "estimate": 87.37898566666665,
+    "se": 0.9172617430694786,
+    "z": -1.7672320311854153
+   },
+   {
+    "motif": "120U",
+    "networkx_name": "120U",
+    "exact": 108,
+    "estimate": 108.42456366666667,
+    "se": 1.0206538873852422,
+    "z": 0.4159722232130403
+   },
+   {
+    "motif": "120C",
+    "networkx_name": "120C",
+    "exact": 80,
+    "estimate": 78.061022,
+    "se": 0.8673950307161791,
+    "z": -2.2354036296461794
+   },
+   {
+    "motif": "210",
+    "networkx_name": "210",
+    "exact": 65,
+    "estimate": 64.66219833333332,
+    "se": 0.7899993020746132,
+    "z": -0.42759742417439967
+   },
+   {
+    "motif": "300",
+    "networkx_name": "300",
+    "exact": 9,
+    "estimate": 9.385978000000001,
+    "se": 0.30184314707079607,
+    "z": 1.27873699882102
+   }
+  ],
+  "motif_max_abs_z": 2.2354036296461794,
+  "null_degrees_kept": true,
+  "null_self_loops": 0,
+  "null_repeats": 0,
+  "null_motifs": [
+   {
+    "motif": "021D",
+    "exact": 8435,
+    "estimate": 8430.147902,
+    "se": 15.585959644193714
+   },
+   {
+    "motif": "021U",
+    "exact": 11230,
+    "estimate": 11229.929722,
+    "se": 17.09265728385982
+   },
+   {
+    "motif": "021C",
+    "exact": 17337,
+    "estimate": 17342.482519999998,
+    "se": 18.578932939223492
+   },
+   {
+    "motif": "111a",
+    "exact": 26,
+    "estimate": 27.18958,
+    "se": 1.0059646292908409
+   },
+   {
+    "motif": "111b",
+    "exact": 49,
+    "estimate": 48.345307999999996,
+    "se": 1.3410197132392412
+   },
+   {
+    "motif": "030T",
+    "exact": 41,
+    "estimate": 40.846446666666665,
+    "se": 0.7109531096337649
+   },
+   {
+    "motif": "030C",
+    "exact": 15,
+    "estimate": 14.737000666666665,
+    "se": 0.42749009248092756
+   },
+   {
+    "motif": "201",
+    "exact": 1,
+    "estimate": 1.1546260000000002,
+    "se": 0.20737384077725413
+   },
+   {
+    "motif": "120D",
+    "exact": 0,
+    "estimate": 0.0,
+    "se": 0.0
+   },
+   {
+    "motif": "120U",
+    "exact": 0,
+    "estimate": 0.0,
+    "se": 0.0
+   },
+   {
+    "motif": "120C",
+    "exact": 0,
+    "estimate": 0.0,
+    "se": 0.0
+   },
+   {
+    "motif": "210",
+    "exact": 0,
+    "estimate": 0.0,
+    "se": 0.0
+   },
+   {
+    "motif": "300",
+    "exact": 0,
+    "estimate": 0.0,
+    "se": 0.0
+   }
+  ],
+  "null_reciprocity": 0.0010799136069114472,
+  "rich_club": [
+   {
+    "k": 2.0,
+    "phi": 0.0031848331724198464,
+    "networkx_phi": 0.0031848331724198464
+   },
+   {
+    "k": 3.0,
+    "phi": 0.0051227031693180415,
+    "networkx_phi": 0.0051227031693180415
+   },
+   {
+    "k": 6.0,
+    "phi": 0.01299545159194282,
+    "networkx_phi": 0.01299545159194282
+   },
+   {
+    "k": 8.0,
+    "phi": 0.01981312619610492,
+    "networkx_phi": 0.01981312619610492
+   },
+   {
+    "k": 13.0,
+    "phi": 0.03437334743521946,
+    "networkx_phi": 0.03437334743521946
+   },
+   {
+    "k": 15.0,
+    "phi": 0.049786628733997154,
+    "networkx_phi": 0.049786628733997154
+   }
+  ],
+  "rich_club_max_abs_diff": 0.0,
+  "rich_null_degrees_kept": true,
+  "directed_null_skeleton_degree_changed_neurons": 717,
+  "modularity_ours": 0.8576266390341306,
+  "modularity_networkx_same_partition": 0.8576266390341306,
+  "modularity_networkx_louvain": 0.8586645163240287,
+  "communities_ours": 1097,
+  "communities_networkx_louvain": 1099,
+  "nmi_ours_vs_networkx_partition": 0.9566667700266215,
+  "nmi_with_regions_ours": 0.33376997681925535,
+  "nmi_with_regions_reference": 0.3337699768192498,
+  "seconds": 1.8
+ }
+]

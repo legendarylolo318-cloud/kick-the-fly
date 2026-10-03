@@ -1,0 +1,615 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1054" height="782" font-family="sans-serif" font-size="11" role="img" aria-label="Sensitivity heatmap: parameter value by validated behavior, pass or fail with effect size">
+<rect width="1054" height="782" fill="#ffffff"/>
+<text x="8" y="18" font-size="14" font-weight="bold">Sensitivity: parameter value x validated behavior</text>
+<text x="8" y="36">each cell: PASS/FAIL (validation's own criteria) and the effect (drive ratio, or the T-maze PI); seeds 1000-1009, n = 10</text>
+<text x="8" y="52">MODEL PREDICTION. Analysis only: the defaults are not changed by this.</text>
+<text transform="translate(257.0,144) rotate(-50)" text-anchor="start">looming_escape</text>
+<text transform="translate(331.0,144) rotate(-50)" text-anchor="start">sugar_feeding</text>
+<text transform="translate(405.0,144) rotate(-50)" text-anchor="start">antenna_grooming_circuit</text>
+<text transform="translate(479.0,144) rotate(-50)" text-anchor="start">courtship_song</text>
+<text transform="translate(553.0,144) rotate(-50)" text-anchor="start">bitter_grn_to_dng28</text>
+<text transform="translate(627.0,144) rotate(-50)" text-anchor="start">co2_orn_to_pn</text>
+<text transform="translate(701.0,144) rotate(-50)" text-anchor="start">hot_trn_to_vp2pn</text>
+<text transform="translate(775.0,144) rotate(-50)" text-anchor="start">cold_trn_to_vp3pn</text>
+<text transform="translate(849.0,144) rotate(-50)" text-anchor="start">optomotor_turning</text>
+<text transform="translate(923.0,144) rotate(-50)" text-anchor="start">or67d_to_da1pn</text>
+<text transform="translate(997.0,144) rotate(-50)" text-anchor="start">da1pn_to_lh_asp</text>
+<text x="8" y="165">baseline (defaults)</text>
+<rect x="220" y="150" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="165" text-anchor="middle" fill="#ffffff">PASS 11.81</text>
+<rect x="294" y="150" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="330.0" y="165" text-anchor="middle" fill="#ffffff">PASS 2.11</text>
+<rect x="368" y="150" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="404.0" y="165" text-anchor="middle" fill="#ffffff">PASS 4.87</text>
+<rect x="442" y="150" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="478.0" y="165" text-anchor="middle" fill="#ffffff">PASS 1.93</text>
+<rect x="516" y="150" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="552.0" y="165" text-anchor="middle" fill="#ffffff">PASS 1.58</text>
+<rect x="590" y="150" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="626.0" y="165" text-anchor="middle" fill="#ffffff">PASS 2.21</text>
+<rect x="664" y="150" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="700.0" y="165" text-anchor="middle" fill="#ffffff">PASS 2.00</text>
+<rect x="738" y="150" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="774.0" y="165" text-anchor="middle" fill="#ffffff">PASS 1.86</text>
+<rect x="812" y="150" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="848.0" y="165" text-anchor="middle" fill="#ffffff">PASS 2.72</text>
+<rect x="886" y="150" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="922.0" y="165" text-anchor="middle" fill="#ffffff">PASS 2.58</text>
+<rect x="960" y="150" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="996.0" y="165" text-anchor="middle" fill="#ffffff">PASS 2.22</text>
+<text x="8" y="187">Membrane noise = 0.025</text>
+<rect x="220" y="172" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="187" text-anchor="middle" fill="#ffffff">PASS 6.91</text>
+<rect x="294" y="172" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="330.0" y="187" text-anchor="middle" fill="#ffffff">PASS 1.83</text>
+<rect x="368" y="172" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="404.0" y="187" text-anchor="middle" fill="#ffffff">PASS 12.15</text>
+<rect x="442" y="172" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="478.0" y="187" text-anchor="middle" fill="#ffffff">PASS 1.82</text>
+<rect x="516" y="172" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="552.0" y="187" text-anchor="middle" fill="#ffffff">PASS 1.57</text>
+<rect x="590" y="172" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="626.0" y="187" text-anchor="middle" fill="#ffffff">PASS 1.82</text>
+<rect x="664" y="172" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="700.0" y="187" text-anchor="middle" fill="#ffffff">PASS 1.56</text>
+<rect x="738" y="172" width="72" height="20" fill="#b71c1c" stroke="#222" stroke-width="0.5"/>
+<text x="774.0" y="187" text-anchor="middle" fill="#ffffff">FAIL 1.47</text>
+<rect x="812" y="172" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="848.0" y="187" text-anchor="middle" fill="#ffffff">PASS 1.89</text>
+<rect x="886" y="172" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="922.0" y="187" text-anchor="middle" fill="#ffffff">PASS 1.90</text>
+<rect x="960" y="172" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="996.0" y="187" text-anchor="middle" fill="#ffffff">PASS 1.77</text>
+<text x="8" y="209">Membrane noise = 0.0375</text>
+<rect x="220" y="194" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="209" text-anchor="middle" fill="#ffffff">PASS 9.43</text>
+<rect x="294" y="194" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="330.0" y="209" text-anchor="middle" fill="#ffffff">PASS 2.05</text>
+<rect x="368" y="194" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="404.0" y="209" text-anchor="middle" fill="#ffffff">PASS 5.47</text>
+<rect x="442" y="194" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="478.0" y="209" text-anchor="middle" fill="#ffffff">PASS 1.90</text>
+<rect x="516" y="194" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="552.0" y="209" text-anchor="middle" fill="#ffffff">PASS 1.71</text>
+<rect x="590" y="194" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="626.0" y="209" text-anchor="middle" fill="#ffffff">PASS 2.20</text>
+<rect x="664" y="194" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="700.0" y="209" text-anchor="middle" fill="#ffffff">PASS 1.96</text>
+<rect x="738" y="194" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="774.0" y="209" text-anchor="middle" fill="#ffffff">PASS 1.81</text>
+<rect x="812" y="194" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="848.0" y="209" text-anchor="middle" fill="#ffffff">PASS 2.21</text>
+<rect x="886" y="194" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="922.0" y="209" text-anchor="middle" fill="#ffffff">PASS 2.44</text>
+<rect x="960" y="194" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="996.0" y="209" text-anchor="middle" fill="#ffffff">PASS 2.16</text>
+<text x="8" y="231">Membrane noise = 0.075</text>
+<rect x="220" y="216" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="231" text-anchor="middle" fill="#ffffff">PASS 7.39</text>
+<rect x="294" y="216" width="72" height="20" fill="#b71c1c" stroke="#222" stroke-width="0.5"/>
+<text x="330.0" y="231" text-anchor="middle" fill="#ffffff">FAIL 1.31</text>
+<rect x="368" y="216" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="404.0" y="231" text-anchor="middle" fill="#ffffff">PASS 2.35</text>
+<rect x="442" y="216" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="478.0" y="231" text-anchor="middle" fill="#ffffff">PASS 1.60</text>
+<rect x="516" y="216" width="72" height="20" fill="#b71c1c" stroke="#222" stroke-width="0.5"/>
+<text x="552.0" y="231" text-anchor="middle" fill="#ffffff">FAIL 1.15</text>
+<rect x="590" y="216" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="626.0" y="231" text-anchor="middle" fill="#ffffff">PASS 2.38</text>
+<rect x="664" y="216" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="700.0" y="231" text-anchor="middle" fill="#ffffff">PASS 1.90</text>
+<rect x="738" y="216" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="774.0" y="231" text-anchor="middle" fill="#ffffff">PASS 1.99</text>
+<rect x="812" y="216" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="848.0" y="231" text-anchor="middle" fill="#ffffff">PASS 1.67</text>
+<rect x="886" y="216" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="922.0" y="231" text-anchor="middle" fill="#ffffff">PASS 2.86</text>
+<rect x="960" y="216" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="996.0" y="231" text-anchor="middle" fill="#ffffff">PASS 2.40</text>
+<text x="8" y="253">Membrane noise = 0.1</text>
+<rect x="220" y="238" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="253" text-anchor="middle" fill="#ffffff">PASS 3.32</text>
+<rect x="294" y="238" width="72" height="20" fill="#b71c1c" stroke="#222" stroke-width="0.5"/>
+<text x="330.0" y="253" text-anchor="middle" fill="#ffffff">FAIL 1.02</text>
+<rect x="368" y="238" width="72" height="20" fill="#b71c1c" stroke="#222" stroke-width="0.5"/>
+<text x="404.0" y="253" text-anchor="middle" fill="#ffffff">FAIL 1.34</text>
+<rect x="442" y="238" width="72" height="20" fill="#b71c1c" stroke="#222" stroke-width="0.5"/>
+<text x="478.0" y="253" text-anchor="middle" fill="#ffffff">FAIL 1.04</text>
+<rect x="516" y="238" width="72" height="20" fill="#b71c1c" stroke="#222" stroke-width="0.5"/>
+<text x="552.0" y="253" text-anchor="middle" fill="#ffffff">FAIL 1.03</text>
+<rect x="590" y="238" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="626.0" y="253" text-anchor="middle" fill="#ffffff">PASS 2.08</text>
+<rect x="664" y="238" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="700.0" y="253" text-anchor="middle" fill="#ffffff">PASS 1.73</text>
+<rect x="738" y="238" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="774.0" y="253" text-anchor="middle" fill="#ffffff">PASS 1.99</text>
+<rect x="812" y="238" width="72" height="20" fill="#b71c1c" stroke="#222" stroke-width="0.5"/>
+<text x="848.0" y="253" text-anchor="middle" fill="#ffffff">FAIL 1.11</text>
+<rect x="886" y="238" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="922.0" y="253" text-anchor="middle" fill="#ffffff">PASS 2.57</text>
+<rect x="960" y="238" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="996.0" y="253" text-anchor="middle" fill="#ffffff">PASS 1.87</text>
+<text x="8" y="275">Tonic drive = 0.15</text>
+<rect x="220" y="260" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="275" text-anchor="middle" fill="#ffffff">PASS 25.41</text>
+<rect x="294" y="260" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="330.0" y="275" text-anchor="middle" fill="#ffffff">PASS 9.38</text>
+<rect x="368" y="260" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="404.0" y="275" text-anchor="middle" fill="#ffffff">PASS 15.45</text>
+<rect x="442" y="260" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="478.0" y="275" text-anchor="middle" fill="#ffffff">PASS 12.99</text>
+<rect x="516" y="260" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="552.0" y="275" text-anchor="middle" fill="#ffffff">PASS 4.46</text>
+<rect x="590" y="260" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="626.0" y="275" text-anchor="middle" fill="#ffffff">PASS 11.71</text>
+<rect x="664" y="260" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="700.0" y="275" text-anchor="middle" fill="#ffffff">PASS 13.73</text>
+<rect x="738" y="260" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="774.0" y="275" text-anchor="middle" fill="#ffffff">PASS 14.56</text>
+<rect x="812" y="260" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="848.0" y="275" text-anchor="middle" fill="#ffffff">PASS 10.03</text>
+<rect x="886" y="260" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="922.0" y="275" text-anchor="middle" fill="#ffffff">PASS 14.84</text>
+<rect x="960" y="260" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="996.0" y="275" text-anchor="middle" fill="#ffffff">PASS 14.76</text>
+<text x="8" y="297">Tonic drive = 0.175</text>
+<rect x="220" y="282" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="297" text-anchor="middle" fill="#ffffff">PASS 15.71</text>
+<rect x="294" y="282" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="330.0" y="297" text-anchor="middle" fill="#ffffff">PASS 2.64</text>
+<rect x="368" y="282" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="404.0" y="297" text-anchor="middle" fill="#ffffff">PASS 6.34</text>
+<rect x="442" y="282" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="478.0" y="297" text-anchor="middle" fill="#ffffff">PASS 2.10</text>
+<rect x="516" y="282" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="552.0" y="297" text-anchor="middle" fill="#ffffff">PASS 1.77</text>
+<rect x="590" y="282" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="626.0" y="297" text-anchor="middle" fill="#ffffff">PASS 1.96</text>
+<rect x="664" y="282" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="700.0" y="297" text-anchor="middle" fill="#ffffff">PASS 1.57</text>
+<rect x="738" y="282" width="72" height="20" fill="#b71c1c" stroke="#222" stroke-width="0.5"/>
+<text x="774.0" y="297" text-anchor="middle" fill="#ffffff">FAIL 1.48</text>
+<rect x="812" y="282" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="848.0" y="297" text-anchor="middle" fill="#ffffff">PASS 4.34</text>
+<rect x="886" y="282" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="922.0" y="297" text-anchor="middle" fill="#ffffff">PASS 2.13</text>
+<rect x="960" y="282" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="996.0" y="297" text-anchor="middle" fill="#ffffff">PASS 1.91</text>
+<text x="8" y="319">Tonic drive = 0.225</text>
+<rect x="220" y="304" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="319" text-anchor="middle" fill="#ffffff">PASS 2.88</text>
+<rect x="294" y="304" width="72" height="20" fill="#b71c1c" stroke="#222" stroke-width="0.5"/>
+<text x="330.0" y="319" text-anchor="middle" fill="#ffffff">FAIL 1.03</text>
+<rect x="368" y="304" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="404.0" y="319" text-anchor="middle" fill="#ffffff">PASS 1.53</text>
+<rect x="442" y="304" width="72" height="20" fill="#b71c1c" stroke="#222" stroke-width="0.5"/>
+<text x="478.0" y="319" text-anchor="middle" fill="#ffffff">FAIL 1.08</text>
+<rect x="516" y="304" width="72" height="20" fill="#b71c1c" stroke="#222" stroke-width="0.5"/>
+<text x="552.0" y="319" text-anchor="middle" fill="#ffffff">FAIL 1.11</text>
+<rect x="590" y="304" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="626.0" y="319" text-anchor="middle" fill="#ffffff">PASS 1.97</text>
+<rect x="664" y="304" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="700.0" y="319" text-anchor="middle" fill="#ffffff">PASS 1.71</text>
+<rect x="738" y="304" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="774.0" y="319" text-anchor="middle" fill="#ffffff">PASS 2.10</text>
+<rect x="812" y="304" width="72" height="20" fill="#b71c1c" stroke="#222" stroke-width="0.5"/>
+<text x="848.0" y="319" text-anchor="middle" fill="#ffffff">FAIL 1.10</text>
+<rect x="886" y="304" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="922.0" y="319" text-anchor="middle" fill="#ffffff">PASS 2.34</text>
+<rect x="960" y="304" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="996.0" y="319" text-anchor="middle" fill="#ffffff">PASS 1.75</text>
+<text x="8" y="341">Tonic drive = 0.25</text>
+<rect x="220" y="326" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="341" text-anchor="middle" fill="#ffffff">PASS 1.75</text>
+<rect x="294" y="326" width="72" height="20" fill="#b71c1c" stroke="#222" stroke-width="0.5"/>
+<text x="330.0" y="341" text-anchor="middle" fill="#ffffff">FAIL 1.03</text>
+<rect x="368" y="326" width="72" height="20" fill="#b71c1c" stroke="#222" stroke-width="0.5"/>
+<text x="404.0" y="341" text-anchor="middle" fill="#ffffff">FAIL 1.12</text>
+<rect x="442" y="326" width="72" height="20" fill="#b71c1c" stroke="#222" stroke-width="0.5"/>
+<text x="478.0" y="341" text-anchor="middle" fill="#ffffff">FAIL 1.01</text>
+<rect x="516" y="326" width="72" height="20" fill="#b71c1c" stroke="#222" stroke-width="0.5"/>
+<text x="552.0" y="341" text-anchor="middle" fill="#ffffff">FAIL 1.01</text>
+<rect x="590" y="326" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="626.0" y="341" text-anchor="middle" fill="#ffffff">PASS 1.68</text>
+<rect x="664" y="326" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="700.0" y="341" text-anchor="middle" fill="#ffffff">PASS 1.56</text>
+<rect x="738" y="326" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="774.0" y="341" text-anchor="middle" fill="#ffffff">PASS 1.79</text>
+<rect x="812" y="326" width="72" height="20" fill="#b71c1c" stroke="#222" stroke-width="0.5"/>
+<text x="848.0" y="341" text-anchor="middle" fill="#ffffff">FAIL 1.03</text>
+<rect x="886" y="326" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="922.0" y="341" text-anchor="middle" fill="#ffffff">PASS 1.84</text>
+<rect x="960" y="326" width="72" height="20" fill="#b71c1c" stroke="#222" stroke-width="0.5"/>
+<text x="996.0" y="341" text-anchor="middle" fill="#ffffff">FAIL 1.47</text>
+<text x="8" y="363">Target rate (Hz) = 2.5</text>
+<rect x="220" y="348" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="363" text-anchor="middle" fill="#ffffff">PASS 30.67</text>
+<rect x="294" y="348" width="72" height="20" fill="#b71c1c" stroke="#222" stroke-width="0.5"/>
+<text x="330.0" y="363" text-anchor="middle" fill="#ffffff">FAIL 1.36</text>
+<rect x="368" y="348" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="404.0" y="363" text-anchor="middle" fill="#ffffff">PASS 2.66</text>
+<rect x="442" y="348" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="478.0" y="363" text-anchor="middle" fill="#ffffff">PASS 2.21</text>
+<rect x="516" y="348" width="72" height="20" fill="#b71c1c" stroke="#222" stroke-width="0.5"/>
+<text x="552.0" y="363" text-anchor="middle" fill="#ffffff">FAIL 1.46</text>
+<rect x="590" y="348" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="626.0" y="363" text-anchor="middle" fill="#ffffff">PASS 4.11</text>
+<rect x="664" y="348" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="700.0" y="363" text-anchor="middle" fill="#ffffff">PASS 3.18</text>
+<rect x="738" y="348" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="774.0" y="363" text-anchor="middle" fill="#ffffff">PASS 3.41</text>
+<rect x="812" y="348" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="848.0" y="363" text-anchor="middle" fill="#ffffff">PASS 2.50</text>
+<rect x="886" y="348" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="922.0" y="363" text-anchor="middle" fill="#ffffff">PASS 5.03</text>
+<rect x="960" y="348" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="996.0" y="363" text-anchor="middle" fill="#ffffff">PASS 3.72</text>
+<text x="8" y="385">Target rate (Hz) = 3.5</text>
+<rect x="220" y="370" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="385" text-anchor="middle" fill="#ffffff">PASS 23.94</text>
+<rect x="294" y="370" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="330.0" y="385" text-anchor="middle" fill="#ffffff">PASS 1.80</text>
+<rect x="368" y="370" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="404.0" y="385" text-anchor="middle" fill="#ffffff">PASS 2.90</text>
+<rect x="442" y="370" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="478.0" y="385" text-anchor="middle" fill="#ffffff">PASS 2.19</text>
+<rect x="516" y="370" width="72" height="20" fill="#b71c1c" stroke="#222" stroke-width="0.5"/>
+<text x="552.0" y="385" text-anchor="middle" fill="#ffffff">FAIL 1.51</text>
+<rect x="590" y="370" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="626.0" y="385" text-anchor="middle" fill="#ffffff">PASS 3.15</text>
+<rect x="664" y="370" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="700.0" y="385" text-anchor="middle" fill="#ffffff">PASS 2.64</text>
+<rect x="738" y="370" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="774.0" y="385" text-anchor="middle" fill="#ffffff">PASS 2.53</text>
+<rect x="812" y="370" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="848.0" y="385" text-anchor="middle" fill="#ffffff">PASS 3.51</text>
+<rect x="886" y="370" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="922.0" y="385" text-anchor="middle" fill="#ffffff">PASS 3.69</text>
+<rect x="960" y="370" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="996.0" y="385" text-anchor="middle" fill="#ffffff">PASS 2.94</text>
+<text x="8" y="407">Target rate (Hz) = 7.5</text>
+<rect x="220" y="392" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="407" text-anchor="middle" fill="#ffffff">PASS 5.72</text>
+<rect x="294" y="392" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="330.0" y="407" text-anchor="middle" fill="#ffffff">PASS 2.37</text>
+<rect x="368" y="392" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="404.0" y="407" text-anchor="middle" fill="#ffffff">PASS 6.96</text>
+<rect x="442" y="392" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="478.0" y="407" text-anchor="middle" fill="#ffffff">PASS 2.14</text>
+<rect x="516" y="392" width="72" height="20" fill="#b71c1c" stroke="#222" stroke-width="0.5"/>
+<text x="552.0" y="407" text-anchor="middle" fill="#ffffff">FAIL 1.47</text>
+<rect x="590" y="392" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="626.0" y="407" text-anchor="middle" fill="#ffffff">PASS 1.83</text>
+<rect x="664" y="392" width="72" height="20" fill="#b71c1c" stroke="#222" stroke-width="0.5"/>
+<text x="700.0" y="407" text-anchor="middle" fill="#ffffff">FAIL 1.47</text>
+<rect x="738" y="392" width="72" height="20" fill="#b71c1c" stroke="#222" stroke-width="0.5"/>
+<text x="774.0" y="407" text-anchor="middle" fill="#ffffff">FAIL 1.40</text>
+<rect x="812" y="392" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="848.0" y="407" text-anchor="middle" fill="#ffffff">PASS 1.90</text>
+<rect x="886" y="392" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="922.0" y="407" text-anchor="middle" fill="#ffffff">PASS 1.72</text>
+<rect x="960" y="392" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="996.0" y="407" text-anchor="middle" fill="#ffffff">PASS 1.64</text>
+<text x="8" y="429">Target rate (Hz) = 10</text>
+<rect x="220" y="414" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="429" text-anchor="middle" fill="#ffffff">PASS 4.85</text>
+<rect x="294" y="414" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="330.0" y="429" text-anchor="middle" fill="#ffffff">PASS 2.57</text>
+<rect x="368" y="414" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="404.0" y="429" text-anchor="middle" fill="#ffffff">PASS 13.39</text>
+<rect x="442" y="414" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="478.0" y="429" text-anchor="middle" fill="#ffffff">PASS 2.57</text>
+<rect x="516" y="414" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="552.0" y="429" text-anchor="middle" fill="#ffffff">PASS 1.51</text>
+<rect x="590" y="414" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="626.0" y="429" text-anchor="middle" fill="#ffffff">PASS 1.71</text>
+<rect x="664" y="414" width="72" height="20" fill="#b71c1c" stroke="#222" stroke-width="0.5"/>
+<text x="700.0" y="429" text-anchor="middle" fill="#ffffff">FAIL 1.29</text>
+<rect x="738" y="414" width="72" height="20" fill="#b71c1c" stroke="#222" stroke-width="0.5"/>
+<text x="774.0" y="429" text-anchor="middle" fill="#ffffff">FAIL 1.22</text>
+<rect x="812" y="414" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="848.0" y="429" text-anchor="middle" fill="#ffffff">PASS 1.96</text>
+<rect x="886" y="414" width="72" height="20" fill="#b71c1c" stroke="#222" stroke-width="0.5"/>
+<text x="922.0" y="429" text-anchor="middle" fill="#ffffff">FAIL 1.36</text>
+<rect x="960" y="414" width="72" height="20" fill="#b71c1c" stroke="#222" stroke-width="0.5"/>
+<text x="996.0" y="429" text-anchor="middle" fill="#ffffff">FAIL 1.31</text>
+<text x="8" y="451">Sensory input gain = 2</text>
+<rect x="220" y="436" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="451" text-anchor="middle" fill="#ffffff">PASS 9.69</text>
+<rect x="294" y="436" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="330.0" y="451" text-anchor="middle" fill="#ffffff">PASS 1.98</text>
+<rect x="368" y="436" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="404.0" y="451" text-anchor="middle" fill="#ffffff">PASS 4.70</text>
+<rect x="442" y="436" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="478.0" y="451" text-anchor="middle" fill="#ffffff">PASS 1.87</text>
+<rect x="516" y="436" width="72" height="20" fill="#b71c1c" stroke="#222" stroke-width="0.5"/>
+<text x="552.0" y="451" text-anchor="middle" fill="#ffffff">FAIL 1.47</text>
+<rect x="590" y="436" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="626.0" y="451" text-anchor="middle" fill="#ffffff">PASS 2.11</text>
+<rect x="664" y="436" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="700.0" y="451" text-anchor="middle" fill="#ffffff">PASS 1.92</text>
+<rect x="738" y="436" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="774.0" y="451" text-anchor="middle" fill="#ffffff">PASS 1.83</text>
+<rect x="812" y="436" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="848.0" y="451" text-anchor="middle" fill="#ffffff">PASS 2.68</text>
+<rect x="886" y="436" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="922.0" y="451" text-anchor="middle" fill="#ffffff">PASS 2.31</text>
+<rect x="960" y="436" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="996.0" y="451" text-anchor="middle" fill="#ffffff">PASS 2.13</text>
+<text x="8" y="473">Sensory input gain = 3</text>
+<rect x="220" y="458" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="473" text-anchor="middle" fill="#ffffff">PASS 11.81</text>
+<rect x="294" y="458" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="330.0" y="473" text-anchor="middle" fill="#ffffff">PASS 2.09</text>
+<rect x="368" y="458" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="404.0" y="473" text-anchor="middle" fill="#ffffff">PASS 4.84</text>
+<rect x="442" y="458" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="478.0" y="473" text-anchor="middle" fill="#ffffff">PASS 1.93</text>
+<rect x="516" y="458" width="72" height="20" fill="#b71c1c" stroke="#222" stroke-width="0.5"/>
+<text x="552.0" y="473" text-anchor="middle" fill="#ffffff">FAIL 1.52</text>
+<rect x="590" y="458" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="626.0" y="473" text-anchor="middle" fill="#ffffff">PASS 2.06</text>
+<rect x="664" y="458" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="700.0" y="473" text-anchor="middle" fill="#ffffff">PASS 1.92</text>
+<rect x="738" y="458" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="774.0" y="473" text-anchor="middle" fill="#ffffff">PASS 1.85</text>
+<rect x="812" y="458" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="848.0" y="473" text-anchor="middle" fill="#ffffff">PASS 2.69</text>
+<rect x="886" y="458" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="922.0" y="473" text-anchor="middle" fill="#ffffff">PASS 2.47</text>
+<rect x="960" y="458" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="996.0" y="473" text-anchor="middle" fill="#ffffff">PASS 2.22</text>
+<text x="8" y="495">Sensory input gain = 5</text>
+<rect x="220" y="480" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="495" text-anchor="middle" fill="#ffffff">PASS 11.81</text>
+<rect x="294" y="480" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="330.0" y="495" text-anchor="middle" fill="#ffffff">PASS 2.16</text>
+<rect x="368" y="480" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="404.0" y="495" text-anchor="middle" fill="#ffffff">PASS 4.83</text>
+<rect x="442" y="480" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="478.0" y="495" text-anchor="middle" fill="#ffffff">PASS 1.93</text>
+<rect x="516" y="480" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="552.0" y="495" text-anchor="middle" fill="#ffffff">PASS 1.59</text>
+<rect x="590" y="480" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="626.0" y="495" text-anchor="middle" fill="#ffffff">PASS 2.27</text>
+<rect x="664" y="480" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="700.0" y="495" text-anchor="middle" fill="#ffffff">PASS 2.01</text>
+<rect x="738" y="480" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="774.0" y="495" text-anchor="middle" fill="#ffffff">PASS 1.87</text>
+<rect x="812" y="480" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="848.0" y="495" text-anchor="middle" fill="#ffffff">PASS 2.72</text>
+<rect x="886" y="480" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="922.0" y="495" text-anchor="middle" fill="#ffffff">PASS 2.59</text>
+<rect x="960" y="480" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="996.0" y="495" text-anchor="middle" fill="#ffffff">PASS 2.22</text>
+<text x="8" y="517">Sensory input gain = 6</text>
+<rect x="220" y="502" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="517" text-anchor="middle" fill="#ffffff">PASS 11.81</text>
+<rect x="294" y="502" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="330.0" y="517" text-anchor="middle" fill="#ffffff">PASS 2.16</text>
+<rect x="368" y="502" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="404.0" y="517" text-anchor="middle" fill="#ffffff">PASS 4.94</text>
+<rect x="442" y="502" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="478.0" y="517" text-anchor="middle" fill="#ffffff">PASS 1.93</text>
+<rect x="516" y="502" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="552.0" y="517" text-anchor="middle" fill="#ffffff">PASS 1.58</text>
+<rect x="590" y="502" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="626.0" y="517" text-anchor="middle" fill="#ffffff">PASS 2.26</text>
+<rect x="664" y="502" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="700.0" y="517" text-anchor="middle" fill="#ffffff">PASS 2.01</text>
+<rect x="738" y="502" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="774.0" y="517" text-anchor="middle" fill="#ffffff">PASS 1.87</text>
+<rect x="812" y="502" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="848.0" y="517" text-anchor="middle" fill="#ffffff">PASS 2.70</text>
+<rect x="886" y="502" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="922.0" y="517" text-anchor="middle" fill="#ffffff">PASS 2.60</text>
+<rect x="960" y="502" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="996.0" y="517" text-anchor="middle" fill="#ffffff">PASS 2.22</text>
+<text x="8" y="539">Gain adaptation rate = 0</text>
+<rect x="220" y="524" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="539" text-anchor="middle" fill="#ffffff">PASS 5.85</text>
+<rect x="294" y="524" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="330.0" y="539" text-anchor="middle" fill="#ffffff">PASS 2.38</text>
+<rect x="368" y="524" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="404.0" y="539" text-anchor="middle" fill="#ffffff">PASS 7.20</text>
+<rect x="442" y="524" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="478.0" y="539" text-anchor="middle" fill="#ffffff">PASS 2.07</text>
+<rect x="516" y="524" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="552.0" y="539" text-anchor="middle" fill="#ffffff">PASS 1.52</text>
+<rect x="590" y="524" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="626.0" y="539" text-anchor="middle" fill="#ffffff">PASS 1.77</text>
+<rect x="664" y="524" width="72" height="20" fill="#b71c1c" stroke="#222" stroke-width="0.5"/>
+<text x="700.0" y="539" text-anchor="middle" fill="#ffffff">FAIL 1.45</text>
+<rect x="738" y="524" width="72" height="20" fill="#b71c1c" stroke="#222" stroke-width="0.5"/>
+<text x="774.0" y="539" text-anchor="middle" fill="#ffffff">FAIL 1.37</text>
+<rect x="812" y="524" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="848.0" y="539" text-anchor="middle" fill="#ffffff">PASS 2.05</text>
+<rect x="886" y="524" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="922.0" y="539" text-anchor="middle" fill="#ffffff">PASS 1.74</text>
+<rect x="960" y="524" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="996.0" y="539" text-anchor="middle" fill="#ffffff">PASS 1.62</text>
+<text x="8" y="561">Gain adaptation rate = 0.001</text>
+<rect x="220" y="546" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="561" text-anchor="middle" fill="#ffffff">PASS 8.28</text>
+<rect x="294" y="546" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="330.0" y="561" text-anchor="middle" fill="#ffffff">PASS 2.05</text>
+<rect x="368" y="546" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="404.0" y="561" text-anchor="middle" fill="#ffffff">PASS 4.98</text>
+<rect x="442" y="546" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="478.0" y="561" text-anchor="middle" fill="#ffffff">PASS 1.69</text>
+<rect x="516" y="546" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="552.0" y="561" text-anchor="middle" fill="#ffffff">PASS 1.52</text>
+<rect x="590" y="546" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="626.0" y="561" text-anchor="middle" fill="#ffffff">PASS 2.06</text>
+<rect x="664" y="546" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="700.0" y="561" text-anchor="middle" fill="#ffffff">PASS 1.78</text>
+<rect x="738" y="546" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="774.0" y="561" text-anchor="middle" fill="#ffffff">PASS 1.68</text>
+<rect x="812" y="546" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="848.0" y="561" text-anchor="middle" fill="#ffffff">PASS 2.14</text>
+<rect x="886" y="546" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="922.0" y="561" text-anchor="middle" fill="#ffffff">PASS 2.30</text>
+<rect x="960" y="546" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="996.0" y="561" text-anchor="middle" fill="#ffffff">PASS 2.02</text>
+<text x="8" y="583">Gain adaptation rate = 0.004</text>
+<rect x="220" y="568" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="583" text-anchor="middle" fill="#ffffff">PASS 13.61</text>
+<rect x="294" y="568" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="330.0" y="583" text-anchor="middle" fill="#ffffff">PASS 1.93</text>
+<rect x="368" y="568" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="404.0" y="583" text-anchor="middle" fill="#ffffff">PASS 4.86</text>
+<rect x="442" y="568" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="478.0" y="583" text-anchor="middle" fill="#ffffff">PASS 2.17</text>
+<rect x="516" y="568" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="552.0" y="583" text-anchor="middle" fill="#ffffff">PASS 1.53</text>
+<rect x="590" y="568" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="626.0" y="583" text-anchor="middle" fill="#ffffff">PASS 2.41</text>
+<rect x="664" y="568" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="700.0" y="583" text-anchor="middle" fill="#ffffff">PASS 2.20</text>
+<rect x="738" y="568" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="774.0" y="583" text-anchor="middle" fill="#ffffff">PASS 1.97</text>
+<rect x="812" y="568" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="848.0" y="583" text-anchor="middle" fill="#ffffff">PASS 2.43</text>
+<rect x="886" y="568" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="922.0" y="583" text-anchor="middle" fill="#ffffff">PASS 2.73</text>
+<rect x="960" y="568" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="996.0" y="583" text-anchor="middle" fill="#ffffff">PASS 2.39</text>
+<text x="8" y="605">Gain adaptation rate = 0.008</text>
+<rect x="220" y="590" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="605" text-anchor="middle" fill="#ffffff">PASS 13.74</text>
+<rect x="294" y="590" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="330.0" y="605" text-anchor="middle" fill="#ffffff">PASS 1.89</text>
+<rect x="368" y="590" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="404.0" y="605" text-anchor="middle" fill="#ffffff">PASS 4.70</text>
+<rect x="442" y="590" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="478.0" y="605" text-anchor="middle" fill="#ffffff">PASS 2.18</text>
+<rect x="516" y="590" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="552.0" y="605" text-anchor="middle" fill="#ffffff">PASS 1.54</text>
+<rect x="590" y="590" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="626.0" y="605" text-anchor="middle" fill="#ffffff">PASS 2.37</text>
+<rect x="664" y="590" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="700.0" y="605" text-anchor="middle" fill="#ffffff">PASS 2.19</text>
+<rect x="738" y="590" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="774.0" y="605" text-anchor="middle" fill="#ffffff">PASS 2.00</text>
+<rect x="812" y="590" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="848.0" y="605" text-anchor="middle" fill="#ffffff">PASS 2.68</text>
+<rect x="886" y="590" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="922.0" y="605" text-anchor="middle" fill="#ffffff">PASS 2.81</text>
+<rect x="960" y="590" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="996.0" y="605" text-anchor="middle" fill="#ffffff">PASS 2.41</text>
+<text x="8" y="627">Synapse threshold = 4</text>
+<rect x="220" y="612" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="627" text-anchor="middle" fill="#ffffff">PASS 10.61</text>
+<rect x="294" y="612" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="330.0" y="627" text-anchor="middle" fill="#ffffff">PASS 2.00</text>
+<rect x="368" y="612" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="404.0" y="627" text-anchor="middle" fill="#ffffff">PASS 5.22</text>
+<rect x="442" y="612" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="478.0" y="627" text-anchor="middle" fill="#ffffff">PASS 2.01</text>
+<rect x="516" y="612" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="552.0" y="627" text-anchor="middle" fill="#ffffff">PASS 1.72</text>
+<rect x="590" y="612" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="626.0" y="627" text-anchor="middle" fill="#ffffff">PASS 2.25</text>
+<rect x="664" y="612" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="700.0" y="627" text-anchor="middle" fill="#ffffff">PASS 2.12</text>
+<rect x="738" y="612" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="774.0" y="627" text-anchor="middle" fill="#ffffff">PASS 1.82</text>
+<rect x="812" y="612" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="848.0" y="627" text-anchor="middle" fill="#ffffff">PASS 2.23</text>
+<rect x="886" y="612" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="922.0" y="627" text-anchor="middle" fill="#ffffff">PASS 4.31</text>
+<rect x="960" y="612" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="996.0" y="627" text-anchor="middle" fill="#ffffff">PASS 3.42</text>
+<text x="8" y="649">Synapse threshold = 5</text>
+<rect x="220" y="634" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="649" text-anchor="middle" fill="#ffffff">PASS 12.44</text>
+<rect x="294" y="634" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="330.0" y="649" text-anchor="middle" fill="#ffffff">PASS 2.20</text>
+<rect x="368" y="634" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="404.0" y="649" text-anchor="middle" fill="#ffffff">PASS 4.45</text>
+<rect x="442" y="634" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="478.0" y="649" text-anchor="middle" fill="#ffffff">PASS 2.12</text>
+<rect x="516" y="634" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="552.0" y="649" text-anchor="middle" fill="#ffffff">PASS 3.56</text>
+<rect x="590" y="634" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="626.0" y="649" text-anchor="middle" fill="#ffffff">PASS 2.26</text>
+<rect x="664" y="634" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="700.0" y="649" text-anchor="middle" fill="#ffffff">PASS 2.12</text>
+<rect x="738" y="634" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="774.0" y="649" text-anchor="middle" fill="#ffffff">PASS 1.84</text>
+<rect x="812" y="634" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="848.0" y="649" text-anchor="middle" fill="#ffffff">PASS 2.15</text>
+<rect x="886" y="634" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="922.0" y="649" text-anchor="middle" fill="#ffffff">PASS 5.08</text>
+<rect x="960" y="634" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="996.0" y="649" text-anchor="middle" fill="#ffffff">PASS 3.96</text>
+<text x="8" y="671">Synapse threshold = 6</text>
+<rect x="220" y="656" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="671" text-anchor="middle" fill="#ffffff">PASS 14.38</text>
+<rect x="294" y="656" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="330.0" y="671" text-anchor="middle" fill="#ffffff">PASS 2.16</text>
+<rect x="368" y="656" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="404.0" y="671" text-anchor="middle" fill="#ffffff">PASS 3.79</text>
+<rect x="442" y="656" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="478.0" y="671" text-anchor="middle" fill="#ffffff">PASS 2.23</text>
+<rect x="516" y="656" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="552.0" y="671" text-anchor="middle" fill="#ffffff">PASS 3.35</text>
+<rect x="590" y="656" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="626.0" y="671" text-anchor="middle" fill="#ffffff">PASS 2.18</text>
+<rect x="664" y="656" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="700.0" y="671" text-anchor="middle" fill="#ffffff">PASS 2.09</text>
+<rect x="738" y="656" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="774.0" y="671" text-anchor="middle" fill="#ffffff">PASS 1.80</text>
+<rect x="812" y="656" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="848.0" y="671" text-anchor="middle" fill="#ffffff">PASS 2.31</text>
+<rect x="886" y="656" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="922.0" y="671" text-anchor="middle" fill="#ffffff">PASS 6.56</text>
+<rect x="960" y="656" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="996.0" y="671" text-anchor="middle" fill="#ffffff">PASS 4.51</text>
+<text x="8" y="693">Synapse threshold = 8</text>
+<rect x="220" y="678" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="693" text-anchor="middle" fill="#ffffff">PASS 17.08</text>
+<rect x="294" y="678" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="330.0" y="693" text-anchor="middle" fill="#ffffff">PASS 2.59</text>
+<rect x="368" y="678" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="404.0" y="693" text-anchor="middle" fill="#ffffff">PASS 3.47</text>
+<rect x="442" y="678" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="478.0" y="693" text-anchor="middle" fill="#ffffff">PASS 2.16</text>
+<rect x="516" y="678" width="72" height="20" fill="#b71c1c" stroke="#222" stroke-width="0.5"/>
+<text x="552.0" y="693" text-anchor="middle" fill="#ffffff">FAIL 2.71</text>
+<rect x="590" y="678" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="626.0" y="693" text-anchor="middle" fill="#ffffff">PASS 2.26</text>
+<rect x="664" y="678" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="700.0" y="693" text-anchor="middle" fill="#ffffff">PASS 2.20</text>
+<rect x="738" y="678" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="774.0" y="693" text-anchor="middle" fill="#ffffff">PASS 1.82</text>
+<rect x="812" y="678" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="848.0" y="693" text-anchor="middle" fill="#ffffff">PASS 1.89</text>
+<rect x="886" y="678" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="922.0" y="693" text-anchor="middle" fill="#ffffff">PASS 12.63</text>
+<rect x="960" y="678" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="996.0" y="693" text-anchor="middle" fill="#ffffff">PASS 6.88</text>
+<text x="8" y="715">Synapse threshold = 10</text>
+<rect x="220" y="700" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="715" text-anchor="middle" fill="#ffffff">PASS 20.33</text>
+<rect x="294" y="700" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="330.0" y="715" text-anchor="middle" fill="#ffffff">PASS 2.53</text>
+<rect x="368" y="700" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="404.0" y="715" text-anchor="middle" fill="#ffffff">PASS 3.26</text>
+<rect x="442" y="700" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="478.0" y="715" text-anchor="middle" fill="#ffffff">PASS 1.96</text>
+<rect x="516" y="700" width="72" height="20" fill="#b71c1c" stroke="#222" stroke-width="0.5"/>
+<text x="552.0" y="715" text-anchor="middle" fill="#ffffff">FAIL 2.83</text>
+<rect x="590" y="700" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="626.0" y="715" text-anchor="middle" fill="#ffffff">PASS 2.30</text>
+<rect x="664" y="700" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="700.0" y="715" text-anchor="middle" fill="#ffffff">PASS 2.22</text>
+<rect x="738" y="700" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="774.0" y="715" text-anchor="middle" fill="#ffffff">PASS 1.77</text>
+<rect x="812" y="700" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="848.0" y="715" text-anchor="middle" fill="#ffffff">PASS 1.63</text>
+<rect x="886" y="700" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="922.0" y="715" text-anchor="middle" fill="#ffffff">PASS 24.94</text>
+<rect x="960" y="700" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="996.0" y="715" text-anchor="middle" fill="#ffffff">PASS 9.25</text>
+</svg>

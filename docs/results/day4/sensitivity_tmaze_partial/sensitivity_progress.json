@@ -1,0 +1,140 @@
+{
+ "config": {
+  "seeds": [
+   1000,
+   1001,
+   1002,
+   1003,
+   1004,
+   1005,
+   1006,
+   1007,
+   1008,
+   1009
+  ],
+  "tests": [
+   "mb_conditioning"
+  ],
+  "cells": [
+   "baseline",
+   "noise_std=0.025",
+   "noise_std=0.0375",
+   "noise_std=0.075",
+   "noise_std=0.1",
+   "bias=0.15",
+   "bias=0.175",
+   "bias=0.225",
+   "bias=0.25",
+   "target_rate_hz=2.5",
+   "target_rate_hz=3.5",
+   "target_rate_hz=7.5",
+   "target_rate_hz=10",
+   "ext_gain=2",
+   "ext_gain=3",
+   "ext_gain=5",
+   "ext_gain=6",
+   "gain_adapt=0",
+   "gain_adapt=0.001",
+   "gain_adapt=0.004",
+   "gain_adapt=0.008",
+   "min_synapses=4",
+   "min_synapses=5",
+   "min_synapses=6",
+   "min_synapses=8",
+   "min_synapses=10"
+  ]
+ },
+ "config_hash": "15927b6d5093aa71",
+ "cells": {
+  "baseline": {
+   "key": "baseline",
+   "parameter": "baseline",
+   "value": null,
+   "behaviors": {
+    "mb_conditioning": {
+     "passed": true,
+     "effect": 1.0,
+     "control": -0.030000000000000006,
+     "metric": "performance index",
+     "effect_size_dz": 7.070364372224458,
+     "p_value": 0.0009765625,
+     "n": 10
+    }
+   },
+   "backend": "not recorded",
+   "seconds": 404.3
+  },
+  "noise_std=0.025": {
+   "key": "noise_std=0.025",
+   "parameter": "noise_std",
+   "value": 0.025,
+   "behaviors": {
+    "mb_conditioning": {
+     "passed": true,
+     "effect": 0.99,
+     "control": -0.01,
+     "metric": "performance index",
+     "effect_size_dz": 6.123724356957946,
+     "p_value": 0.0009765625,
+     "n": 10
+    }
+   },
+   "backend": "not recorded",
+   "seconds": 422.2
+  },
+  "noise_std=0.0375": {
+   "key": "noise_std=0.0375",
+   "parameter": "noise_std",
+   "value": 0.0375,
+   "behaviors": {
+    "mb_conditioning": {
+     "passed": true,
+     "effect": 1.0,
+     "control": -0.005000000000000007,
+     "metric": "performance index",
+     "effect_size_dz": 7.264533004108344,
+     "p_value": 0.0009765625,
+     "n": 10
+    }
+   },
+   "backend": "not recorded",
+   "seconds": 427.3
+  },
+  "noise_std=0.075": {
+   "key": "noise_std=0.075",
+   "parameter": "noise_std",
+   "value": 0.075,
+   "behaviors": {
+    "mb_conditioning": {
+     "passed": true,
+     "effect": 0.53,
+     "control": -0.04,
+     "metric": "performance index",
+     "effect_size_dz": 6.2028219384406,
+     "p_value": 0.0009765625,
+     "n": 10
+    }
+   },
+   "backend": "not recorded",
+   "seconds": 411.9
+  },
+  "noise_std=0.1": {
+   "key": "noise_std=0.1",
+   "parameter": "noise_std",
+   "value": 0.1,
+   "behaviors": {
+    "mb_conditioning": {
+     "passed": false,
+     "effect": -0.035,
+     "control": -0.045000000000000005,
+     "metric": "performance index",
+     "effect_size_dz": 0.47434164902525683,
+     "p_value": 0.25,
+     "n": 10
+    }
+   },
+   "backend": "not recorded",
+   "seconds": 494.3
+  }
+ }
+}

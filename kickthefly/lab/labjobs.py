@@ -16,10 +16,11 @@ import numpy as np
 
 from kickthefly.lab import labstats
 
-ASSAYS = ("tmaze", "looming", "sugar", "orchard", "thermo_escape", "predator_escape", "hum_demo")
+ASSAYS = ("tmaze", "looming", "sugar", "orchard", "thermo_escape", "predator_escape", "hum_demo", "sleep_deprivation")
 ASSAY_LABEL = {"tmaze": "T-maze conditioning", "looming": "Looming escape", "sugar": "Sugar response",
                "orchard": "Orchard feeding", "thermo_escape": "Thermogenetic escape",
-               "predator_escape": "Predator escape", "hum_demo": "Hum demo (JO-A/B)"}
+               "predator_escape": "Predator escape", "hum_demo": "Hum demo (JO-A/B)",
+               "sleep_deprivation": "Sleep deprivation"}
 
 
 def default_workers() -> int:
@@ -56,6 +57,12 @@ def assay_task(kind: str, seed: int, options: dict, surgery: dict | None, params
         from kickthefly.lab import audio
 
         return audio.demo_fly(seed, params=params, **opts)
+    if kind == "sleep_deprivation":
+        from kickthefly.lab import sleepdep
+
+        if surgery:
+            raise ValueError("the sleep deprivation assay is its own paired design: it takes no surgery")
+        return sleepdep.fly_pair(seed, params=params, **opts)
     raise ValueError(kind)
 
 
@@ -63,7 +70,8 @@ HEADLINE_LABEL = {"tmaze": "performance index", "looming": "escape probability (
                   "sugar": "MN9 ratio (all doses)", "orchard": "MN9 ratio, feeding vs travelling",
                   "thermo_escape": "escape probability (all temperatures, expressing flies)",
                   "predator_escape": "escape probability (all predators)",
-                  "hum_demo": "P1 firing ratio, 200 Hz pulse train"}
+                  "hum_demo": "P1 firing ratio, 200 Hz pulse train",
+                  "sleep_deprivation": "rebound sleep, deprived minus control (s)"}
 
 
 def headline(kind: str, fly: dict) -> float:
@@ -84,6 +92,8 @@ def headline(kind: str, fly: dict) -> float:
         from kickthefly.lab import audio
 
         return audio.headline(fly)
+    if kind == "sleep_deprivation":
+        return float(fly["deprived"]["sleep_s"]["recovery"] - fly["control"]["sleep_s"]["recovery"])
     raise ValueError(kind)
 
 
@@ -123,6 +133,10 @@ def summarize(kind: str, flies: list[dict]) -> dict:
         from kickthefly.lab import audio
 
         return audio.summarize(flies)
+    if kind == "sleep_deprivation":
+        from kickthefly.lab import sleepdep
+
+        return sleepdep.summarize(flies)
     if kind == "orchard":
         return dict(metric="orchard feeding: MN9 and PAM feeding vs travelling, and the orchard's depletion",
                     mn9_ratio=labstats.mean_ci([f["mn9_ratio"] for f in flies]),
