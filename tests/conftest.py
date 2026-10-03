@@ -118,3 +118,27 @@ def _ktf_memory_report(request):
         Path(path).write_text(json.dumps(_MEM_ROWS, indent=1))
     except OSError:
         pass
+
+
+# defined after the memory report on purpose: a later module fixture is torn down first, so the games are freed before it measures
+def shutdown_live_games() -> int:
+    """Shut down every Game still alive (its brain-view thread holds it and all its brains until view_stop is set). Returns how many.
+    3.0 day 4 review: test files that built whole games and never stopped them kept 1-1.8 GB each after they finished."""
+    k2 = sys.modules.get("kickthefly.game.kick_the_fly")
+    if k2 is None:
+        return 0
+    games = list(k2.Game.LIVE)
+    for g in games:
+        g.shutdown()
+    import gc
+
+    gc.collect()
+    return len(games)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _ktf_free_games_after_each_file():
+    """After each test file (not each test: some files share one game across their tests through a module fixture, which this
+    fixture outlives), every game the file built is shut down so its memory can go back."""
+    yield
+    shutdown_live_games()

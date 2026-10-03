@@ -471,6 +471,7 @@ import os
 import random
 import sys
 import threading
+import weakref
 import time
 from collections import deque
 from pathlib import Path
@@ -2607,7 +2608,30 @@ class Game:
         from kickthefly.ui import arcade_ui
 
         self.menu.pages["arcade"] = arcade_ui.page             # 3.0 day 4: fly tournament and fly racing
+        Game.LIVE.add(self)
         threading.Thread(target=self._view_loop, name="brain-view", daemon=True).start()
+
+    # every Game that has been built and not shut down (3.0 day 4 review: the brain-view thread holds its game, and through it every
+    # brain, until view_stop; test files that never set it kept 1-1.8 GB each. tests/conftest.py shuts these down after each test)
+    LIVE: "weakref.WeakSet[Game]" = weakref.WeakSet()
+
+    def shutdown(self, join: float = 2.0) -> None:
+        """Stop this game's background threads (the brain-view renderer and every fly's brain thread) so it and its brains can be
+        freed. The game is not usable afterwards. Safe to call twice."""
+        self.view_stop = True
+        for slot in list(getattr(self, "flies", []) or []):
+            try:
+                slot.brain.stop()
+            except Exception:
+                pass
+        new = getattr(self, "_new_slot", None)
+        if new is not None:
+            new.brain.stop()
+        Game.LIVE.discard(self)
+        if join:
+            for th in threading.enumerate():
+                if th.name == "brain-view" and getattr(getattr(th, "_target", None), "__self__", None) is self:
+                    th.join(timeout=join)
 
     # --- settings, menu and time ----------------------------------------------------------------------------------
     def make_fonts(self) -> None:

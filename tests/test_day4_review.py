@@ -531,3 +531,31 @@ def test_the_individuality_seed_can_differ_from_the_state_seed_and_defaults_to_i
     assert np.array_equal(a.sim._noise, b.sim._noise), "the noise (state) seed is still 5"
     c = simcore.new_brain(seed=5, individuality="off", individuality_seed=9, warmup=0)
     assert c.sim.d_pre is None
+
+
+# --- the test suite's memory: a game's brain-view thread kept the game and every brain alive after its test file ended ----------
+def test_a_built_game_is_freed_by_the_suites_shutdown_after_its_file(synthetic_pack):
+    import gc
+    import weakref
+
+    import pygame
+    from conftest import shutdown_live_games
+    from kickthefly.core import config, memory as mem_mod, simcore
+    from kickthefly.game import kick_the_fly as k2
+    from kickthefly.sim.connectome.sim import LIFParams, LIFSim
+
+    pygame.init()
+    g, W, soma = simcore.pack()
+    sim = LIFSim(None, LIFParams(), W_in=W, seed=1)
+    br = k2.Brain(g, sim, seed=1)
+    br.graph = g
+    br.memory = mem_mod.Memory(g, sim, load=False)
+    game = k2.Game(None, br, k2.BrainView(soma, W, np.zeros(g.n, bool)), graph=g, weights=W, cfg=config.Config())
+    ref_game, ref_brain = weakref.ref(game), weakref.ref(br)
+    del game, br, sim
+    gc.collect()
+    assert ref_game() is not None, "while its brain-view thread runs, the game is alive (this is what kept 1-1.8 GB per file)"
+    assert shutdown_live_games() >= 1
+    gc.collect()
+    assert ref_game() is None and ref_brain() is None, "after the shutdown the game and its brain can be freed"
+    assert not [t for t in threading.enumerate() if t.name == "brain-view" and t.is_alive()]

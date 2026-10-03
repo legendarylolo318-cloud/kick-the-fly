@@ -30,7 +30,9 @@ at a current of 0.04 and 4.6-4.7x at 0.08, and 0.08 per unit of pressure was fix
   positive mean difference. With n = 10 an exact one-sided Wilcoxon cannot go below p = 0.00098; that floor is reported as **p < 0.001**.
 - **S2 a manipulation check** (expected to pass by construction of the rule; it exists to catch a broken device): the deprived flies slept at
   most 25% as long as their controls during the window.
-- **S3 the dFB readout:** the mean dFB level at the end of the window, deprived above control, one-sided Wilcoxon p < 0.01.
+- **S3 the dFB readout:** the mean dFB level at the end of the window, deprived above control, one-sided Wilcoxon p < 0.01. (3.0 day 4
+  review: its direction is also expected from the rule, since more pressure is more current and the dFB response rises with current; what
+  only the connectome decides is how far, the magnitude in the dFB column.)
 
 An earlier draft of the disturbance (a touch every 4 s holding for 2 s) left a 2 s gap in which a fly could sleep for up to 1 s: the deprived
 fly still slept about three quarters as long as its control in the window, so S2 could not pass. That was found with a scripted brain, before
