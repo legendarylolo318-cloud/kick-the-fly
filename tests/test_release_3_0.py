@@ -334,3 +334,32 @@ def test_the_asymmetry_page_says_partners_and_names_the_giant_fiber_right():
     assert "In-Syn" not in src and "In-partners" in src and "77,507 bilateral left/right pairs (155,014 neurons)" in src
     assert "In-Syn" not in inspect.getsource(headless.format_asymmetry_report)
     assert "10,272,125 synapses" not in inspect.getsource(lab.page_benchmark)
+
+
+def test_a_burst_of_discoveries_shows_at_most_three_toasts_and_a_count():
+    """Dozens of Neurodex toasts stacked down the whole screen after a burst of discoveries (seen in the kitchen and orchard)."""
+    import time
+
+    from kickthefly.game import extras3
+
+    banners = []
+
+    class G:
+        class cfg:
+            keys = {"neurodex": "d"}
+
+            def __class_getitem__(cls, key):
+                return False
+        report = None
+
+        class menu:
+            open = False
+
+    x3 = extras3.Extras.__new__(extras3.Extras)
+    x3.g, x3.player, x3.offer, x3.notd = G(), None, None, None
+    x3.toasts = [(f"NEURODEX  T{i} discovered", time.perf_counter()) for i in range(40)]
+    x3._banner = lambda surf, text, y, col, a=255: banners.append(text)
+    x3.draw(None, 0.0)
+    assert len(banners) == extras3.TOAST_MAX + 1
+    assert banners[:3] == ["NEURODEX  T37 discovered", "NEURODEX  T38 discovered", "NEURODEX  T39 discovered"]
+    assert "37 more" in banners[-1]

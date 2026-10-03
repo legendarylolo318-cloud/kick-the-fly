@@ -93,10 +93,11 @@ class Scene:
 
     def __init__(self, name: str, caption: str, steps=(), every=None, shot_at: float = 6.0, ready=None,
                  timeout: float = 40.0, arena: str = "room", flies: int = 1, lab: bool = False, panel: str = "solid",
-                 settle: float = 4.0):
+                 settle: float = 4.0, settings: dict | None = None):
         self.name, self.caption, self.steps, self.every = name, caption, list(steps), every
         self.shot_at, self.ready, self.timeout = shot_at, ready, timeout
         self.arena, self.flies, self.lab, self.panel, self.settle = arena, flies, lab, panel, settle
+        self.settings = dict(settings or {})          # extra config settings for this scene (key -> value)
 
 
 def near(dist, bearing=None, height=None, i=0):
@@ -380,6 +381,11 @@ def run_scene(s: Scene, out: Path) -> Path:
     cfg.set("graphics.fps_cap", 60)
     cfg.set("brain.arena", s.arena)
     cfg.set("brain.science_popups", False)             # the "Real flies do this too" cards would cover the scene
+    # 3.0 release review: a fresh config shows the first-launch tutorial (and the Neuron of the Day card) over every capture
+    cfg.first_run.update(tutorial_done=True, loadout_notice=False, neuron_shapes_asked=True, whatsnew_3_0_seen=True)
+    cfg.set("brain.neuron_of_day", False)
+    for key, value in s.settings.items():
+        cfg.set(key, value)
     state = dict(started=None, done=set(), shot=None, video=None)
     demo = s.name == "demo"
 
