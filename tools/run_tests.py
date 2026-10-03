@@ -35,6 +35,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 DURATIONS = ROOT / "tests" / ".durations.json"
 VALIDATION_FILES = ("tests/test_validation.py",)
+NO_SHARD = VALIDATION_FILES          # one module fixture runs the whole suite once: a shard would run it again
 
 
 def available_gb() -> float:
@@ -81,7 +82,7 @@ def plan_shards(files: list[str], durations: dict[str, float], chunks: int) -> t
     items, est = [], {}
     for f in files:
         d = durations.get(f, default)
-        k = min(max(1, chunks), int(-(-d // piece))) if d > piece else 1
+        k = min(max(1, chunks), int(-(-d // piece))) if d > piece and f not in NO_SHARD else 1
         if k <= 1:
             items.append(f)
             est[f] = d

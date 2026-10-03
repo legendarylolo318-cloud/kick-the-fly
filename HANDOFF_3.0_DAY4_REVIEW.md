@@ -19,9 +19,13 @@ frozen worktree of 898e20a.
 | Network science, adult and larva, analysis version 2 | adult rich club rho **1.02, 1.08, 1.06, 0.97, 0.86, 0.70** (v1: 1.04, 1.15, 1.08, 1.02, 0.92, 0.73): still no rich club; larva 1.07-1.36 (mild, as before); the all-mutual motif's enrichment is undefined (null 0 in the sampled wedges); motifs, reciprocity and communities unchanged. `docs/results/day4/netsci_v2/` |
 | networkx cross-check (`tools/netsci_crosscheck.py`) | larva whole: motif estimates vs exact triad census, largest error 2.8 SE (13 classes); estimator on a null graph matches its exact census; phi(k) identical; modularity of our partition identical (0.533384); NMI identical to a from-the-definition implementation; networkx's Louvain Q 0.548 vs ours 0.533. Adult induced subgraph of 4,000 neurons: largest error 2.24 SE, phi/modularity/NMI identical, networkx Louvain 0.8587 vs ours 0.8576. The directed null changed 2,632 of 2,952 larva skeleton degrees (bug 2) |
 | Real window (Wayland), 3D game, scripted gamepad through the game's own `pad_tick -> arcade_ui.pad_nav` | a real 4-fly bracket (pad: size, favorite, run; champion 2002, coin toss none) and a real 3-lane race (pad: switch tab, lanes, look at the field, bet, start; order 3002 > 3000 > 3001, the 10-point bet on 3000 at x2.1 lost: 100 -> 90); the three Lab pages; every palette x both text sizes; reduced flashing; B closes the page. The window manager tiled the window to 448x906, so the layout pass was redone offscreen at 1280x760 with the same script (bug 10) |
-| tests | __TESTS__ |
-| `--selftest` | __SELFTEST__ |
-| `--headless --playthrough all --sim-backend cpu` | __PT__ |
+| tests | fast suite, final code, `tools/run_tests.py --fast --chunks 6 --parallel 4` (sharded): **1,184 passed, 22 skipped, 0 failed, 12.4 min**
+(with the 22 validation tests running alongside). The 22 validation tests (`--only-validation`): **22 passed** (18.3 min, one chunk by
+design). Earlier unsharded run of the same suite: 1,183 passed / 0 failed in 14.0 min, whose playthrough-only chunk alone took 10.7 min |
+| `--selftest` | **22 passed, 0 warnings, 0 failed** (exit 0) |
+| `--headless --playthrough all --sim-backend cpu` | **391 passed, 1 failed, 103 gated, 15 skipped**. The FAIL is `game2d:adult:room:cva`'s speed floor (sim/real 0.19 vs 0.25), measured
+while three test chunks ran on the same machine; rerun alone on a quiet machine with the playthrough's own `Rig`/`game_leg`: **PASS 3/3**
+(ratios 2.50, 2.55, 2.57). Not a code failure, but reported as it happened |
 | regression tests on the original code | `tests/test_day4_review.py` on 898e20a: 41 failed, 4 passed (the 4: wallet cases the old code handled: NaN, "12", [3], NaN odds) |
 
 ## Bugs found and fixed (regression tests in `tests/test_day4_review.py`; 41 of its 45 original tests fail on 898e20a, the other 4 are
@@ -57,7 +61,14 @@ frozen worktree of 898e20a.
    JSON list (AttributeError). Clamped and topped up on load. `settle` now refuses odds that are not a finite payout >= 1.1 and stakes
    that are not whole positive numbers.
 
-**Test suite memory**
+**Test suite**
+11. **Order-dependent failures** the new chunking exposed (pre-existing): `test_determinism` left the module-global `THRESH["escape"]`
+    at 5.5, and a headless entry point left the network guard off, so `test_compat_day4` and two streamer tests in `test_live_inputs`
+    failed whenever they shared a process with those files. conftest now restores the rule globals and the network guard after every test.
+12. **Test time** (you asked): `tools/run_tests.py` now splits files much longer than a chunk's share into shards by test index
+    (`KTF_SHARDS` + a conftest collection hook; `--no-shards` turns it off; `test_validation.py` is never sharded, its one module fixture
+    runs the whole suite). The playthrough file no longer holds one chunk for 10.7 min; with the leak fix chunk peaks dropped from 7.9 to
+    about 3-4 GB, so 4 chunks fit at once. Fast suite 14.0 -> 12.4 min on a loaded machine; on a quiet one expect roughly 7-8 min.
 9. **The leak**: every `Game` starts a brain-view thread that holds the game, and through it every brain, until `view_stop`. `test_decoy`
    and `test_tutorial` stopped their own games; `test_swarm`, `test_drop_item` and the playthrough tests did not. `Game.LIVE` (a weak set)
    + `Game.shutdown()`, and a module-scoped conftest fixture that shuts down every live game after each test file. Measured (`KTF_MEM_REPORT`, the same three files in one process, real pack): resident after
