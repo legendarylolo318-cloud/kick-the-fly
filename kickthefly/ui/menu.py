@@ -358,7 +358,8 @@ class Menu:
     def subtitle(self, surf, rect, text: str, y: int | None = None, max_lines: int = 3) -> int:
         """A page's description line under its heading, wrapped to the panel (3.0 release review: most pages drew it as one line, which ran
         off a 860 px menu and at larger text). Returns the y below it, with a gap."""
-        return self.wrapped(surf, text, (rect.x + 24, rect.y + 48 if y is None else y), rect.w - 48, LABEL, self.f_small, max_lines) + 8
+        top = rect.y + 16 + self.f_head.get_linesize() + 2              # under the heading at any font (Segoe UI's heading is taller)
+        return self.wrapped(surf, text, (rect.x + 24, max(top, rect.y + 48 if y is None else y)), rect.w - 48, LABEL, self.f_small, max_lines) + 8
 
     def flow_buttons(self, surf, x: int, y: int, right: int, items, *, h: int | None = None, font=None, gap: int = 8,
                      label: str | None = None) -> int:
