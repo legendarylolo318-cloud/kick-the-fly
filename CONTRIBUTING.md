@@ -80,7 +80,7 @@ same way after a UI change:
 
 ```bash
 python kick_the_fly.py --headless --validate --out data/validation_results.json   # the Validation page shows these
-python tools/make_screenshots.py              # every screenshot into docs/ (about 5 minutes)
+python tools/make_screenshots.py              # every screenshot into docs/ (about 8 minutes, one process per scene)
 python tools/make_screenshots.py lamp duel    # just some of them; --list shows them all
 python tools/make_screenshots.py demo         # docs/demo.gif, recorded with the in-game video recorder
 python tools/make_screenshots.py portrait --out /tmp    # a close-up of the fly model, for checking it after a change
@@ -88,11 +88,13 @@ python tools/make_screenshots.py portrait --out /tmp    # a close-up of the fly 
 
 Each scene is a short script (seed 7, a fixed arena, camera and inputs) that runs inside the real game loop through
 `kick3d.run(script=...)` and captures the whole window at 1280x760, with the brain panel set to solid (the see-through
-scene excepted). It renders offscreen on your GPU (SDL's offscreen driver: no window opens) with a throwaway
+scene excepted). It renders offscreen on your GPU (SDL's offscreen driver, forced even when your desktop session sets `SDL_VIDEODRIVER`,
+so no window opens and a tiling window manager can't resize the capture; `KTF_SHOTS_DRIVER` picks another driver) with a throwaway
 `KICK_THE_FLY_HOME`, so your settings, memory and saves are untouched, and it uses cached neuPrint skeletons without
 fetching. Game states that are awkward to reach by hand (trained memory, a wrapped fly, an autopsy, five flies feeding
 in the orchard) are reached by the script driving the game's own actions, never by drawing anything special. Add a
-scene with `scene(...)` in that file and reference its PNG from the README. Keep new images at the same size and
+scene with `scene(...)` in that file and reference its PNG from the README or `docs/gallery.md`. Captures skip the first-launch tutorial,
+the Neuron of the Day card and Neurodex toasts; a scene can set other settings with `settings={...}`. Keep new images at the same size and
 quantized (the script does it); `docs/` isn't bundled into the exe or AppImage.
 
 ## Before you open a PR
