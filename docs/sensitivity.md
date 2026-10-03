@@ -51,3 +51,29 @@ each fly with `lab.apply_to_sim` before its warm-up, so the gain controller sett
 synapse threshold is a `Wiring(min_synapses=N)`, the path the threshold sweep already takes. A subset run skips the pathway tests nobody asked
 for; each test restores the same snapshot, and the control neurons are drawn as if every test had run, so skipping never changes a result
 (tested: the subset's numbers equal the full run's).
+
+## Result (this release; the 11 pathway behaviors over the full grid, seeds 1000-1009, NumPy CPU, 5,140 s with 4 workers)
+
+The T-maze (mb_conditioning) is a second, much slower run (`--sens-tests mb_conditioning`); its result is in HANDOFF_3.0_DAY4.md if it finished
+before the handoff. The baseline column equals validation's own result for the same seeds exactly (checked for all 11). **PASS/FAIL by parameter value
+(effect = the drive ratio):**
+
+| parameter | values at which a behavior FAILS (default passes) |
+|---|---|
+| noise 0.025 / 0.0375 / **0.05** / 0.075 / 0.10 | cold pathway at 0.025; sugar -> MN9 and bitter -> DNg28 at 0.075 and 0.10; antennal -> aDN, courtship song and optomotor at 0.10 |
+| tonic drive 0.15 / 0.175 / **0.20** / 0.225 / 0.25 | cold at 0.175; sugar, song, bitter, optomotor at 0.225 and 0.25; antennal -> aDN and DA1 PN -> LH at 0.25 |
+| target rate 2.5 / 3.5 / **5** / 7.5 / 10 Hz | sugar at 2.5; bitter at 2.5, 3.5 and 7.5; hot and cold at 7.5 and 10; ORN DA1 -> DA1 PN and DA1 PN -> LH at 10 |
+| sensory gain 2 / 3 / **4** / 5 / 6 | only bitter -> DNg28, at 2 and 3 |
+| gain adaptation 0 / 0.001 / **0.002** / 0.004 / 0.008 | hot and cold only, at 0 (frozen gain) |
+| synapse threshold **3** / 4 / 5 / 6 / 8 / 10 | only bitter -> DNg28, at 8 and 10 |
+
+23 of the 66 parameter x behavior pairs fail at one or more tested values. Reading it: the looming -> giant fiber pathway never fails (its drive ratio
+stays between 1.75 and 30x); the **pathway results are most fragile to the two parameters that set how close every neuron sits to threshold** (tonic drive
+above the default and noise at 2x or more both drown the weaker pathways) and to a lower or higher whole-brain target rate; they are least sensitive to the
+sensory gain (the drive ratio saturates above gain 4: identical looming ratios at 5 and 6) and to the synapse threshold (the existing threshold sweep's
+finding, here on 11 behaviors). Bitter -> DNg28 is the most fragile (it fails at 9 of the 25 tested values): its FAILs at the highest thresholds and lowest
+gains come from the sugar-pathway control rising along with it (the criterion compares drive with control), not from the drive ratio itself falling below
+1.5. At the lowest tonic drive (0.15) every ratio is 4-25x: a quieter brain has a lower baseline, and the ratio divides by it (with a floor of 0.5 Hz), so a big
+ratio is not the same as a stronger pathway (a hypothesis, not tested here: the rates themselves are in the JSON's per-seed values of a validation run, not in this
+table). **None of this changes a default and none of it says the
+defaults are right or wrong.** The heatmap, matrix and tables are in the exports; the numbers above are from `sensitivity_matrix.csv` of this run.

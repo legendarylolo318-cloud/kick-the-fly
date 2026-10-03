@@ -69,3 +69,25 @@ Primary, one test per trait (looming latency, sugar -> MN9 ratio, log DNa01/02 r
 the number of rounds won. A bracket gives n - 1 matches, so one bracket has very little power; pool brackets. **Run it with
 `--individuality off` as the control:** identical brains cannot differ in personality, so a "significant" result there would be a false
 positive of the analysis. Seeds: the design was chosen on exploration seeds (3-4, 11-13); the report below uses 1000-1063.
+
+## Result (this release; four brackets of 16, seeds 1000-1063, 20 s duels, NumPy CPU; `--individuality subtle` and the `off` control)
+
+| | subtle (64 different flies) | off (the control: identical brains) |
+|---|---|---|
+| matches decided by the brains (coin tosses left out) | 56 of 60 (4 coin tosses) | 57 of 60 (3) |
+| knockouts | 0 of 60: every match went to the time limit and was decided on health | same |
+| looming latency: the higher-latency fly won | 18/43, Holm p = 1.000 | 20/43, Holm p = 0.838 |
+| sugar -> MN9 ratio: the higher-ratio fly won | 31/55, Holm p = 1.000 | 24/55, Holm p = 0.838 |
+| log DNa01/02 right/left: the higher-ratio fly won | 31/55, Holm p = 1.000 | 23/57, Holm p = 0.555 |
+
+**Pre-registered answer: personality (these three measured traits) does not predict winning in this model: no trait is significant, with or
+without individuality.** The one uncorrected hint (steering ratio vs rounds won, Spearman rho = 0.27, p = 0.033) is one of six uncorrected tests,
+did not survive the primary test, and the control produced a comparable-sized correlation of the opposite sign for the sugar ratio (rho = -0.26,
+p = 0.040): it is noise. Power is low (about 55 matches per condition): a modest effect could be missed. No knockouts happened, which also says the
+duel rules make hits rare (a few per match); that is a property of the arena and blaster (**GAME RULE**), not a finding about flies.
+
+The champion's brain report (first bracket, fly 1002): the cell types whose firing before landed shots most exceeded their overall firing were
+small types of 1-2 neurons (LoVP69, SNta24, LoVP35: ratios near 5), which is what a short list of low-count windows produces; among the cell types the
+duel's own rules read, DNp35 fired 3.2x, LC18 4.1x and LC11 3.6x its overall rate in those windows, DNa01/02 only 1.2x. That says the shooting neurons and
+the small-object detectors were active before the shots, as the rules intend; it is a correlation, nothing was silenced, and with 1-9 landed shots per
+fly the lists are noisy.
