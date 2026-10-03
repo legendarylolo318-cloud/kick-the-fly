@@ -363,3 +363,20 @@ def test_a_burst_of_discoveries_shows_at_most_three_toasts_and_a_count():
     assert len(banners) == extras3.TOAST_MAX + 1
     assert banners[:3] == ["NEURODEX  T37 discovered", "NEURODEX  T38 discovered", "NEURODEX  T39 discovered"]
     assert "37 more" in banners[-1]
+
+
+def test_make_screenshots_renders_offscreen_even_in_a_desktop_session():
+    """tools/make_screenshots.py used setdefault for SDL_VIDEODRIVER, so a session that sets it (Hyprland: wayland) opened real windows that a
+    tiling window manager resized, and the README captures came out 1250x1266 instead of 1280x760."""
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    code = "import sys; sys.argv=['x']; import importlib.util as u; s=u.spec_from_file_location('ms', 'tools/make_screenshots.py'); " \
+           "m=u.module_from_spec(s); s.loader.exec_module(m); import os; print(os.environ['SDL_VIDEODRIVER'])"
+    env = dict(os.environ, SDL_VIDEODRIVER="wayland")
+    env.pop("KTF_SHOTS_DRIVER", None)
+    out = subprocess.run([sys.executable, "-c", code], cwd=root, env=env, capture_output=True, text=True, timeout=120)
+    assert out.stdout.strip().splitlines()[-1] == "offscreen", out.stderr[-500:]

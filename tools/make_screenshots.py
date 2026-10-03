@@ -35,7 +35,9 @@ sys.path.insert(0, str(ROOT))
 DOCS = ROOT / "docs"
 SEED = 7
 
-os.environ.setdefault("SDL_VIDEODRIVER", "offscreen")
+# 3.0 release review: forced, not a default. A desktop session that sets SDL_VIDEODRIVER (Hyprland sets it to wayland) otherwise opened real
+# windows, which a tiling window manager resized (captures came out 1250x1266). KTF_SHOTS_DRIVER picks another driver on purpose.
+os.environ["SDL_VIDEODRIVER"] = os.environ.get("KTF_SHOTS_DRIVER", "offscreen")
 os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 os.environ.setdefault("KICK_THE_FLY_OFFLINE", "1")              # use the cached neuPrint skeletons, don't fetch
 _home = tempfile.mkdtemp(prefix="ktf-shots-")
@@ -213,12 +215,17 @@ scene("autopsy", "Autopsy: every brain region's last 2 s alive against its calm 
 def _settings(g):
     g.open_menu("settings")
     g.menu.tab = "Brain"
-    g.menu.scroll["settings:Brain"] = 400.0          # down to Compute backend and State precision
+    g.menu.scroll["settings:Brain"] = 400.0          # a first guess; _settings_end scrolls to the end once the page knows its height
+
+
+def _settings_end(g):
+    """Down to Compute backend and State precision, the tab's last rows (row heights depend on the font and the labels)."""
+    g.menu.scroll["settings:Brain"] = float(g.menu.content_h.get("settings:Brain", 400.0))
 
 
 scene("settings", "Settings (Esc > Settings), Brain tab: each setting is tagged Connectome or Game rule, including "
                   "the new compute backend and state precision",
-      steps=[(1.0, _settings)], every=near(1.5, height=1.2), shot_at=2.5)
+      steps=[(1.0, _settings), (1.6, _settings_end)], every=near(1.5, height=1.2), shot_at=2.5)
 
 scene("lab", "Lab mode: the research tools, with the simulation engine that's running shown top right",
       lab=True, steps=[(1.0, lambda g: g.open_menu("lab"))], every=near(1.5, height=1.2), shot_at=2.5)
@@ -389,7 +396,7 @@ def _neurodex(g):
 scene("neurodex", "The Neurodex (D): every cell type your fly has fired well above its calm rate, with the dataset's numbers",
       steps=[(0.0, lambda g: fire(g, "zapper")), (1.0, lambda g: fire(g, "zapper")), (2.5, lambda g: fire(g, "torch")),
              (3.2, lambda g: release(g)), (6.0, _neurodex)],
-      every=near(1.0, bearing=math.pi / 2 + 0.4, height=1.0), shot_at=8.0, settings={"brain.immortal": True})
+      every=near(1.0, bearing=math.pi / 2 + 0.4, height=1.0), shot_at=8.0, settings={"brain.immortal": True, "brain.neurodex": True})
 
 
 def _rig(g):
@@ -459,6 +466,7 @@ def run_scene(s: Scene, out: Path) -> Path:
     # 3.0 release review: a fresh config shows the first-launch tutorial (and the Neuron of the Day card) over every capture
     cfg.first_run.update(tutorial_done=True, loadout_notice=False, neuron_shapes_asked=True, whatsnew_3_0_seen=True)
     cfg.set("brain.neuron_of_day", False)
+    cfg.set("brain.neurodex", False)                   # discovery toasts would cover every picture (the neurodex scene turns it back on)
     for key, value in s.settings.items():
         cfg.set(key, value)
     state = dict(started=None, done=set(), shot=None, video=None)

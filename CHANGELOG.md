@@ -35,7 +35,10 @@ Fixed (regression tests in `tests/test_release_3_0.py` and `tests/test_layout_3_
 - Self-test: run from source outside the repository, its child processes could not import the package (a false gl FAIL and OpenGL warning).
 - 3D: Neurodex toasts are capped at three plus a count (a burst stacked dozens over the screen); the outdoor sky dome kept the day's blue at night
   and in a storm.
-- `tools/make_screenshots.py`: captures skip the first-launch tutorial; the README screenshots and demo were remade with the 3.0 build.
+- `tools/make_screenshots.py`: it forces the offscreen driver (a desktop session's `SDL_VIDEODRIVER=wayland` made it open real windows that a
+  tiling window manager resized, so captures came out at the wrong size; the "448x906 window" earlier reviews met was the same thing); captures
+  skip the first-launch tutorial, the Neuron of the Day card and Neurodex toasts; six 3.0 scenes (Neurodex, kill cam, a rig, a mini-paper,
+  the arcade, What's New). The README screenshots and the demo were remade with the 3.0 build.
 - Version 3.0.0 (`core/version.py`, which the exe's file properties and the AppImage read; `CITATION.cff`; the AppStream release list).
 
 ### Day 5 (behavior rigs, mini-papers, release polish)
