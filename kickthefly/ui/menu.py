@@ -501,6 +501,9 @@ class Menu:
                   "Both are off every time the game starts and show a red indicator while on."),
                  ("Fly arcade", "arcade", "normal", True,
                   "A tournament of flies (each brain steers and shoots in 1v1 duels) and fly racing with in-game points. Points are not money."),
+                 ("Mini-papers", "minipapers", "normal", True,
+                  "Short guided experiments that reproduce a classic fly paper: state a hypothesis, run it on the model and see your result next to what "
+                  "the paper found."),
                  ("Share", "share", "normal", True,
                   "Make a short code for your surgery, loadout, protocol, challenge setup or Lab parameters, or import one "
                   "and see what it would change first."),
@@ -511,7 +514,8 @@ class Menu:
                  (f"Mode: {mode_title}", "toggle_mode", "normal", True,
                   "Switch between Play (the game), Lab (research tools), and Pet (one persistent fly). Saved in your settings."),
                  ("Quit", "quit", "danger", True, "Asks first. Training memory is saved.")]
-        bw, bh, gap = 300, 40, 7                       # 11 buttons since 3.0 day 4 (Fly arcade)
+        lh = self.f_text.get_linesize() if hasattr(self, "f_text") else 22                    # (fonts are made on the first draw)
+        bw, bh, gap = 300, max(34, min(40, lh + 10)), 5                                          # 12 buttons since 3.0 day 5 (Mini-papers)
         y = rect.y + 108
         for label, action, style, enabled, tip in items:
             self.button(surf, (rect.centerx - bw // 2, y, bw, bh), tr(label),

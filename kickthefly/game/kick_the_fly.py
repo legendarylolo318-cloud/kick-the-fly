@@ -234,6 +234,24 @@ photoreceptors and clock neurons. MODEL PREDICTION: the rebound sleep, which the
 Sensitivity analysis (Lab; --sensitivity). Each LIF parameter and the synapse threshold varied across a documented range, every validated
 behavior re-run with validation's own criteria: a heatmap. Analysis only: no default changes. Every cell is a MODEL PREDICTION.
 
+Behavior rigs (3.0 day 5; Lab > Behavior rigs, --rig, --rig-assay, protocols/rig_*.yaml; game/rigs.py, lab/rigassay.py). CONNECTOME: yaw is read
+from DNa01 + DNa02 right minus left and walking from DNp09 (against the race's fixed reference rate); wide-field rotation reaches the steering neurons
+through T4/T5 (validated: optomotor_turning). GAME RULE: how steering Hz becomes a yaw rate (the duel's: 1.5 Hz dead zone, 0.24 rad/s per Hz, at most
+2.1 rad/s), the EMD stage in front of T4/T5, LC10 tracking of a stripe or bar on the side it is on (the duel's rule; one stripe at a time in Buridan's
+arena), the platform and its reflecting edge, the ball and the VR, the four-field arena, its sharp odor quadrants and the preference index. MODEL
+PREDICTION: what the fly does. Criteria were committed before any held-out run (seeds 1000-1009, with an --individuality off control): the tethered
+rig, the ball (the optomotor response, closed-loop bar fixation) and Buridan's paradigm (stripe deviation about 3 degrees against 42 without stripes,
+far tighter than real flies', docs/rigs.md) PASS; the four-field arena FAILS (no preference for the odor: nothing connects an odor to steering or
+walking in this model).
+
+Guided mini-papers (3.0 day 5; Esc > Mini-papers, Lab > Mini-papers, --minipaper; lab/minipapers.py). Lecture protocols (lab/classroom.py) whose
+experiments are validation tests (or the Buridan rig): you state a hypothesis, run it, see the plot, and read your result (MODEL PREDICTION) next to what
+the paper itself states (LITERATURE: direction and any numbers the paper gives, cited, with how much of it was read: abstract or full text). Where the
+model fails a paper (the aDN to leg motor neurons, the larva rolling pair) the page says so and why.
+
+What's New in 3.0 (3.0 day 5; ui/whatsnew_ui.py). One screen, once, after an upgrade: [first_run] whatsnew_3_0_seen in config.toml (missing = not seen; a
+fresh install starts seen). No simulation behavior.
+
 Validation (validation.py): which published results this sim reproduces, on held-out seeds with pass criteria fixed
 beforehand. Pass: looming -> giant fiber, sugar -> MN9, antennal touch -> aDN, T-maze conditioning, pIP10 -> ps1,
 bitter GRNs -> DNg28, CO2 ORNs -> V PNs, TRN_VP2 -> VP2 PNs, TRN_VP3 -> VP3 PNs, optomotor (T4/T5 -> DNa_R),
@@ -2978,6 +2996,8 @@ class Game:
             self.menu.show("live_inputs")
         elif name == "arcade":
             self.menu.show("arcade")
+        elif name == "minipapers":
+            self.menu.show("lab_minipapers")           # 3.0 day 5: the same page as Lab > Mini-papers
         elif name == "save_state":
             self.save_state()
         elif name == "load_state":
@@ -3107,6 +3127,10 @@ class Game:
                  "communities and per-region summaries of the brain pack (adult or larva), cached and exportable to CSV."),
                 ("Sleep deprivation", "lab_sleepdep", "Keep a fly awake through the night with timed disturbances, then measure rebound sleep "
                  "against an undisturbed control (paired). Sleep pressure is a game rule; the dFB readout is the connectome's."),
+                ("Behavior rigs", "lab_rigs", "Four classic rigs, each its own scene: a tethered flight simulator, a fly on a ball, Buridan's paradigm and a "
+                 "four-field olfactory arena. Steering and walking are read from real descending neurons; each has a pre-registered assay."),
+                ("Mini-papers", "lab_minipapers", "Short guided experiments that reproduce a classic paper: state a hypothesis, run it, plot it, and see your "
+                 "result next to what the paper found (and why the model misses where it does)."),
                 ("Sensitivity analysis", "lab_sensitivity", "Vary each LIF parameter across a documented range and re-run the validated behaviors "
                  "with validation's own criteria: a parameter x behavior heatmap. Analysis only; defaults never change.")]
 

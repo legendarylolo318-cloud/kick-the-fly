@@ -57,6 +57,15 @@ the baseline cell and a changed cell both come back with the validation criteria
 new Lab pages draw on a real game, in every accessibility palette, with their buttons registered for the mouse and the gamepad
 (extra:day4-pages).
 
+Also covered (3.0 day 5, criteria written before the first run): the four behavior rigs on the real brain (the tethered rig's right-minus-left
+steering follows the panorama's direction and the closed loop cancels part of an imposed rotation, both through the validated optomotor path; a ball
+fly with a visible bar ends nearer it than with the bar hidden; a Buridan fly walks nearer the stripe axis with stripes than without and never leaves the
+platform; a four-field fly stays in its arena and its preference index is a share; the same seed twice gives the same trace; a recorded run writes the
+Lab's files) (extra:rigs); a mini-paper run from the validation machinery (looming -> giant fiber on 2 flies reproduces and renders, the larva paper
+falls back to recorded numbers when its pack is missing, the exports write) (extra:minipapers); and the rig pages, the Mini-papers page, the pause
+menu entry and What's New draw on a real game in every accessibility palette and at larger text with their controls registered (extra:day5-pages).
+Who prefers an odor, and where a fly goes, are MODEL PREDICTIONS and are reported, never judged.
+
 Also covered: multi-fly spawn and despawn up to 8, brain surgery on and off, training with 5 pairings, a duel start and
 end, pet mode catch-up over a simulated 3-day gap, individuality off / subtle / strong, and every loadout preset in
 every mode. The 3D renderer runs offscreen where OpenGL is available; with no GL its checks are SKIPPED, never failed.
@@ -1710,6 +1719,139 @@ def extra_day4_pages(rig: Rig, r: Result) -> None:
     r.expect(all(x in labels for x in ("Network science", "Sleep deprivation", "Sensitivity analysis")), f"Lab hub entries missing: {labels}")
 
 
+def extra_rigs(backend: str, tmp: Path, r: Result) -> None:
+    """3.0 day 5: the four behavior rigs on one real brain each. Judged only what validation already stands behind (the optomotor path to the
+    steering neurons) and the rigs' own bookkeeping (the platform keeps the fly in, the PI is a share, a run is deterministic, a recording writes
+    the Lab's files). Where the fly goes in the olfactory arena is a MODEL PREDICTION and is reported."""
+    from kickthefly.core import simcore
+    from kickthefly.game import rigs
+    from kickthefly.lab import rigassay
+
+    def new(seed=61):
+        return simcore.new_brain(seed=seed, backend=backend, individuality="subtle")
+
+    br = new()
+    a = rigs.run_tethered(br, [(1.5, 0.0), (3.0, 3.0), (1.5, 0.0), (3.0, -3.0)], "open")["_full"]
+    col = lambda name: a[:, rigs.COLS.index(name)]
+    ph = col("t")
+    right = col("steer_hz")[(ph > 2.0) & (ph <= 4.5)].mean()
+    left = col("steer_hz")[(ph > 6.5)].mean()
+    r.expect(right - left > 1.0, f"tethered: R - L after a rightward rotation ({right:+.2f} Hz) is not above the leftward one's ({left:+.2f} Hz)")
+    c = rigs.run_tethered(br, [(1.5, 0.0), (8.0, 1.0)], "closed")["_full"]
+    yaw = c[:, rigs.COLS.index("yaw_rate")]
+    t = c[:, 0]
+    r.expect(yaw[t > 5.0].mean() > yaw[t <= 1.5].mean(), "tethered closed loop: the fly did not turn with the imposed rotation")
+    slip = np.abs(c[:, rigs.COLS.index("slip")])[t > 5.0].mean()
+    r.expect(slip < 1.0, f"tethered closed loop: mean |slip| {slip:.2f} is not below the imposed 1 rad/s")
+    vis = rigs.run_ball(br, "bar", "closed", seconds=14.0, bar_offset=math.radians(90), bar_visible=True)["_full"]
+    hid = rigs.run_ball(br, "bar", "closed", seconds=14.0, bar_offset=math.radians(90), bar_visible=False)["_full"]
+    e_vis = float(np.degrees(np.abs(vis[:, rigs.COLS.index("aux")])[vis[:, 0] > 9].mean()))
+    e_hid = float(np.degrees(np.abs(hid[:, rigs.COLS.index("aux")])[hid[:, 0] > 9].mean()))
+    r.expect(e_vis < e_hid and e_vis < 45.0, f"ball: bar error {e_vis:.0f} deg visible vs {e_hid:.0f} hidden")
+    r.metrics.update(tether_R_minus_L_hz=round(float(right - left), 2), ball_bar_error_deg=dict(visible=round(e_vis, 1), hidden=round(e_hid, 1)))
+    s1 = rigs.run_buridan(new(62), 30.0, stripes=True, start_heading=0.5)["_full"]
+    s0 = rigs.run_buridan(new(62), 30.0, stripes=False, start_heading=0.5)["_full"]
+    radius = np.hypot(s1[:, rigs.COLS.index("x")], s1[:, rigs.COLS.index("y")]).max()
+    r.expect(radius <= rigs.PLATFORM_RADIUS + 1e-9 and np.hypot(s0[:, 6], s0[:, 7]).max() <= rigs.PLATFORM_RADIUS + 1e-9, "buridan: the fly left the platform")
+    d1, d0 = rigs.stripe_deviation(s1), rigs.stripe_deviation(s0)
+    r.expect(d1 < d0, f"buridan: stripe deviation {d1:.0f} deg with stripes vs {d0:.0f} without")
+    ff = rigs.run_fourfield(new(63), 30.0, deliver=True)
+    pi = rigs.preference_index(ff["_full"], ff["dt"], settle_s=5.0)
+    r.expect(-1.0 <= pi["pi"] <= 1.0 and abs(pi["seconds_odor"] + pi["seconds_air"] - 25.0) < 0.5, f"fourfield: PI {pi}")
+    r.metrics.update(buridan_deviation_deg=dict(stripes=round(d1, 1), none=round(d0, 1)), buridan_transits=dict(stripes=rigs.transits(s1, 5.0), none=rigs.transits(s0, 5.0)),
+                     fourfield_pi=round(pi["pi"], 3))
+    one = rigassay.scene_run("buridan", 64, "subtle", backend=backend, seconds=6.0)
+    two = rigassay.scene_run("buridan", 64, "subtle", backend=backend, seconds=6.0)
+    r.expect(one["trace"] == two["trace"], "the same seed and settings gave two different rig traces")
+    folder = tmp / "rig-export"
+    rec = rigassay.scene_run("tethered", 65, "off", backend=backend, folder=folder, seconds=9.0)
+    names = sorted(f.name for f in folder.iterdir())
+    r.expect(any(n.endswith("-spikes.csv") for n in names) and any(n.endswith("-group-rates.csv") for n in names) and any(n.endswith("-metadata.json") for n in names)
+             and any(n.endswith("-kinematics.csv") for n in names) and any(n.endswith("-rig_trace.csv") for n in names), f"a rig recording is missing files: {names}")
+    r.note("the olfactory preference index (%.2f here, one fly) is a MODEL PREDICTION and is not judged; its assay is --rig-assay fourfield" % pi["pi"])
+
+
+def extra_minipapers(backend: str, tmp: Path, r: Result) -> None:
+    """3.0 day 5: a mini-paper runs the validation test it is built on (looming -> giant fiber on two flies), compares with what the paper
+    states, renders and writes its files; the larva paper falls back to recorded numbers when the larva pack is missing."""
+    from kickthefly.lab import classroom, minipapers
+    from kickthefly.sim import brainpack
+
+    res = minipapers.run_paper("von_reyn_2014", (0, 1), workers=1)
+    q = res["questions"][0]
+    r.expect(q["verdict"]["reproduced"] and len(q["pairs"]) == 2 and res["source"] == "live" and not res["full"], f"the looming mini-paper: {q['verdict']}")
+    row = minipapers.compare(res, {"looming_escape": "up"})[0]
+    r.expect(row["you_matched_the_paper"] and row["model_reproduces_paper"], f"the comparison row: {row}")
+    text = minipapers.render(res, {"looming_escape": "up"})
+    r.expect("von Reyn" in text and "10.1038/nn.3741" in text and "What this model cannot check" in text, "the rendered mini-paper lacks its citation or its limits")
+    files = minipapers.save(res, tmp / "minipaper", {"looming_escape": "up"})
+    r.expect(all(f.exists() and f.stat().st_size > 0 for f in files) and any(f.suffix == ".svg" for f in files), "a mini-paper export is missing")
+    if brainpack.find(brain="larva") is None:
+        lv = minipapers.run_paper("ohyama_2015")
+        r.expect(lv["source"] == "recorded" and all(not x["verdict"]["reproduced"] for x in lv["questions"]), "the larva paper did not fall back to recorded numbers")
+    r.expect(all(classroom.lecture(f"paper_{p}") is not None for p in minipapers.ORDER), "a mini-paper is not a lecture protocol")
+    r.metrics.update(looming_ratio=round(q["verdict"]["measured"]["drive_ratio_mean"], 2), larva_pack=brainpack.find(brain="larva") is not None)
+
+
+def extra_day5_pages(rig: Rig, r: Result) -> None:
+    """3.0 day 5: the rig pages, the Mini-papers page, the pause menu's entry and What's New draw on a real game, in every palette and at larger
+    text, with their controls registered with the menu (mouse and gamepad share that list)."""
+    import pygame
+
+    from kickthefly.core import simcore
+    from kickthefly.game import kick_the_fly as k2
+    from kickthefly.lab import labrigs, minipapers, rigassay
+    from kickthefly.ui import minipaper_ui
+
+    g = rig.game
+    rig.reset()
+    surf = pygame.Surface((k2.W, k2.H))
+    br = simcore.new_brain(seed=5, backend=rig.state.get("backend"), warmup=100)
+    s = labrigs.st(g.menu)
+    for name in rigassay.SCENES:
+        s.res[name] = rigassay.scene_run(name, 5, "subtle", br=br, seconds=8.0)
+    s.t, s.playing = 4.0, False
+    ms = minipaper_ui.st(g.menu)
+    for pid in minipapers.ORDER:
+        ms.answers[pid] = {q.test: q.expected for q in minipapers.PAPERS[pid].questions}
+    ms.results["ohyama_2015"] = minipapers.run_paper("ohyama_2015")          # the recorded numbers when the larva pack is missing, a live run when it is built
+    ms.results["von_reyn_2014"] = minipapers.run_paper("von_reyn_2014", (0, 1), workers=1)
+    pages = ["lab_rigs", *labrigs.PAGES.values(), "lab_minipapers", "whatsnew"]
+    for larger in (False, True):
+        g.cfg.set("access.larger_text", larger)
+        g.menu.fonts()
+        for palette in ("default", "blue-yellow", "high-contrast"):
+            g.cfg.set("access.palette", palette)
+            for page in pages:
+                r.expect(page in g.menu.pages, f"{page} is not registered")
+                if page == "lab_minipapers":
+                    for pid in ("ohyama_2015", "von_reyn_2014"):
+                        minipaper_ui.open_paper(g.menu, pid)
+                        for i in range(ms.sess.total_steps):
+                            ms.sess.goto_step(i)
+                            g.menu.show(page)
+                            g.menu.mouse = (5, 5)
+                            g.menu.draw(surf, (5, 5), time.perf_counter())
+                    ms.paper = None
+                g.menu.show(page)
+                g.menu.mouse = (5, 5)
+                g.menu.draw(surf, (5, 5), time.perf_counter())
+                ids = [h[2].get("id") for h in g.menu.hits if h[1] == "button"]
+                if page == "lab_rig_buridan":
+                    r.expect(("rig_run", "buridan") in ids, "the rig's Run button is not registered with the menu")
+                if page == "whatsnew":
+                    r.expect(("whatsnew", "ok") in ids, "What's New's Got it is not registered")
+    g.cfg.set("access.palette", "default")
+    g.cfg.set("access.larger_text", False)
+    g.menu.fonts()
+    g.menu.show("pause")
+    g.menu.draw(surf, (5, 5), time.perf_counter())
+    r.expect(("pause", "minipapers") in [h[2].get("id") for h in g.menu.hits], "the pause menu has no Mini-papers entry")
+    g.menu.close()
+    labels = [x[0] for x in g.lab_pages()]
+    r.expect("Behavior rigs" in labels and "Mini-papers" in labels, f"Lab hub entries missing: {labels}")
+
+
 def extra_individuality(backend: str, r: Result) -> None:
     from kickthefly.core import individuality, simcore
 
@@ -1947,6 +2089,7 @@ def run(brains=("adult", "larva"), out: Path | None = None, quick: bool = False,
                     add(Result(id="extra:toolkit-pages", group="extra", brain="adult"), extra_toolkit_pages, rig2)
                     add(Result(id="extra:live-inputs", group="extra", brain="adult"), extra_live_inputs, rig2)
                     add(Result(id="extra:day4-pages", group="extra", brain="adult"), extra_day4_pages, rig2)
+                    add(Result(id="extra:day5-pages", group="extra", brain="adult"), extra_day5_pages, rig2)
                 finally:
                     if rig2 is not None:
                         rig2.close()
@@ -1964,6 +2107,8 @@ def run(brains=("adult", "larva"), out: Path | None = None, quick: bool = False,
                 add(Result(id="extra:netsci", group="extra", brain="adult"), extra_netsci, backend, tmp)
                 add(Result(id="extra:sleepdep", group="extra", brain="adult"), extra_sleepdep, backend)
                 add(Result(id="extra:sensitivity", group="extra", brain="adult"), extra_sensitivity, backend, tmp)
+                add(Result(id="extra:rigs", group="extra", brain="adult"), extra_rigs, backend, tmp)
+                add(Result(id="extra:minipapers", group="extra", brain="adult"), extra_minipapers, backend, tmp)
                 add(Result(id="extra:bundle-rerun", group="extra", brain="adult"), extra_bundle, backend, tmp)
                 add(Result(id="extra:individuality", group="extra", brain="adult"), extra_individuality, backend)
             add(Result(id="extra:pet-catch-up", group="extra"), extra_pet, tmp)

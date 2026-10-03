@@ -12,6 +12,20 @@ all 166,700 neurons simulated live while you throw, swat, bomb, burn, dissolve, 
 
 *12 seconds in the open field, recorded with the in-game video recorder (Shift+R): a swat and the blowtorch fire its real touch and heat neurons, and the brain panel on the right shows all 166,700 neurons responding.*
 
+## What's new in 3.0
+
+3.0 is unreleased (nothing is tagged; the app still says 2.13.1). It adds, all tagged **CONNECTOME**, **GAME RULE** or **MODEL PREDICTION** and none of it
+changing what the simulation does (`--validate` is identical to 2.13: 21 tests, 12 PASS / 9 FAIL, [docs/validation.md](docs/validation.md)):
+
+- **To play with:** the [Neurodex](docs/neurodex.md) and kill cam, three predators, rain and storms, a kitchen arena, an opt-in microphone and opt-in Streamer mode,
+  a [fly tournament and fly racing](docs/tournament.md) (points only), four [behavior rigs](docs/rigs.md) and six guided [mini-papers](docs/minipapers.md).
+- **For research:** a genetic toolkit, thermogenetics, a virtual patch clamp, simulated calcium imaging, pharmacology, experiment bundles, share codes, network
+  science, a sleep-deprivation assay, a sensitivity analysis, and pre-registered assays for the new rigs (with a control that fails honestly).
+- **For trust:** every new behavior is tagged, pass criteria are written down before the held-out run, and failures stay in the table.
+- The first launch after an upgrade shows a skippable **What's New** screen once (Settings > Help brings it back).
+
+The whole release by feature: [docs/changelog.md](docs/changelog.md); day by day with the reviews: [CHANGELOG.md](CHANGELOG.md).
+
 ## Download
 
 ### Windows
@@ -46,6 +60,7 @@ backends, the Python API and the Lab's optional NWB export.
 
 ## Contents
 
+- [What's new in 3.0](#whats-new-in-30)
 - [Download](#download)
 - [What you can do](#what-you-can-do)
 - [Controls](#controls) and [Settings](#settings)
@@ -53,6 +68,7 @@ backends, the Python API and the Lab's optional NWB export.
 - [Neurodex, kill cam, share codes and bundles (3.0)](#neurodex-kill-cam-share-codes-and-bundles-30)
 - [Genetic toolkit, thermogenetics, patch clamp, imaging and pharmacology (3.0)](#genetic-toolkit-thermogenetics-patch-clamp-imaging-and-pharmacology-3.0-lab)
 - [Network science, sensitivity, sleep deprivation, fly tournament and racing (3.0)](#network-science-sensitivity-sleep-deprivation-fly-tournament-and-racing-30)
+- [Behavior rigs and mini-papers (3.0)](#behavior-rigs-and-mini-papers-30)
 - [Play: challenges and real-science cards](#play-challenges-and-real-science-cards)
 - [Screenshots](#screenshots)
 - [Lab mode](#lab-mode), [Validation](#validation), [Performance](#performance), [Python API](#python-api)
@@ -230,6 +246,25 @@ Only the microphone and Streamer mode use a device or the network; both are opt-
 - Python API: `network_science`, `tournament`, `race`, `sleep_deprivation`, `sensitivity`, `fly.card()`, `fly.duel(other)`. Assay kind `sleep_deprivation` in protocols. `--selftest` checks them; the playthrough bot has seven new checks. `tools/run_tests.py` runs the test suite in balanced chunks with a memory guard.
 
 None of them uses the network or the microphone, and none changes a validation result (`--validate` was diffed against `release/3.0`: identical).
+
+## Behavior rigs and mini-papers (3.0)
+
+- **Behavior rigs** (Lab > Behavior rigs; `--headless --rig NAME`, `--rig-assay NAME`, `protocols/rig_*.yaml`; 3.0 day 5): a **tethered flight simulator** (the panorama
+  rotates around a fixed fly, open or closed loop), a **fly on a ball** (a virtual world driven by the ball), **Buridan's paradigm** (two stripes, the walking
+  trajectory) and a **four-field olfactory arena** (four quadrants, one odor, a preference index). Yaw is read from the real steering neurons DNa01/DNa02 (right
+  minus left) and walking from DNp09 (**CONNECTOME**); wide-field motion goes through the existing optomotor stage and a stripe through the duel's LC10 tracking
+  rule; the rigs themselves (platform, ball, arena, measures) are **GAME RULE**. Each has a pre-registered assay with an `--individuality off` control, committed
+  before any held-out run. On seeds 1000-1009 the tethered rig, the ball and Buridan's paradigm reproduce the classic result (the optomotor response, bar and
+  stripe fixation, far tighter than real flies'); the **olfactory arena does not** (no preference for the odor: nothing in the model connects an odor to steering).
+  Exports use the Lab's recorder format. [docs/rigs.md](docs/rigs.md)
+- **Guided mini-papers** (Esc > Mini-papers or Lab > Mini-papers; `--headless --minipaper ID`; 3.0 day 5): von Reyn 2014 (looming to the giant fiber), Tully & Quinn 1985
+  (the T-maze), Shiu 2024 (sugar to MN9), Hampel 2015 (touch to the antennal grooming neurons), Ohyama 2015 (larval rolling) and Colomb 2012 (Buridan). You state a
+  hypothesis, run it on the model, see the plot and read your result next to what the paper itself found, cited, with how much of it was read; where the model misses
+  (the aDN-to-leg half of Hampel, the larva pair) it says so and why. Built on the lecture protocol system. [docs/minipapers.md](docs/minipapers.md)
+- **What's New in 3.0:** one skippable screen, shown once after an upgrade (a migrated `[first_run] whatsnew_3_0_seen` key); a fresh install gets the tutorial instead.
+- Python API: `rig`, `rig_assay`, `minipaper`. `--selftest` checks them; the playthrough bot has three more checks.
+
+None of them uses the network or the microphone, and none changes a validation result.
 
 ## Play: challenges and real-science cards
 
@@ -565,6 +600,9 @@ Documents and Pictures on Windows come from the Known Folders API, so redirected
 - Neurodex (3.0): which types count as *discovered* (over 150 ms, the type's mean firing at least 6 spikes/s and 3x its own calm rate, and a Poisson count test against its calm rate; a calm, untouched fly discovers nothing, and entries tagged *at rest* by earlier builds are kept: see docs/neurodex.md), the collection and its progress, and the Neuron of the Day pick and its Try it. The numbers inside an entry are the dataset's (**CONNECTOME**); the one-line fact and citation are **LITERATURE**, hand-written and checked against the paper, and only for the curated types.
 - Kill cam (3.0): the offer, the 6 s window, the slow motion, which neurons are highlighted. The firing it replays is each neuron's real simulated rate (**CONNECTOME**); death, and so the moment the replay ends, is a game rule.
 - Share codes and experiment bundles (3.0): containers for settings and results the game already has. A bundle rerun is judged bit-exact on the CPU backends and, on a GPU backend, by a statistical rule whose three numbers were fixed beforehand.
+- Behavior rigs (3.0 day 5): yaw from DNa01 + DNa02 right minus left and walking from DNp09 are **CONNECTOME** readouts; the yaw gain, the dead zone, the EMD stage in front of T4/T5, LC10 tracking of a stripe or bar (the duel's rule), the platform and its edge, the ball and VR, the olfactory arena, its odor quadrants and the preference index are **GAME RULE**; what the fly does is a **MODEL PREDICTION**, judged by criteria written before the held-out run, with a control. [docs/rigs.md](docs/rigs.md)
+- Mini-papers (3.0 day 5): the experiment is a validation test (or a rig) and so is the model's; what a paper found is **LITERATURE**, quoted from the paper with its citation and how much of it was read; your result is a **MODEL PREDICTION**. [docs/minipapers.md](docs/minipapers.md)
+- What's New (3.0 day 5): interface; no neuron reads it.
 
 The full mapping is in the docstring at the top of `kickthefly/game/kick_the_fly.py` (the `kick_the_fly.py` shim in the repo root points at it), and per assay in `kickthefly/lab/assays.py`.
 

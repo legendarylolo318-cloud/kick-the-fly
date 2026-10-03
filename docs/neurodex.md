@@ -9,7 +9,7 @@ above their calm rate while you play. Open it with **D** (rebindable), from Esc 
 |---|---|---|
 | neuron count, superclass, regions, predicted transmitter and its confidence, strongest input and output partner types, a cached EM skeleton | **CONNECTOME** | the MaleCNS v1.0 dataset, through the brain pack. Nothing is measured or estimated by the game. |
 | "discovered", the collection, the progress bars, "discovered by stimulation" | **GAME RULE** | the rule below |
-| a one-line fact and its citation | **LITERATURE** | `kickthefly/data/neurodex_facts.yaml`, hand-written, about 30 types |
+| a one-line fact and its citation | **LITERATURE** | `kickthefly/data/neurodex_facts.yaml`, hand-written, about 30 types (27 in 3.0 day 5: the sugar and bitter SEL neurons, Yao & Scott 2022, were added) |
 
 **The discovery rule (GAME RULE).** Every 50 ms the game counts each type's spikes over the last 150 ms (from the simulator's
 own spike record). A type is discovered when, for **3 checks in a row** after the brain has had 5 s to settle, its mean firing is at

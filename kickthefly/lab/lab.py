@@ -517,6 +517,29 @@ ASSUMPTIONS = (
      "the default is right.",
      "kickthefly/lab/sensitivity.py · Lab > Sensitivity analysis · --sensitivity"),
 
+    ("Behavior rigs: the steering and walking neurons are the connectome's; the rig around them is rules",
+     "GAME RULE",
+     "Four rigs (tethered flight simulator, fly on a ball, Buridan's paradigm, four-field olfactory arena) read a fly's yaw from DNa01 + DNa02 "
+     "right minus left (the duel's rule: a 1.5 Hz dead zone, 0.24 rad/s per Hz, at most 2.1 rad/s) and its walking speed from DNp09 against the "
+     "race's fixed reference rate (CONNECTOME readouts). Wide-field rotation reaches them through the T4/T5 EMD stage (a GAME RULE transduction; "
+     "the optomotor_turning validation passes through it). A stripe or bar is tracked by LC10 on the side it is on, the duel's rule, which no validation "
+     "test checks; one stripe at a time in Buridan's arena is a rule. The platform, its edge (a fly is reflected), the ball, the VR, the arena's "
+     "quadrants, sharp odor boundaries, the stripe deviation, transits and the preference index are all rules. What the fly then does is a MODEL PREDICTION.",
+     "Each rig has pre-registered criteria written before any held-out run (lab/rigassay.py) and an --individuality off control; a miss is reported as a "
+     "miss. The sim's tracking is far stronger and less variable than real flies' (no pauses, no antifixation), the olfactory arena gives an odor no valence, "
+     "and the E-PG compass tests FAIL, so no rig here needs a heading memory. One run in a Lab scene is one fly, not a result.",
+     "kickthefly/game/rigs.py · kickthefly/lab/rigassay.py · Lab > Behavior rigs · --rig / --rig-assay · protocols/rig_*.yaml"),
+
+    ("Mini-papers: the experiment is the validation's, the paper's finding is quoted from the paper, your result is a prediction",
+     "LITERATURE",
+     "A guided experiment runs a validation test (or the Buridan rig) on the model, next to what the paper itself states: its direction and any numbers, with "
+     "the citation and how much of the paper was read (abstract only, or full text through a summary). Nothing is invented or inferred: where the "
+     "paper states no number, none is shown, and a claim that rests on another paper that was not read is marked as such. A quick run uses exploration "
+     "seeds and is a first look; the full run uses the validation seeds and the validation's own criteria.",
+     "Where the model fails a paper's result (the aDN-to-leg test, the larva rolling pair) the mini-paper says so and why, from docs/validation.md; the "
+     "larva paper shows recorded numbers when the larva pack is not built. The model is not the paper's model: Shiu et al. used another connectome.",
+     "kickthefly/lab/minipapers.py · kickthefly/ui/minipaper_ui.py · Esc > Mini-papers · --minipaper"),
+
     ("Hemifield lesion as static connectome wiring ablation",
      "DATASET",
      "One-click surgery silences visual pathways (LC10, LPLC2, LC4, LPTC, VS, HS) on one hemifield or an entire hemibrain, reported strictly as a wiring outcome.",
@@ -968,6 +991,10 @@ def install(menu: ui.Menu) -> None:
     menu.pages["lab_laser"] = lablaser.page
     menu.pages["lab_psych"] = labpsych.page
     menu.pages["lab_classroom"] = labclassroom.page
+    from kickthefly.lab import labrigs
+    labrigs.install(menu)                                         # 3.0 day 5: Behavior rigs (hub + four scenes)
+    from kickthefly.ui import minipaper_ui
+    minipaper_ui.install(menu)                                    # 3.0 day 5: Mini-papers
     from kickthefly.lab import labday4
     menu.pages["lab_netsci"] = labday4.page_netsci                # 3.0 day 4
     menu.pages["lab_sleepdep"] = labday4.page_sleepdep

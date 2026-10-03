@@ -476,6 +476,44 @@ def check_day4() -> Check:
                  "the community finder, the 13 motif classes, the odds, the points rule and the parameter grids all check out")
 
 
+def check_day5() -> Check:
+    """3.0 day 5: the behavior rigs and the mini-papers load and their small pure parts run (the steering rule's dead zone and cap, the platform's
+    specular reflection, the preference index, the stripe deviation, six mini-papers each with a citation and a DOI, the What's New flag). No brain is
+    built, no network used, nothing written."""
+    try:
+        import math
+
+        import numpy as np
+
+        from kickthefly.core import config
+        from kickthefly.game import rigs
+        from kickthefly.lab import classroom, minipapers, rigassay
+
+        class B:
+            dt = 0.005
+
+            def hz(self, name):
+                return {"turn_r": 9.0, "turn_l": 3.0}.get(name, 4.0)
+
+        st = rigs.Steerer()
+        for _ in range(40):
+            y = st.update(B())
+        assert abs(y - (6.0 - rigs.YAW_DEADZONE_HZ) * rigs.YAW_GAIN) < 1e-6 and rigs.YAW_MAX > y > 0
+        _, psi, hit = rigs._reflect_circle(np.array([0.6, 0.0]), math.radians(90), rigs.PLATFORM_RADIUS)
+        assert hit and abs(rigs.wrap(psi - math.radians(270))) < 1e-6 and set(rigassay.SCENES) == set(rigs.RIGS)
+        a = np.zeros((100, len(rigs.COLS)))
+        a[:, 0] = np.arange(1, 101) * 0.2
+        assert rigs.preference_index(a, 0.02, settle_s=0.0)["pi"] == 1.0
+        assert len(minipapers.ORDER) == 6 and all(minipapers.PAPERS[p].citation and minipapers.PAPERS[p].doi.startswith("10.") for p in minipapers.ORDER)
+        assert all(classroom.lecture(f"paper_{p}") is not None for p in minipapers.ORDER) and len(classroom.CURATED_LECTURES) == 5
+        assert config.FIRST_RUN_DEFAULTS["whatsnew_3_0_seen"] is False
+    except Exception as e:
+        return Check("day5", "Behavior rigs and mini-papers", WARN, f"a 3.0 day 5 module can't be used: {type(e).__name__}: {e}",
+                     "Reinstall the game; the Lab's Behavior rigs and Mini-papers may not work until then.")
+    return Check("day5", "Behavior rigs and mini-papers", PASS,
+                 "the steering rule, the platform's reflection, the preference index and the six mini-papers' citations all check out")
+
+
 def check_microphone() -> Check:
     """Optional. Looks for a capture device WITHOUT opening it: the self-test never listens. The microphone feature is off at every
     launch and is turned on by the player (Esc > Mic and streamer); a machine without a microphone just can't use it."""
@@ -626,7 +664,7 @@ def run(*, backends_only: list[str] | None = None, smoke: bool = True, graphics:
     steps = [check_build, check_brainpack_adult, check_brainpack_larva, lambda: check_backends(backends_only)]
     if graphics:
         steps.append(check_graphics)
-    steps += [check_audio, check_ffmpeg, check_folders, check_neurodex, check_toolkit, check_day3, check_day4, check_microphone, check_network,
+    steps += [check_audio, check_ffmpeg, check_folders, check_neurodex, check_toolkit, check_day3, check_day4, check_day5, check_microphone, check_network,
               check_resources, check_display]
     if smoke:
         steps.append(check_smoke)

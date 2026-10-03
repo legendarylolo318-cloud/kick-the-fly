@@ -59,6 +59,12 @@ class Paper:
     steps: tuple = ()                            # (title, text, kind) for the guided steps; kinds: read, hypothesis, run, plot, compare
 
 
+UNEXPECTED_MISS = ("Unexpected: this test passes in the validation (n = 10, held-out seeds). A miss here most likely means too few flies or a different seed set; "
+                   "run the Full set before reading anything into it.")
+UNEXPECTED_HIT = ("Unexpected: this test does not pass in the validation (docs/validation.md). A pass on a small run is a first look at most, not a validation "
+                  "result; run the Full set.")
+
+
 def _q(test, prompt, options, expected, ok, why):
     return Question(test, prompt, tuple(options), expected, ok, why)
 
@@ -87,7 +93,7 @@ _add(Paper(
                   "random other visual projection neurons?",
                   (("up", "fires much more (at least 1.5x its calm rate)"), ("same", "about the same"), ("down", "fires less")), "up",
                   "The wiring from the looming detectors to the giant fiber is strong enough to drive it: the premise of the paper's escape model holds in this connectome.",
-                  "(This test passes.)"),),
+                  UNEXPECTED_MISS),),
     steps=(("The paper", "A fly sees a dark object grow on its retina and, in a few milliseconds, one of two escape sequences starts. The giant fiber is a pair of "
             "descending neurons whose spike timing the authors recorded from.", "read"),
            ("Your hypothesis", "Before anything runs, say what the connectome will do when the looming detectors are driven.", "hypothesis"),
@@ -117,7 +123,7 @@ _add(Paper(
                    ("prefers", "paired flies prefer the shocked odor")), "learns",
                   "The game's learning rule on the connectome's own Kenyon-cell to output-neuron synapses gives odor-specific memory. The sim's PI is higher than real flies' "
                   "(the paper's 95% avoiding is a PI of about 0.9 if every fly did it): it was not tuned to match.",
-                  "(This test passes.)"),),
+                  UNEXPECTED_MISS),),
     steps=(("The paper", "Flies learn that an odor predicts shock; at the T-maze's choice point they walk away from it. The plasticity rule, the shock's link to "
             "dopamine neurons and the choice are GAME RULES on the real wiring.", "read"),
            ("Your hypothesis", "Commit to what training does to the fly's choice.", "hypothesis"),
@@ -147,7 +153,7 @@ _add(Paper(
                   (("up", "MN9 fires clearly more for sugar (at least 1.5x calm, and more than for bitter)"), ("same", "no difference between sugar and bitter"),
                    ("down", "MN9 fires less for sugar")), "up",
                   "The sugar-pathway neurons reach the proboscis motor neuron and the bitter-pathway neurons mostly don't, as the paper's model leads you to expect.",
-                  "(This test passes.)"),),
+                  UNEXPECTED_MISS),),
     steps=(("The paper", "The authors built a brain-wide LIF model from connectivity and tested its predictions about feeding with optogenetics.", "read"),
            ("Your hypothesis", "Say what driving sugar-sensing taste neurons will do to the proboscis motor neuron.", "hypothesis"),
            ("Run it", "The model drives the two sets of 30 neurons from the same brain state and counts MN9's spikes.", "run"),
@@ -172,10 +178,10 @@ _add(Paper(
                   "compared with 335 random other sensory neurons?",
                   (("up", "aDN1/aDN2 fire much more (at least 1.5x calm)"), ("same", "about the same"), ("down", "fire less")), "up",
                   "The upstream half of the grooming circuit, antennal touch to the descending command neurons, reproduces strongly.",
-                  "(This test passes.)"),
+                  UNEXPECTED_MISS),
                _q("adn_grooming_motor", "You drive aDN1/aDN2 for 2 s. What do the front-leg motor neurons do, compared with 4 random descending neurons?",
                   (("up", "front-leg motor neurons fire much more (at least 1.5x calm)"), ("small", "a small rise, well below 1.5x"), ("same", "no change")), "up",
-                  "(This test fails.)",
+                  UNEXPECTED_HIT,
                   "The motor half of the circuit does not reproduce: the front-leg motor neurons rise only to about x1.13 against x0.95 (consistent in direction, far below 1.5x). "
                   "The model has no legs, so nothing it does can be a grooming movement; the signal is lost in the nerve cord's interneurons, which the dataset "
                   "contains but the LIF model drives with a coarse sign rule (docs/validation.md).")),
@@ -207,14 +213,14 @@ _add(Paper(
     questions=(_q("larva_noci_to_goro_rolling", "You drive the 12 nociceptive ascending neurons of the larva brain for 2 s. What do the `_telegoro-1` neurons (2, the "
                   "rolling command pair in the annotations) do, compared with driving 12 random other sensory neurons?",
                   (("up", "they fire clearly more (at least 1.5x calm)"), ("same", "no change"), ("down", "they fire less")), "up",
-                  "(This test fails.)",
+                  UNEXPECTED_HIT,
                   "No excitation: the readout drops, for the drive and the control alike (x0.66 versus x0.65). Data S1 has no transmitter identities, so the pack makes local "
                   "neurons and MBONs inhibitory and everything else excitatory, a guess; the network then idles at about 60 Hz and any extra sensory drive lowers these "
                   "readouts whichever neurons are driven. Nothing was tuned (docs/validation.md, docs/larva.md)."),
                _q("larva_chordotonal_to_basin", "You drive the 12 chordotonal ascending neurons for 2 s. What do the second-order noci / mechano PNs do, compared with 12 random "
                   "other sensory neurons?",
                   (("up", "they fire clearly more (at least 1.5x calm)"), ("same", "no change"), ("down", "they fire less")), "up",
-                  "(This test fails.)",
+                  UNEXPECTED_HIT,
                   "No excitation, for the same reason: the readout drops for drive and control alike (x0.68 versus x0.64).")),
     steps=(("The paper", "Larvae escape a wasp's sting by rolling; mechanosensory and nociceptive cues together make rolling more likely.", "read"),
            ("Your hypothesis", "Predict what the larva connectome does when nociceptive neurons are driven.", "hypothesis"),
@@ -241,7 +247,7 @@ _add(Paper(
                   (("lower", "lower with the stripes than without, well below chance"), ("same", "about the same with and without"), ("higher", "higher with the stripes")), "lower",
                   "The model's fly orients its walking along the stripe axis when the stripes are there and wanders at about chance when they are not, the direction the paper reports. "
                   "Its deviation is far lower and far less variable than real flies', because the tracking rule is strong and the sim has no pauses or antifixation.",
-                  "(Read the pre-registered criteria B1 and B2 for what failed.)"),),
+                  "At least one of the rig's pre-registered criteria (B1 stripe deviation, B2 transits) did not pass in this run; docs/rigs.md has the held-out result."),),
     steps=(("The paper", "The platform is surrounded by water, so the stripes cannot be reached; the fly is free to walk anywhere.", "read"),
            ("Your hypothesis", "Say how having stripes changes the direction the fly walks in.", "hypothesis"),
            ("Run it", "Two runs per fly (stripes, then none) in the Buridan rig, two simulated minutes each.", "run"),
@@ -268,8 +274,9 @@ def available(paper: Paper) -> tuple[bool, str]:
 def _ratio_pairs(t: dict) -> list[dict]:
     out = []
     for s in t.get("per_seed", []):
-        if "drive" in s:
-            out.append(dict(seed=s["seed"], drive=s["drive"]["ratio"], control=s["control"]["ratio"]))
+        if "drive" in s:                                       # validation's {ratio: ...} dicts, or plain numbers (the rig's deviations)
+            d, c = s["drive"], s["control"]
+            out.append(dict(seed=s["seed"], drive=d["ratio"] if isinstance(d, dict) else float(d), control=c["ratio"] if isinstance(c, dict) else float(c)))
         else:                                                  # the T-maze: PI paired and unpaired
             out.append(dict(seed=s["seed"], drive=s["pi"], control=s["control_pi"]))
     return out

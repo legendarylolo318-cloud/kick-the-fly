@@ -565,3 +565,32 @@ def sensitivity(**kw) -> dict:
     from kickthefly.lab import sensitivity as s
 
     return s.run(**kw)
+
+
+# --- 3.0 day 5: behavior rigs and mini-papers ------------------------------------------------------------------------------------
+def rig(name: str, seed: int = 0, **kw) -> dict:
+    """One fly in a classic behavior rig: "tethered", "ball", "buridan" or "fourfield" (game/rigs.py). Steering and walking are read from
+    DNa01/02 and DNp09 (CONNECTOME); the rig around them is GAME RULE; what the fly does is a MODEL PREDICTION. Returns the decimated trace,
+    the summary and the tags; folder=DIR also records it in the Lab's format. kw: individuality, mode, seconds, omega, gain, scene, bar_deg,
+    backend, folder (lab/rigassay.py scene_run)."""
+    from kickthefly.lab import rigassay
+
+    return rigassay.scene_run(name, seed, **kw)
+
+
+def rig_assay(name: str, seeds=range(1000, 1010), **kw) -> dict:
+    """The rig's pre-registered assay (criteria in lab/rigassay.py): per-fly measures and each criterion's result for individuality
+    "subtle" and the "off" control. kw: modes, workers, backend, progress."""
+    from kickthefly.lab import rigassay
+
+    return rigassay.run_assay(name, list(seeds), **kw)
+
+
+def minipaper(paper: str, seeds=None, **kw) -> dict:
+    """Run a guided mini-paper's experiment on the model (the validation test it is built on, or the Buridan rig) and compare with what the
+    paper itself states (lab/minipapers.py). seeds default to the quick run (exploration seeds 0-3, a first look); pass
+    kickthefly.lab.minipapers.FULL_SEEDS for the validation seeds. Use minipapers.render(result) for the text, compare(result, answers) for
+    the rows. kw: workers, progress, cancel."""
+    from kickthefly.lab import minipapers
+
+    return minipapers.run_paper(paper, seeds or minipapers.QUICK_SEEDS, **kw)

@@ -148,3 +148,13 @@ and its numbers are in `kickthefly/core/neurodex.py` and [docs/neurodex.md](neur
 | `fly.duel(other, seconds=20, seed=0)` | a 1v1 duel against another `Fly`; both brains steer, shoot, dodge and run | GAME RULE arena, MODEL PREDICTION winner |
 
 The five functions live in `kickthefly.lab.api` (`from kickthefly.lab.api import tournament`).
+
+## 3.0 day 5: behavior rigs and mini-papers
+
+| call | what | tag |
+|---|---|---|
+| `rig(name, seed=0, individuality="subtle", mode=None, seconds=None, omega=None, gain=None, scene=None, bar_deg=None, folder=None, backend=None)` | one fly in a rig (`"tethered"`, `"ball"`, `"buridan"`, `"fourfield"`): the decimated trace, a summary and the tags; `folder=` also records it in the Lab's format ([rigs.md](rigs.md)) | CONNECTOME steering and walking, GAME RULE rig, MODEL PREDICTION |
+| `rig_assay(name, seeds=range(1000, 1010), modes=("subtle", "off"), workers=1)` | the rig's pre-registered criteria for the default mode and the off control | MODEL PREDICTION |
+| `minipaper(paper, seeds=None, workers=1)` | run a guided mini-paper's experiment (default: the quick run on seeds 0-3; `minipapers.FULL_SEEDS` for the validation seeds); `minipapers.render(result)` and `minipapers.compare(result, answers)` give the text and the rows ([minipapers.md](minipapers.md)) | LITERATURE next to a MODEL PREDICTION |
+
+The three live in `kickthefly.lab.api` too.

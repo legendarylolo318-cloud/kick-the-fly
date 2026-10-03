@@ -82,6 +82,14 @@ exports. `extra:day4-pages` draws the arcade page and the three new Lab pages on
 their buttons are registered with the menu (the mouse and the gamepad both use that list). Who wins a duel or a race is a MODEL PREDICTION:
 it is reported in the metrics and never judged.
 
+3.0 day 5 adds three checks. `extra:rigs` runs each behavior rig on a real brain: the tethered rig's right-minus-left steering follows the panorama's
+direction by more than 1 Hz and its closed loop cancels part of an imposed rotation (both through the validated optomotor path), a ball fly with a visible bar
+ends nearer it than with the bar hidden, a Buridan fly walks nearer the stripe axis with stripes than without and never leaves the platform, a four-field fly's
+preference index is a share of the time it spent, the same seed twice gives the same trace, and a recorded run writes the Lab's files. `extra:minipapers` runs
+the looming mini-paper on two flies (it must reproduce and render with its citation), checks the larva paper falls back to recorded numbers when the larva
+pack is missing, and writes the exports. `extra:day5-pages` draws the rig pages, the Mini-papers page, the pause menu's entry and What's New on a real game in
+every palette and at larger text. Where a fly goes in the olfactory arena is a MODEL PREDICTION and is reported, never judged.
+
 ## In CI
 
 Every pull request runs `--selftest` and the quick playthrough (`tests.yml`, "selftest and playthrough"); a release also needs the full

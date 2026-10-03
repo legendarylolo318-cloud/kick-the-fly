@@ -223,6 +223,7 @@ SCENES = {
     "buridan": dict(mode=("stripes", "none"), default=dict(mode="stripes", seconds=60.0)),
     "fourfield": dict(mode=("odor", "sham"), default=dict(mode="odor", seconds=60.0)),
 }
+OPT_RANGES = (("seconds", 5.0, 600.0), ("omega", -10.0, 10.0), ("gain", 0.0, 3.0), ("bar_deg", -180.0, 180.0))
 REC_GROUPS = ("steer_R", "steer_L", "walk_DNp09", "T4T5_progressive", "T4T5_regressive", "LC10")
 
 
@@ -255,6 +256,11 @@ def scene_run(rig: str, seed: int = 0, individuality: str = DEFAULT_MODE, backen
     p = dict(SCENES[rig]["default"], **{k: v for k, v in opt.items() if v is not None})
     if p["mode"] not in SCENES[rig]["mode"]:
         raise ValueError(f"{rig}: mode must be one of {', '.join(SCENES[rig]['mode'])}")
+    for key, lo, hi in OPT_RANGES:                                 # the protocol checker's ranges, for the API and the page too
+        if key in p and not (isinstance(p[key], (int, float)) and not isinstance(p[key], bool) and math.isfinite(p[key]) and lo <= p[key] <= hi):
+            raise ValueError(f"{rig}: {key} must be a number from {lo:g} to {hi:g}")
+    if p.get("scene", "bar") not in ("panorama", "bar"):
+        raise ValueError(f"{rig}: scene must be panorama or bar")
     br = br or _new(seed, individuality, backend)
     rec = None
     if folder is not None:
@@ -289,7 +295,7 @@ def scene_run(rig: str, seed: int = 0, individuality: str = DEFAULT_MODE, backen
     finally:
         if rec is not None:
             rec.stop()
-    out = dict(kind=f"rig_{rig}", rig=rig, seed=sd, individuality=individuality, params=p, cols=r["cols"], trace=r["trace"], seconds=r["seconds"],
+    out = dict(kind=f"rig_{rig}", rig=rig, seed=sd, individuality=individuality, params=p, cols=r["cols"], trace=r["trace"], seconds=r["seconds"], dt=r["dt"],
                summary=summ, tags=rigs.RIG_TAGS[rig], title=rigs.RIG_TITLE[rig], rule_version=rigs.RULE_VERSION,
                geometry={k: r[k] for k in r if k in ("platform_radius", "stripe_distance", "stripe_bearings_deg", "field_half", "odor_quadrants", "bar_offset")})
     if folder is not None:

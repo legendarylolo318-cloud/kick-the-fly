@@ -2,6 +2,24 @@
 
 ## 3.0.0 (unreleased)
 
+The whole release in one page, by feature: [docs/changelog.md](docs/changelog.md). This file keeps it day by day, with the reviews.
+
+### Day 5 (behavior rigs, mini-papers, release polish)
+Added. Nothing the simulation does changed: `--validate` was diffed against the setup baseline on this machine (identical, see HANDOFF_3.0_DAY5.md).
+- **Behavior rigs** (Lab > Behavior rigs, `--rig NAME`, `--rig-assay NAME`, `protocols/rig_*.yaml`, `docs/rigs.md`): a tethered flight simulator, a fly on a
+  ball, Buridan's paradigm and a four-field olfactory arena. Yaw is read from DNa01 + DNa02 right minus left, walking from DNp09, wide-field motion goes
+  through the existing optomotor stage, a stripe or bar through the duel's LC10 tracking rule. Pre-registered criteria (committed before any held-out
+  run) and an `--individuality off` control for each. Results on seeds 1000-1009: tethered PASS, ball PASS, Buridan PASS, olfactory arena **FAIL** (PI
+  +0.005, p = 0.69); the control gives the same outcomes. Exports in the Lab's recorder format plus a trace CSV.
+- **Guided mini-papers** (Esc > Mini-papers, Lab > Mini-papers, `--minipaper ID`, `docs/minipapers.md`): von Reyn 2014, Tully & Quinn 1985, Shiu 2024, Hampel
+  2015, Ohyama 2015 and Colomb 2012 (Buridan). Hypothesis, run, plot, then your result next to what the paper states (abstract or full text, said which),
+  with why where the model misses. Built on the lecture protocol system (`classroom.EXTRA_LECTURES`); the experiments are the validation's own tests.
+- **What's New in 3.0**: one skippable screen on the first launch after an upgrade; `[first_run] whatsnew_3_0_seen` is a migrated config key (a missing
+  key means not seen; a fresh install starts with it set); Settings > Help brings it back.
+- Neurodex: curated facts for the sugar and bitter SEL neurons (Yao & Scott 2022). Python API `rig`, `rig_assay`, `minipaper`; selftest `day5`; three
+  playthrough checks; 81 localization strings; two Lab > Model assumptions cards; the main docstring; `docs/changelog.md` (new, consolidated).
+- Fixed: `docs/validation.md` cited Ohyama et al. 2015 with the DOI of an unrelated paper (10.1038/nature14424); the right one is 10.1038/nature14297.
+
 ### Day 4 (network science, sensitivity analysis, sleep deprivation, fly tournament, fly racing)
 Added. Nothing the simulation does changed: `--validate` was diffed against `release/3.0` (2,027 values, identical). The only edits near
 validation are optional arguments (`params`, `only`) that default to the old behavior.
@@ -29,6 +47,30 @@ validation are optional arguments (`params`, `only`) that default to the old beh
 - Fixes: Lab pages took each other's job results; Cancel waited for queued work; validation recorded default params and silently ignored
   them for four tests; wallet crashes and negative balances; the test suite's leaked games (`Game.shutdown`, conftest); arcade layout at
   larger text. T-maze sensitivity grid completed. `--validate` identical to release/3.0.
+
+### Day 3 (predators, weather, kitchen, microphone, Streamer mode) and its review
+Added, with the review's fixes folded in. Validation unchanged (diffed after each step; only three off-by-default Lab-parameter keys were added to the
+recorded metadata).
+- **Predators:** frog, dragonfly and mantis as tools in the room and the 2D game, seen only through the real looming neurons (LPLC2/LC4 -> DNp01);
+  `predator_escape` assay (frog 0/30, mantis 0/30, dragonfly 0/30 after the review fixed a capture-frame off-by-one that had counted 2/30).
+- **Rain, gusts and storms** (`weather.rain`, `weather.gust_hz`, `weather.storm`, off by default): touch, humidity, wind and light neurons.
+- **Kitchen arena** (E, `--arena kitchen`): bowl, vinegar trap, sink, burner and a cook whose swatter is a looming object.
+- **Microphone -> JO-A/B** (opt-in, off at every launch, red MIC ON pill, nothing recorded or sent) and `hum_demo` assay; **Streamer mode** (opt-in, off
+  at every launch and in Lab mode, anonymous read-only Twitch chat, `!tool` on, `!arena` and `!surgery` off by default, every connection shown).
+- Review: a hidden second Twitch connection after toggling; a click pulled a fly out of a frog's mouth; the neuPrint skeleton fetch ignored the network
+  switch (now opt-in: Settings > Brain, one question after the tutorial); the test suite leaked a game per `LiveInputs` (20 GB); the model disagrees with
+  Zhou et al. 2015 on pC1 tuning (stated); frog, mantis and dragonfly redrawn.
+
+### Day 2 decisions and review
+- A calm, untouched fly discovers nothing in the Neurodex (the rule is unchanged; discoveries now need a touch or a drive); the imaging F0 time constant
+  (`brain.imaging_f0_tau_s`) and 5 Hz are settings; GCaMP6 kernels are from Chen et al. 2013 Supplementary Table 3 (GCaMP6f half-decay 142 ms, not 140).
+- Review: Imaging mode never turned on on the real pack (a race); the inspector's PATCH button was off its card; the thermo page showed the idle slider;
+  conftest forces the dummy SDL drivers (a Wayland shell opened real windows).
+
+### Day 1 review
+- A calm fly "discovered" ~190 types a minute: the rule gained a Poisson test whose alpha comes from a stated budget; curated facts matched against the
+  real pack (EPG, JO-C/E prefixes); a share code could write outside the exports folder and could make the protocol checker build a billion seeds;
+  double key bindings around D.
 
 ### Day 2 (genetic toolkit, thermogenetics, patch clamp, imaging, pharmacology)
 Added, all in the Lab and all tagged on screen. Existing validation results are unchanged (diffed); the only edits near the simulation

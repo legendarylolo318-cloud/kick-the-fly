@@ -263,7 +263,7 @@ def _check_rig(p: dict, where: str) -> None:
     from kickthefly.lab import rigassay
 
     r = p["rig"]
-    if not isinstance(r, dict) or set(r) - RIG_KEYS or r.get("name") not in rigassay.SCENES:
+    if not isinstance(r, dict) or set(r) - RIG_KEYS or not isinstance(r.get("name"), str) or r["name"] not in rigassay.SCENES:      # a list name is unhashable
         raise ProtocolError(f"{where}: rig needs {{name: {' | '.join(rigassay.SCENES)}, ...}} with only {sorted(RIG_KEYS)}")
     sc = rigassay.SCENES[r["name"]]
     if r.get("mode", sc["default"]["mode"]) not in sc["mode"]:

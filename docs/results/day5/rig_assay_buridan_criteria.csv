@@ -1,0 +1,5 @@
+individuality,id,label,n,mean_effect,unit,min_effect,p,passed
+subtle,B1,"stripe deviation (deg) without stripes minus with stripes (median over the run, 0 = along the stripe axis)",10,39.192560611397695,deg,10.0,0.0009765625,1
+subtle,B2,transits between the stripes with stripes minus without,10,11.1,transits,3.0,0.0009765625,1
+off,B1,"stripe deviation (deg) without stripes minus with stripes (median over the run, 0 = along the stripe axis)",10,40.99733443984576,deg,10.0,0.0009765625,1
+off,B2,transits between the stripes with stripes minus without,10,12.7,transits,3.0,0.0009765625,1
