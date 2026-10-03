@@ -37,6 +37,10 @@ Fixed (regression tests in `tests/test_release_3_0.py` and `tests/test_layout_3_
   the Benchmark page called the 10,272,125 connections synapses; the patch clamp's mode switch overlapped "Use inspected"; two HUD stars
   rendered as boxes; the toggle's On/Off and the menu's own strings were never translated (`tools/i18n_sync.py` now scans `ui/menu.py`).
 - Self-test: run from source outside the repository, its child processes could not import the package (a false gl FAIL and OpenGL warning).
+- **The exe and AppImage were missing the package's data files** (the Neurodex facts, the driver-line table, the translations):
+  `--collect-data kickthefly` was skipped by PyInstaller ("not a package"), and the self-test only warned, which the release workflow
+  accepts. Found by building the AppImage locally; both build scripts now add `kickthefly/data` explicitly, and a frozen build missing
+  its own data now FAILs the self-test.
 - 3D: Neurodex toasts are capped at three plus a count (a burst stacked dozens over the screen); the outdoor sky dome kept the day's blue at night
   and in a storm.
 - `tools/make_screenshots.py`: it forces the offscreen driver (a desktop session's `SDL_VIDEODRIVER=wayland` made it open real windows that a

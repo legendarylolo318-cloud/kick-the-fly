@@ -388,7 +388,7 @@ def check_neurodex() -> Check:
                      "The Neurodex still works but shows data only. Install the requirements into the game's own venv: "
                      "pip install -r requirements.txt (the game never installs anything itself).")
     except (nd.FactsError, OSError) as e:
-        return Check("neurodex", "Neurodex facts", WARN, f"the curated facts can't be used: {e}",
+        return Check("neurodex", "Neurodex facts", _bundled_data_level(), f"the curated facts can't be used: {e}",
                      "Entries show data only until kickthefly/data/neurodex_facts.yaml is restored (reinstall the game).")
     prog = nd.Progress()
     note = f"; {prog.warnings[0]}" if prog.warnings else ""
@@ -396,6 +396,13 @@ def check_neurodex() -> Check:
                  f"{len(facts)} curated facts, all with a citation{note}",
                  "The unreadable progress file was kept aside as neurodex.json.bad; the Neurodex starts empty."
                  if prog.warnings else "")
+
+
+def _bundled_data_level() -> str:
+    """3.0 release review: a frozen build (exe, AppImage) ships its own data files, so a missing one is a broken build, a FAIL; from source it
+    stays a WARN (a checkout the user changed). The 3.0 AppImage and exe builds silently dropped kickthefly/data, and the release workflow
+    accepts a self-test with warnings, so the WARN let it through."""
+    return FAIL if getattr(sys, "frozen", False) else WARN
 
 
 @_timed
@@ -417,7 +424,7 @@ def check_toolkit() -> Check:
             imaging.time_constants(ind)
         assert set(pharmacology.DRUGS) and set(thermogenetics.EFFECTORS)
     except Exception as e:
-        return Check("toolkit", "Lab toolkit", WARN, f"the toolkit's data can't be used: {type(e).__name__}: {e}",
+        return Check("toolkit", "Lab toolkit", _bundled_data_level(), f"the toolkit's data can't be used: {type(e).__name__}: {e}",
                      "Lab > Genetic toolkit and the other day-2 screens may not work until kickthefly/data/driver_lines.yaml is "
                      "restored (reinstall the game).")
     from kickthefly.lab import nwbexport

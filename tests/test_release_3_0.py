@@ -380,3 +380,32 @@ def test_make_screenshots_renders_offscreen_even_in_a_desktop_session():
     env.pop("KTF_SHOTS_DRIVER", None)
     out = subprocess.run([sys.executable, "-c", code], cwd=root, env=env, capture_output=True, text=True, timeout=120)
     assert out.stdout.strip().splitlines()[-1] == "offscreen", out.stderr[-500:]
+
+
+def test_the_frozen_builds_bundle_the_package_data_explicitly():
+    """The 3.0 exe/AppImage builds relied on --collect-data kickthefly, which PyInstaller skipped ("not a package"), so the Neurodex facts, the
+    driver-line table and the translations were missing from the binaries; the self-test only warned, which the release workflow accepts."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    sh = (root / "build_appimage.sh").read_text()
+    ps = (root / "build_exe.ps1").read_text()
+    for name in ("neurodex_facts.yaml", "driver_lines.yaml"):
+        assert f"kickthefly/data/{name}:kickthefly/data" in sh
+        assert f"kickthefly\\data\\{name};kickthefly\\data" in ps
+        assert (root / "kickthefly" / "data" / name).exists()
+    assert "kickthefly/data/locales:kickthefly/data/locales" in sh and "kickthefly\\data\\locales;kickthefly\\data\\locales" in ps
+
+
+def test_a_frozen_build_missing_its_data_fails_the_selftest(monkeypatch):
+    from kickthefly.core import neurodex as nd
+    from kickthefly.core import selftest
+
+    def broken():
+        raise OSError("neurodex_facts.yaml: No such file or directory")
+
+    monkeypatch.setattr(nd, "load_facts", broken)
+    monkeypatch.setattr(selftest.sys, "frozen", True, raising=False)
+    assert selftest.check_neurodex().status == selftest.FAIL
+    monkeypatch.delattr(selftest.sys, "frozen")
+    assert selftest.check_neurodex().status == selftest.WARN

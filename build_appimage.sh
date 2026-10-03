@@ -50,7 +50,11 @@ for path in glob.glob(sys.argv[1]):
 FONTFIX
 
 
-EXTRA_DATA=(--add-data "data/kick_brain.npz:." --add-data "protocols:protocols")
+# 3.0 release review: kickthefly/data is added explicitly. --collect-data kickthefly alone was skipped ("not a package": PyInstaller looks
+# the package up where the repo root is not on sys.path), so the Neurodex facts, the driver-line table and the translations were missing.
+EXTRA_DATA=(--add-data "data/kick_brain.npz:." --add-data "protocols:protocols"
+            --add-data "kickthefly/data/neurodex_facts.yaml:kickthefly/data" --add-data "kickthefly/data/driver_lines.yaml:kickthefly/data"
+            --add-data "kickthefly/data/locales:kickthefly/data/locales")
 if [ -f data/validation_results.json ]; then
     EXTRA_DATA+=(--add-data "data/validation_results.json:.")
 else
