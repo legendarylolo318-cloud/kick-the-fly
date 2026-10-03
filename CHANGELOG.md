@@ -1,11 +1,45 @@
 # Changelog
 
-## 3.0.0 (unreleased)
+## 3.0.0 (2026-10-03)
 
-The whole release in one page, by feature: [docs/changelog.md](docs/changelog.md). This file keeps it day by day, with the reviews.
+The whole release in one page, by feature: [docs/changelog.md](docs/changelog.md). This file keeps it day by day, with the reviews; the decisions,
+known limits and what was never verified are in [docs/3.0-review.md](docs/3.0-review.md).
+
+### Release review (Opus, final day)
+Nothing the simulation does changed: `--validate` on the release code against `release/3.0` before day 5 is identical (every value but
+`created`/`seconds`; 21 tests, 12 PASS / 9 FAIL). The four rig assays were re-run on the held-out seeds and match day 5's files exactly.
+Artifacts made by 2.13.1 itself (config, pet, save state, replay, the 25 bundled protocols) load in 3.0; the replay gives identical spikes.
+Fixed (regression tests in `tests/test_release_3_0.py` and `tests/test_layout_3_0.py`, which fail on the day 5 code):
+- `--rig-assay` ignored `--sim-backend`; the tethered scene's summary read only the first 99 s of a run (up to 600 s allowed); a rig protocol
+  accepted `params`, `nwb` and `assay_options` and silently ran with the defaults (now refused).
+- The tethered scene drew the panorama turning without the loop gain, and the tethered fly turning (it is fixed; its yaw is now a read-out line).
+- A mini-paper hypothesis could be changed after seeing the result and was then reported as matching; it is fixed when the run starts. The
+  quick verdict imports validation's thresholds instead of copies.
+- Citations checked against Europe PMC records and three open full texts: **Shiu et al. 2024 is open access and uses MN9 as its own readout**
+  (the mini-paper said MN9 was this game's choice); **the rig's stripe deviation is a different metric from Colomb et al.'s** (both have chance at
+  45 degrees, so only the direction compares); the Tully & Quinn, Hampel and Colomb numbers quoted are in the papers as stated.
+- The order-dependent test failure (`test_playthrough_extras::test_neurodex_extra_passes`, since day 1): `neurodex.table` cached by brain name,
+  so a background table build for the real pack that finished after a test switched to the synthetic pack was handed to the synthetic brain.
+  Now keyed by the pack file.
+- Text overlap and clipping, found with an offscreen sweep of every menu page at the game's real logical sizes (1280x760, and 900x1820 for a
+  narrow window), both text sizes, three palettes, English and German, then checked by eye: button labels now wrap or are cut with the full
+  label as a tooltip; about 25 pages were given layouts measured from the font (Model assumptions, Asymmetry, Classroom, Pharmacology,
+  Imaging, Laser, Clamp, Diff, Critical path, Assays, Robustness, loadout editor, Share, Benchmark, Challenges, Thermogenetics, Patch,
+  Neurodex, Mini-papers, Settings tabs and rows, the quit dialog, the bug report). A taller menu panel in tall (narrow) windows.
+- Page bugs found on the way: Classroom's lecture tabs were blank (an empty button drawn over each title) and used glyphs the Linux fallback
+  font lacks; Lab > Protocols listed only the first 12 files (the rig protocols could not be run from it), was not clipped, and showed a
+  KeyError for classroom protocols; the laser's quick targets never showed which was chosen; the Asymmetry page called partner counts
+  synapses, DNp01 a "braking" neuron and the 77,507 bilateral pairs "neurons" (it now says its table is recorded from `--audit-asymmetry`);
+  the Benchmark page called the 10,272,125 connections synapses; the patch clamp's mode switch overlapped "Use inspected"; two HUD stars
+  rendered as boxes; the toggle's On/Off and the menu's own strings were never translated (`tools/i18n_sync.py` now scans `ui/menu.py`).
+- Self-test: run from source outside the repository, its child processes could not import the package (a false gl FAIL and OpenGL warning).
+- 3D: Neurodex toasts are capped at three plus a count (a burst stacked dozens over the screen); the outdoor sky dome kept the day's blue at night
+  and in a storm.
+- `tools/make_screenshots.py`: captures skip the first-launch tutorial; the README screenshots and demo were remade with the 3.0 build.
+- Version 3.0.0 (`core/version.py`, which the exe's file properties and the AppImage read; `CITATION.cff`; the AppStream release list).
 
 ### Day 5 (behavior rigs, mini-papers, release polish)
-Added. Nothing the simulation does changed: `--validate` was diffed against the setup baseline on this machine (identical, see HANDOFF_3.0_DAY5.md).
+Added. Nothing the simulation does changed: `--validate` was diffed against the setup baseline on this machine (identical; `docs/results/day5/`).
 - **Behavior rigs** (Lab > Behavior rigs, `--rig NAME`, `--rig-assay NAME`, `protocols/rig_*.yaml`, `docs/rigs.md`): a tethered flight simulator, a fly on a
   ball, Buridan's paradigm and a four-field olfactory arena. Yaw is read from DNa01 + DNa02 right minus left, walking from DNp09, wide-field motion goes
   through the existing optomotor stage, a stripe or bar through the duel's LC10 tracking rule. Pre-registered criteria (committed before any held-out

@@ -1,8 +1,8 @@
 # What changed in 3.0 (consolidated)
 
-3.0 was built in five days, each by one author and checked by another (the `HANDOFF_3.0_DAY*.md` files in the repository have every number and
-every decision). This page is the whole release in one place; `CHANGELOG.md` at the repository root keeps it day by day, with the review fixes.
-Version 3.0 is **unreleased**: nothing has been tagged, and the app still reports 2.13.1.
+3.0 was built in five days, each by one author and checked by another, then given a release review. This page is the whole release in one
+place; `CHANGELOG.md` at the repository root keeps it day by day, with the review fixes, and [3.0-review.md](3.0-review.md) has the decisions,
+the known limits and what was never verified. Released as **3.0.0** on 2026-10-03.
 
 **What did not change.** The simulation. `--headless --validate` on the 3.0 branch has been diffed against the 2.13 baseline after every
 day, and gives the same results (21 tests, 12 PASS / 9 FAIL, `docs/validation.md`); no weight, time constant or threshold was tuned to make any

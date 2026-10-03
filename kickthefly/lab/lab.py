@@ -220,7 +220,7 @@ ASSUMPTIONS = (
      "SYNAPSE",
      "The sim treats raw EM synapse counts between neuron pairs as directly proportional to synaptic conductance.",
      "Biological synapses vary widely in vesicle pool size, neurotransmitter release probability, post-synaptic receptor density, and phosphorylation state. Real connection efficacy does not linearly track anatomical contact count.",
-     "README.md § Connectome vs Game Rule · kickthefly/sim/connectome/sim.py:LIFParams"),
+     "docs/connectome-and-game-rules.md · kickthefly/sim/connectome/sim.py:LIFParams"),
 
     ("Uniform synaptic efficacy per connection type",
      "SYNAPSE",
@@ -244,7 +244,7 @@ ASSUMPTIONS = (
      "DYNAMICS",
      "No voltage-dependent ion channel gating, NMDA slow kinetics, or broad volumetric neuromodulator wash.",
      "Neuropeptides and biogenic amines (octopamine, serotonin, dopamine) set global arousal, hunger, and sleep states. Except for modeled reward-driven plasticity, broad state transitions are simplified.",
-     "kickthefly/sim/connectome/sim.py · README.md § Limitations"),
+     "kickthefly/sim/connectome/sim.py · docs/3.0-review.md (Known limits)"),
 
     ("Tonic depolarizing bias (0.20 threshold)",
      "TUNING",
@@ -264,7 +264,7 @@ ASSUMPTIONS = (
      "inebriation level rises 0 to 1 and decays over ~45 s, scaling tremors, wobbly flight and slower escape reflexes.",
      "Ethanol acts pharmacologically across the whole nervous system (channel gating, dopaminergic and octopaminergic "
      "signalling), none of which is modelled. No simulated neuron is drunk: only the body's movement is degraded.",
-     "README.md § Connectome vs Game Rule · kickthefly/game/kick_the_fly.py:Game._alcohol · kickthefly/game/kick3d.py:Game3D._alcohol3d"),
+     "docs/connectome-and-game-rules.md · kickthefly/game/kick_the_fly.py:Game._alcohol · kickthefly/game/kick3d.py:Game3D._alcohol3d"),
 
     ("Weak connections are kept as real wiring",
      "DATASET",
@@ -329,7 +329,7 @@ ASSUMPTIONS = (
      "DATASET",
      "Asymmetries in synaptic weights or firing between left and right hemibrains reflect both biology and reconstruction noise.",
      "MaleCNS v1.0 EM tracing has variable proofreading depth, staining artifacts, and truncation near slice boundaries. L/R differences may stem from incomplete reconstruction rather than true lateralization.",
-     "README.md § Connectome Data · kickthefly/lab/headless.py"),
+     "docs/connectome-and-game-rules.md (bilateral symmetry) · Lab > Asymmetry audit · kickthefly/lab/headless.py:audit_asymmetry"),
 
     ("Dynamic neural clamp breaks closed-loop sensorimotor feedback",
      "DYNAMICS",
