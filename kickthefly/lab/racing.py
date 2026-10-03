@@ -56,7 +56,7 @@ DEFAULT_LANES = 6
 DEFAULT_REPEATS = 2
 BETA = 1.0                           # softmax temperature of the form score: GAME RULE
 TRAITS = ("sugar_ratio", "walk_level_calm", "loom_latency_s", "turning_log_ratio")
-TRAIT_LABEL = {"sugar_ratio": "sugar -> MN9 ratio", "walk_level_calm": "calm walking drive (DNp09 level)",
+TRAIT_LABEL = {"sugar_ratio": "sugar -> MN9 ratio", "walk_level_calm": "calm walking drive (DNp09 / the fixed reference)",
                "loom_latency_s": "looming latency to dodge (s)", "turning_log_ratio": "log DNa01/02 right/left"}
 TAGS = dict(speed_from_walking_neurons="CONNECTOME", track_lures_odds_points="GAME RULE", order_and_prediction="MODEL PREDICTION")
 
@@ -172,7 +172,7 @@ def run_race(seeds, mode: str = tournament.DEFAULT_MODE, repeats: int = 1, worke
     out = dict(kind="race", created=time.strftime("%Y-%m-%d %H:%M:%S"), seconds=round(time.time() - t0, 1), seeds=seeds,
                individuality=mode, race_seed=race_seed, repeats=repeats, track_m=flyrace.TRACK_LENGTH, lures=[list(x) for x in flyrace.LURES],
                cards={str(c["seed"]): c for c in card_list}, runs={str(r): {str(s): v for s, v in runs[r].items()} for r in runs},
-               orders=orders, winner=orders[0][0], tags=TAGS)
+               orders=orders, winner=orders[0][0], tags=TAGS, speed_rule_version=flyrace.RULE_VERSION)
     if card_list:
         p = win_probabilities(card_list)
         out["odds"] = {str(s): dict(p_win=float(pi), decimal_odds=_odds(pi), form=float(f))

@@ -28,7 +28,7 @@ import os
 import threading
 from pathlib import Path
 
-CARD_VERSION = 1
+CARD_VERSION = 2                   # 2: walk_level_calm is read against the race's fixed reference (speed rule version 2)
 LIF_KEYS = ("noise_std", "bias", "target_rate_hz", "ext_gain", "gain_adapt")
 NOT_MEASURED = "card not measured"
 HOW_TO_MEASURE = "Not measured yet: Esc > Fly arcade > Measure the flies in play (about 10 s of compute per fly, in the background)."

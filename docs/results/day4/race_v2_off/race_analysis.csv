@@ -1,0 +1,4 @@
+id,label,n,statistic,p,p_holm,significant
+R1,"repeatability: finishing time, run 1 vs run 2 (same fly)",48,0.08514045328145982,0.28252125105016584,0.8475637531504976,0
+R2,"odds form score vs finishing time (high form, fast)",48,0.19572297003907946,0.9087670104593071,1.0,0
+R3,"odds beat a uniform field (Brier score, per race)",8,0.03794520678175205,0.6796875,1.0,0

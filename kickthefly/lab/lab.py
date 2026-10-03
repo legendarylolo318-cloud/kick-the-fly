@@ -474,7 +474,8 @@ ASSUMPTIONS = (
     ("Fly racing: the walking neurons set the speed; the track, the odds and the points are rules",
      "GAME RULE",
      "Each fly runs a lane of an 8 m track with sugar and fruit lures. Its speed is V_MAX x clip(DNp09's level / the game's walking "
-     "threshold, 0, 1); a lure ahead drives the real olfactory neurons of its scent and touching it drives the taste and PAM reward "
+     "threshold, 0, 1), the level being DNp09's firing against one fixed reference rate (4.32 Hz) for every fly (speed rule version 2, "
+     "3.0 day 4 review: version 1 read it against each fly's own warm-up baseline, which made speed mostly an accident of the warm-up); a lure ahead drives the real olfactory neurons of its scent and touching it drives the taste and PAM reward "
      "neurons, with the game's own pulse strengths. The odds are the softmax of a form score (the mean of the z-scores of the fly's measured "
      "sugar -> MN9 ratio and calm walking drive) and pay a fair price less 10%. Bets are in-game points only: no money, nothing to buy. "
      "The finishing order and whether individuality predicts it are MODEL PREDICTIONS.",

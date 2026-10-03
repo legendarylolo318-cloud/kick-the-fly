@@ -10,9 +10,12 @@ personality stats. Races can be replayed, and a headless **race assay** reports 
 | **GAME RULE** | the 8 m track, the three lures (sugar at 2 m, fruit at 4 m, sugar at 6 m), the smell range (1.5 m) and contact distance (0.15 m), the pulse strengths (the game's: scent 0.3, taste 0.5, reward 0.5), the speed rule, the 90 s cap, the lanes (flies never touch or block each other, so each lane is its own simulation), the odds and the points |
 | **MODEL PREDICTION** | the finishing order, and whether individuality predicts it |
 
-**Speed rule (GAME RULE):** speed = 0.6 m/s x clip(DNp09 level / the game's walking threshold, 0, 1), where the level is DNp09's firing as a
-multiple of the fly's own calm rate and the threshold is the game's `walk` threshold (3.0x). A fly at its calm rate goes a third as fast as
-one whose walking command is above the threshold. Nothing is tuned to make races close or orders predictable.
+**Speed rule (GAME RULE, version 2 since the 3.0 day 4 review):** speed = 0.6 m/s x clip(DNp09 level / the game's walking threshold, 0, 1),
+where the level is DNp09's firing divided by **one fixed reference rate, 4.32 Hz, the same for every fly**, and the threshold is the game's
+`walk` threshold (3.0x). Version 1 divided by each fly's own calm baseline, which the brain sets during its 3 s warm-up from its seed's noise
+(1.75-6.43 Hz between seeds): that made a fly's speed mostly an accident of its warm-up (below). 4.32 Hz is the mean of that baseline over
+exploration seeds 0-15 (individuality off), fixed before any held-out run of version 2. Nothing is tuned to make races close or orders
+predictable. The card's "calm walking drive" (half of the odds' form score) is read against the same reference (card version 2).
 
 ## The odds, and the points
 
@@ -42,7 +45,7 @@ score of the win probabilities beats a uniform field's, per race, one-sided Wilc
 that). Secondary, uncorrected: each card trait against the mean finishing time. Run `--individuality off` as the control: identical
 brains should show no repeatability.
 
-## Result (this release; 8 races of 6 flies, seeds 1000-1047, each fly run twice, NumPy CPU)
+## Result with speed rule version 1 (Sonnet's run; 8 races of 6 flies, seeds 1000-1047, each fly run twice, NumPy CPU)
 
 | | individuality `subtle` | `off` (control: identical brains) |
 |---|---|---|
@@ -83,3 +86,19 @@ brain-state seed, so the baseline artefact is the same for all six lanes; only t
 repeatability r_w (run 1 vs run 2), against the `off` control (six identical brains in one state). PASS needs a within-race permutation
 p < 0.05 for `subtle` AND a 95% bootstrap CI of r_w(subtle) - r_w(off) above 0.
 `python kick_the_fly.py --headless --race-r4 --workers 3 --out DIR`
+
+## Result with speed rule version 2 (3.0 day 4 review, approved follow-up; seeds 1000-1047, 8 races of 6, each fly run twice, NumPy CPU)
+
+Same pre-registered R1-R3 criteria as above, unchanged; the rule was changed and committed (15d45fa) before this run.
+
+| | individuality `subtle` | `off` (control: identical brains) |
+|---|---|---|
+| **R1** repeatability (finishing time, run 1 vs run 2) | **rho = 0.77, Holm p < 0.001** | **rho = 0.09, Holm p = 0.85** |
+| **R2** form score vs finishing time | rho = -0.09, Holm p = 0.53 (FAIL) | rho = 0.20, Holm p = 1.0 |
+| **R3** odds beat a uniform field (Brier, 8 races) | mean difference -0.006, Holm p = 0.58 (FAIL) | +0.038, Holm p = 1.0 |
+| (uncorrected) calm walking drive / sugar ratio | rho = -0.19 (p = 0.18) / 0.00 | 0.00 / 0.26 |
+
+**With the warm-up artefact gone, R1 does what it was meant to:** individual flies keep their speed from run to run (0.77) and identical
+brains do not (0.09). This agrees with R4. **R2 and R3 now FAIL:** the odds no longer predict the finish. Under version 1 they "worked"
+only because half of the form score was the same warm-up baseline the speed rule divided by. Neither of the card's measured traits
+predicts a fly's speed under version 2. So the odds are a game, not a forecast. Files: `docs/results/day4/race_v2/`, `race_v2_off/`.
