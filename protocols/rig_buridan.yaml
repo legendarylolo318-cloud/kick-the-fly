@@ -1,0 +1,7 @@
+# 3.0 day 5: Buridan's paradigm (game/rigs.py): a round platform, two opposite stripes beyond its edge, the walking trajectory recorded. Steering
+# and speed are read from DNa01/02 and DNp09 (CONNECTOME). GAME RULE: the platform, the edge reflection, one stripe tracked at a time (LC10),
+# the definitions of stripe deviation and transits. mode: none is the no-stripe control. Pre-registered assay: --rig-assay buridan.
+name: rig-buridan
+seed: 0
+flies: 1
+rig: {name: buridan, mode: stripes, seconds: 60}

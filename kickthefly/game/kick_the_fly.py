@@ -2608,6 +2608,9 @@ class Game:
         from kickthefly.ui import arcade_ui
 
         self.menu.pages["arcade"] = arcade_ui.page             # 3.0 day 4: fly tournament and fly racing
+        from kickthefly.ui import whatsnew_ui
+
+        whatsnew_ui.install(self.menu)                          # 3.0 day 5: What's New in 3.0 (once, then Settings > Help)
         Game.LIVE.add(self)
         threading.Thread(target=self._view_loop, name="brain-view", daemon=True).start()
 
@@ -2928,6 +2931,11 @@ class Game:
             self.open_menu("loadout_notice")
         elif not fr.get("tutorial_done"):
             self.start_tutorial()
+        elif not fr.get("whatsnew_3_0_seen"):               # 3.0 day 5: once, then never again (a migrated [first_run] key)
+            fr["whatsnew_3_0_seen"] = True
+            self.cfg.dirty = True
+            self.cfg.save()
+            self.open_whatsnew()
         elif not fr.get("neuron_shapes_asked") and not self.cfg["brain.neuron_shapes"]:
             fr["neuron_shapes_asked"] = True             # asked once; Settings > Brain changes it later
             self.cfg.dirty = True
@@ -2936,6 +2944,9 @@ class Game:
             self.open_menu("neuron_shapes_ask")
         else:
             self.x3.maybe_show_notd()                 # 3.0: the Neuron of the Day card (its own setting, default on)
+
+    def open_whatsnew(self) -> None:
+        self.open_menu("whatsnew")
 
     def start_tutorial(self, replay: bool = False) -> None:
         from kickthefly.ui import tutorial
@@ -7475,6 +7486,14 @@ def parse_args(argv: list[str] | None = None):
                          "predict the finishing order?)")
     ap.add_argument("--races", type=int, metavar="K", help="with --race: how many races (each --seeds group of --lanes flies)")
     ap.add_argument("--lanes", type=int, metavar="N", help="with --race: flies per race (default 6)")
+    ap.add_argument("--rig", choices=("tethered", "ball", "buridan", "fourfield"),
+                    help="3.0 day 5, headless: one fly (the first of --seeds) in a classic behavior rig, recorded in the Lab's format into --out "
+                         "(tethered flight simulator, fly on a ball, Buridan's paradigm, four-field olfactory arena)")
+    ap.add_argument("--rig-assay", dest="rig_assay", choices=("tethered", "ball", "buridan", "fourfield"),
+                    help="3.0 day 5, headless: the rig's pre-registered assay over --seeds (default 1000-1009), default individuality and the "
+                         "off control; JSON and CSV into --out")
+    ap.add_argument("--minipaper", metavar="ID", help="3.0 day 5, headless: run a guided mini-paper (--seeds sets the flies; the default is "
+                    "its quick run) and print your result next to what the paper found; ID 'list' lists them")
     ap.add_argument("--netsci", nargs="?", const="adult", choices=("adult", "larva", "both"), metavar="BRAIN",
                     help="3.0 day 4, headless: network science of the brain pack (degrees, reciprocity, motifs, rich club, "
                          "communities, regions); cached; CSV into --out")
@@ -7543,6 +7562,7 @@ def main(argv: list[str] | None = None) -> int:
             or getattr(args, "signflip_test", False) or getattr(args, "critical_path", None)
             or getattr(args, "sensitivity", False) or getattr(args, "tournament", None) or getattr(args, "race", False)
             or getattr(args, "netsci", None) or getattr(args, "sleep_deprivation", False)
+            or getattr(args, "rig", None) or getattr(args, "rig_assay", None) or getattr(args, "minipaper", None)
             or getattr(args, "replay", None) or getattr(args, "record_replay", None)
             or getattr(args, "rerun_bundle", None) or getattr(args, "share_decode", None)):
         if getattr(args, "replay", None) and not args.headless:
