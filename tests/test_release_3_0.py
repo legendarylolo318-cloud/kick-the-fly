@@ -409,3 +409,25 @@ def test_a_frozen_build_missing_its_data_fails_the_selftest(monkeypatch):
     assert selftest.check_neurodex().status == selftest.FAIL
     monkeypatch.delattr(selftest.sys, "frozen")
     assert selftest.check_neurodex().status == selftest.WARN
+
+
+def test_the_network_guard_allows_loopback_and_still_blocks_the_internet():
+    """On Windows socketpair() connects over 127.0.0.1, so the conftest guard failed the streamer, live-input and playthrough tests there;
+    loopback is allowed now, any other address still raises."""
+    import socket
+
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        with pytest.raises(OSError, match="never opens a network connection"):
+            s.connect(("93.184.216.34", 80))
+    finally:
+        s.close()
+    srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(1)
+    c = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        c.connect(srv.getsockname())                           # loopback: allowed
+    finally:
+        c.close()
+        srv.close()

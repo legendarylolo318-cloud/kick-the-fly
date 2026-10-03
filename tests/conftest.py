@@ -24,7 +24,10 @@ def _no_network_connect():
     real_connect, real_connect_ex = socket.socket.connect, socket.socket.connect_ex
 
     def guard(sock, address):
-        if sock.family in (socket.AF_INET, socket.AF_INET6):
+        # 3.0 release review: loopback is allowed. On Windows socket.socketpair() (the fake chat servers) is a TCP connection to 127.0.0.1,
+        # so the guard failed seven tests there; loopback never leaves the machine, every other address still raises.
+        host = address[0] if isinstance(address, tuple) and address else None
+        if sock.family in (socket.AF_INET, socket.AF_INET6) and host not in ("127.0.0.1", "::1", "localhost"):
             raise OSError(f"the test suite never opens a network connection (tried {address!r})")
 
     def connect(self, address):

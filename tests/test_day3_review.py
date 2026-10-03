@@ -562,7 +562,7 @@ def test_the_suite_itself_cannot_open_a_network_connection():
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
         with pytest.raises(OSError, match="never opens a network connection"):
-            s.connect(("127.0.0.1", 9))
+            s.connect(("192.0.2.1", 9))         # TEST-NET-1 (3.0 release review: loopback is allowed now, for Windows' socketpair)
     finally:
         s.close()
 
