@@ -6,8 +6,12 @@ The whole release in one page, by feature: [docs/changelog.md](docs/changelog.md
 known limits and what was never verified are in [docs/3.0-review.md](docs/3.0-review.md).
 
 ### Release review (Opus, final day)
-Nothing the simulation does changed: `--validate` on the release code against `release/3.0` before day 5 is identical (every value but
-`created`/`seconds`; 21 tests, 12 PASS / 9 FAIL). The four rig assays were re-run on the held-out seeds and match day 5's files exactly.
+Nothing the simulation does changed: `--validate` on the 3.0.0 code against `release/3.0` before day 5 is identical (2,025 values; only
+`created`, `seconds` and the app version differ; 21 tests, 12 PASS / 9 FAIL). The four rig assays were re-run on the held-out seeds and match
+day 5's files exactly. Release gate on fdec1ec (CPU backend, this machine): the 22 validation tests pass; the fast suite 1,281 passed, 3 failed
+(the three larva-pack tests; the pack is optional and was not built), 20 skipped; `--selftest` 22 passed, 1 warning (pynwb), 0 failed;
+`--headless --playthrough all` 345 passed, 0 failed, 4 gated by design, 12 skipped; `--smoke 3` in a real window, 3D and 2D, both exit 0;
+`tools/i18n_sync.py --check` clean. Files: `docs/results/3.0-release/`.
 Artifacts made by 2.13.1 itself (config, pet, save state, replay, the 25 bundled protocols) load in 3.0; the replay gives identical spikes.
 Fixed (regression tests in `tests/test_release_3_0.py` and `tests/test_layout_3_0.py`, which fail on the day 5 code):
 - `--rig-assay` ignored `--sim-backend`; the tethered scene's summary read only the first 99 s of a run (up to 600 s allowed); a rig protocol
