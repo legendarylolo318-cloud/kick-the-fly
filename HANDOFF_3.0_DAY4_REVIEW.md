@@ -112,9 +112,13 @@ persist in race speed in this model; R1 just could not show it. Reported as a MO
 New: `simcore.new_brain(individuality_seed=...)` / `LIFParams.individuality_seed` (default None: the gains come from the seed, as before),
 `--headless --race-r4`, `docs/racing.md`.
 
-**Recommendation (not done, needs your call):** the speed rule's per-seed baseline makes race speed mostly a warm-up artefact. A fixed
-baseline window, or measuring the calm rate over a longer standardised calm period, would make R1 meaningful. That changes a game rule, so I
-did not do it.
+**Follow-up you approved: speed rule version 2** (15d45fa, committed before its run). Speed now reads DNp09 against one fixed reference rate
+(4.32 Hz, the mean calm baseline of exploration seeds 0-15) instead of each fly's own warm-up baseline (1.75-6.43 Hz between seeds). The
+card's calm walking drive uses the same reference (card version 2). Regression test: the same brain with a 3x different baseline now races
+identically (it went 1.427 m vs 0.637 m before). Rerun of the unchanged R1-R3 on seeds 1000-1047:
+**R1 subtle rho 0.77 (p < 0.001), off 0.09 (p = 0.85)**: R1 now tests individuality and agrees with R4. **R2 (rho -0.09, p = 0.53) and
+R3 (p = 0.58) FAIL**: the odds' form score does not predict the finish once the artefact is gone (it only worked because it shared the
+artefact). The version 1 results stay in docs/racing.md, labelled.
 
 ## Not verified / known limits
 

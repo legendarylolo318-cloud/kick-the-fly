@@ -217,7 +217,7 @@ so the fly doesn't sleep on its own; stimulate FB6/FB7 in surgery.
 
 Fly tournament and fly racing (3.0 day 4; Esc > Fly arcade). CONNECTOME: in a duel both sides are brains: turning is DNa01/02 right minus
 left, shooting DNp35/DNpe052 above THRESH["fire"], the dodge DNp01 above THRESH["escape"], the run the body-touch group; in a race the
-speed is the walking neurons' DNp09 level. A fly's individuality (per-neuron gains from its seed) and its personality card, MEASURED from
+speed is DNp09's firing against one fixed reference rate (speed rule version 2; version 1 used each fly's own warm-up baseline). A fly's individuality (per-neuron gains from its seed) and its personality card, MEASURED from
 its brain (looming latency to its dodge threshold, sugar -> MN9 ratio, DNa01/02 right/left ratio), are its own. GAME RULE: the arena, the
 blaster, the pairing, the tie-break, the track, the lures, the odds (softmax of a form score) and the points (in-game points only: no
 money, nothing to buy). MODEL PREDICTION: who wins or finishes first, which neurons fired before a winner's landed shots, whether
