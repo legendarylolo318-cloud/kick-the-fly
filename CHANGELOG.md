@@ -20,6 +20,16 @@ validation are optional arguments (`params`, `only`) that default to the old beh
 - `tools/run_tests.py`: the test suite in balanced chunks, a few at a time, with a memory guard and a per-file memory report
   (`KTF_MEM_REPORT`); `tests/.durations.json` holds the timings it balances by.
 
+### Day 4 review (Opus)
+- The game shows only **measured** personality cards (`core/cards.py`; "card not measured" until Esc > Fly arcade > Measure the flies in play);
+  the pet shows its own fly's card; old pet cards are kept as `legacy_personality_card`.
+- Race test **R4** (pre-registered): individuality with the brain state held fixed, `--headless --race-r4`; PASS. Why R1's control was
+  repeatable: the per-seed calm baseline (docs/racing.md). `individuality_seed` (optional) in `new_brain`/`LIFParams`.
+- Network science analysis version 2: the rich club's own undirected null; undefined enrichments shown as such; networkx cross-check tool.
+- Fixes: Lab pages took each other's job results; Cancel waited for queued work; validation recorded default params and silently ignored
+  them for four tests; wallet crashes and negative balances; the test suite's leaked games (`Game.shutdown`, conftest); arcade layout at
+  larger text. T-maze sensitivity grid completed. `--validate` identical to release/3.0.
+
 ### Day 2 (genetic toolkit, thermogenetics, patch clamp, imaging, pharmacology)
 Added, all in the Lab and all tagged on screen. Existing validation results are unchanged (diffed); the only edits near the simulation
 are inert hooks on `Brain` (named extra currents, a per-step probe) and optional fields on `sim.wiring.Wiring`.

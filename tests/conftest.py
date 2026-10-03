@@ -143,3 +143,48 @@ def _ktf_free_games_after_each_file():
     fixture outlives), every game the file built is shut down so its memory can go back."""
     yield
     shutdown_live_games()
+
+
+_RULE_GLOBALS = (("kickthefly.game.kick_the_fly", ("LOOM_MIN", "LOOM_FULL")),
+                 ("kickthefly.core.pet", ("HUNGER_RATE_PER_SEC", "SLEEP_RATE_PER_SEC", "SLEEP_RECOVERY_RATE", "HUNGER_SUGAR_GAIN",
+                                          "HUNGER_PAM_GAIN", "SLEEP_DFB_DRIVE", "MAX_CATCHUP_SECONDS")))
+
+
+def snapshot_rule_globals() -> list:
+    """The module-level game rules Lab parameters write (lab.apply_rules: THRESH, the looming cut-offs, individuality sigmas, pet rates)."""
+    snap = []
+    k2 = sys.modules.get("kickthefly.game.kick_the_fly")
+    if k2 is not None:
+        snap.append((k2.THRESH, dict(k2.THRESH)))
+    ind = sys.modules.get("kickthefly.core.individuality")
+    if ind is not None:
+        snap.append((ind.SIGMAS, dict(ind.SIGMAS)))
+    for mod_name, names in _RULE_GLOBALS:
+        mod = sys.modules.get(mod_name)
+        if mod is not None:
+            snap.append((mod, {n: getattr(mod, n) for n in names if hasattr(mod, n)}))
+    return snap
+
+
+def restore_rule_globals(snap: list) -> None:
+    for target, saved in snap:
+        if isinstance(target, dict):
+            target.clear()
+            target.update(saved)
+        else:
+            for n, v in saved.items():
+                setattr(target, n, v)
+
+
+@pytest.fixture(autouse=True)
+def _ktf_restore_rule_globals():
+    """3.0 day 4 review: a test that set a Lab rule parameter (test_determinism sets thresh.escape to 5.5) left the module-global THRESH
+    changed for every later test in the process, so results depended on which files shared a chunk."""
+    had = "kickthefly.game.kick_the_fly" in sys.modules
+    snap = snapshot_rule_globals()
+    yield
+    restore_rule_globals(snap)
+    if not had and "kickthefly.game.kick_the_fly" in sys.modules:   # first imported during this test: nothing was snapshotted
+        from kickthefly.lab import lab
+
+        lab.apply_rules(lab.DEFAULTS)

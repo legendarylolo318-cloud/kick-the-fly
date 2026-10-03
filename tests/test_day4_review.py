@@ -559,3 +559,16 @@ def test_a_built_game_is_freed_by_the_suites_shutdown_after_its_file(synthetic_p
     gc.collect()
     assert ref_game() is None and ref_brain() is None, "after the shutdown the game and its brain can be freed"
     assert not [t for t in threading.enumerate() if t.name == "brain-view" and t.is_alive()]
+
+
+def test_a_lab_rule_a_test_changes_is_put_back_for_the_next_test():
+    from conftest import restore_rule_globals, snapshot_rule_globals
+    from kickthefly.game import kick_the_fly as k
+    from kickthefly.lab import lab
+
+    lab.apply_rules(lab.DEFAULTS)
+    snap = snapshot_rule_globals()
+    lab.apply_rules({**lab.DEFAULTS, "thresh.escape": 5.5, "loom_min": 2.5})
+    assert k.THRESH["escape"] == 5.5 and k.LOOM_MIN == 2.5
+    restore_rule_globals(snap)
+    assert k.THRESH["escape"] == 4.0 and k.LOOM_MIN == 1.5
