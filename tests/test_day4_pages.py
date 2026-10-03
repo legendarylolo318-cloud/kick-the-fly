@@ -319,3 +319,13 @@ def test_a_running_job_ignores_everything_but_the_tab_switch_and_close(menu):
     finally:
         ev.set()
         st.job.thread.join(3)
+
+
+def test_the_netsci_page_looks_for_its_cache_once_not_every_frame(menu, monkeypatch):
+    from kickthefly.lab import netsci
+
+    calls = []
+    monkeypatch.setattr(netsci, "load_cached", lambda *a, **k: calls.append(1))
+    for _ in range(5):
+        draw(menu, "lab_netsci")
+    assert len(calls) == 1

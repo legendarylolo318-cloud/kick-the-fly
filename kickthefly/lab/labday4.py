@@ -15,6 +15,7 @@ class _St:
         self.job: BgJob | None = None
         self.brain = "adult"
         self.net: dict[str, dict] = {}
+        self.cached: dict[str, bool] = {}              # whether a valid cache exists per brain: looked up once, not every frame
         self.error = ""
         self.sleep: dict | None = None
         self.seeds = 5
@@ -88,6 +89,7 @@ def _collect(st: _St, kind: str) -> None:
         return
     if kind == "net":
         st.net[job.result["brain"]] = job.result
+        st.cached.pop(job.result["brain"], None)
     elif kind == "sleep":
         st.sleep = job.result
     elif kind == "sens":
@@ -106,7 +108,9 @@ def page_netsci(m: ui.Menu, surf, rect, mouse) -> None:
     for b in ("adult", "larva"):
         m.button(surf, (x, y, 110, 32), tr(b.capitalize()), (lambda b=b: setattr(st, "brain", b)), id=("ns_brain", b), active=st.brain == b, enabled=not busy)
         x += 118
-    cached = netsci.load_cached(st.brain) is not None if not busy else False
+    if st.brain not in st.cached:
+        st.cached[st.brain] = netsci.load_cached(st.brain) is not None
+    cached = st.cached[st.brain]
     m.button(surf, (x + 10, y, 220, 32), tr("Compute (cached)") if cached else tr("Compute"), lambda: _start_net(st, st.brain, False), style="primary",
              id="ns_run", enabled=not busy, tip=tr("Adult takes minutes (10 million connections), larva seconds. Cached next to your data with a checksum; recomputed if the pack or settings change."))
     m.button(surf, (x + 240, y, 150, 32), tr("Recompute"), lambda: _start_net(st, st.brain, True), id="ns_force", enabled=not busy)

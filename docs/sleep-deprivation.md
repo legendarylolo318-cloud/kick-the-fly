@@ -45,3 +45,19 @@ current or rate was changed to make S1 or S3 pass.
 - **Protocol:** `assay: sleep_deprivation` with `assay_options: {deprive_s, recover_s, mode}`; it is a paired design, so no `surgery:`.
   Lab > Assays has it too. **Python:** `from kickthefly.lab.api import sleep_deprivation`.
 - Individuality is `off` by default (the effect is a population property); `--individuality subtle|strong` gives each seed its own gains.
+
+## Result (this release; seeds 1000-1009, individuality off, NumPy CPU, 640 s with 3 worker processes)
+
+| | control (undisturbed) | deprived |
+|---|---|---|
+| sleep during the 45 s window | 13.5 s | 0.0 s |
+| sleep pressure at the end of the window (**GAME RULE**) | 0.34 | 1.00 |
+| dFB level at the end of the window (**CONNECTOME** readout, x calm) | 2.11 | 4.51 |
+| sleep in the 60 s recovery window | 20.0 s | 33.2 s |
+
+**S1 PASS** (rebound +13.3 s, one-sided Wilcoxon **p < 0.001**, every one of the ten seeds positive; d_z = 24.5, large only because the rule is
+nearly deterministic across seeds, not because it is a big biological effect), **S2 PASS** (0.0 s of sleep in the window; by construction), **S3
+PASS** (dFB +2.4x calm, **p < 0.001**). Read the table with the first section in mind: the deprived fly's pressure reached its cap because
+the rule says awake time raises it, and the rebound is that pressure being discharged. The part that is the connectome's is the dFB column:
+**a sustained current of 0.08 on every FB6/FB7 neuron takes their firing to about 4.5x calm, and about 0.025 to 0.03 (pressure 0.3 to 0.4) is enough to cross
+the sleep threshold of 2.0x**; the wiring decides that, and it is not tuned. This is not evidence that the fly's own brain tracks sleep need.
