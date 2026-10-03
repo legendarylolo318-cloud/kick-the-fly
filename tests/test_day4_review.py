@@ -584,3 +584,28 @@ def test_a_headless_run_that_switches_the_network_off_does_not_leak_into_the_nex
     assert netguard._disabled
     restore_rule_globals(snap)
     assert netguard._disabled is None
+
+
+# --- test time: tools/run_tests.py shards the long files so no chunk waits on one file ---------------------------------------------
+def test_long_files_are_sharded_and_every_test_runs_exactly_once():
+    import importlib.util
+    from pathlib import Path
+
+    from conftest import shard_keep
+
+    spec = importlib.util.spec_from_file_location("run_tests", Path(__file__).resolve().parents[1] / "tools" / "run_tests.py")
+    rt = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(rt)
+    durations = {"a.py": 600.0, "b.py": 270.0, "c.py": 30.0, "d.py": 20.0}
+    items, est = rt.plan_shards(list(durations), durations, 4)
+    assert sum(1 for i in items if i.startswith("a.py")) > 1 and "c.py" in items
+    assert abs(sum(est.values()) - sum(durations.values())) < 1e-6
+    chunks = rt.deal(items, est, 4)
+    assert max(sum(est[i] for i in c) for c in chunks) < 600.0, "the longest chunk is shorter than the longest file"
+    seen = [0] * 37
+    for c in chunks:
+        files, shards = rt.chunk_args(c)
+        if "a.py" in files:
+            for i, k in enumerate(shard_keep(37, shards["a.py"]["n"], shards["a.py"]["keep"])):
+                seen[i] += k
+    assert seen == [1] * 37, "each of the file's tests runs in exactly one chunk"

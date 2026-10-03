@@ -67,6 +67,48 @@ def deal(files: list[str], durations: dict[str, float], chunks: int) -> list[lis
     return [c for c in out if c]
 
 
+SHARD = "::shard"
+
+
+def plan_shards(files: list[str], durations: dict[str, float], chunks: int) -> tuple[list[str], dict[str, float]]:
+    """3.0 day 4 review: a file much longer than a chunk's fair share (the playthrough file is a third of the suite) is split into
+    shards by test index, so its tests spread over chunks instead of one chunk waiting on it. Returns the items to deal (a file, or
+    'file::shard i/k') and their estimated durations."""
+    known = [durations[f] for f in files if f in durations]
+    default = statistics.median(known) if known else 1.0
+    total = sum(durations.get(f, default) for f in files)
+    piece = max(1.0, total / max(1, chunks) / 2)
+    items, est = [], {}
+    for f in files:
+        d = durations.get(f, default)
+        k = min(max(1, chunks), int(-(-d // piece))) if d > piece else 1
+        if k <= 1:
+            items.append(f)
+            est[f] = d
+        else:
+            for i in range(k):
+                it = f"{f}{SHARD} {i}/{k}"
+                items.append(it)
+                est[it] = d / k
+    return items, est
+
+
+def chunk_args(chunk: list[str]) -> tuple[list[str], dict]:
+    """(pytest file arguments, KTF_SHARDS map {file: {"n": k, "keep": [i, ...]}}) for a chunk of dealt items."""
+    files, shards = [], {}
+    for it in chunk:
+        if SHARD in it:
+            f, spec = it.split(SHARD)
+            i, k = spec.strip().split("/")
+            sh = shards.setdefault(f, {"n": int(k), "keep": []})
+            sh["keep"].append(int(i))
+        else:
+            f = it
+        if f not in files:
+            files.append(f)
+    return files, shards
+
+
 def junit_durations(path: Path) -> dict[str, float]:
     """Seconds per test file from a pytest JUnit XML (the classname holds the module path)."""
     out: dict[str, float] = {}
@@ -94,6 +136,7 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--fast", action="store_true", help="leave out the validation suite")
     ap.add_argument("--only-validation", action="store_true")
     ap.add_argument("--no-record", action="store_true", help="do not update tests/.durations.json")
+    ap.add_argument("--no-shards", action="store_true", help="deal whole files only (do not split the long ones into shards)")
     ap.add_argument("--mem-report", action="store_true",
                     help="record each file's memory growth (resident size after a garbage collection) and print the worst at the end")
     if "--" in argv:
@@ -112,9 +155,10 @@ def main(argv: list[str]) -> int:
         print("no test files")
         return 2
     durations = load_durations()
-    chunks = deal(files, durations, args.chunks)
-    print(f"{len(files)} files in {len(chunks)} chunks, {args.parallel} at a time; "
-          f"estimated {max(sum(durations.get(f, 0) for f in c) for c in chunks) / 60:.0f} min for the longest chunk")
+    items, est = plan_shards(files, durations, args.chunks) if not args.no_shards else (files, durations)
+    chunks = deal(items, est, args.chunks)
+    print(f"{len(files)} files ({len(items)} items after sharding the long ones) in {len(chunks)} chunks, {args.parallel} at a time; "
+          f"estimated {max(sum(est.get(f, 0) for f in c) for c in chunks) / 60:.0f} min for the longest chunk")
     tmp = Path(tempfile.mkdtemp(prefix="ktf-tests-"))
     pending = list(enumerate(chunks))
     running: dict[int, tuple[subprocess.Popen, float, Path]] = {}
@@ -124,9 +168,11 @@ def main(argv: list[str]) -> int:
         while pending and len(running) < args.parallel and (not running or available_gb() >= args.min_free_gb):
             i, c = pending.pop(0)
             xml = tmp / f"chunk{i}.xml"
-            cmd = [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", f"--junitxml={xml}", *extra, *c]
+            cfiles, shards = chunk_args(c)
+            cmd = [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", f"--junitxml={xml}", *extra, *cfiles]
             log = open(tmp / f"chunk{i}.log", "w")
             env = dict(os.environ, **({"KTF_MEM_REPORT": str(tmp / f"mem{i}.json")} if args.mem_report else {}))
+            env["KTF_SHARDS"] = json.dumps(shards)
             running[i] = (subprocess.Popen(cmd, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT, env=env), time.time(), xml)
             print(f"[{time.time() - t0:5.0f}s] chunk {i} started: {len(c)} files", flush=True)
         for i, (p, started, xml) in list(running.items()):
@@ -145,8 +191,9 @@ def main(argv: list[str]) -> int:
                   f"peak {results[i]['peak_gb']:.1f} GB: {tail[0]}", flush=True)
         time.sleep(1.0)
     new: dict[str, float] = {}
-    for r in results.values():
-        new.update(junit_durations(r["xml"]))
+    for r in results.values():                         # a sharded file's time is the sum over its shards
+        for f, v in junit_durations(r["xml"]).items():
+            new[f] = new.get(f, 0.0) + v
     if new and not args.no_record:
         merged = {**durations, **{k: round(v, 1) for k, v in new.items()}}
         DURATIONS.write_text(json.dumps(dict(sorted(merged.items())), indent=1) + "\n")

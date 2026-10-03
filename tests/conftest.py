@@ -191,3 +191,35 @@ def _ktf_restore_rule_globals():
         from kickthefly.lab import lab
 
         lab.apply_rules(lab.DEFAULTS)
+
+
+def shard_keep(n_items: int, n: int, keep) -> list[bool]:
+    """Which of a file's tests (in collection order) a shard keeps: index % n in keep."""
+    keep = set(int(k) for k in keep)
+    return [(i % n) in keep for i in range(n_items)]
+
+
+def pytest_collection_modifyitems(config, items):
+    """tools/run_tests.py shards a long test file across chunks (KTF_SHARDS = {file: {"n": k, "keep": [i, ...]}}): this keeps only the
+    chunk's share of that file's tests. Off (no env) for every ordinary pytest run."""
+    raw = os.environ.get("KTF_SHARDS")
+    if not raw:
+        return
+    import json
+
+    shards = json.loads(raw)
+    if not shards:
+        return
+    by_file: dict = {}
+    for it in items:
+        rel = str(Path(str(it.fspath)).relative_to(ROOT))
+        by_file.setdefault(rel, []).append(it)
+    drop = []
+    for rel, its in by_file.items():
+        sh = shards.get(rel)
+        if sh:
+            drop += [it for it, k in zip(its, shard_keep(len(its), sh["n"], sh["keep"])) if not k]
+    if drop:
+        dropped = set(map(id, drop))
+        config.hook.pytest_deselected(items=drop)
+        items[:] = [it for it in items if id(it) not in dropped]
