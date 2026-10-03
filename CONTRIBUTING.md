@@ -19,11 +19,12 @@ kickthefly/
                            catalog and presets), selftest, bugreport,
                            neurodex, killcam, neuron_of_day, sharecode, clipboard (3.0; all pure logic, no pygame)
   sim/                     brainpack, connectome/ (loader + LIF simulator), neuron and synapse state
-  game/                    kick_the_fly (2D game + Brain + brain panel), kick3d, render3d, extras3 (Neurodex / kill cam / Neuron of the Day in the running game), outdoors (open field,
+  game/                    kick_the_fly (2D game + Brain + brain panel), kick3d, render3d, extras3 (Neurodex / kill cam / Neuron of the Day in the running game), rigs (3.0 day 5), outdoors (open field,
                            orchard, day/night), gamepad: physics, tools, arenas, input
-  ui/                      menu framework and the settings screens; the loadout editor and tool wheel (loadout_ui), the first-launch tutorial, Settings > Help (help_ui), the crash screen,
+  ui/                      menu framework and the settings screens; What's New (whatsnew_ui, 3.0 day 5), the mini-papers page (minipaper_ui); the loadout editor and tool wheel (loadout_ui), the first-launch tutorial, Settings > Help (help_ui), the crash screen,
                            the Neurodex panel (neurodex_ui) and Esc > Share (share_ui)
   lab/                     lab, labjobs, labstats, validation, playthrough (the bot), assays, challenges, protocol, recorder, bundle (3.0), nwbexport,
+                           rigassay, labrigs (the behavior rigs, 3.0 day 5; their physics are game/rigs.py), minipapers (guided mini-papers; their page is ui/minipaper_ui.py),
                            headless, benchmark, api (`from kickthefly import Fly`), genetics, thermogenetics, patchclamp, imaging,
                            pharmacology (3.0 day 2, logic) with labtoolkit (their five Lab screens) and livelab (their in-game state), neurosearch (brain view search and
                            path tracer), and the Lab-only manipulations (threshold, signflip, criticalpath, clamp,

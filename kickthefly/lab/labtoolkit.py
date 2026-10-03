@@ -50,15 +50,20 @@ def _title(m, surf, rect, title: str, sub: str, tags: list[tuple[str, str]]) -> 
     y = m.wrapped(surf, sub, (rect.x + 24, rect.y + 48), rect.w - 60, ui.LABEL, m.f_small, 2) + 4
     x = rect.x + 24
     limit = rect.right - 24
+    step = m.f_small.get_linesize() + 6              # 3.0 release review: was a fixed 22 px, so rows overlapped at larger text
     for chip, text in tags:
         w_chip = m.f_small.size(chip.upper())[0] + 12
         w_text = m.f_small.size(text)[0] + 6
         if x + w_chip + w_text > limit and x > rect.x + 24:
-            x, y = rect.x + 24, y + 22
+            x, y = rect.x + 24, y + step
         r = m.chip(surf, (x, y), chip)
+        if r.right + 6 + w_text > limit:              # a text too long for what is left of the row wraps under itself
+            yb = m.wrapped(surf, text, (r.right + 6, y), limit - r.right - 6, ui.LABEL, m.f_small, 3)
+            x, y = rect.x + 24, max(y + step, yb + 4)
+            continue
         t = m.text(surf, text, (r.right + 6, y), ui.LABEL, m.f_small)
         x = t.right + 18
-    return y + 28
+    return y + step + 6
 
 
 def _back(m, rect, key: str) -> None:
@@ -263,7 +268,8 @@ def page_thermo(m: ui.Menu, surf, rect, mouse) -> None:
                "not in the thermo arena: the slider applies", (x + 580, y + 14), ui.AMBER, m.f_small, "midleft")
     y += 36
     m.text(surf, "Kinetics", (x, y + 14), ui.TEXT, m.f_text, "midleft")
-    m.segmented(surf, (x + 200, y, 360, 28), ["Realistic (game rule)", "Instant"], 0 if tl.kinetics == "real" else 1,
+    m.segmented(surf, (x + 200, y, max(360, 2 * m.f_small.size("Realistic (game rule)")[0] + 40), max(28, m.f_small.get_linesize() + 10)),
+                ["Realistic (game rule)", "Instant"], 0 if tl.kinetics == "real" else 1,
                 lambda i: setattr(tl, "kinetics", "real" if i == 0 else "steady"), id="th_kin",
                 tip="Realistic: TrpA1 follows the temperature in about 1 s, shibire-ts takes about 40 s to block and 20 s to recover "
                     "(read from Kitamoto 2001: paralysis within 2 min, recovery in about 1 min). Instant: the steady-state level.")
@@ -302,10 +308,11 @@ def page_thermo(m: ui.Menu, surf, rect, mouse) -> None:
         ef = tg.effector(e["effector"])
         m.wrapped(surf, f"{ef.label}: {ef.cited}. Game rules: {ef.rule}.", (x, y), rect.w - 60, ui.LABEL, m.f_small, 3)
         y += 52
-    m.wrapped(surf, "MODEL: temperature changes nothing else (no Q10). shibire-ts really blocks synaptic vesicle recycling at the terminal; "
-                    "here it silences the neuron, a coarser intervention. Expression is all-or-nothing in the chosen neurons.",
-             (x, rect.bottom - 120), rect.w - 220, ui.LABEL, m.f_small, 3)
-    m.button(surf, (x, rect.bottom - 58, 300, 42), "Open the escape-vs-temperature assay", lambda: _open_assay(m), id="th_assay",
+    note = ("MODEL: temperature changes nothing else (no Q10). shibire-ts really blocks synaptic vesicle recycling at the terminal; "
+                    "here it silences the neuron, a coarser intervention. Expression is all-or-nothing in the chosen neurons.")
+    n_note = len(ui.Menu.fit_lines(m.f_small, note, rect.w - 220, 3)[0])        # anchored above the buttons whatever the text size
+    m.wrapped(surf, note, (x, rect.bottom - 66 - n_note * m.f_small.get_linesize()), rect.w - 220, ui.LABEL, m.f_small, 3)
+    m.button(surf, (x, rect.bottom - 58, max(300, m.f_bold.size("Open the escape-vs-temperature assay")[0] + 32), 42), "Open the escape-vs-temperature assay", lambda: _open_assay(m), id="th_assay",
              tip="Thermogenetic activation of DNp01: escape rate vs temperature, expressing flies against a no-expression control.")
     _back(m, rect, "thermo")
 
@@ -362,7 +369,13 @@ def page_patch(m: ui.Menu, surf, rect, mouse) -> None:
     if ins:
         m.button(surf, (x + 452, y, 210, 28), f"Use inspected ({str(ins['type'])[:10]})", lambda: _use_inspected(st, host),
                  id="pc_insp", font=m.f_small)
-    m.segmented(surf, (x + 600, y, 330, 28), ["Embedded (live brain)", "Isolated unit"], st.p_mode,
+    sw_ = max(330, 2 * m.f_small.size("Embedded (live brain)")[0] + 40)
+    if x + 680 + sw_ > rect.right - 24:                     # a narrow menu: the mode switch goes under the neuron row
+        y += 36
+        mx = x
+    else:
+        mx = x + 680
+    m.segmented(surf, (mx, y, sw_, max(28, m.f_small.get_linesize() + 10)), ["Embedded (live brain)", "Isolated unit"], st.p_mode,
                 lambda i: setattr(st, "p_mode", i), id="pc_mode",
                 tip="Embedded: the neuron keeps all its synaptic input while you inject current. Isolated: the same LIF equation with "
                     "no synaptic input; every neuron gives the same curve because every neuron is the same unit.")
@@ -582,39 +595,69 @@ def page_imaging(m: ui.Menu, surf, rect, mouse) -> None:
                [("MODEL", "a forward model on the simulation's spikes, not a measurement"),
                 ("LITERATURE", "kernel speeds: see the indicator notes below"), ("CONNECTOME", "which neurons spike")])
     x = rect.x + 24
-    m.text(surf, "Imaging mode", (x, y + 14), ui.TEXT, m.f_text, "midleft")
-    m.toggle(surf, (x + 150, y, 50, 28), il.on, lambda v: il.set_on(v, _brain(host), getattr(host, "graph", None)), id="im_on",
+    # 3.0 release review: controls sat at fixed x up to x + 900 (past an 860 px menu), labels at fixed widths, and the MODEL note at a fixed
+    # rect.bottom - 100 whatever was above it (it overlapped the indicator note). Rows now flow and the notes follow the content.
+    rh = max(28, m.f_small.get_linesize() + 10)
+    lw = max(m.f_text.size(t)[0] for t in ("Imaging mode", "Indicator", "Frame rate", "ROIs")) + 20
+    right = rect.right - 24
+    cur = [x + lw, y]
+
+    def place(w: int) -> pygame.Rect:
+        if cur[0] + w > right and cur[0] > x + lw:
+            cur[0], cur[1] = x + lw, cur[1] + rh + 6
+        r = pygame.Rect(cur[0], cur[1], w, rh)
+        cur[0] += w + 14
+        return r
+
+    def row(label: str) -> None:
+        nonlocal y
+        y = cur[1] if cur[0] == x + lw else cur[1] + rh + 8
+        cur[0], cur[1] = x + lw, y
+        m.text(surf, label, (x, y + rh // 2), ui.TEXT, m.f_text, "midleft")
+
+    row("Imaging mode")
+    m.toggle(surf, place(100), il.on, lambda v: il.set_on(v, _brain(host), getattr(host, "graph", None)), id="im_on",
              tip="The brain view shows dF/F instead of firing. Press B for the big view.")
     if il.error:
-        m.text(surf, il.error, (x + 220, y + 14), ui.BAD, m.f_small, "midleft")
-    y += 38
+        r = place(max(100, right - cur[0]))
+        m.wrapped(surf, il.error, (r.x, r.y + 4), r.w, ui.BAD, m.f_small, 2)
+    row("Indicator")
     keys = list(imaging.INDICATORS)
-    m.text(surf, "Indicator", (x, y + 14), ui.TEXT, m.f_text, "midleft")
-    m.segmented(surf, (x + 150, y, 420, 28), [imaging.INDICATORS[k].name.split(" (")[0] for k in keys], keys.index(il.indicator),
+    labels = [imaging.INDICATORS[k].name.split(" (")[0] for k in keys]
+    m.segmented(surf, place(min(right - (x + lw), max(420, len(keys) * (max(m.f_small.size(t)[0] for t in labels) + 24)))), labels,
+                keys.index(il.indicator),
                 lambda i: (setattr(il, "indicator", keys[i]), il.set_on(il.on, _brain(host), getattr(host, "graph", None)) if il.on else None),
                 id="im_ind")
-    y += 36
-    m.text(surf, "Frame rate", (x, y + 14), ui.TEXT, m.f_text, "midleft")
-    m.slider(surf, (x + 150, y, 200, 28), il.fps, 5, 40, 5, "{:.0f} Hz", lambda v: setattr(il, "fps", float(v)), lambda: None, id="im_fps",
+    row("Frame rate")
+    m.slider(surf, place(200), il.fps, 5, 40, 5, "{:.0f} Hz", lambda v: setattr(il, "fps", float(v)), lambda: None, id="im_fps",
              tip="Applies when imaging mode is (re)started. The 5 ms simulation step limits it to 200 Hz.")
-    m.text(surf, "photons/cell/frame", (x + 370, y + 14), ui.TEXT, m.f_small, "midleft")
-    m.slider(surf, (x + 510, y, 160, 28), il.f0_photons, 10, 1000, 10, "{:.0f}", lambda v: setattr(il, "f0_photons", float(v)),
+    r = place(m.f_small.size("photons/cell/frame")[0] + 8 + 170)
+    m.text(surf, "photons/cell/frame", (r.x, r.centery), ui.TEXT, m.f_small, "midleft")
+    m.slider(surf, (r.right - 170, r.y, 170, rh), il.f0_photons, 10, 1000, 10, "{:.0f}", lambda v: setattr(il, "f0_photons", float(v)),
              lambda: None, id="im_f0", tip="MODEL parameter: fewer photons, more shot noise.")
-    m.text(surf, "shot noise", (x + 690, y + 14), ui.TEXT, m.f_small, "midleft")
-    m.toggle(surf, (x + 770, y, 50, 28), il.shot_noise, lambda v: setattr(il, "shot_noise", bool(v)), id="im_noise")
-    y += 36
-    m.text(surf, "ROIs", (x, y + 14), ui.TEXT, m.f_text, "midleft")
-    m.segmented(surf, (x + 150, y, 230, 28), ["Brain regions", "Custom"], 0 if il.roi_mode == "regions" else 1,
+    r = place(m.f_small.size("shot noise")[0] + 8 + 100)
+    m.text(surf, "shot noise", (r.x, r.centery), ui.TEXT, m.f_small, "midleft")
+    m.toggle(surf, (r.right - 100, r.y, 100, rh), il.shot_noise, lambda v: setattr(il, "shot_noise", bool(v)), id="im_noise")
+    row("ROIs")
+    m.segmented(surf, place(max(230, 2 * m.f_small.size("Brain regions")[0] + 48)), ["Brain regions", "Custom"], 0 if il.roi_mode == "regions" else 1,
                 lambda i: setattr(il, "roi_mode", "regions" if i == 0 else (st.i_roi_text or "type:DNp01")), id="im_roi")
     if il.roi_mode != "regions":
-        m.text_field(surf, (x + 390, y, 360, 28), il.roi_mode, lambda v: setattr(il, "roi_mode", v.strip() or "regions"), id="im_spec",
+        m.text_field(surf, place(360), il.roi_mode, lambda v: setattr(il, "roi_mode", v.strip() or "regions"), id="im_spec",
                      limit=60, tip="Neuron specs separated by ;  for example  type:DNp01;prefix:KC;line:SS00727 . One ROI each.")
-    m.text(surf, "keep frames", (x + 770, y + 14), ui.TEXT, m.f_small, "midleft")
-    m.toggle(surf, (x + 850, y, 50, 28), il.keep_frames, lambda v: setattr(il, "keep_frames", bool(v)), id="im_keep",
+    r = place(m.f_small.size("keep frames")[0] + 8 + 100)
+    m.text(surf, "keep frames", (r.x, r.centery), ui.TEXT, m.f_small, "midleft")
+    m.toggle(surf, (r.right - 100, r.y, 100, rh), il.keep_frames, lambda v: setattr(il, "keep_frames", bool(v)), id="im_keep",
              tip="Keep the rendered frames (last ~15 s) so they can be exported as TIFF or NWB ImageSeries.")
-    y += 40
+    y = cur[1] + rh + 12
+    ind = imaging.INDICATORS[il.indicator]
+    ind_text = f"{ind.name}: {ind.source}. {ind.verified}"
+    model_text = ("MODEL: each spike adds the same kernel; every neuron in an ROI is equally bright; F0 is a running mean (30 s), so a steady "
+                  "rate reads as 0 and only changes show; no bleaching, motion, scattering or neuropil. dF/F per spike (0.2) and the "
+                  "photon budget are game parameters.")
+    lh_s = m.f_small.get_linesize()
+    notes_h = (len(ui.Menu.fit_lines(m.f_small, ind_text, rect.w - 200, 6)[0]) + len(ui.Menu.fit_lines(m.f_small, model_text, rect.w - 200, 4)[0])) * lh_s + 8
     s = il.session
-    plot = pygame.Rect(x, y, rect.w - 48, 190)
+    plot = pygame.Rect(x, y, rect.w - 48, max(110, min(190, rect.bottom - 70 - notes_h - 46 - y)))
     if s is not None and len(s.t) > 2:
         reduced = bool(host.cfg["access.reduced_flashing"])
         data = np.array(s.true_dff if reduced else s.dff)
@@ -641,12 +684,8 @@ def page_imaging(m: ui.Menu, surf, rect, mouse) -> None:
     if st.i_msg:
         m.text(surf, st.i_msg, (x + 430, y + 15), ui.AMBER, m.f_small, "midleft")
     y += 38
-    ind = imaging.INDICATORS[il.indicator]
-    m.wrapped(surf, f"{ind.name}: {ind.source}. {ind.verified}", (x, y), rect.w - 60, ui.LABEL, m.f_small, 5)
-    m.wrapped(surf, "MODEL: each spike adds the same kernel; every neuron in an ROI is equally bright; F0 is a running mean (30 s), so a steady "
-                    "rate reads as 0 and only changes show; no bleaching, motion, scattering or neuropil. dF/F per spike (0.2) and the "
-                    "photon budget are game parameters.",
-             (x, rect.bottom - 100), rect.w - 220, ui.LABEL, m.f_small, 3)
+    y = m.wrapped(surf, ind_text, (x, y), rect.w - 200, ui.LABEL, m.f_small, 6) + 8      # clear of the Back button
+    m.wrapped(surf, model_text, (x, y), rect.w - 200, ui.LABEL, m.f_small, 4)
     _back(m, rect, "imaging")
 
 
@@ -691,37 +730,50 @@ def page_pharm(m: ui.Menu, surf, rect, mouse) -> None:
                 ("CONNECTOME", "which synapses: transmitter predictions and their confidence")])
     x = rect.x + 24
     keys = list(ph.DRUGS)
-    m.text(surf, "Drug", (x, y + 14), ui.TEXT, m.f_text, "midleft")
-    m.segmented(surf, (x + 100, y, 640, 30), [ph.DRUGS[k].label for k in keys], keys.index(st.d_drug), lambda i: setattr(st, "d_drug", keys[i]),
-                id="ph_drug", tip="Octopamine and dopamine modulation are left out: those neurons' synapses are not in the simulated "
-                                  "matrix and there is no existing gain to scale honestly.")
-    y += 40
-    m.text(surf, "Dose", (x, y + 14), ui.TEXT, m.f_text, "midleft")
-    m.slider(surf, (x + 100, y, 320, 30), st.d_dose, 0.0, 1.0, 0.05, "{:.0%}", lambda v: setattr(st, "d_dose", float(v)), lambda: None,
+    # 3.0 release review: the label column, the control widths and the table's columns and row step were fixed pixels; at larger text
+    # "Low-confidence predictions" ran into its buttons and the table rows overlapped. All measured from the font now.
+    fh = max(30, m.f_small.get_linesize() + 10)
+    lw = max(m.f_text.size(t)[0] for t in ("Drug", "Dose", "Low-confidence predictions")) + 16
+    avail = rect.right - 24 - (x + lw)
+    m.text(surf, "Drug", (x, y + fh // 2), ui.TEXT, m.f_text, "midleft")
+    y = m.flow_buttons(surf, x + lw, y, rect.right - 24, [(ph.DRUGS[k].label, (lambda k=k: setattr(st, "d_drug", k)), ("ph_drug", k), st.d_drug == k,
+                                                           "Octopamine and dopamine modulation are left out: those neurons' synapses are not in the "
+                                                           "simulated matrix and there is no existing gain to scale honestly.") for k in keys], h=fh) + 10
+    m.text(surf, "Dose", (x, y + fh // 2), ui.TEXT, m.f_text, "midleft")
+    m.slider(surf, (x + lw, y, min(320, avail), fh), st.d_dose, 0.0, 1.0, 0.05, "{:.0%}", lambda v: setattr(st, "d_dose", float(v)), lambda: None,
              id="ph_dose", tip="Blockers scale by (1 - dose). The GABA-A agonist scales by 1 + dose (x2 at full dose, a game rule).")
     scale = ph.scale_for(st.d_drug, st.d_dose)
-    m.text(surf, f"synapse weight scale x{scale:.2f}", (x + 440, y + 15), ui.INK, m.f_text, "midleft")
-    y += 38
-    m.text(surf, "Low-confidence predictions", (x, y + 14), ui.TEXT, m.f_text, "midleft")
-    m.segmented(surf, (x + 240, y, 240, 30), ["Include", "Exclude"], 0 if st.d_low else 1, lambda i: setattr(st, "d_low", i == 0), id="ph_low",
+    m.text(surf, f"synapse weight scale x{scale:.2f}", (x + lw + min(320, avail) + 20, y + fh // 2), ui.INK, m.f_text, "midleft")
+    y += fh + 8
+    m.text(surf, "Low-confidence predictions", (x, y + fh // 2), ui.TEXT, m.f_text, "midleft")
+    sw = min(240, avail // 2)
+    m.segmented(surf, (x + lw, y, sw, fh), ["Include", "Exclude"], 0 if st.d_low else 1, lambda i: setattr(st, "d_low", i == 0), id="ph_low",
                 tip="Exclude leaves the drug off neurons whose transmitter is a prediction below the cut (and those with no confidence); "
                     "measured transmitters always count.")
-    m.text(surf, "cut", (x + 500, y + 15), ui.TEXT, m.f_text, "midleft")
-    m.slider(surf, (x + 540, y, 200, 30), st.d_cut, 0.5, 0.95, 0.05, "{:.2f}", lambda v: setattr(st, "d_cut", float(v)), lambda: None,
-             id="ph_cut", enabled=not st.d_low, tip="A predicted transmitter below this confidence is 'low confidence' (a game rule).")
-    y += 42
+    cx = x + lw + sw + 16
+    m.text(surf, "cut", (cx, y + fh // 2), ui.TEXT, m.f_text, "midleft")
+    cx += m.f_text.size("cut")[0] + 10
+    m.slider(surf, (cx, y, max(160, min(200, rect.right - 24 - cx)), fh), st.d_cut, 0.5, 0.95, 0.05, "{:.2f}", lambda v: setattr(st, "d_cut", float(v)),
+             lambda: None, id="ph_cut", enabled=not st.d_low, tip="A predicted transmitter below this confidence is 'low confidence' (a game rule).")
+    y += fh + 12
     try:
         g = simcore.pack()[0]
         a = ph.affected(g, st.d_drug, st.d_dose, st.d_low, st.d_cut)
     except Exception as e:
-        m.text(surf, f"needs an adult brain pack with transmitter predictions: {e}", (x, y), ui.BAD, m.f_small)
+        m.wrapped(surf, f"needs an adult brain pack with transmitter predictions: {e}", (x, y), rect.w - 48, ui.BAD, m.f_small, 3)
         _back(m, rect, "pharm")
         return
     heads = ["confidence level", "neurons", "connections", "synapses", "scaled?"]
-    xs = [x, x + 210, x + 330, x + 470, x + 640]
+    cols = [[r["level"] for r in a["rows"]], [f"{r['neurons']:,}" for r in a["rows"]], [f"{r['connections']:,}" for r in a["rows"]],
+            [f"{r['synapses']:,}" for r in a["rows"]], ["yes", "no", "-"]]
+    xs, cxx = [], x
+    for h, vals in zip(heads, cols):
+        xs.append(cxx)
+        cxx += max(m.f_small.size(v)[0] for v in [h, *vals]) + 28
+    rh = m.f_small.get_linesize()
     for hx, label in zip(xs, heads):
         m.text(surf, label, (hx, y), ui.LABEL, m.f_small)
-    y += 18
+    y += rh + 2
     for r in a["rows"]:
         col = ui.TEXT if r["applied"] else ui.LABEL
         m.text(surf, r["level"], (xs[0], y), col, m.f_small)
@@ -730,9 +782,9 @@ def page_pharm(m: ui.Menu, surf, rect, mouse) -> None:
         m.text(surf, f"{r['synapses']:,}", (xs[3], y), col, m.f_small)
         m.text(surf, "-" if not r["synapses"] else "yes" if r["synapses_applied"] > 0 else "no", (xs[4], y),
                ui.GOOD if r["synapses_applied"] else ui.LABEL, m.f_small)
-        y += 17
-    m.text(surf, f"affected: {a['synapses_applied']:,} of {a['synapses']:,} synapses  ·  {a['connections_applied']:,} connections  ·  "
-                 f"{a['neurons_applied']:,} presynaptic neurons", (x, y + 4), ui.INK, m.f_small)
+        y += rh
+    y = m.wrapped(surf, f"affected: {a['synapses_applied']:,} of {a['synapses']:,} synapses  ·  {a['connections_applied']:,} connections  ·  "
+                        f"{a['neurons_applied']:,} presynaptic neurons", (x, y + 4), rect.w - 48, ui.INK, m.f_small, 2) - 16
     y += 28
     live = getattr(host, "wiring", None) or Wiring()
     new = ph.wiring_for({st.d_drug: st.d_dose}, st.d_low, st.d_cut, base=live) if st.d_dose else Wiring(live.min_synapses, live.flip_rows, live.inhibition_scale)

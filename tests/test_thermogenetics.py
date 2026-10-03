@@ -1,5 +1,5 @@
 """3.0 day 2: thermogenetics (TrpA1, shibire-ts) and the DNp01 escape-vs-temperature assay. Plumbing and arithmetic on the synthetic
-pack (no biology is read off it); the real-pack assay run is reported in HANDOFF_3.0_DAY2.md."""
+pack (no biology is read off it); the real-pack assay run is reported in docs/thermogenetics.md."""
 from __future__ import annotations
 
 import numpy as np

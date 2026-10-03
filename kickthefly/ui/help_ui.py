@@ -38,6 +38,9 @@ def help_tab(menu, surf, body, y: int) -> int:
         (tr("Tool loadout editor"), tr("Open"),
          tr("Choose which tools are on the hotbar (keys 1-9, 0), reorder them and save your own loadouts. Also on the Q key."),
          lambda: (menu.close(), host.open_loadout_editor())),
+        (tr("What's new in 3.0"), tr("Open"),
+         tr("The one-time What's New screen again. Opening it here does not change whether it shows at launch."),
+         lambda: menu.show("whatsnew")),
         (tr("Self-test"), tr("Run"),
          tr("Checks this install: brain packs, every compute backend, OpenGL, audio, ffmpeg, folders, disk, memory and a 10-second run. Says how to fix what it finds. Changes nothing."),
          lambda: menu.show("selftest")),
@@ -207,8 +210,9 @@ def page_bugreport(menu, surf, rect, mouse) -> None:
         menu.text(surf, tr("left out"), (view.right - 10, view.y + 6), mu.AMBER, menu.f_small, "topright")
     # actions
     fy = rect.bottom - 116
-    menu.text(surf, tr("Report text: {n:,} characters. Opening the issue puts about {u:,} characters in the link; long items go to a file you attach.",
-                       n=len(full), u=len(url)), (rect.x + 24, fy - 4), mu.LABEL, menu.f_small)
+    menu.wrapped(surf, tr("Report text: {n:,} characters. Opening the issue puts about {u:,} characters in the link; long items go to a file you attach.",
+                          n=len(full), u=len(url)), (rect.x + 24, fy - 4 - (menu.f_small.get_linesize() if menu.f_small.size("x" * 150)[0] > rect.w - 48 else 0)),
+                 rect.w - 48, mu.LABEL, menu.f_small, max_lines=2)
     if br.get("saved"):
         menu.text(surf, tr("Saved to {path}: attach this file to the issue.", path=br["saved"]), (rect.x + 24, fy + 16),
                   mu.GOOD, menu.f_small)

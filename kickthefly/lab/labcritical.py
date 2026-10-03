@@ -36,20 +36,10 @@ def page(m: ui.Menu, surf, rect, mouse) -> None:
 
     st, host = _st(m), m.host
     m.text(surf, "CRITICAL PATH FINDER", (rect.x + 24, rect.y + 16), ui.INK, m.f_head)
-    m.text(surf, "Silence one cell type at a time, re-run the behavior, and rank the types by what it did. Every "
-                 "lesion is compared with an unperturbed fly of the same seed.",
-           (rect.x + 24, rect.y + 48), ui.LABEL, m.f_small)
-    x = rect.x + 24
-    y = rect.y + 74
-    for key, label in TARGETS:
-        w = 170 if not key.startswith("Assay") else 150
-        r = pygame.Rect(x, y, w, 30)
-        if r.right > rect.right - 24:
-            x, y = rect.x + 24, y + 34
-            r = pygame.Rect(x, y, w, 30)
-        m.button(surf, r, label, (lambda k=key: setattr(st, "cp_target", k)), id=("cp", key),
-                 active=st.cp_target == key)
-        x += w + 8
+    y = m.subtitle(surf, rect, "Silence one cell type at a time, re-run the behavior, and rank the types by what it did. Every "
+                               "lesion is compared with an unperturbed fly of the same seed.")
+    y = m.flow_buttons(surf, rect.x + 24, y, rect.right - 24, [(label, (lambda k=key: setattr(st, "cp_target", k)), ("cp", key),
+                                                               st.cp_target == key, None) for key, label in TARGETS]) - 30
     y += 42
     job = st.cp_job
     if job is not None and not job["thread"].is_alive():

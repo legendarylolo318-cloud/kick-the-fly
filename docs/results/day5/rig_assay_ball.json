@@ -1,0 +1,543 @@
+{
+ "kind": "rig_assay_ball",
+ "rig": "ball",
+ "created": "2026-10-03 00:24:55",
+ "seconds": 122.7,
+ "seeds": [
+  1000,
+  1001,
+  1002,
+  1003,
+  1004,
+  1005,
+  1006,
+  1007,
+  1008,
+  1009
+ ],
+ "modes": [
+  "subtle",
+  "off"
+ ],
+ "tags": {
+  "turning_and_walking_from_DNa01_02_and_DNp09": "CONNECTOME",
+  "ball_and_VR": "GAME RULE",
+  "response": "MODEL PREDICTION"
+ },
+ "title": "Fly on a ball",
+ "rule_version": 1,
+ "results": {
+  "subtle": {
+   "flies": [
+    {
+     "seed": 1000,
+     "individuality": "subtle",
+     "compensation": {
+      "1.0": 0.5847787839755644,
+      "-1.0": 0.4654813304714987
+     },
+     "compensation_mean": 0.5251300572235316,
+     "bar_error_deg_visible": 4.010165792479267,
+     "bar_error_deg_hidden": 91.78109281770853,
+     "bar_error_deg_by_offset": {
+      "visible": [
+       4.3658505707623885,
+       3.654481014196145
+      ],
+      "hidden": [
+       116.94417762108242,
+       66.61800801433463
+      ]
+     },
+     "forward_speed_mean": 0.13940291772614136
+    },
+    {
+     "seed": 1001,
+     "individuality": "subtle",
+     "compensation": {
+      "1.0": 0.5010516185125389,
+      "-1.0": 0.5531137529148364
+     },
+     "compensation_mean": 0.5270826857136877,
+     "bar_error_deg_visible": 2.9032157786261594,
+     "bar_error_deg_hidden": 101.62235222152287,
+     "bar_error_deg_by_offset": {
+      "visible": [
+       4.611503676483519,
+       1.1949278807687995
+      ],
+      "hidden": [
+       151.0546917910472,
+       52.19001265199854
+      ]
+     },
+     "forward_speed_mean": 0.13170865006845242
+    },
+    {
+     "seed": 1002,
+     "individuality": "subtle",
+     "compensation": {
+      "1.0": 0.44392188139590105,
+      "-1.0": 0.5876855499920943
+     },
+     "compensation_mean": 0.5158037156939976,
+     "bar_error_deg_visible": 3.1474505461429745,
+     "bar_error_deg_hidden": 82.90067773948394,
+     "bar_error_deg_by_offset": {
+      "visible": [
+       2.9867952432086526,
+       3.3081058490772968
+      ],
+      "hidden": [
+       100.27641602680804,
+       65.52493945215984
+      ]
+     },
+     "forward_speed_mean": 0.146198932508815
+    },
+    {
+     "seed": 1003,
+     "individuality": "subtle",
+     "compensation": {
+      "1.0": 0.464920527222946,
+      "-1.0": 0.5036897378810804
+     },
+     "compensation_mean": 0.48430513255201324,
+     "bar_error_deg_visible": 2.3353954501384955,
+     "bar_error_deg_hidden": 94.66865208443906,
+     "bar_error_deg_by_offset": {
+      "visible": [
+       2.4296012573248,
+       2.2411896429521914
+      ],
+      "hidden": [
+       114.95935334616581,
+       74.37795082271232
+      ]
+     },
+     "forward_speed_mean": 0.13200852585701175
+    },
+    {
+     "seed": 1004,
+     "individuality": "subtle",
+     "compensation": {
+      "1.0": 0.4988753599417025,
+      "-1.0": 0.4446291191860369
+     },
+     "compensation_mean": 0.4717522395638697,
+     "bar_error_deg_visible": 2.6878428206099025,
+     "bar_error_deg_hidden": 80.86201936212053,
+     "bar_error_deg_by_offset": {
+      "visible": [
+       2.137099838192671,
+       3.2385858030271346
+      ],
+      "hidden": [
+       99.96346403895062,
+       61.76057468529044
+      ]
+     },
+     "forward_speed_mean": 0.15936416665254532
+    },
+    {
+     "seed": 1005,
+     "individuality": "subtle",
+     "compensation": {
+      "1.0": 0.3860589005685026,
+      "-1.0": 0.5281884383527085
+     },
+     "compensation_mean": 0.45712366946060556,
+     "bar_error_deg_visible": 4.544294091837232,
+     "bar_error_deg_hidden": 106.35972334095608,
+     "bar_error_deg_by_offset": {
+      "visible": [
+       4.407054043494591,
+       4.681534140179873
+      ],
+      "hidden": [
+       141.98834427326247,
+       70.73110240864969
+      ]
+     },
+     "forward_speed_mean": 0.1563719180628181
+    },
+    {
+     "seed": 1006,
+     "individuality": "subtle",
+     "compensation": {
+      "1.0": 0.48996948494676557,
+      "-1.0": 0.4641859492197075
+     },
+     "compensation_mean": 0.47707771708323654,
+     "bar_error_deg_visible": 2.853422739863915,
+     "bar_error_deg_hidden": 97.8132206093953,
+     "bar_error_deg_by_offset": {
+      "visible": [
+       3.0215511198757343,
+       2.685294359852096
+      ],
+      "hidden": [
+       124.76875712589715,
+       70.85768409289345
+      ]
+     },
+     "forward_speed_mean": 0.14046887160932534
+    },
+    {
+     "seed": 1007,
+     "individuality": "subtle",
+     "compensation": {
+      "1.0": 0.39125816603762714,
+      "-1.0": 0.3261911864929018
+     },
+     "compensation_mean": 0.3587246762652645,
+     "bar_error_deg_visible": 4.207732539891034,
+     "bar_error_deg_hidden": 71.81323953855315,
+     "bar_error_deg_by_offset": {
+      "visible": [
+       3.6183375189836204,
+       4.797127560798447
+      ],
+      "hidden": [
+       123.25440750332795,
+       20.372071573778353
+      ]
+     },
+     "forward_speed_mean": 0.14548234068375385
+    },
+    {
+     "seed": 1008,
+     "individuality": "subtle",
+     "compensation": {
+      "1.0": 0.552134890303972,
+      "-1.0": 0.5676774524840288
+     },
+     "compensation_mean": 0.5599061713940003,
+     "bar_error_deg_visible": 3.4189851575005474,
+     "bar_error_deg_hidden": 93.66563929145298,
+     "bar_error_deg_by_offset": {
+      "visible": [
+       3.666482836232107,
+       3.171487478768988
+      ],
+      "hidden": [
+       104.67357212644815,
+       82.6577064564578
+      ]
+     },
+     "forward_speed_mean": 0.1412006579219717
+    },
+    {
+     "seed": 1009,
+     "individuality": "subtle",
+     "compensation": {
+      "1.0": 0.4850499328519619,
+      "-1.0": 0.6851202879581995
+     },
+     "compensation_mean": 0.5850851104050807,
+     "bar_error_deg_visible": 3.739200853153447,
+     "bar_error_deg_hidden": 100.58015688783954,
+     "bar_error_deg_by_offset": {
+      "visible": [
+       4.141594460844366,
+       3.3368072454625275
+      ],
+      "hidden": [
+       130.9665571956248,
+       70.19375658005427
+      ]
+     },
+     "forward_speed_mean": 0.13663912526942026
+    }
+   ],
+   "analysis": {
+    "rig": "ball",
+    "n": 10,
+    "criteria": [
+     {
+      "id": "BL1",
+      "label": "closed loop, walking: share of an imposed 1 rad/s drift of the VR panorama the fly cancels",
+      "n": 10,
+      "mean_effect": 0.4961991175355288,
+      "sd": 0.06295086274650755,
+      "min_effect": 0.1,
+      "unit": "fraction",
+      "p": 0.0009765625,
+      "passed": true
+     },
+     {
+      "id": "BL2",
+      "label": "closed-loop bar: heading error (deg) with the bar hidden minus with it visible, last 5 s of 20 s",
+      "n": 10,
+      "mean_effect": 88.82190681232291,
+      "sd": 10.697769283345218,
+      "min_effect": 10.0,
+      "unit": "deg",
+      "p": 0.0009765625,
+      "passed": true,
+      "visible_mean_deg": 3.3847705770242973,
+      "visible_below_30": true
+     }
+    ],
+    "all_passed": true,
+    "extra": {}
+   }
+  },
+  "off": {
+   "flies": [
+    {
+     "seed": 1000,
+     "individuality": "off",
+     "compensation": {
+      "1.0": 0.6070271253336994,
+      "-1.0": 0.467460555054126
+     },
+     "compensation_mean": 0.5372438401939127,
+     "bar_error_deg_visible": 2.953923960265522,
+     "bar_error_deg_hidden": 82.18219557341149,
+     "bar_error_deg_by_offset": {
+      "visible": [
+       3.1939038964614768,
+       2.7139440240695665
+      ],
+      "hidden": [
+       92.34298341486566,
+       72.02140773195732
+      ]
+     },
+     "forward_speed_mean": 0.14979172558173767
+    },
+    {
+     "seed": 1001,
+     "individuality": "off",
+     "compensation": {
+      "1.0": 0.4585150473621474,
+      "-1.0": 0.5093731170745829
+     },
+     "compensation_mean": 0.48394408221836516,
+     "bar_error_deg_visible": 3.5634432317763007,
+     "bar_error_deg_hidden": 90.44240886499507,
+     "bar_error_deg_by_offset": {
+      "visible": [
+       3.099533826623983,
+       4.027352636928618
+      ],
+      "hidden": [
+       102.31936061560907,
+       78.56545711438108
+      ]
+     },
+     "forward_speed_mean": 0.14800006198031998
+    },
+    {
+     "seed": 1002,
+     "individuality": "off",
+     "compensation": {
+      "1.0": 0.4070552938537707,
+      "-1.0": 0.5495601423715497
+     },
+     "compensation_mean": 0.4783077181126602,
+     "bar_error_deg_visible": 3.623343317908361,
+     "bar_error_deg_hidden": 86.63811880585769,
+     "bar_error_deg_by_offset": {
+      "visible": [
+       4.778346960864214,
+       2.4683396749525084
+      ],
+      "hidden": [
+       103.01236382296345,
+       70.26387378875192
+      ]
+     },
+     "forward_speed_mean": 0.1358686439373288
+    },
+    {
+     "seed": 1003,
+     "individuality": "off",
+     "compensation": {
+      "1.0": 0.5869529781834681,
+      "-1.0": 0.4208391242847592
+     },
+     "compensation_mean": 0.5038960512341137,
+     "bar_error_deg_visible": 2.0814936630764094,
+     "bar_error_deg_hidden": 104.51158948190104,
+     "bar_error_deg_by_offset": {
+      "visible": [
+       2.918040199661739,
+       1.2449471264910794
+      ],
+      "hidden": [
+       131.92874304947938,
+       77.0944359143227
+      ]
+     },
+     "forward_speed_mean": 0.14150714365762776
+    },
+    {
+     "seed": 1004,
+     "individuality": "off",
+     "compensation": {
+      "1.0": 0.34205199259176255,
+      "-1.0": 0.2995238659308843
+     },
+     "compensation_mean": 0.32078792926132343,
+     "bar_error_deg_visible": 3.324117710819671,
+     "bar_error_deg_hidden": 87.86951980574767,
+     "bar_error_deg_by_offset": {
+      "visible": [
+       2.232981463765816,
+       4.415253957873526
+      ],
+      "hidden": [
+       121.30189430776387,
+       54.437145303731455
+      ]
+     },
+     "forward_speed_mean": 0.14430888165282543
+    },
+    {
+     "seed": 1005,
+     "individuality": "off",
+     "compensation": {
+      "1.0": 0.424309050111199,
+      "-1.0": 0.5116744218543773
+     },
+     "compensation_mean": 0.46799173598278815,
+     "bar_error_deg_visible": 2.477727170435578,
+     "bar_error_deg_hidden": 96.20366347231393,
+     "bar_error_deg_by_offset": {
+      "visible": [
+       3.0588384797947645,
+       1.896615861076391
+      ],
+      "hidden": [
+       92.18472994618342,
+       100.22259699844444
+      ]
+     },
+     "forward_speed_mean": 0.14999793129047598
+    },
+    {
+     "seed": 1006,
+     "individuality": "off",
+     "compensation": {
+      "1.0": 0.4984084055276641,
+      "-1.0": 0.47031101277075604
+     },
+     "compensation_mean": 0.48435970914921006,
+     "bar_error_deg_visible": 4.251311143289512,
+     "bar_error_deg_hidden": 75.76258652883294,
+     "bar_error_deg_by_offset": {
+      "visible": [
+       4.398914359489276,
+       4.103707927089748
+      ],
+      "hidden": [
+       94.2399851639886,
+       57.28518789367726
+      ]
+     },
+     "forward_speed_mean": 0.14590048024712932
+    },
+    {
+     "seed": 1007,
+     "individuality": "off",
+     "compensation": {
+      "1.0": 0.36920781274413317,
+      "-1.0": 0.2523176805839298
+     },
+     "compensation_mean": 0.3107627466640315,
+     "bar_error_deg_visible": 3.2941841388675446,
+     "bar_error_deg_hidden": 87.19337302996169,
+     "bar_error_deg_by_offset": {
+      "visible": [
+       2.8393904207647425,
+       3.7489778569703467
+      ],
+      "hidden": [
+       106.59814996720175,
+       67.78859609272163
+      ]
+     },
+     "forward_speed_mean": 0.13289677463080515
+    },
+    {
+     "seed": 1008,
+     "individuality": "off",
+     "compensation": {
+      "1.0": 0.3653490551623484,
+      "-1.0": 0.5430688739920966
+     },
+     "compensation_mean": 0.4542089645772225,
+     "bar_error_deg_visible": 1.901933070476372,
+     "bar_error_deg_hidden": 102.13272855115004,
+     "bar_error_deg_by_offset": {
+      "visible": [
+       2.27635974620171,
+       1.5275063947510341
+      ],
+      "hidden": [
+       105.88122143389226,
+       98.38423566840781
+      ]
+     },
+     "forward_speed_mean": 0.1453505167006576
+    },
+    {
+     "seed": 1009,
+     "individuality": "off",
+     "compensation": {
+      "1.0": 0.5000104175427754,
+      "-1.0": 0.6342932089881256
+     },
+     "compensation_mean": 0.5671518132654505,
+     "bar_error_deg_visible": 1.475270856259403,
+     "bar_error_deg_hidden": 83.19719860111161,
+     "bar_error_deg_by_offset": {
+      "visible": [
+       1.2670652766646047,
+       1.6834764358542016
+      ],
+      "hidden": [
+       104.40909961096955,
+       61.98529759125366
+      ]
+     },
+     "forward_speed_mean": 0.13518601288933435
+    }
+   ],
+   "analysis": {
+    "rig": "ball",
+    "n": 10,
+    "criteria": [
+     {
+      "id": "BL1",
+      "label": "closed loop, walking: share of an imposed 1 rad/s drift of the VR panorama the fly cancels",
+      "n": 10,
+      "mean_effect": 0.46086545906590787,
+      "sd": 0.08341232553305054,
+      "min_effect": 0.1,
+      "unit": "fraction",
+      "p": 0.0009765625,
+      "passed": true
+     },
+     {
+      "id": "BL2",
+      "label": "closed-loop bar: heading error (deg) with the bar hidden minus with it visible, last 5 s of 20 s",
+      "n": 10,
+      "mean_effect": 86.71866344521086,
+      "sd": 9.529391176576922,
+      "min_effect": 10.0,
+      "unit": "deg",
+      "p": 0.0009765625,
+      "passed": true,
+      "visible_mean_deg": 2.894674826317467,
+      "visible_below_30": true
+     }
+    ],
+    "all_passed": true,
+    "extra": {}
+   }
+  }
+ }
+}

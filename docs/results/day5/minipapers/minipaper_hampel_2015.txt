@@ -1,0 +1,24 @@
+MINI-PAPER: From antennal touch to grooming (Hampel et al. 2015)
+  Hampel S, Franconville R, Simpson JH, Seeds AM (2015) A neural command circuit for grooming movement control. eLife 4:e08758
+  doi:10.7554/eLife.08758   read: full text (open access, PMC4599031), read through a page summary, and the abstract
+
+  The paper reports: Mechanosensory chordotonal neurons detect antenna displacements and activate three functionally connected classes of interneurons, including brain interneurons and descending neurons, and each level can trigger antennal grooming. In the Results, activating the antennal Johnston's-organ neurons gave calcium responses in aDN1 and only a weak response in aDN2 even at high light intensity, so aDN1 is likely downstream and aDN2 weakly or indirectly; activating aDN1 or aDN2 each elicited antennal grooming.
+  Numbers the paper states: none stated in the parts read (no fraction of flies or grooming duration is given for single-aDN activation)
+
+  Your result: RUN NOW on 4 flies (seeds 0-3, exploration seeds: a first look)
+
+  Q (antenna_grooming_circuit): You drive the 335 JO-C/E antennal mechanosensory neurons for 2 s. What do the grooming command neurons aDN1/aDN2 do, compared with 335 random other sensory neurons?
+    paper's direction: aDN1/aDN2 fire much more (at least 1.5x calm)
+    your hypothesis: not given
+    the model REPRODUCES it (effect size and direction only: n = 4 is too few flies for the validation's p < 0.01 (the smallest one-sided Wilcoxon p at n = 4 is 0.0625))
+    numbers: drive_ratio_mean 4.23, drive_ratio_sd 0.558, control_ratio_mean 0.783, control_ratio_sd 0.439, readout_base_hz 3.81, readout_driven_hz 16, p_value 0.0625, n 4
+    The upstream half of the grooming circuit, antennal touch to the descending command neurons, reproduces strongly.
+
+  Q (adn_grooming_motor): You drive aDN1/aDN2 for 2 s. What do the front-leg motor neurons do, compared with 4 random descending neurons?
+    paper's direction: front-leg motor neurons fire much more (at least 1.5x calm)
+    your hypothesis: not given
+    the model DOES NOT REPRODUCE it (effect size and direction only: n = 4 is too few flies for the validation's p < 0.01 (the smallest one-sided Wilcoxon p at n = 4 is 0.0625))
+    numbers: drive_ratio_mean 1.13, drive_ratio_sd 0.0594, control_ratio_mean 0.928, control_ratio_sd 0.0404, readout_base_hz 3.33, readout_driven_hz 3.77, p_value 0.0625, n 4
+    The motor half of the circuit does not reproduce: the front-leg motor neurons rise only to about x1.13 against x0.95 (consistent in direction, far below 1.5x). The model has no legs, so nothing it does can be a grooming movement; the signal is lost in the nerve cord's interneurons, which the dataset contains but the LIF model drives with a coarse sign rule (docs/validation.md).
+
+  What this model cannot check: The model pools aDN1 and aDN2 (the dataset's DNg62 and DNge078), so the paper's aDN1 versus aDN2 difference cannot be seen; it has no legs, so grooming movements cannot be seen at all, only the front-leg motor neurons' firing as a stand-in.

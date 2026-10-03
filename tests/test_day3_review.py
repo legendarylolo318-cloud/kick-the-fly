@@ -608,7 +608,7 @@ def test_the_neuprint_download_is_opt_in_and_asked_once(synthetic_pack, monkeypa
     finally:
         morphology.set_opt_in(False)
     g = _game(True)
-    g.cfg.first_run.update(tutorial_done=True, loadout_notice=False, neuron_shapes_asked=False)
+    g.cfg.first_run.update(tutorial_done=True, whatsnew_3_0_seen=True, loadout_notice=False, neuron_shapes_asked=False)
     g.show_first_run_notices()
     assert g.menu.screen == "neuron_shapes_ask" and g.cfg.first_run["neuron_shapes_asked"]
     g.menu.draw(pygame.Surface((1280, 760)), (0, 0), 1.0)

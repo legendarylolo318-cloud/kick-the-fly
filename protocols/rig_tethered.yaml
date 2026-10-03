@@ -1,0 +1,7 @@
+# 3.0 day 5: the tethered flight simulator (game/rigs.py). The fly is fixed; the panorama around it rotates to the right, rests, then to the
+# left. CONNECTOME: yaw from DNa01 + DNa02 right minus left; the rotation reaches them through T4/T5 (validated: optomotor_turning).
+# GAME RULE: the EMD stage, the yaw gain, the panorama. mode: closed also rotates the panorama by the fly's own yaw. MODEL PREDICTION: the response.
+name: rig-tethered
+seed: 0
+flies: 1
+rig: {name: tethered, mode: open, omega: 3.0, seconds: 14}

@@ -1,0 +1,277 @@
+{
+ "format": "kick-the-fly-selftest",
+ "created": "2026-10-03 09:59:51",
+ "app_version": "3.0.0",
+ "build": {
+  "app_version": "3.0.0",
+  "python": "3.14.7",
+  "frozen": false,
+  "appimage": false,
+  "os": "Arch Linux, kernel 7.2.8-zen1-2-zen",
+  "machine": "x86_64",
+  "executable": "/home/lolo/kick-the-fly/.venv/bin/python"
+ },
+ "counts": {
+  "PASS": 22,
+  "WARN": 1,
+  "FAIL": 0
+ },
+ "exit_code": 3,
+ "checks": [
+  {
+   "id": "build",
+   "name": "App and Python",
+   "status": "PASS",
+   "detail": "Kick the Fly 3.0.0, Python 3.14.7, source, Arch Linux, kernel 7.2.8-zen1-2-zen",
+   "fix": "",
+   "seconds": 0.0,
+   "data": {
+    "app_version": "3.0.0",
+    "python": "3.14.7",
+    "frozen": false,
+    "appimage": false,
+    "os": "Arch Linux, kernel 7.2.8-zen1-2-zen",
+    "machine": "x86_64",
+    "executable": "/home/lolo/kick-the-fly/.venv/bin/python"
+   }
+  },
+  {
+   "id": "brainpack_adult",
+   "name": "Adult brain pack",
+   "status": "PASS",
+   "detail": "kick_brain.npz: SHA-256 a65baf8602b48c62..., 36.8 MB, no published checksum next to it; file integrity checked",
+   "fix": "",
+   "seconds": 0.32,
+   "data": {
+    "path": "/home/lolo/ktf_wt_final/data/kick_brain.npz",
+    "sha256": "a65baf8602b48c62806b63c728d95dc2fc0146ced643e41044078fb6deb87fc0",
+    "size_mb": 36.8,
+    "neurons": 166700
+   }
+  },
+  {
+   "id": "brainpack_larva",
+   "name": "Larva brain pack",
+   "status": "PASS",
+   "detail": "not present (optional: the larva brain is built locally, see docs/larva.md)",
+   "fix": "",
+   "seconds": 0.0,
+   "data": {}
+  },
+  {
+   "id": "backend_cpu",
+   "name": "Backend cpu",
+   "status": "PASS",
+   "detail": "200 steps ran, 1,162,816 spikes, 710 steps/s, device: CPU (NumPy) (the reference)",
+   "fix": "",
+   "seconds": 0.71,
+   "data": {
+    "backend": "cpu",
+    "device": "CPU (NumPy)",
+    "spikes": 1162816,
+    "sha": "1d906708c4a16b5c717c9cde0b524467f556689ead3fc6dbff06069ad608e953",
+    "blocks": null,
+    "steps": 200,
+    "seconds": 0.282,
+    "steps_per_s": 709.5
+   }
+  },
+  {
+   "id": "opengl",
+   "name": "OpenGL 3.3 (3D game)",
+   "status": "PASS",
+   "detail": "GL 4.6 (Core Profile) Mesa 26.2.4-arch1.1 (context 4.6), vendor: AMD, renderer: AMD Radeon RX 9070 XT (radeonsi, gfx1201, ACO, DRM 3.64, 7.2.8-zen1-2-zen)",
+   "fix": "",
+   "seconds": 0.15,
+   "data": {
+    "vendor": "AMD",
+    "renderer": "AMD Radeon RX 9070 XT (radeonsi, gfx1201, ACO, DRM 3.64, 7.2.8-zen1-2-zen)",
+    "version": "4.6 (Core Profile) Mesa 26.2.4-arch1.1",
+    "version_code": 460,
+    "backend": "egl"
+   }
+  },
+  {
+   "id": "gpu",
+   "name": "GPU",
+   "status": "PASS",
+   "detail": "AMD / AMD Radeon RX 9070 XT (radeonsi, gfx1201, ACO, DRM 3.64, 7.2.8-zen1-2-zen) / GL 4.6 (Core Profile) Mesa 26.2.4-arch1.1",
+   "fix": "",
+   "seconds": 0.15,
+   "data": {
+    "vendor": "AMD",
+    "renderer": "AMD Radeon RX 9070 XT (radeonsi, gfx1201, ACO, DRM 3.64, 7.2.8-zen1-2-zen)",
+    "version": "4.6 (Core Profile) Mesa 26.2.4-arch1.1",
+    "version_code": 460,
+    "backend": "egl"
+   }
+  },
+  {
+   "id": "audio",
+   "name": "Audio device",
+   "status": "PASS",
+   "detail": "opened an output device (22050 Hz)",
+   "fix": "",
+   "seconds": 0.1,
+   "data": {}
+  },
+  {
+   "id": "ffmpeg",
+   "name": "ffmpeg on PATH",
+   "status": "PASS",
+   "detail": "found /usr/bin/ffmpeg",
+   "fix": "",
+   "seconds": 0.0,
+   "data": {}
+  },
+  {
+   "id": "dir_config",
+   "name": "Config folder",
+   "status": "PASS",
+   "detail": "/tmp/tmp.338JolnTs6/config is writable",
+   "fix": "",
+   "seconds": 0.0,
+   "data": {}
+  },
+  {
+   "id": "dir_data",
+   "name": "Data folder",
+   "status": "PASS",
+   "detail": "/tmp/tmp.338JolnTs6/data is writable",
+   "fix": "",
+   "seconds": 0.0,
+   "data": {}
+  },
+  {
+   "id": "dir_state",
+   "name": "Log folder",
+   "status": "PASS",
+   "detail": "/tmp/tmp.338JolnTs6/state is writable",
+   "fix": "",
+   "seconds": 0.0,
+   "data": {}
+  },
+  {
+   "id": "dir_screenshots",
+   "name": "Screenshot folder",
+   "status": "PASS",
+   "detail": "/tmp/tmp.338JolnTs6/pictures is writable",
+   "fix": "",
+   "seconds": 0.0,
+   "data": {}
+  },
+  {
+   "id": "neurodex",
+   "name": "Neurodex facts",
+   "status": "PASS",
+   "detail": "27 curated facts, all with a citation",
+   "fix": "",
+   "seconds": 0.02,
+   "data": {}
+  },
+  {
+   "id": "toolkit",
+   "name": "Lab toolkit",
+   "status": "WARN",
+   "detail": "2,667 driver lines (CC BY 4.0), 4 drugs, 2 effectors, 3 indicators; NWB export is off (pynwb missing)",
+   "fix": "Patch clamp and imaging still export CSV (and imaging TIFF). For NWB: pip install pynwb.",
+   "seconds": 0.17,
+   "data": {}
+  },
+  {
+   "id": "day3",
+   "name": "Predators, weather, kitchen, mic, streamer",
+   "status": "PASS",
+   "detail": "3 predators, rain/gusts/storm, the kitchen, the microphone analysis and the vote counter all load",
+   "fix": "",
+   "seconds": 0.0,
+   "data": {}
+  },
+  {
+   "id": "day4",
+   "name": "Network science, tournament, racing, sleep, sensitivity",
+   "status": "PASS",
+   "detail": "the community finder, the 13 motif classes, the odds, the points rule and the parameter grids all check out",
+   "fix": "",
+   "seconds": 0.0,
+   "data": {}
+  },
+  {
+   "id": "day5",
+   "name": "Behavior rigs and mini-papers",
+   "status": "PASS",
+   "detail": "the steering rule, the platform's reflection, the preference index and the six mini-papers' citations all check out",
+   "fix": "",
+   "seconds": 0.0,
+   "data": {}
+  },
+  {
+   "id": "microphone",
+   "name": "Microphone (optional)",
+   "status": "PASS",
+   "detail": "not available: no microphone was found (check that one is plugged in and the system lets this program use it) (optional: only the microphone feature needs it)",
+   "fix": "",
+   "seconds": 0.0,
+   "data": {
+    "available": false
+   }
+  },
+  {
+   "id": "network",
+   "name": "Network features (optional)",
+   "status": "PASS",
+   "detail": "Streamer mode could connect to irc.chat.twitch.tv (port 6697) if you turn it on; it is off at every launch and the self-test did not connect; the only other network use is the brain view's one-time download of ten neuron skeletons from neuPrint (KICK_THE_FLY_OFFLINE=1 turns it off); no telemetry",
+   "fix": "",
+   "seconds": 0.0,
+   "data": {
+    "allowed": true
+   }
+  },
+  {
+   "id": "disk",
+   "name": "Free disk space",
+   "status": "PASS",
+   "detail": "15.4 GB free where your data is kept",
+   "fix": "",
+   "seconds": 0.0,
+   "data": {}
+  },
+  {
+   "id": "memory",
+   "name": "Free memory vs per-fly estimate",
+   "status": "PASS",
+   "detail": "28,295 MB available; one fly needs about 350 MB on top of ~1.5 GB for the game, so about 76 flies fit",
+   "fix": "",
+   "seconds": 0.0,
+   "data": {
+    "available_mb": 28295,
+    "per_fly_mb": 350,
+    "flies_fit": 76
+   }
+  },
+  {
+   "id": "display",
+   "name": "Display backend",
+   "status": "PASS",
+   "detail": "session wayland (WAYLAND_DISPLAY='wayland-1', DISPLAY=':1'); the game would use offscreen",
+   "fix": "",
+   "seconds": 0.0,
+   "data": {
+    "session": "wayland",
+    "choice": "offscreen"
+   }
+  },
+  {
+   "id": "smoke",
+   "name": "10-second smoke protocol",
+   "status": "PASS",
+   "detail": "10 s of simulated time ran; looming detectors 17.0 Hz, giant fiber 17.8 Hz",
+   "fix": "",
+   "seconds": 4.38,
+   "data": {
+    "giant_fiber": 17.8,
+    "looming_detectors": 17.042443729903535
+   }
+  }
+ ]
+}

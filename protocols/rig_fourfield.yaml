@@ -1,0 +1,8 @@
+# 3.0 day 5: the four-field olfactory arena (game/rigs.py): four quadrants, one odor in two opposite ones, preference index from the time spent.
+# The odor drives the olfactory receptor neurons of the game's own scent poke (CONNECTOME); the arena, its sharp quadrant boundaries and the PI
+# definition are GAME RULE. mode: sham delivers no odor (the control). Nothing in the model gives the fly a reason to prefer or avoid an odor
+# except what the wiring does with it: report what happens. Pre-registered assay: --rig-assay fourfield.
+name: rig-fourfield
+seed: 0
+flies: 1
+rig: {name: fourfield, mode: odor, seconds: 60}

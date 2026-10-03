@@ -304,6 +304,7 @@ def test_no_card_in_the_tutorial_or_a_menu(synthetic_pack):
 def test_first_run_notices_show_the_card_after_onboarding(synthetic_pack):
     g = make_game()
     g.cfg.first_run["tutorial_done"] = True
+    g.cfg.first_run["whatsnew_3_0_seen"] = True               # 3.0 day 5: What's New comes before the neuPrint question and is tested in test_compat_day5
     g.cfg.first_run["loadout_notice"] = False
     g.show_first_run_notices()                       # 3.0 day 3 review: the one-time neuPrint question comes first, alone
     assert g.menu.screen == "neuron_shapes_ask" and g.x3.notd is None

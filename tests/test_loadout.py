@@ -211,7 +211,8 @@ def test_an_old_config_that_already_chose_a_preset_keeps_it(tmp_path):
 def test_a_fresh_install_gets_base_and_the_tutorial(tmp_path):
     c = config.Config.load(tmp_path / "nope" / "config.toml")
     assert c["controls.loadout_preset"] == "auto" and lo.resolve(c).tools == list(lo.PRESETS["base"])
-    assert c.first_run == {"tutorial_done": False, "loadout_notice": False, "neuron_shapes_asked": False} and c.migrated_from is None
+    assert c.first_run == {"tutorial_done": False, "loadout_notice": False, "neuron_shapes_asked": False,
+                           "whatsnew_3_0_seen": True} and c.migrated_from is None          # 3.0 day 5: a fresh install has nothing "new" to read
 
 
 # --- replays and the Python API -----------------------------------------------------------------------------------------------

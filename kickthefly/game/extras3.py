@@ -28,6 +28,7 @@ from kickthefly.core import neurodex as nd
 from kickthefly.core import neuron_of_day as notd
 
 TOAST_S = 4.0
+TOAST_MAX = 3            # 3.0 release review: a burst of discoveries (a new arena, a strong stimulus) stacked dozens of toasts over the screen
 NOTD_S = 14.0
 OFFER_S = 12.0                     # how long the "kill cam ready" prompt stays when the autopsy isn't up
 SPEEDS = (0.1, 0.25, 0.5, 1.0)
@@ -369,10 +370,17 @@ class Extras:
             self.draw_killcam(surf, wall)
             return
         y = 8
-        for text, t0 in self.toasts:
+        shown = self.toasts[-TOAST_MAX:]                    # the newest few; the rest are in the reactions log and the Neurodex
+        for text, t0 in shown:
             rise = 0.6 if self.calm_fx else 0.15             # Reduced flashing: a slower fade-in
             a = int(255 * min(1.0, (TOAST_S - (wall - t0)) / 0.6, (wall - t0) / rise + (0.0 if self.calm_fx else 0.2)))
             self._banner(surf, text, y, (90, 200, 120), a)
+            y += 34
+        more = len(self.toasts) - len(shown)
+        if more > 0:
+            from kickthefly.core.i18n import tr as _tr
+            key = (g.cfg.keys.get("neurodex") or "").upper()
+            self._banner(surf, _tr("+{n} more discovered (Neurodex: {key})", n=more, key=key or "Esc"), y, (90, 200, 120), 200)
             y += 34
         if self.offer is not None and g.report is None and wall < self.kc_prompt_until:
             key = (g.cfg.keys.get("killcam") or "").upper() or "(unbound: Settings > Controls)"

@@ -40,8 +40,8 @@ def _workers() -> int:
 
 def _chrome(m, surf, rect, title: str, sub: str, st: _St, key: str):
     m.text(surf, title, (rect.x + 24, rect.y + 16), ui.INK, m.f_head)
-    m.text(surf, sub, (rect.x + 24, rect.y + 50), ui.LABEL, m.f_small)
-    body = pygame.Rect(rect.x + 16, rect.y + 80, rect.w - 32, rect.h - 80 - 80)
+    top = max(rect.y + 80, m.subtitle(surf, rect, sub, rect.y + 50, max_lines=3))    # 3.0 release review: was one line, off the panel
+    body = pygame.Rect(rect.x + 16, top, rect.w - 32, rect.bottom - 80 - top)
     off = int(m.scroll.get(key, 0))
     return body, off
 
@@ -130,8 +130,8 @@ def page_netsci(m: ui.Menu, surf, rect, mouse) -> None:
     y += 44 - off
     x = body.x + 8
     xx = _tags(m, surf, x, y, ["CONNECTOME"])
-    m.text(surf, tr("computed from the wiring (no simulation); the analysis choices (null graphs, samples, seed) are GAME RULE; nothing here is a MODEL PREDICTION"), (xx + 4, y + 2), ui.LABEL, m.f_small)
-    y += 28
+    y = max(y + 28, m.wrapped(surf, tr("computed from the wiring (no simulation); the analysis choices (null graphs, samples, seed) are GAME RULE; nothing here is "
+                                      "a MODEL PREDICTION"), (xx + 4, y + 2), body.right - 12 - xx, ui.LABEL, m.f_small, max_lines=3) + 8)
     if res is None:
         m.text(surf, tr("Not computed yet."), (x, y), ui.LABEL, m.f_text)
         y += 30
@@ -303,12 +303,12 @@ def page_sensitivity(m: ui.Menu, surf, rect, mouse) -> None:
     surf.set_clip(body)
     y += 44 - off
     xx = _tags(m, surf, x, y, ["CONNECTOME", "GAME RULE", "MODEL PREDICTION"])
-    m.text(surf, tr("pathways (CONNECTOME); ranges and criteria (GAME RULE); every cell (MODEL PREDICTION)"), (xx + 4, y + 2), ui.LABEL, m.f_small)
-    y += 30
+    y = max(y + 30, m.wrapped(surf, tr("pathways (CONNECTOME); ranges and criteria (GAME RULE); every cell (MODEL PREDICTION)"), (xx + 4, y + 2),
+                              body.right - 12 - xx, ui.LABEL, m.f_small, max_lines=3) + 8)
     res = st.sens
     if res is None:
-        m.text(surf, tr("Not run yet. Parameters:") + " " + ", ".join(p["label"] for p in sensitivity.PARAMETERS), (x, y), ui.LABEL, m.f_small)
-        y += 28
+        y = m.wrapped(surf, tr("Not run yet. Parameters:") + " " + ", ".join(p["label"] for p in sensitivity.PARAMETERS), (x, y), body.w - 24,
+                      ui.LABEL, m.f_small, max_lines=4) + 10
     else:
         y = _heatmap(m, surf, x, y, body.w - 30, res)
     surf.set_clip(prev)

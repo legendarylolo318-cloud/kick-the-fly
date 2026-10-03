@@ -231,7 +231,7 @@ def build_table(arrays: dict, brain: str = "adult", partners: bool = True) -> Ty
     return TypeTable(brain, names, count, superclass, region, regions, nts, nt_conf, nt_truth, tid, C, bid)
 
 
-_TABLES: dict[str, TypeTable] = {}
+_TABLES: dict[tuple, TypeTable] = {}               # keyed by (brain, pack file): see table()
 _TABLE_LOCK = threading.Lock()
 
 
@@ -253,14 +253,18 @@ def table(brain: str = "adult") -> TypeTable | None:
     no brain pack. Safe to call from several threads."""
     from kickthefly.sim import brainpack
 
+    # 3.0 release review: the cache was keyed by the brain's name only. A build started for one pack (a game's background thread) that
+    # finished after the pack changed stored that pack's table under the name, and a brain from the other pack then indexed it
+    # (tests: "index 2932 is out of bounds for axis 0 with size 2346", the real pack's table on the synthetic pack's brain). Keyed by
+    # the pack file as well, a table can only ever be returned for the pack it was built from.
+    p = brainpack.find(brain=brain)
+    if p is None:
+        return None
+    key = (brain, str(Path(p).resolve()))
     with _TABLE_LOCK:
-        if brain in _TABLES:
-            return _TABLES[brain]
-        p = brainpack.find(brain=brain)
-        if p is None:
-            return None
-        _TABLES[brain] = table_from_pack(p, brain)
-        return _TABLES[brain]
+        if key not in _TABLES:
+            _TABLES[key] = table_from_pack(p, brain)
+        return _TABLES[key]
 
 
 def reset_cache() -> None:

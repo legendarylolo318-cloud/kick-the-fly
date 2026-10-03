@@ -384,9 +384,9 @@ def page(m, surf, rect, mouse) -> None:
     ha, hb, na, nb = live.jo_firing
     m.text(surf, f"JO-A drive {r.drive_a / micmod.MAX_CURRENT:4.0%}   {na} of 50 neurons firing", (box.right - 180, box.y + 12), ui.TEXT, m.f_small, "midtop")
     m.text(surf, f"JO-B drive {r.drive_b / micmod.MAX_CURRENT:4.0%}   {nb} of 88 neurons firing", (box.right - 180, box.y + 36), ui.TEXT, m.f_small, "midtop")
-    m.text(surf, "B prefers below ~100 Hz, A higher (LITERATURE); the split is a game rule", (box.right - 180, box.y + 66), ui.LABEL, m.f_small, "midtop")
+    m.wrapped(surf, "B prefers below ~100 Hz, A higher (LITERATURE); the split is a game rule", (box.right - 340, box.y + 60), 320, ui.LABEL, m.f_small, 2)
     y = box.bottom + 8
-    m.button(surf, (x, y, max(330, m.f_text.size("Run the hum demo (no microphone)")[0] + 40), 34), "Run the hum demo (no microphone)", lambda: _open_demo(m), id="live_demo",
+    m.button(surf, (x, y, max(330, m.f_bold.size("Run the hum demo (no microphone)")[0] + 32), 34), "Run the hum demo (no microphone)", lambda: _open_demo(m), id="live_demo",
              tip="A synthetic 200 Hz hum, steady and in 35 ms pulses, through the same analysis, onto real JO-A/B: does it reach the courtship pathway?")
     y += 48
     # --- streamer mode ------------------------------------------------------------------------------------------------------------

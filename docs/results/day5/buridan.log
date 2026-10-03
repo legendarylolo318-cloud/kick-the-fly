@@ -1,0 +1,31 @@
+00:24:55 INFO Kick the Fly 2.13.1 on Arch Linux, kernel 7.2.8-zen1-2-zen
+00:24:55 INFO headless run (simulation backend: auto)
+pygame-ce 2.5.8 (SDL 2.32.10, Python 3.14.7)
+  1/10 buridan, subtle: fly 1004 done (111 s)
+  2/10 buridan, subtle: fly 1005 done (111 s)
+  3/10 buridan, subtle: fly 1003 done (111 s)
+  4/10 buridan, subtle: fly 1007 done (112 s)
+  5/10 buridan, subtle: fly 1001 done (112 s)
+  6/10 buridan, subtle: fly 1008 done (112 s)
+  7/10 buridan, subtle: fly 1006 done (115 s)
+  8/10 buridan, subtle: fly 1002 done (116 s)
+  9/10 buridan, subtle: fly 1000 done (120 s)
+  10/10 buridan, subtle: fly 1009 done (123 s)
+  1/10 buridan, off: fly 1004 done (98 s)
+  2/10 buridan, off: fly 1003 done (98 s)
+  3/10 buridan, off: fly 1005 done (99 s)
+  4/10 buridan, off: fly 1000 done (99 s)
+  5/10 buridan, off: fly 1007 done (100 s)
+  6/10 buridan, off: fly 1009 done (101 s)
+  7/10 buridan, off: fly 1006 done (103 s)
+  8/10 buridan, off: fly 1001 done (104 s)
+  9/10 buridan, off: fly 1008 done (107 s)
+  10/10 buridan, off: fly 1002 done (110 s)
+BURIDAN'S PARADIGM ASSAY, 10 flies (seeds 1000-1009)
+  individuality subtle:
+    B1 PASS: stripe deviation (deg) without stripes minus with stripes (median over the run, 0 = along the stripe axis): +39.2 deg (needs >= 10), p < 0.001, n = 10
+    B2 PASS: transits between the stripes with stripes minus without: +11.1 transits (needs >= 3), p < 0.001, n = 10
+  individuality off  (the control):
+    B1 PASS: stripe deviation (deg) without stripes minus with stripes (median over the run, 0 = along the stripe axis): +41 deg (needs >= 10), p < 0.001, n = 10
+    B2 PASS: transits between the stripes with stripes minus without: +12.7 transits (needs >= 3), p < 0.001, n = 10
+results written to /home/lolo/ktf_day5_results/buridan (233 s)

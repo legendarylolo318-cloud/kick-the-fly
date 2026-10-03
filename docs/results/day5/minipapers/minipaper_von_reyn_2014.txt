@@ -1,0 +1,17 @@
+MINI-PAPER: Looming drives the giant fiber (von Reyn et al. 2014)
+  von Reyn CR, Breads P, Peek MY, Zheng GZ, Williamson WR, Yee AL, Leonardo A, Card GM (2014) A spike-timing mechanism for action selection. Nature Neuroscience 17:962-970
+  doi:10.1038/nn.3741   read: abstract only (Europe PMC); the full text is behind a paywall and was not read
+
+  The paper reports: A looming stimulus makes a fly escape in one of two ways: a long escape sequence that starts stable flight, or a short one that gives up flight stability for speed. Which one depends on when the giant fiber spikes relative to parallel escape circuits. A simple model in which the giant fiber has a higher activation threshold than the parallel circuits describes it.
+  Numbers the paper states: none stated in the abstract
+
+  Your result: RUN NOW on 4 flies (seeds 0-3, exploration seeds: a first look)
+
+  Q (looming_escape): You drive all 311 looming detectors (LPLC2 and LC4) for 2 s. What does the giant fiber DNp01 do, compared with driving 311 random other visual projection neurons?
+    paper's direction: fires much more (at least 1.5x its calm rate)
+    your hypothesis: not given
+    the model REPRODUCES it (effect size and direction only: n = 4 is too few flies for the validation's p < 0.01 (the smallest one-sided Wilcoxon p at n = 4 is 0.0625))
+    numbers: drive_ratio_mean 11.7, drive_ratio_sd 0.861, control_ratio_mean 0.762, control_ratio_sd 0.117, readout_base_hz 5.69, readout_driven_hz 66.5, p_value 0.0625, n 4
+    The wiring from the looming detectors to the giant fiber is strong enough to drive it: the premise of the paper's escape model holds in this connectome.
+
+  What this model cannot check: Spike timing, the two takeoff modes and the parallel circuits: the model has no legs or wings. It checks only the premise, that the looming detectors excite the giant fiber. The abstract does not name the detectors; LPLC2 and LC4 driving the giant fiber comes from later work (Ache et al. 2019; von Reyn et al. 2017) that was not read here.

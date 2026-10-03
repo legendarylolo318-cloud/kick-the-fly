@@ -361,7 +361,10 @@ SCHEMA_VERSION = 3
 # 2.13 (schema < 3) had players on keys 1-9, 0, - and =, which then reached every tool, so it migrates to the All
 # preset (nobody's muscle memory breaks) with a one-time notice pointing at the loadout editor, and it counts as
 # already onboarded (no first-launch tutorial; Settings > Help replays it). A fresh install gets Base and the tutorial.
-FIRST_RUN_DEFAULTS = {"tutorial_done": False, "loadout_notice": False, "neuron_shapes_asked": False}
+# 3.0 day 5: "whatsnew_3_0_seen" (the What's New in 3.0 screen). It is a key of the existing [first_run] table, so an older config.toml
+# simply lacks it, reads as False and shows the screen once; a fresh install (no config file) starts with it True, because the
+# tutorial is its welcome. No schema bump: a missing key and a False key mean the same thing.
+FIRST_RUN_DEFAULTS = {"tutorial_done": False, "loadout_notice": False, "neuron_shapes_asked": False, "whatsnew_3_0_seen": False}
 
 
 class Config:
@@ -492,6 +495,7 @@ class Config:
     def load(cls, path: Path) -> "Config":
         cfg = cls(path)
         if not path.exists():
+            cfg.first_run["whatsnew_3_0_seen"] = True       # a fresh install has no "what's new": the tutorial is its welcome
             return cfg
         try:
             data = tomllib.loads(path.read_text(encoding="utf-8"))

@@ -1,56 +1,41 @@
-# Kick the Fly 2.13.1: tool loadouts, a self-test and a bug report that sends nothing
+# Kick the Fly 3.0.0: Neurodex, Lab toolkit, behavior rigs and mini-papers
 
-Downloads: **KickTheFly.exe** (Windows) and **KickTheFly-x86_64.AppImage** (Linux). Check them against `SHA256SUMS`.
-Your saves, settings and your fly's training memory carry over. Everything in
-[2.12.0](https://github.com/legendarylolo318-cloud/kick-the-fly/releases/tag/v2.12.0) is in this build.
+The biggest release so far, and **the simulation is unchanged**: `--validate` gives exactly the same results as 2.13 (21 tests, 12 PASS /
+9 FAIL, every value identical), and no weight, time constant or threshold was tuned to make anything pass. Everything new is tagged
+**CONNECTOME** (read off the wiring), **GAME RULE** (written for the game) or **MODEL PREDICTION** (what the model then does).
 
-2.13.1 is 2.13.0 with one test fix: 2.13.0 was tagged, but its release run stopped before publishing any files.
+**Download:** `KickTheFly.exe` (Windows, about 90 MB) or `KickTheFly-x86_64.AppImage` (Linux, about 110 MB) below; nothing to install, the
+whole MaleCNS v1.0 brain (166,700 neurons) is inside. Check them against `SHA256SUMS`. The exe is not code-signed: SmartScreen may warn
+(More info, then Run anyway).
 
-Nothing in the simulation changed: the validation results are identical to 2.12.0's.
+## Highlights
 
-## For players
+- **Neurodex, kill cam, Neuron of the Day:** collect the cell types your fly fires, each with the dataset's numbers and, for curated ones, a
+  cited fact; watch the last seconds of its brain in slow motion; one curated neuron at launch.
+- **Behavior rigs** (Lab): a tethered flight simulator, a fly on a ball, Buridan's paradigm and a four-field olfactory arena, steering read
+  from DNa01/DNa02 and walking from DNp09, each with a pre-registered assay and a control. On held-out flies the tethered rig, the ball and
+  Buridan's paradigm reproduce the classic result; **the olfactory arena does not**, and that is reported.
+- **Guided mini-papers:** six classic papers (von Reyn 2014, Tully & Quinn 1985, Shiu 2024, Hampel 2015, Ohyama 2015, Colomb 2012) as
+  hypothesis, run, plot, and your result next to what the paper itself states, with how much of each paper was read.
+- **Lab toolkit:** split-GAL4 driver lines, thermogenetics, a virtual patch clamp, simulated calcium imaging, pharmacology, experiment
+  bundles that rerun and say whether results match, share codes, network science, a sleep-deprivation assay, a sensitivity analysis.
+- **Play:** a frog, a dragonfly and a mantis seen only through the real looming neurons; rain and storms; a kitchen arena; a fly arcade
+  (tournaments and races, every fly its own brain, in-game points only, nothing to buy); an opt-in microphone and an opt-in Streamer mode
+  (both off at every launch).
+- **Polish:** a What's New screen once after an upgrade, layouts that hold at larger text, in German and in a narrow window, and a self-test
+  that checks your install and changes nothing.
 
-**Tool loadouts.** The hotbar is now a loadout: up to 10 tools on keys 1-9 and 0, with - and = turning the page of a
-longer one. The mouse wheel and the gamepad bumpers step through it. Pick a preset (Base, Chaos, Chemist, Lab, All,
-Pet) or build your own in the **loadout editor** (Q, or X on a gamepad). The editor lists every tool with a one-line
-description and the real neurons it drives, tagged CONNECTOME or GAME RULE. Drag tools to reorder them, drag one off
-to remove it, and save up to five loadouts. Hold ` (or Y on a gamepad) for the **tool wheel**, which reaches every
-tool. The hand is always in slot 1, and the laser is Lab-only. Every new key can be rebound; only Esc is fixed.
+Old saves, settings, training memory, pet files, replays and protocols keep working (checked on files made by 2.13.1 itself).
 
-**If you played before, your keys still work.** An existing install is set to the All preset, which puts every tool on
-the hotbar in the order the number keys always had. You see a one-time popup pointing at the editor. A fresh install
-starts on Base, with a short tutorial.
+## Known limits
 
-**The 2D spider drops on its thread** before it hunts, as it always did in 3D, so the fly sees it coming (its
-looming detectors fire) even when it's stuck to flypaper or floating in the pool.
+- Fixation in the rigs is far tighter than real flies', and the olfactory arena gives an odor no valence. Race R2 and R3, the larva tests,
+  the motor half of the grooming circuit and the E-PG compass fail and stay in the tables.
+- Three mini-papers rest on abstracts only (von Reyn 2014, Ohyama 2015, Tully & Quinn 1985).
+- Live sensory inputs are delivered per screen frame, so a slow brain gets more stimulus per simulated second; Lab protocols and assays are exact.
+- Never verified: a physical gamepad, a real microphone or Twitch connection, GPU compute backends beyond the self-test, and a person playing a
+  full session in a visible window. Every number is the CPU reference backend's.
+- German covers part of the interface.
 
-**A fruit tool.** Drop ripe fruit. The fly eats it exactly as it eats sugar: same taste and reward neurons, same rules.
-
-**Settings > Help** has the tutorial, a **self-test** and **Report a bug**. The self-test checks this install (brain
-pack, compute backends, OpenGL, audio, folders, memory) and says in plain English what to fix. Report a bug shows
-exactly what it would include, lets you remove anything, and then copies it, saves it, or opens a prefilled GitHub
-issue in your browser. Nothing is uploaded, and there is no telemetry. Your home folder and user name are replaced by
-placeholders. After a crash, the crash screen offers the same thing.
-
-## For researchers and developers
-
-- `--selftest [--out FILE]` exits 0 (all pass), 3 (warnings only) or 1 (a failure). CPU backends are compared spike
-  for spike with NumPy, GPU backends statistically.
-- `--bugreport` prints or saves the report without opening anything.
-- `--headless --playthrough [adult|larva|all] --out DIR` runs a bot that uses every tool in every arena on each brain.
-  It checks that the documented neurons fire above baseline, plus death and the autopsy, save-then-load, replay
-  determinism, multi-fly, surgery, training, the duel, pet catch-up, individuality and every loadout preset.
-  See docs/playthrough.md.
-- The Python API has `fly.loadout`, `fly.set_loadout(...)` and `fly.use_tool(...)`. Replays record `tool` events,
-  which older versions skip.
-- CI adds a Claude review of pull requests (skipped cleanly without an API key), a nightly validation and playthrough
-  run with a history page, and self-test and playthrough gates on releases. See docs/ci.md.
-
-## Known issues
-
-- The default tool wheel key ` sits on a different physical key on non-US keyboard layouts. Rebind it in Settings >
-  Controls.
-- Accented letters typed through dead keys or an input method don't reach loadout names.
-- The German translation doesn't have the new 2.13 strings yet; they show in English.
-- Frozen builds (exe and AppImage), Windows, a real gamepad and a visible window on Wayland were not tested by hand for
-  this release.
+Full list: [docs/changelog.md](https://github.com/legendarylolo318-cloud/kick-the-fly/blob/main/docs/changelog.md); how 3.0 was checked, its
+decisions and its limits: [docs/3.0-review.md](https://github.com/legendarylolo318-cloud/kick-the-fly/blob/main/docs/3.0-review.md).

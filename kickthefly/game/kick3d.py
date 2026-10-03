@@ -111,6 +111,19 @@ NOZZLE = {"torch": (0.0, 0.07, -0.26), "cleaner": (0.0, 0.15, -0.06), "freeze": 
           "laser": (0.0, 0.062, -0.285), "zapper": (0.0, 0.12, -0.12), "swatter": (0.0, 0.3, -0.2)}
 
 
+def daylight(game) -> tuple[float, float]:
+    """(day, boost) for an outdoor arena: day is 1 in daylight and 0.12 at night (the day/night cycle or the Lab's sun elevation), darkened
+    by a storm; boost is a lightning flash (one slow swell under reduced flashing)."""
+    az, el = outdoors.sun_now(game.lab_params, game.clock.now, game.cfg["brain.day_night"])
+    day = 0.12 + 0.88 * outdoors.dusk(el)          # 1 unless the sun is low: night falls with the day/night cycle
+    boost = 1.0
+    wx = getattr(game, "weather", None)
+    if wx is not None and (wx.rain > 0 or wx.flash_at is not None):          # 3.0 day 3: a storm darkens the scene and flashes
+        day *= 1.0 - wx.darkness()
+        boost += 2.5 * wx.screen_flash(bool(game.cfg["access.reduced_flashing"]))    # reduced flashing: one slow swell
+    return day, boost
+
+
 def scene_setup(game) -> tuple[dict, tuple, float]:
     """(lights, clear colour, far plane) for the arena the game is in. Outdoors the sun sits where the Lab puts it,
     the room's ceiling light is off, and distant scenery fades into haze instead of stopping at the far plane."""
@@ -119,13 +132,8 @@ def scene_setup(game) -> tuple[dict, tuple, float]:
         az, el = outdoors.sun_now(game.lab_params, game.clock.now, game.cfg["brain.day_night"])
         sun = outdoors.sun_direction(az, el)
         up = max(0.0, float(sun[1]))
-        day = 0.12 + 0.88 * outdoors.dusk(el)          # 1 unless the sun is low: night falls with the day/night cycle
         w = outdoors.spec(arena)
-        boost = 1.0
-        wx = getattr(game, "weather", None)
-        if wx is not None and (wx.rain > 0 or wx.flash_at is not None):          # 3.0 day 3: a storm darkens the scene and flashes
-            day *= 1.0 - wx.darkness()
-            boost += 2.5 * wx.screen_flash(bool(game.cfg["access.reduced_flashing"]))    # reduced flashing: one slow swell
+        day, boost = daylight(game)
         haze = tuple(np.minimum(np.array((0.72, 0.78, 0.84)) * day * boost, 1.0))
         lights = dict(u_sun_dir=-sun, u_sun_col=tuple(np.array((1.05, 0.98, 0.86)) * (0.25 + 0.9 * up ** 0.5) * day * boost),
                       u_sky=tuple(np.array(w.sky) * (0.45 + 0.55 * up) * day * boost), u_ground=w.ground, u_lp0=(0.0, 100.0, 0.0),
@@ -693,9 +701,12 @@ class Game3D(k2.Game):
             esc = pygame.event.Event(pygame.KEYDOWN, key=pygame.K_ESCAPE, mod=0, unicode="\x1b", scancode=0)
             self.handle3d(esc, now, lambda q: q)
         if self.menu.open:
-            from kickthefly.ui import arcade_ui, neurodex_ui
+            from kickthefly.lab import labrigs
+            from kickthefly.ui import arcade_ui, minipaper_ui, neurodex_ui
             neurodex_ui.pad_nav(self, down)          # 3.0: the Neurodex panel can be browsed with the pad
             arcade_ui.pad_nav(self, down)            # 3.0 day 4: and the Fly arcade (favorite, bet, size, run)
+            labrigs.pad_nav(self, down)              # 3.0 day 5: the behavior rig scenes (run, condition, length)
+            minipaper_ui.pad_nav(self, down)         # 3.0 day 5: and the mini-papers (steps, hypothesis, run)
             return {}, (0.0, 0.0)
         if self.x3.pad_event(down):                  # 3.0: Neurodex button, kill cam button / skip
             return {}, (0.0, 0.0)
@@ -2771,7 +2782,9 @@ class Game3D(k2.Game):
     def _draw_outdoors(self, rd: Renderer, now: float) -> None:
         eye, fwd = self._camera()
         w = outdoors.spec(self.world)
-        sky = w.sky
+        # 3.0 release review: the dome kept the day's blue at night and in a storm (only its horizon followed the darkened haze)
+        day, boost = daylight(self)
+        sky = tuple(min(1.0, c * day * boost) for c in w.sky)
         rd.add("sphere", trs(eye, None, (80.0, 80.0, 80.0)), sky, P_SKYDOME)
         gx, gz = round(float(eye[0]) / 10) * 10, round(float(eye[2]) / 10) * 10   # the ground follows you in 10 m steps
         rd.add("cube", trs((gx, -0.01, gz), None, (240.0, 0.02, 240.0)), w.ground, P_GRASS)

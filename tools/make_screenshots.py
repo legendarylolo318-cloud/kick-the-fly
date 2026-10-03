@@ -35,7 +35,9 @@ sys.path.insert(0, str(ROOT))
 DOCS = ROOT / "docs"
 SEED = 7
 
-os.environ.setdefault("SDL_VIDEODRIVER", "offscreen")
+# 3.0 release review: forced, not a default. A desktop session that sets SDL_VIDEODRIVER (Hyprland sets it to wayland) otherwise opened real
+# windows, which a tiling window manager resized (captures came out 1250x1266). KTF_SHOTS_DRIVER picks another driver on purpose.
+os.environ["SDL_VIDEODRIVER"] = os.environ.get("KTF_SHOTS_DRIVER", "offscreen")
 os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 os.environ.setdefault("KICK_THE_FLY_OFFLINE", "1")              # use the cached neuPrint skeletons, don't fetch
 _home = tempfile.mkdtemp(prefix="ktf-shots-")
@@ -93,10 +95,11 @@ class Scene:
 
     def __init__(self, name: str, caption: str, steps=(), every=None, shot_at: float = 6.0, ready=None,
                  timeout: float = 40.0, arena: str = "room", flies: int = 1, lab: bool = False, panel: str = "solid",
-                 settle: float = 4.0):
+                 settle: float = 4.0, settings: dict | None = None):
         self.name, self.caption, self.steps, self.every = name, caption, list(steps), every
         self.shot_at, self.ready, self.timeout = shot_at, ready, timeout
         self.arena, self.flies, self.lab, self.panel, self.settle = arena, flies, lab, panel, settle
+        self.settings = dict(settings or {})          # extra config settings for this scene (key -> value)
 
 
 def near(dist, bearing=None, height=None, i=0):
@@ -212,12 +215,17 @@ scene("autopsy", "Autopsy: every brain region's last 2 s alive against its calm 
 def _settings(g):
     g.open_menu("settings")
     g.menu.tab = "Brain"
-    g.menu.scroll["settings:Brain"] = 400.0          # down to Compute backend and State precision
+    g.menu.scroll["settings:Brain"] = 400.0          # a first guess; _settings_end scrolls to the end once the page knows its height
+
+
+def _settings_end(g):
+    """Down to Compute backend and State precision, the tab's last rows (row heights depend on the font and the labels)."""
+    g.menu.scroll["settings:Brain"] = float(g.menu.content_h.get("settings:Brain", 400.0))
 
 
 scene("settings", "Settings (Esc > Settings), Brain tab: each setting is tagged Connectome or Game rule, including "
                   "the new compute backend and state precision",
-      steps=[(1.0, _settings)], every=near(1.5, height=1.2), shot_at=2.5)
+      steps=[(1.0, _settings), (1.6, _settings_end)], every=near(1.5, height=1.2), shot_at=2.5)
 
 scene("lab", "Lab mode: the research tools, with the simulation engine that's running shown top right",
       lab=True, steps=[(1.0, lambda g: g.open_menu("lab"))], every=near(1.5, height=1.2), shot_at=2.5)
@@ -361,6 +369,81 @@ def _demo_every(game, t):
         hold(game, "hand")
 
 
+# --- 3.0 scenes (release review) -------------------------------------------------------------------------------------
+def _killcam_every(game, t):
+    """Torch the fly; once the autopsy is up, close it and start the kill cam (the ; key)."""
+    if game.report is None and game.x3.player is None:
+        look_at(game, fly_pos(game), 0.8, math.pi / 2 + 0.4, 0.9)
+        if t >= 3.0:
+            fire(game, "torch")
+    else:
+        release(game)
+        if game.x3.player is None and game.x3.kc_available():
+            game.report = None
+            game.x3.kc_start()
+
+
+scene("killcam", "The kill cam (;): the last seconds of the brain before death, replayed in slow motion",
+      every=_killcam_every, shot_at=4.0, timeout=90.0,
+      ready=lambda g: g.x3.player is not None and g.x3.player.t > 1.2)
+
+
+def _neurodex(g):
+    g.x3.ensure_table()
+    g.x3.open_neurodex()
+
+
+scene("neurodex", "The Neurodex (D): every cell type your fly has fired well above its calm rate, with the dataset's numbers",
+      steps=[(0.0, lambda g: fire(g, "zapper")), (1.0, lambda g: fire(g, "zapper")), (2.5, lambda g: fire(g, "torch")),
+             (3.2, lambda g: release(g)), (6.0, _neurodex)],
+      every=near(1.0, bearing=math.pi / 2 + 0.4, height=1.0), shot_at=8.0, settings={"brain.immortal": True, "brain.neurodex": True})
+
+
+def _rig(g):
+    """Lab > Behavior rigs > Buridan's paradigm, with a real 40 s run of this fly (built from the game's own brain pack)."""
+    from kickthefly.core import simcore
+    from kickthefly.lab import labrigs, rigassay
+
+    s = labrigs.st(g.menu)
+    s.res["buridan"] = rigassay.scene_run("buridan", 1003, "subtle", br=simcore.new_brain(seed=1003, individuality="subtle"), seconds=40.0)
+    s.t, s.playing = 40.0, False
+    g.open_menu("lab")
+    g.menu.show("lab_rig_buridan")
+
+
+scene("rig", "Lab > Behavior rigs: Buridan's paradigm, one fly's walk between two stripes (steering from DNa01/02, speed from DNp09)",
+      lab=True, steps=[(0.5, _rig)], every=near(1.5, height=1.2), shot_at=2.0, timeout=120.0,
+      ready=lambda g: g.menu.screen == "lab_rig_buridan")
+
+
+def _minipaper(g):
+    """Lab > Mini-papers, Colomb et al. 2012, step 5: the quick run recorded on day 5 next to what the paper states."""
+    import json
+
+    from kickthefly.lab import minipapers
+    from kickthefly.ui import minipaper_ui
+
+    g.open_menu("lab")
+    g.menu.show("lab_minipapers")
+    ms = minipaper_ui.st(g.menu)
+    res = json.loads((ROOT / "docs/results/day5/minipapers/minipaper_colomb_2012.json").read_text())["result"]
+    ms.answers["colomb_2012"] = {q.test: q.expected for q in minipapers.PAPERS["colomb_2012"].questions}
+    minipaper_ui.commit(ms, "colomb_2012")
+    ms.results["colomb_2012"] = res
+    minipaper_ui.open_paper(g.menu, "colomb_2012")
+    ms.sess.goto_step(4)
+
+
+scene("minipaper", "Lab > Mini-papers: your result on the model next to what the paper states (Colomb et al. 2012, Buridan's paradigm)",
+      lab=True, steps=[(0.5, _minipaper)], every=near(1.5, height=1.2), shot_at=2.0)
+
+scene("arcade", "Esc > Fly arcade: a bracket of flies, each brain steering and shooting for itself (points only, nothing to buy)",
+      steps=[(0.5, lambda g: g.open_menu("arcade"))], every=near(1.5, height=1.2), shot_at=2.0)
+
+scene("whatsnew", "What's New in 3.0: shown once after an upgrade, and from Settings > Help",
+      steps=[(0.5, lambda g: g.open_whatsnew())], every=near(1.5, height=1.2), shot_at=2.0)
+
+
 scene("demo", "Animated demo for the top of the README", arena="field",
       steps=[(0.0, lambda g: g.set_setting("brain.immortal", True, save=False)), (4.5, lambda g: hold(g, "swatter"))],
       every=_demo_every, shot_at=12.5, settle=3.0)
@@ -380,6 +463,12 @@ def run_scene(s: Scene, out: Path) -> Path:
     cfg.set("graphics.fps_cap", 60)
     cfg.set("brain.arena", s.arena)
     cfg.set("brain.science_popups", False)             # the "Real flies do this too" cards would cover the scene
+    # 3.0 release review: a fresh config shows the first-launch tutorial (and the Neuron of the Day card) over every capture
+    cfg.first_run.update(tutorial_done=True, loadout_notice=False, neuron_shapes_asked=True, whatsnew_3_0_seen=True)
+    cfg.set("brain.neuron_of_day", False)
+    cfg.set("brain.neurodex", False)                   # discovery toasts would cover every picture (the neurodex scene turns it back on)
+    for key, value in s.settings.items():
+        cfg.set(key, value)
     state = dict(started=None, done=set(), shot=None, video=None)
     demo = s.name == "demo"
 

@@ -200,3 +200,20 @@ facts:
     doi: 10.1038/nature07843
     checked: "abstracts, PubMed, 2026-09-30. The pack names these JO-CA1, JO-CM, JO-ED1, JO-EV3 and so on, hence the prefixes (review found the exact names JO-C/JO-E match no type). Which subset is JO-C/E is the game's annotation-based choice, not claimed by these papers"
     game_note: "The fan's wind drives JO-C/E in the game (CONNECTOME sensors, GAME RULE wind)."
+
+  # 3.0 day 5: the two serotonergic taste neuron classes the sugar and bitter validation tests use as readouts (mini-paper Shiu et al. 2024)
+  - id: sugar-sel
+    types: [GNG540, GNG550]
+    text: "The dataset's synonym names these 'Sugar SEL PN' (Yao & Scott 2022). In that study the sugar-responsive serotonergic neurons of the lateral subesophageal cluster, which the authors call sugar-SELs, excite the insulin-producing cells and limit consumption."
+    cite: "Yao & Scott 2022, Neuron 110:1036-1050"
+    doi: 10.1016/j.neuron.2021.12.028
+    checked: "abstract (Europe PMC) and the Results passage that defines the names sugar-SELs and bitter-SELs (PMC8930643, read through a summary of the page, not line by line); that these two types are those neurons rests on the dataset's own synonym, 2026-10-03"
+    game_note: "Sugar-pathway taste neurons excite them in the sim (the sugar_feeding validation chooses its sugar set by their wiring); nothing in play reads them."
+
+  - id: bitter-sel
+    types: [DNg28]
+    text: "The dataset's synonym names this 'Bitter-SEL' (Yao & Scott 2022). In that study the serotonergic neurons that respond to bitter compounds, the bitter-SELs, activate enteric neurons to promote gastric motility."
+    cite: "Yao & Scott 2022, Neuron 110:1036-1050"
+    doi: 10.1016/j.neuron.2021.12.028
+    checked: "abstract (Europe PMC) and the Results passage that defines the names (PMC8930643, read through a summary of the page); that this type is those neurons rests on the dataset's own synonym, 2026-10-03"
+    game_note: "Bitter-pathway taste neurons excite it in the sim (validated as activation, not avoidance); nothing in play reads it."

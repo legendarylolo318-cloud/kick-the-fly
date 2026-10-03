@@ -54,8 +54,8 @@ This release, on the NumPy reference backend (n = 10 flies, mean ± SD; Numba an
 | `foreleg_grn_to_p1` (2.10): foreleg GRNs annotated putative ppk23/ppk25 (LgLG5-8) excite P1 ([Clowney et al. 2015](https://doi.org/10.1016/j.neuron.2015.07.025); [Kallman et al. 2015](https://doi.org/10.7554/eLife.11188)) | P1 (86) x1.20 ± 0.11 vs x0.93 ± 0.06 for 64 random other sensory neurons, p < 0.001 | **FAIL: too weak** (consistent, below 1.5x) |
 | `mb_extinction` (2.10): after aversive conditioning, the trained odor presented alone 8 times lowers avoidance of it ([Felsenberg et al. 2018](https://doi.org/10.1016/j.cell.2018.08.021)) | PI 1.00 ± 0.00 after extinction vs 1.00 ± 0.00 without; fear of CS+ 0.62 vs 0.67, p = 1.0 | **FAIL: no extinction** |
 | `mb_second_order` (2.10): odor A + shock, then odor B with odor A and no shock, makes flies avoid odor B; unpaired doesn't ([Tabone & de Belle 2011](https://doi.org/10.1101/lm.2035411)) | odor B PI 0.00 ± 0.19 paired vs -0.03 ± 0.21 unpaired; fear of odor B 0.036 vs 0.034, p = 0.13 | **FAIL: no second-order learning** |
-| `larva_noci_to_goro_rolling` (2.11; larva brain, `--validate --brain larva`): nociceptive ascending neurons (annotated `noci`, incl. A00c, 12) excite the neurons annotated `_telegoro-1` (DN-VNC, 2) ([Ohyama et al. 2015](https://doi.org/10.1038/nature14424); [Winding et al. 2023](https://doi.org/10.1126/science.add9330)) | `_telegoro-1` x0.66 ± 0.01 vs x0.65 ± 0.01 for 12 random other sensory neurons, p = 0.001 | **FAIL: no excitation** (the readout drops for drive and control alike) |
-| `larva_chordotonal_to_basin` (2.11; larva brain): ascending neurons annotated `mechano-Ch` (12) excite brain neurons annotated `noci` / `mechano-Ch 2nd_order PN` ([Ohyama et al. 2015](https://doi.org/10.1038/nature14424); [Jovanic et al. 2016](https://doi.org/10.1016/j.cell.2016.10.025)) | 2nd-order PNs x0.68 ± 0.01 vs x0.64 ± 0.01 for 12 random other sensory neurons, p = 0.001 | **FAIL: no excitation** (the readout drops for drive and control alike) |
+| `larva_noci_to_goro_rolling` (2.11; larva brain, `--validate --brain larva`): nociceptive ascending neurons (annotated `noci`, incl. A00c, 12) excite the neurons annotated `_telegoro-1` (DN-VNC, 2) ([Ohyama et al. 2015](https://doi.org/10.1038/nature14297); [Winding et al. 2023](https://doi.org/10.1126/science.add9330)) | `_telegoro-1` x0.66 ± 0.01 vs x0.65 ± 0.01 for 12 random other sensory neurons, p = 0.001 | **FAIL: no excitation** (the readout drops for drive and control alike) |
+| `larva_chordotonal_to_basin` (2.11; larva brain): ascending neurons annotated `mechano-Ch` (12) excite brain neurons annotated `noci` / `mechano-Ch 2nd_order PN` ([Ohyama et al. 2015](https://doi.org/10.1038/nature14297); [Jovanic et al. 2016](https://doi.org/10.1016/j.cell.2016.10.025)) | 2nd-order PNs x0.68 ± 0.01 vs x0.64 ± 0.01 for 12 random other sensory neurons, p = 0.001 | **FAIL: no excitation** (the readout drops for drive and control alike) |
 
 ## What the failures and passes mean
 
@@ -140,3 +140,13 @@ each number above is from a rerun on the held-out seeds after the review's fixes
   The branch's counts for most of them were wrong; the identities were right.
 - Citations were checked against Crossref; several of the branch's DOIs pointed to unrelated papers.
 - No weights, thresholds or LIF time constants changed; the pass criteria are the ones already in `validation.py`.
+
+## What these results predict for the behavior rigs (3.0 day 5)
+
+Written before the rigs were run on held-out seeds ([rigs.md](rigs.md) has what happened). The optomotor test passes, so a tethered fly turning with a rotating
+panorama (and cancelling part of it in closed loop) was expected to work, and does. The E-PG compass tests fail, so no rig here asks for a heading memory. The
+duel's LC10 tracking rule is not in this table (no test drives LC10 and reads DNa02); a probe on exploration seeds found it steers the right way, and bar and stripe
+fixation passed. Nothing connects an olfactory input to steering or walking in this table, so the olfactory arena's preference test was expected to fail, and it did.
+The mini-papers ([minipapers.md](minipapers.md)) reuse these tests and say, for the failed ones, what the table says here.
+
+Citation fix (3.0 day 5): Ohyama et al. 2015 is doi:10.1038/nature14297 (the larva rows above carried the DOI of an unrelated paper).

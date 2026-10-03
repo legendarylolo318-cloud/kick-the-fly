@@ -244,7 +244,7 @@ def format_asymmetry_report(res: dict) -> str:
     lines = [
         f"LEFT/RIGHT ASYMMETRY AUDIT ({res['seconds']:.1f} s calm run, seed={res['seed']}, mirror={res['mirror']})",
         "-" * 88,
-        f"{'Cell Type':<9} {'Count L/R':<11} {'In-Syn L/R':<15} {'Out-Syn L/R':<15} {'Firing Rate L/R':<18} {'Diff (R-L)':<10}",
+        f"{'Cell Type':<9} {'Count L/R':<11} {'In-partners':<15} {'Out-partners':<15} {'Firing Rate L/R':<18} {'Diff (R-L)':<10}",
         "-" * 88,
     ]
     for r in res["records"]:
@@ -393,6 +393,12 @@ def main(args) -> int:
         if getattr(args, "race", False):
             from kickthefly.lab import racing
             return racing.main(args)
+        if getattr(args, "rig", None) or getattr(args, "rig_assay", None):
+            from kickthefly.lab import rigassay
+            return rigassay.main(args)
+        if getattr(args, "minipaper", None):
+            from kickthefly.lab import minipapers
+            return minipapers.main(args)
         if getattr(args, "netsci", None):
             from kickthefly.lab import netsci
             return netsci.main(args)
@@ -412,7 +418,7 @@ def main(args) -> int:
         return 2
     print("nothing to do: use --validate, --protocol FILE, --playthrough, --replay FILE, --audit-asymmetry, --benchmark, "
           "--threshold-sweep, --signflip-test, --critical-path TARGET, --sensitivity, --tournament N, --race, --netsci, "
-          "--sleep-deprivation, --rerun-bundle ZIP or --share-decode CODE", file=sys.stderr)
+          "--sleep-deprivation, --rig NAME, --rig-assay NAME, --minipaper ID, --rerun-bundle ZIP or --share-decode CODE", file=sys.stderr)
     return 2
 
 

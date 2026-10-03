@@ -234,6 +234,24 @@ photoreceptors and clock neurons. MODEL PREDICTION: the rebound sleep, which the
 Sensitivity analysis (Lab; --sensitivity). Each LIF parameter and the synapse threshold varied across a documented range, every validated
 behavior re-run with validation's own criteria: a heatmap. Analysis only: no default changes. Every cell is a MODEL PREDICTION.
 
+Behavior rigs (3.0 day 5; Lab > Behavior rigs, --rig, --rig-assay, protocols/rig_*.yaml; game/rigs.py, lab/rigassay.py). CONNECTOME: yaw is read
+from DNa01 + DNa02 right minus left and walking from DNp09 (against the race's fixed reference rate); wide-field rotation reaches the steering neurons
+through T4/T5 (validated: optomotor_turning). GAME RULE: how steering Hz becomes a yaw rate (the duel's: 1.5 Hz dead zone, 0.24 rad/s per Hz, at most
+2.1 rad/s), the EMD stage in front of T4/T5, LC10 tracking of a stripe or bar on the side it is on (the duel's rule; one stripe at a time in Buridan's
+arena), the platform and its reflecting edge, the ball and the VR, the four-field arena, its sharp odor quadrants and the preference index. MODEL
+PREDICTION: what the fly does. Criteria were committed before any held-out run (seeds 1000-1009, with an --individuality off control): the tethered
+rig, the ball (the optomotor response, closed-loop bar fixation) and Buridan's paradigm (stripe deviation about 3 degrees against 42 without stripes,
+far tighter than real flies', docs/rigs.md) PASS; the four-field arena FAILS (no preference for the odor: nothing connects an odor to steering or
+walking in this model).
+
+Guided mini-papers (3.0 day 5; Esc > Mini-papers, Lab > Mini-papers, --minipaper; lab/minipapers.py). Lecture protocols (lab/classroom.py) whose
+experiments are validation tests (or the Buridan rig): you state a hypothesis, run it, see the plot, and read your result (MODEL PREDICTION) next to what
+the paper itself states (LITERATURE: direction and any numbers the paper gives, cited, with how much of it was read: abstract or full text). Where the
+model fails a paper (the aDN to leg motor neurons, the larva rolling pair) the page says so and why.
+
+What's New in 3.0 (3.0 day 5; ui/whatsnew_ui.py). One screen, once, after an upgrade: [first_run] whatsnew_3_0_seen in config.toml (missing = not seen; a
+fresh install starts seen). No simulation behavior.
+
 Validation (validation.py): which published results this sim reproduces, on held-out seeds with pass criteria fixed
 beforehand. Pass: looming -> giant fiber, sugar -> MN9, antennal touch -> aDN, T-maze conditioning, pIP10 -> ps1,
 bitter GRNs -> DNg28, CO2 ORNs -> V PNs, TRN_VP2 -> VP2 PNs, TRN_VP3 -> VP3 PNs, optomotor (T4/T5 -> DNa_R),
@@ -2608,6 +2626,9 @@ class Game:
         from kickthefly.ui import arcade_ui
 
         self.menu.pages["arcade"] = arcade_ui.page             # 3.0 day 4: fly tournament and fly racing
+        from kickthefly.ui import whatsnew_ui
+
+        whatsnew_ui.install(self.menu)                          # 3.0 day 5: What's New in 3.0 (once, then Settings > Help)
         Game.LIVE.add(self)
         threading.Thread(target=self._view_loop, name="brain-view", daemon=True).start()
 
@@ -2928,6 +2949,11 @@ class Game:
             self.open_menu("loadout_notice")
         elif not fr.get("tutorial_done"):
             self.start_tutorial()
+        elif not fr.get("whatsnew_3_0_seen"):               # 3.0 day 5: once, then never again (a migrated [first_run] key)
+            fr["whatsnew_3_0_seen"] = True
+            self.cfg.dirty = True
+            self.cfg.save()
+            self.open_whatsnew()
         elif not fr.get("neuron_shapes_asked") and not self.cfg["brain.neuron_shapes"]:
             fr["neuron_shapes_asked"] = True             # asked once; Settings > Brain changes it later
             self.cfg.dirty = True
@@ -2936,6 +2962,9 @@ class Game:
             self.open_menu("neuron_shapes_ask")
         else:
             self.x3.maybe_show_notd()                 # 3.0: the Neuron of the Day card (its own setting, default on)
+
+    def open_whatsnew(self) -> None:
+        self.open_menu("whatsnew")
 
     def start_tutorial(self, replay: bool = False) -> None:
         from kickthefly.ui import tutorial
@@ -2967,6 +2996,8 @@ class Game:
             self.menu.show("live_inputs")
         elif name == "arcade":
             self.menu.show("arcade")
+        elif name == "minipapers":
+            self.menu.show("lab_minipapers")           # 3.0 day 5: the same page as Lab > Mini-papers
         elif name == "save_state":
             self.save_state()
         elif name == "load_state":
@@ -3096,6 +3127,10 @@ class Game:
                  "communities and per-region summaries of the brain pack (adult or larva), cached and exportable to CSV."),
                 ("Sleep deprivation", "lab_sleepdep", "Keep a fly awake through the night with timed disturbances, then measure rebound sleep "
                  "against an undisturbed control (paired). Sleep pressure is a game rule; the dFB readout is the connectome's."),
+                ("Behavior rigs", "lab_rigs", "Four classic rigs, each its own scene: a tethered flight simulator, a fly on a ball, Buridan's paradigm and a "
+                 "four-field olfactory arena. Steering and walking are read from real descending neurons; each has a pre-registered assay."),
+                ("Mini-papers", "lab_minipapers", "Short guided experiments that reproduce a classic paper: state a hypothesis, run it, plot it, and see your "
+                 "result next to what the paper found (and why the model misses where it does)."),
                 ("Sensitivity analysis", "lab_sensitivity", "Vary each LIF parameter across a documented range and re-run the validated behaviors "
                  "with validation's own criteria: a parameter x behavior heatmap. Analysis only; defaults never change.")]
 
@@ -4475,7 +4510,7 @@ class Game:
             sparkle = 0.8 + 0.2 * math.sin(now * 6)
             pygame.draw.circle(surf, (255, 245, 220), (int(gx), int(gy)), 14)
             pygame.draw.circle(surf, (255, 255, 255), (int(gx), int(gy)), int(10 * sparkle))
-            self._text(surf, "★ SUGAR GOAL ★", (int(gx), FLOOR + 10), (255, 220, 100), self.f_small, "midtop")
+            self._text(surf, "SUGAR GOAL", (int(gx), FLOOR + 10), (255, 220, 100), self.f_small, "midtop")
         elif arena == "thermo":
             bar_y = FLOOR - 6
             bar_h = 10
@@ -6658,7 +6693,7 @@ class Game:
         elapsed = (self.escaperoom_finish_t if self.escaperoom_completed else now) - self.escaperoom_start_t
         elapsed = max(0.0, elapsed)
 
-        status_txt = "★ GOAL REACHED! ★" if self.escaperoom_completed else "ESCAPE ROOM: SPEEDRUN"
+        status_txt = "GOAL REACHED!" if self.escaperoom_completed else "ESCAPE ROOM: SPEEDRUN"
         col = (255, 220, 100) if self.escaperoom_completed else (120, 210, 255)
         self._text(surf, status_txt, (cx + 14, cy + 8), col, self.f_small)
 
@@ -7475,6 +7510,14 @@ def parse_args(argv: list[str] | None = None):
                          "predict the finishing order?)")
     ap.add_argument("--races", type=int, metavar="K", help="with --race: how many races (each --seeds group of --lanes flies)")
     ap.add_argument("--lanes", type=int, metavar="N", help="with --race: flies per race (default 6)")
+    ap.add_argument("--rig", choices=("tethered", "ball", "buridan", "fourfield"),
+                    help="3.0 day 5, headless: one fly (the first of --seeds) in a classic behavior rig, recorded in the Lab's format into --out "
+                         "(tethered flight simulator, fly on a ball, Buridan's paradigm, four-field olfactory arena)")
+    ap.add_argument("--rig-assay", dest="rig_assay", choices=("tethered", "ball", "buridan", "fourfield"),
+                    help="3.0 day 5, headless: the rig's pre-registered assay over --seeds (default 1000-1009), default individuality and the "
+                         "off control; JSON and CSV into --out")
+    ap.add_argument("--minipaper", metavar="ID", help="3.0 day 5, headless: run a guided mini-paper (--seeds sets the flies; the default is "
+                    "its quick run) and print your result next to what the paper found; ID 'list' lists them")
     ap.add_argument("--netsci", nargs="?", const="adult", choices=("adult", "larva", "both"), metavar="BRAIN",
                     help="3.0 day 4, headless: network science of the brain pack (degrees, reciprocity, motifs, rich club, "
                          "communities, regions); cached; CSV into --out")
@@ -7543,6 +7586,7 @@ def main(argv: list[str] | None = None) -> int:
             or getattr(args, "signflip_test", False) or getattr(args, "critical_path", None)
             or getattr(args, "sensitivity", False) or getattr(args, "tournament", None) or getattr(args, "race", False)
             or getattr(args, "netsci", None) or getattr(args, "sleep_deprivation", False)
+            or getattr(args, "rig", None) or getattr(args, "rig_assay", None) or getattr(args, "minipaper", None)
             or getattr(args, "replay", None) or getattr(args, "record_replay", None)
             or getattr(args, "rerun_bundle", None) or getattr(args, "share_decode", None)):
         if getattr(args, "replay", None) and not args.headless:

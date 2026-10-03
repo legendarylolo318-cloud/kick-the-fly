@@ -48,6 +48,13 @@ Two kinds of protocol:
     # a third kind of protocol, a virtual patch clamp (lab/patchclamp.py), MODEL:
     patch: {neuron: "type:DNp01", index: 0, mode: embedded, amplitudes: [0, 0.05, 0.1], duration_ms: 500, repeats: 3}
 
+3.0 day 5: a fourth stand-alone kind, a classic behavior rig (game/rigs.py, lab/rigassay.py), one fly per seed, each recorded in the Lab's format:
+
+    rig: {name: buridan, mode: stripes, seconds: 60}     # name: tethered | ball | buridan | fourfield
+    #   tethered: mode open|closed, omega (rad/s), seconds, gain      ball: mode closed|open, scene panorama|bar, seconds, omega, bar_deg
+    #   buridan: mode stripes|none, seconds                           fourfield: mode odor|sham, seconds
+    #   any of them: individuality: off|subtle|strong (default subtle)
+
 3.0 day 3 additions (stimulus protocols only; each is optional):
 
     weather:                                 # rain, gusts, lightning (game/weather.py), GAME RULE on the real touch / humidity / wind / light neurons
@@ -76,7 +83,7 @@ import numpy as np
 
 TOP_KEYS = {"name", "description", "title", "classroom", "steps", "seed", "seeds", "flies", "warmup_s", "duration_s", "params", "surgery", "control",
             "stimuli", "recordings", "assay", "assay_options", "workers", "nwb", "thermogenetics", "drug", "imaging", "patch",
-            "weather", "audio", "predator"}
+            "weather", "audio", "predator", "rig"}
 STIM_KEYS = {"at_s", "for_s", "target", "strength", "recruit", "mode", "amp", "side"}
 
 
@@ -95,6 +102,16 @@ def _check_day2(p: dict, where: str) -> None:
     """Validate the 3.0 day 2 blocks (thermogenetics, drug, imaging, patch); raise ProtocolError with the reason."""
     from kickthefly.lab import imaging, patchclamp, pharmacology, thermogenetics
 
+    if "rig" in p:
+        # 3.0 release review: params, nwb and assay_options were accepted and then silently ignored (a rig fly is built with the default
+        # Lab parameters and writes no NWB), so a protocol asking for changed parameters would have reported the defaults' result as its own
+        ignored = [k for k in ("assay", "classroom", "thermogenetics", "drug", "imaging", "stimuli", "recordings", "surgery", "control",
+                               "warmup_s", "duration_s", "patch", "params", "nwb", "assay_options", *DAY3_KEYS) if k in p]
+        if ignored:
+            raise ProtocolError(f"{where}: a rig protocol stands alone; it can't use {', '.join(ignored)} (the rig sets its own timeline "
+                                "and builds its flies with the default parameters)")
+        _check_rig(p, where)
+        return
     if "patch" in p:
         # 3.0 day 2 review: surgery, recordings, control and a top-level warmup/duration were accepted and then ignored
         ignored = [k for k in ("assay", "classroom", "thermogenetics", "drug", "imaging", "stimuli", "recordings", "surgery",
@@ -241,6 +258,30 @@ def _check_day3(p: dict, where: str) -> None:
         p["predator"] = dict(kind=d["kind"], at_s=_num(d.get("at_s", 0.0), 0, 3600, "predator.at_s", where))
 
 
+RIG_KEYS = {"name", "mode", "seconds", "omega", "gain", "scene", "bar_deg", "individuality"}
+
+
+def _check_rig(p: dict, where: str) -> None:
+    """The rig block (3.0 day 5): checked against rigassay.SCENES; numbers become numbers before anything runs."""
+    from kickthefly.lab import rigassay
+
+    r = p["rig"]
+    if not isinstance(r, dict) or set(r) - RIG_KEYS or not isinstance(r.get("name"), str) or r["name"] not in rigassay.SCENES:      # a list name is unhashable
+        raise ProtocolError(f"{where}: rig needs {{name: {' | '.join(rigassay.SCENES)}, ...}} with only {sorted(RIG_KEYS)}")
+    sc = rigassay.SCENES[r["name"]]
+    if r.get("mode", sc["default"]["mode"]) not in sc["mode"]:
+        raise ProtocolError(f"{where}: rig {r['name']} mode must be one of {', '.join(sc['mode'])}")
+    if r.get("scene", "bar") not in ("panorama", "bar"):
+        raise ProtocolError(f"{where}: rig.scene must be panorama or bar")
+    if r.get("individuality", "subtle") not in ("off", "subtle", "strong"):
+        raise ProtocolError(f"{where}: rig.individuality must be off, subtle or strong")
+    out = dict(r)
+    for key, lo, hi in (("seconds", 5, 600), ("omega", -10, 10), ("gain", 0, 3), ("bar_deg", -180, 180)):
+        if key in r:
+            out[key] = _num(r[key], lo, hi, f"rig.{key}", where)
+    p["rig"] = out
+
+
 def _check_sleep_deprivation(p: dict, where: str) -> None:
     """The sleep_deprivation assay (3.0 day 4): options become keyword arguments of sleepdep.fly_pair. It is a paired design (each
     seed is its own control), so it takes no surgery."""
@@ -353,7 +394,7 @@ def check(data, where: str = "protocol") -> dict:
     if p.get("classroom"):
         _check_day2(p, where)
         return p
-    if "patch" in p:
+    if "patch" in p or "rig" in p:
         _check_day2(p, where)
         return p
     for key, default in (("warmup_s", 1.0), ("duration_s", 2.0)):
@@ -593,7 +634,10 @@ def run(p: dict, out: Path | None = None, workers: int | None = None, progress=N
     folder.mkdir(parents=True, exist_ok=True)
     (folder / "protocol.json").write_text(json.dumps(p, indent=1, default=str), encoding="utf-8")
     t0 = time.time()
-    if "patch" in p:
+    if "rig" in p:
+        summary = run_rig(p, folder, progress)
+        summary["seconds"] = round(time.time() - t0, 1)
+    elif "patch" in p:
         summary = run_patch(p, folder, progress)
         summary["seconds"] = round(time.time() - t0, 1)
     elif "assay" in p:
@@ -658,6 +702,22 @@ def run_patch(p: dict, folder: Path, progress=None) -> dict:
                 rate_hz_by_current=by_amp, rheobase_by_seed={str(k): v for k, v in rheo.items()})
 
 
+def run_rig(p: dict, folder: Path, progress=None) -> dict:
+    """A rig protocol: each seed's fly in the rig (lab/rigassay.scene_run), recorded in the Lab's format. Tags: see rigs.RIG_TAGS."""
+    from kickthefly.game import rigs
+    from kickthefly.lab import rigassay
+
+    r = dict(p["rig"])
+    name, mode_ind = r.pop("name"), r.pop("individuality", rigassay.DEFAULT_MODE)
+    per_seed = {}
+    for i, seed in enumerate(p["seeds"]):
+        res = rigassay.scene_run(name, seed, mode_ind, folder=folder, **r)
+        per_seed[str(seed)] = res["summary"]
+        if progress:
+            progress(i + 1, len(p["seeds"]))
+    return dict(protocol=p["name"], seeds=p["seeds"], rig=dict(p["rig"]), title=rigs.RIG_TITLE[name], tags=rigs.RIG_TAGS[name], rig_summary=per_seed)
+
+
 def find(path: Path) -> Path:
     """A protocol file by path, or by name from your protocols folder or the bundled examples."""
     if Path(path).exists():
@@ -718,12 +778,14 @@ def run_file(path: Path, out: Path | None = None, workers: int | None = None, nw
         return 2
     t0 = time.time()
     print(f"protocol {p['name']}: {len(p['seeds'])} fly(s)" + (f", assay {p['assay']}" if "assay" in p else "")
-          + (", patch clamp (MODEL)" if "patch" in p else ""), flush=True)
+          + (", patch clamp (MODEL)" if "patch" in p else "") + (f", rig {p['rig']['name']}" if "rig" in p else ""), flush=True)
     folder = run(p, out, workers, progress=lambda d, n: print(f"  {d}/{n} ({time.time() - t0:.0f}s)", flush=True))
     summary = json.loads((folder / "summary.json").read_text(encoding="utf-8"))
     for tag, groups in summary.get("mean_rate_hz", {}).items():
         for g, c in groups.items():
             print(f"  {tag:8s} {g:20s} {c['mean']:8.2f} Hz  (n={c['n']})")
+    for sd_, sm in (summary.get("rig_summary") or {}).items():
+        print(f"  seed {sd_}: " + ", ".join(f"{k} {v:.3g}" if isinstance(v, float) else f"{k} {v}" for k, v in sm.items() if v is not None))
     for a_, c in (summary.get("rate_hz_by_current") or {}).items():
         print(f"  current {a_:>6s}  {c['mean']:8.2f} Hz  (n={c['n']})   [{summary['tag']}]")
     for g, c in (summary.get("comparison") or {}).items():

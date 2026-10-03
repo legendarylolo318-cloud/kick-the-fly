@@ -43,39 +43,24 @@ def _st(m):
 def page(m: ui.Menu, surf, rect, mouse) -> None:
     st, host = _st(m), m.host
     m.text(surf, "NEURAL CLAMP (DYNAMIC CLAMPING)", (rect.x + 24, rect.y + 16), ui.INK, m.f_head)
-    m.text(surf, "Record a run's exact spike train and replay it into a modified connectome to isolate wiring effects "
-                 "from behavioral input variation.", (rect.x + 24, rect.y + 48), ui.LABEL, m.f_small)
+    y = m.subtitle(surf, rect, "Record a run's exact spike train and replay it into a modified connectome to isolate wiring effects "
+                               "from behavioral input variation.")
 
-    # Dynamic clamp prominent notice
-    banner = pygame.Rect(rect.x + 24, rect.y + 70, rect.w - 48, 28)
+    # Dynamic clamp prominent notice (3.0 release review: one fixed-height line that ran past the panel; now wrapped and measured)
+    note = ("DYNAMIC CLAMP: Forced spikes override the network's own state and break feedback loops (such as "
+            "proprioception). This is dynamic clamping, not an autonomous run.")
+    n = len(ui.Menu.fit_lines(m.f_small, note, rect.w - 68, 4)[0])
+    banner = pygame.Rect(rect.x + 24, y, rect.w - 48, n * m.f_small.get_linesize() + 10)
     pygame.draw.rect(surf, (40, 24, 20), banner, border_radius=6)
     pygame.draw.rect(surf, (220, 110, 60), banner, 1, border_radius=6)
-    m.text(surf, "DYNAMIC CLAMP: Forced spikes override the network's own state and break feedback loops (such as "
-                 "proprioception). This is dynamic clamping, not an autonomous run.",
-           (banner.x + 10, banner.centery), (255, 180, 120), m.f_small, "midleft")
+    m.wrapped(surf, note, (banner.x + 10, banner.y + 5), banner.w - 20, (255, 180, 120), m.f_small, max_lines=4)
 
-    y = rect.y + 108
-    m.text(surf, "Reference scenario:", (rect.x + 24, y + 6), ui.TEXT, m.f_text)
-    x = rect.x + 170
-    for key, label in SCENARIOS:
-        r = pygame.Rect(x, y, 160, 30)
-        m.button(surf, r, label, (lambda k=key: setattr(st, "clamp_scenario", k)), id=("c_scen", key),
-                 active=st.clamp_scenario == key)
-        x += 170
-
-    y += 38
-    m.text(surf, "Connectome modification:", (rect.x + 24, y + 6), ui.TEXT, m.f_text)
-    x = rect.x + 210
-    for key, label in MODS:
-        w_btn = 190 if "Picrotoxin" in label or "Threshold" in label else 230
-        r = pygame.Rect(x, y, w_btn, 30)
-        if r.right > rect.right - 24:
-            x, y = rect.x + 210, y + 34
-            r = pygame.Rect(x, y, w_btn, 30)
-        m.button(surf, r, label, (lambda k=key: setattr(st, "clamp_mod", k)), id=("c_mod", key),
-                 active=st.clamp_mod == key)
-        x += w_btn + 8
-
+    y = banner.bottom + 10
+    right = rect.right - 24
+    y = m.flow_buttons(surf, rect.x + 24, y, right, [(label, (lambda k=key: setattr(st, "clamp_scenario", k)), ("c_scen", key),
+                                                      st.clamp_scenario == key, None) for key, label in SCENARIOS], label="Reference scenario:") + 8
+    y = m.flow_buttons(surf, rect.x + 24, y, right, [(label, (lambda k=key: setattr(st, "clamp_mod", k)), ("c_mod", key),
+                                                      st.clamp_mod == key, None) for key, label in MODS], label="Connectome modification:") - 30
     y += 44
     job = st.clamp_job
     if job is not None and not job["thread"].is_alive():
