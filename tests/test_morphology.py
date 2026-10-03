@@ -52,7 +52,8 @@ def test_brainview_with_skeletons():
     if cached:          # a cached skeleton must really be drawn (a signature mismatch once hid this behind the fallback)
         assert view.skeleton_status.startswith("Real morphology"), view.skeleton_status
     else:
-        assert "Skeletons offline" in view.skeleton_status
+        # since the 3.0 day 3 follow-up the download is opt-in, and the view says so; a machine with no cached skeleton (a fresh clone) sees this text
+        assert "Skeletons offline" in view.skeleton_status or "real shapes are off" in view.skeleton_status, view.skeleton_status
 
 
 def test_load_key_skeletons_takes_the_view_sample_count(tmp_path):

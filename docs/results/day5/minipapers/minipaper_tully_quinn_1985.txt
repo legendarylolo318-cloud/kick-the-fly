@@ -1,0 +1,17 @@
+MINI-PAPER: Odor + shock gives a T-maze memory (Tully & Quinn 1985)
+  Tully T, Quinn WG (1985) Classical conditioning and retention in normal and mutant Drosophila melanogaster. Journal of Comparative Physiology A 157:263-277
+  doi:10.1007/BF01350033   read: abstract only (Europe PMC record of PubMed 3939242); the full text was not read
+
+  The paper reports: Twelve shock pulses in the presence of the first odor (and none with the second) were given and flies were tested in a T-maze. 95% of trained flies avoided the shock-associated odor. Learning reached a plateau within one training cycle and was resistant to extinction. Backward conditioning produced no learning, and nonassociative controls slightly reduced avoidance equally for both odors without affecting the associative learning index. Memory in wild-type flies decayed gradually over the first seven hours and was still present 24 h later.
+  Numbers the paper states: 95% of trained flies avoided the shock-associated odor (a share of about 150 flies per test, not a per-fly index)
+
+  Your result: RUN NOW on 4 flies (seeds 0-3, exploration seeds: a first look)
+
+  Q (mb_conditioning): You train a fly with odor A + shock (six cycles) and odor B without. At the choice point, what is its performance index (1 = always picks the odor that was not shocked)? And an unpaired control, with the same odors and shocks never together?
+    paper's direction: paired flies avoid the shocked odor (PI of 0.5 or more); unpaired flies don't
+    your hypothesis: not given
+    the model REPRODUCES it (effect size and direction only: n = 4 is too few flies for the validation's p < 0.01 (the smallest one-sided Wilcoxon p at n = 4 is 0.0625))
+    numbers: pi_mean 1, pi_sd 0, control_pi_mean 0.025, control_pi_sd 0.126, fear_cs_plus 0.77, fear_cs_minus 0.0572, approach_mbon_cs_plus_hz 30.9, approach_mbon_cs_minus_hz 31.1, p_value 0.0625, n 4
+    The game's learning rule on the connectome's own Kenyon-cell to output-neuron synapses gives odor-specific memory. The sim's PI is higher than real flies' (the paper's 95% avoiding is a PI of about 0.9 if every fly did it): it was not tuned to match.
+
+  What this model cannot check: Retention over hours, shock intensity, odor concentration, delay versus backward conditioning and the amnesiac, rutabaga and dunce mutants: none of them is in the model. Only learning (paired versus unpaired) is tested. The sim's per-fly performance index PI = (choices of the other odor - choices of the shocked odor) / choices; (1 + PI) / 2 is the share of choices that avoid the shocked odor, which is the closest thing to the paper's 95% (derived here, not stated by the paper).

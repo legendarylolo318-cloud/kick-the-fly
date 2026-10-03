@@ -1,0 +1,17 @@
+MINI-PAPER: Sugar taste reaches the feeding motor neuron (Shiu et al. 2024)
+  Shiu PK, Sterne GR, Spiller N, Franconville R, Sandoval A, Zhou J, Simha N, Kang CH, Yu S, Kim JS, Dorkenwald S, Matsliah A, Schlegel P, Yu SC, McKellar CE, Sterling A, Costa M, Eichler K, Bates AS, Eckstein N, Funke J, Jefferis GSXE, Murthy M, Bidaye SS, Hampel S, Seeds AM, Scott K (2024) A Drosophila computational brain model reveals sensorimotor processing. Nature 634:210-219
+  doi:10.1038/s41586-024-07763-9   read: abstract only (Europe PMC); the full text is behind a paywall and was not read
+
+  The paper reports: A leaky integrate-and-fire model of a whole adult fly central brain, built from connectivity and predicted neurotransmitter identity, predicts which neurons respond to sugar or water taste and are required for feeding initiation; activating neurons in the feeding region predicts which of them make motor neurons fire, which the authors confirmed with optogenetic activation and behavior; activating different classes of taste neurons predicts how several taste modalities interact.
+  Numbers the paper states: none stated in the abstract (it names no motor neuron and no effect size)
+
+  Your result: RUN NOW on 4 flies (seeds 0-3, exploration seeds: a first look)
+
+  Q (sugar_feeding): You drive 30 sugar-pathway taste neurons for 2 s. What happens to MN9 (the proboscis motor neuron), compared with driving 30 bitter-pathway taste neurons?
+    paper's direction: MN9 fires clearly more for sugar (at least 1.5x calm, and more than for bitter)
+    your hypothesis: not given
+    the model REPRODUCES it (effect size and direction only: n = 4 is too few flies for the validation's p < 0.01 (the smallest one-sided Wilcoxon p at n = 4 is 0.0625))
+    numbers: drive_ratio_mean 2.65, drive_ratio_sd 0.0886, control_ratio_mean 1.23, control_ratio_sd 0.123, readout_base_hz 5.62, readout_driven_hz 14.9, p_value 0.0625, n 4
+    The sugar-pathway neurons reach the proboscis motor neuron and the bitter-pathway neurons mostly don't, as the paper's model leads you to expect.
+
+  What this model cannot check: The paper's model is built on a different connectome (a central brain of more than 125,000 neurons and 50 million synapses, per the abstract); this game's is the MaleCNS v1.0 with 166,700 neurons and its own LIF parameters, so this is the same kind of model on other wiring, not the paper's. The abstract does not name MN9, so MN9 as the readout is this game's choice (the proboscis motor neuron), and the sugar and bitter sets are chosen from their wiring to the sugar and bitter SEL neurons, not by taste labels (the dataset has none).
