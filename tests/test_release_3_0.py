@@ -217,3 +217,40 @@ def test_segmented_labels_fit_and_the_toggle_is_translated(menu, monkeypatch):
     menu.text = lambda s_, t, *a, **k: drawn.append(t) or orig(s_, t, *a, **k)
     menu.toggle(surf, (10, 50, 120, 30), True, lambda v: None, id="t")
     assert "Ein" in drawn
+
+
+# --- the order-dependent test leak (test_playthrough_extras::test_neurodex_extra_passes) ---------------------------------------------
+def test_a_neurodex_table_built_for_one_pack_is_never_returned_for_another(monkeypatch, tmp_path):
+    """neurodex.table cached by brain name only: a game's background build for the real pack that finished after a test switched to the
+    synthetic pack stored the real table under "adult", and the synthetic brain then indexed it (IndexError: index 2932 ... size 2346, the
+    fast suite's order-dependent failure since 3.0 day 1). Reproduced here with a slow build thread."""
+    import threading
+    import time
+
+    from kickthefly.core import neurodex as nd
+    from kickthefly.sim import brainpack
+
+    a, b = tmp_path / "real.npz", tmp_path / "synthetic.npz"
+    a.write_bytes(b"a")
+    b.write_bytes(b"b")
+    started = threading.Event()
+
+    def slow_build(path, brain="adult"):
+        if path == a:
+            started.set()
+            time.sleep(0.3)                                  # the real pack takes seconds
+        return ("table of", path.name)
+
+    monkeypatch.setattr(nd, "table_from_pack", slow_build)
+    nd.reset_cache()
+    monkeypatch.setattr(brainpack, "find", lambda brain="adult": a)
+    stale = threading.Thread(target=nd.table, args=("adult",))
+    stale.start()
+    started.wait(2)
+    nd.reset_cache()                                         # the next test's fixture
+    monkeypatch.setattr(brainpack, "find", lambda brain="adult": b)
+    got = nd.table("adult")
+    stale.join()
+    assert got == ("table of", "synthetic.npz")
+    assert nd.table("adult") == ("table of", "synthetic.npz")
+    nd.reset_cache()
