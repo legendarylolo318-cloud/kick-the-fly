@@ -53,6 +53,11 @@ Fixed (regression tests in `tests/test_release_3_0.py` and `tests/test_layout_3_
   Bundle and Back buttons (the path is now cut in the middle to fit one line). The batched gl test failed twice (2 of ~23 runs, same
   920 < 920): a gl group waits only for a fly seen in the last 50 ms, and on llvmpipe a step takes ~0.5 s, so two flies that drifted
   apart never batched again; the test now sizes those windows to llvmpipe (the product's defaults and the bit-exact check are unchanged).
+  The fixed clock then made the kitchen check fail on CI every time, and the cause was the check, not the game: each station's calm
+  second put the fly once and left it free, and a fly still fleeing the burner flew into the vinegar's smell, so the vinegar's
+  "calm" was DM1/DM2/DP1m already smelling it (~40 Hz instead of 1-2 Hz) and the vinegar's peak was judged against that. The fly is
+  now held at a spot out of the smell through the calm second (`KITCHEN_CALM`); the criterion is unchanged (vinegar: calm ~3 Hz,
+  peak ~54 Hz, needed 31-34 Hz, 10 of 10 clock origins locally).
   **The playthrough was not reproducible:** the game clock starts at `time.perf_counter()` and the fly's
   flight bob, wind and wobble read that absolute time, so a run started at another moment drove the fly differently; 2D flypaper bomb and
   spider failed on one CI run of code that had passed on two. The playthrough's games now start their clock at a fixed 1000.0 (chosen

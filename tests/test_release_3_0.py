@@ -446,3 +446,14 @@ def test_the_playthrough_rigs_start_their_clock_at_a_fixed_origin(synthetic_pack
         assert k2.SimClock is simclock.SimClock                  # the real game's clock is left alone
     finally:
         r.close()
+
+
+def test_the_kitchen_checks_calm_spot_is_out_of_the_vinegars_smell():
+    """The kitchen check took its calm baseline 3.36 m from the vinegar jar, inside the smell's 3.4 m range: DM1/DM2/DP1m were already
+    driven (~28 Hz instead of 1-2 Hz) and the vinegar check passed or failed on noise."""
+    from kickthefly.game import kick3d, kitchen
+    from kickthefly.lab import playthrough as pt
+
+    x, z = pt.KITCHEN_CALM
+    assert kitchen.scent_strength(np.array([x, kick3d.STAND3, z])) == 0.0
+    assert np.linalg.norm(np.array([x, kick3d.STAND3, z]) - kitchen.mouth()) > kitchen.SCENT_RANGE + 0.5   # the head too, with margin

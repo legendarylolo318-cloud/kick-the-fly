@@ -1001,6 +1001,13 @@ def _put(rig: "Rig", xyz) -> None:
     fly.hover = fly.p[kick3d.THX].copy()
 
 
+# Where each kitchen station's calm 1.5 s is taken (x, z), the fly held there: out of the vinegar's smell. Before, the fly was put at
+# (0, 0.5) once, 3.36 m from the jar's mouth (inside SCENT_RANGE, 3.4 m), and left free; one still fleeing the burner flew to about
+# 1.5 m from the jar, so the vinegar's "calm" was DM1/DM2/DP1m already smelling it (~40 Hz, 1-2 Hz out of range) and the check
+# passed or failed on the noise (3.0 release, CI run 37155212420).
+KITCHEN_CALM = (-2.5, 2.0)
+
+
 def extra_kitchen(rig: Rig, r: Result) -> None:
     """3.0 day 3 (3D game): each part of the kitchen drives the neurons it documents, judged the way tools are: the sink the humidity
     neurons, the burner the heat sensors, the vinegar's smell the fermentation glomeruli DM1/DM2/DP1m, the trap (a fly hovering over
@@ -1025,9 +1032,12 @@ def extra_kitchen(rig: Rig, r: Result) -> None:
     br, slot = rig.brain, rig.slot
 
     def station(name, xyz, seconds, probes, engaged=None, hold=True):
-        _put(rig, (0.0, stand, 0.5))
+        calm = (KITCHEN_CALM[0], stand, KITCHEN_CALM[1])
+        _put(rig, calm)
         rig.probe = Probe(br, probes)
-        rig.seconds(1.5)
+        for _ in range(6):                                             # held there through the calm 1.5 s too: placed once, a fly
+            _put(rig, calm)                                            # still fleeing the burner flew into the vinegar's smell
+            rig.seconds(0.25)
         use = rig.probe.n
         t = 0.0
         while t < seconds:
