@@ -1035,6 +1035,14 @@ def short(path, n: int = 70) -> str:
     return t if len(t) <= n else t[: n // 2 - 2] + "…" + t[-(n // 2 - 1):]
 
 
+def fit_path(font, prefix: str, path, width: int) -> str:
+    """prefix + path on one line of at most `width` px, the path shortened in the middle (a path has no spaces to wrap at)."""
+    n = len(str(path))
+    while n > 12 and font.size(prefix + short(path, n))[0] > width:
+        n -= 4
+    return prefix + short(path, n)
+
+
 # --- charts ----------------------------------------------------------------------------------------------------------
 def draw_chart(m: ui.Menu, surf, rect: pygame.Rect, xs, series, x_label: str, y_label: str, y_max: float | None = None,
                x_fmt="{:g}", connect: bool = True) -> None:
@@ -1535,10 +1543,15 @@ def page_export(m: ui.Menu, surf, rect, mouse) -> None:
             enabled=bool(st.rec_pick), tip="Closes the menu; the recording stops by itself after the duration.")
     else:
         m.button(surf, (rect.x + 24, y, 200, 44), "Stop and save", host.stop_recording, style="danger", id="rec_stop")
-    m.wrapped(surf, f"Saved to {short(recorder.exports_dir(), 110)}", (rect.x + 24, y + 56), rect.w - 220, ui.LABEL, m.f_small, max_lines=2)
+    # one line each, the path cut in the middle to fit (a long Windows temp path has no spaces, so it ran into Bundle and Back)
+    ly, lh = y + 56, m.f_small.get_linesize()
+    m.text(surf, fit_path(m.f_small, "Saved to ", recorder.exports_dir(), rect.w - 220), (rect.x + 24, ly), ui.LABEL, m.f_small)
+    ly += lh
     last = getattr(host, "last_export", None)
     if last:
-        m.text(surf, f"Last: {short(last, 110)}", (rect.x + 24, y + 76), ui.GOOD, m.f_small)
+        m.text(surf, fit_path(m.f_small, "Last: ", last, rect.w - 220), (rect.x + 24, ly), ui.GOOD, m.f_small)
+        ly += lh
+    y = max(y, ly + 6 - 98)                                      # Bundle sits at y + 98: below the lines above it
 
     def bundle_now():
         path, msg = make_bundle(host, st)

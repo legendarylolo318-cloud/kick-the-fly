@@ -276,7 +276,7 @@ def page_thermo(m: ui.Menu, surf, rect, mouse) -> None:
                     "(read from Kitamoto 2001: paralysis within 2 min, recovery in about 1 min). Instant: the steady-state level.")
     y += 44
     m.text(surf, "Expression", (x, y), ui.INK, m.f_bold)
-    y += 22
+    y += max(22, m.f_bold.get_linesize() + 2)                    # Segoe UI Semibold at larger text is taller than 22 px
     rows = tl.status()
     for i, e in enumerate(tl.expressions):
         s = rows[i] if i < len(rows) else {}

@@ -223,10 +223,18 @@ jobs:
         run: |
           # The release title is RELEASE_NOTES.md's first line ("# Kick the Fly X.Y.Z: ..."), so it can't go stale
           title="$(head -n1 RELEASE_NOTES.md | sed 's/^# *//')"
-          case "$title" in "Kick the Fly ${GITHUB_REF_NAME#v}"*) ;; *) echo "RELEASE_NOTES.md is not for ${GITHUB_REF_NAME}: $title"; exit 1;; esac
+          # A tag with a suffix (v3.0.0-rc.1) is a prerelease of that version: the notes are the version's, the title says which rc
+          ver="${GITHUB_REF_NAME#v}"; core="${ver%%-*}"; pre=""
+          if [ "$ver" != "$core" ]; then pre="${ver#*-}"; fi
+          case "$title" in "Kick the Fly ${core}:"*) ;; *) echo "RELEASE_NOTES.md is not for ${GITHUB_REF_NAME}: $title"; exit 1;; esac
+          flags=()
+          if [ -n "$pre" ]; then
+            title="Kick the Fly ${core} (${pre}):${title#"Kick the Fly ${core}:"}"
+            flags=(--prerelease)
+          fi
           files="release/KickTheFly-x86_64.AppImage release/KickTheFly.exe release/SHA256SUMS"
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" $files --clobber
           else
-            gh release create "$GITHUB_REF_NAME" $files --title "$title" --notes-file RELEASE_NOTES.md
+            gh release create "$GITHUB_REF_NAME" $files --title "$title" --notes-file RELEASE_NOTES.md "${flags[@]}"
           fi
