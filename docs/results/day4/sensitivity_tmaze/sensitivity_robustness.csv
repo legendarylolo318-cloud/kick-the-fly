@@ -1,0 +1,7 @@
+parameter,behavior,values_tested,values_passing,first_fail_below,first_fail_above
+noise_std,mb_conditioning,4,3,,0.1
+bias,mb_conditioning,4,2,,0.225
+target_rate_hz,mb_conditioning,4,3,,10.0
+ext_gain,mb_conditioning,4,4,,
+gain_adapt,mb_conditioning,4,4,,
+min_synapses,mb_conditioning,5,5,,

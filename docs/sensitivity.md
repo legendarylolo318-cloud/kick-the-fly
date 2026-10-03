@@ -54,8 +54,9 @@ for; each test restores the same snapshot, and the control neurons are drawn as 
 
 ## Result (this release; the 11 pathway behaviors over the full grid, seeds 1000-1009, NumPy CPU, 5,140 s with 4 workers)
 
-The T-maze (mb_conditioning) is a second, much slower run (`--sens-tests mb_conditioning`); its result is in HANDOFF_3.0_DAY4.md if it finished
-before the handoff. The baseline column equals validation's own result for the same seeds exactly (checked for all 11). **PASS/FAIL by parameter value
+The T-maze (mb_conditioning) is a second, much slower run (`--sens-tests mb_conditioning`); it is complete (all 26 cells; the first 5 by
+Sonnet, the other 21 resumed from that progress file in the 3.0 day 4 review, 10,916 s with 6 workers; files in
+`docs/results/day4/sensitivity_tmaze/`), and its table is below the pathway one. The baseline column equals validation's own result for the same seeds exactly (checked for all 11). **PASS/FAIL by parameter value
 (effect = the drive ratio):**
 
 | parameter | values at which a behavior FAILS (default passes) |
@@ -77,3 +78,20 @@ gains come from the sugar-pathway control rising along with it (the criterion co
 ratio is not the same as a stronger pathway (a hypothesis, not tested here: the rates themselves are in the JSON's per-seed values of a validation run, not in this
 table). **None of this changes a default and none of it says the
 defaults are right or wrong.** The heatmap, matrix and tables are in the exports; the numbers above are from `sensitivity_matrix.csv` of this run.
+
+## T-maze conditioning (mb_conditioning), full grid (3.0 day 4 review; seeds 1000-1009, n = 10, NumPy CPU)
+
+Effect = the paired T-maze PI (pass: PI >= 0.5, |unpaired PI| <= 0.25, paired > unpaired at p < 0.01). Baseline (all defaults): **PASS, PI 1.00**.
+
+| parameter (default) | tested values: PASS/FAIL and PI |
+|---|---|
+| Membrane noise (0.05) | 0.025 PASS 0.99 · 0.0375 PASS 1.00 · 0.075 PASS 0.53 · **0.1 FAIL -0.04** |
+| Tonic drive (0.20) | 0.15 PASS 0.66 · 0.175 PASS 1.00 · **0.225 FAIL 0.29** · **0.25 FAIL 0.19** |
+| Target rate, Hz (5) | 2.5 PASS 0.97 · 3.5 PASS 1.00 · 7.5 PASS 1.00 · **10 FAIL -0.04** |
+| Sensory input gain (4) | 2, 3, 5, 6: PASS 1.00 at every value |
+| Gain adaptation rate (0.002) | 0 PASS 0.99 · 0.001, 0.004, 0.008 PASS 1.00 |
+| Synapse threshold (3) | 4, 5, 6, 8, 10: PASS 1.00 at every value |
+
+Conditioning survives every tested sensory gain, gain-adaptation rate and synapse threshold, and fails at the high end of noise (0.1), of the
+tonic drive (0.225 and above) and of the target rate (10 Hz): the same three parameters the pathway behaviors are most fragile to. Every cell is
+a MODEL PREDICTION; nothing here changes a default.

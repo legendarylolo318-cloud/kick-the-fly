@@ -1,0 +1,518 @@
+{
+ "config": {
+  "seeds": [
+   1000,
+   1001,
+   1002,
+   1003,
+   1004,
+   1005,
+   1006,
+   1007,
+   1008,
+   1009
+  ],
+  "tests": [
+   "mb_conditioning"
+  ],
+  "cells": [
+   "baseline",
+   "noise_std=0.025",
+   "noise_std=0.0375",
+   "noise_std=0.075",
+   "noise_std=0.1",
+   "bias=0.15",
+   "bias=0.175",
+   "bias=0.225",
+   "bias=0.25",
+   "target_rate_hz=2.5",
+   "target_rate_hz=3.5",
+   "target_rate_hz=7.5",
+   "target_rate_hz=10",
+   "ext_gain=2",
+   "ext_gain=3",
+   "ext_gain=5",
+   "ext_gain=6",
+   "gain_adapt=0",
+   "gain_adapt=0.001",
+   "gain_adapt=0.004",
+   "gain_adapt=0.008",
+   "min_synapses=4",
+   "min_synapses=5",
+   "min_synapses=6",
+   "min_synapses=8",
+   "min_synapses=10"
+  ]
+ },
+ "config_hash": "15927b6d5093aa71",
+ "cells": {
+  "baseline": {
+   "key": "baseline",
+   "parameter": "baseline",
+   "value": null,
+   "behaviors": {
+    "mb_conditioning": {
+     "passed": true,
+     "effect": 1.0,
+     "control": -0.030000000000000006,
+     "metric": "performance index",
+     "effect_size_dz": 7.070364372224458,
+     "p_value": 0.0009765625,
+     "n": 10
+    }
+   },
+   "backend": "not recorded",
+   "seconds": 404.3
+  },
+  "noise_std=0.025": {
+   "key": "noise_std=0.025",
+   "parameter": "noise_std",
+   "value": 0.025,
+   "behaviors": {
+    "mb_conditioning": {
+     "passed": true,
+     "effect": 0.99,
+     "control": -0.01,
+     "metric": "performance index",
+     "effect_size_dz": 6.123724356957946,
+     "p_value": 0.0009765625,
+     "n": 10
+    }
+   },
+   "backend": "not recorded",
+   "seconds": 422.2
+  },
+  "noise_std=0.0375": {
+   "key": "noise_std=0.0375",
+   "parameter": "noise_std",
+   "value": 0.0375,
+   "behaviors": {
+    "mb_conditioning": {
+     "passed": true,
+     "effect": 1.0,
+     "control": -0.005000000000000007,
+     "metric": "performance index",
+     "effect_size_dz": 7.264533004108344,
+     "p_value": 0.0009765625,
+     "n": 10
+    }
+   },
+   "backend": "not recorded",
+   "seconds": 427.3
+  },
+  "noise_std=0.075": {
+   "key": "noise_std=0.075",
+   "parameter": "noise_std",
+   "value": 0.075,
+   "behaviors": {
+    "mb_conditioning": {
+     "passed": true,
+     "effect": 0.53,
+     "control": -0.04,
+     "metric": "performance index",
+     "effect_size_dz": 6.2028219384406,
+     "p_value": 0.0009765625,
+     "n": 10
+    }
+   },
+   "backend": "not recorded",
+   "seconds": 411.9
+  },
+  "noise_std=0.1": {
+   "key": "noise_std=0.1",
+   "parameter": "noise_std",
+   "value": 0.1,
+   "behaviors": {
+    "mb_conditioning": {
+     "passed": false,
+     "effect": -0.035,
+     "control": -0.045000000000000005,
+     "metric": "performance index",
+     "effect_size_dz": 0.47434164902525683,
+     "p_value": 0.25,
+     "n": 10
+    }
+   },
+   "backend": "not recorded",
+   "seconds": 494.3
+  },
+  "bias=0.15": {
+   "key": "bias=0.15",
+   "parameter": "bias",
+   "value": 0.15,
+   "behaviors": {
+    "mb_conditioning": {
+     "passed": true,
+     "effect": 0.655,
+     "control": 0.085,
+     "metric": "performance index",
+     "effect_size_dz": 2.1358320325200775,
+     "p_value": 0.0009765625,
+     "n": 10
+    }
+   },
+   "backend": "not recorded",
+   "seconds": 516.9
+  },
+  "bias=0.175": {
+   "key": "bias=0.175",
+   "parameter": "bias",
+   "value": 0.175,
+   "behaviors": {
+    "mb_conditioning": {
+     "passed": true,
+     "effect": 1.0,
+     "control": 0.07500000000000001,
+     "metric": "performance index",
+     "effect_size_dz": 9.448947491422109,
+     "p_value": 0.0009765625,
+     "n": 10
+    }
+   },
+   "backend": "not recorded",
+   "seconds": 561.8
+  },
+  "bias=0.225": {
+   "key": "bias=0.225",
+   "parameter": "bias",
+   "value": 0.225,
+   "behaviors": {
+    "mb_conditioning": {
+     "passed": false,
+     "effect": 0.28500000000000003,
+     "control": -0.04,
+     "metric": "performance index",
+     "effect_size_dz": 2.1733850290438768,
+     "p_value": 0.0009765625,
+     "n": 10
+    }
+   },
+   "backend": "not recorded",
+   "seconds": 632.6
+  },
+  "bias=0.25": {
+   "key": "bias=0.25",
+   "parameter": "bias",
+   "value": 0.25,
+   "behaviors": {
+    "mb_conditioning": {
+     "passed": false,
+     "effect": 0.19499999999999998,
+     "control": -0.045000000000000005,
+     "metric": "performance index",
+     "effect_size_dz": 2.1324559599327326,
+     "p_value": 0.001953125,
+     "n": 10
+    }
+   },
+   "backend": "not recorded",
+   "seconds": 725.8
+  },
+  "target_rate_hz=2.5": {
+   "key": "target_rate_hz=2.5",
+   "parameter": "target_rate_hz",
+   "value": 2.5,
+   "behaviors": {
+    "mb_conditioning": {
+     "passed": true,
+     "effect": 0.975,
+     "control": -0.04,
+     "metric": "performance index",
+     "effect_size_dz": 7.3797854630183,
+     "p_value": 0.0009765625,
+     "n": 10
+    }
+   },
+   "backend": "not recorded",
+   "seconds": 311.8
+  },
+  "target_rate_hz=3.5": {
+   "key": "target_rate_hz=3.5",
+   "parameter": "target_rate_hz",
+   "value": 3.5,
+   "behaviors": {
+    "mb_conditioning": {
+     "passed": true,
+     "effect": 1.0,
+     "control": -0.04,
+     "metric": "performance index",
+     "effect_size_dz": 7.9504961864269585,
+     "p_value": 0.0009765625,
+     "n": 10
+    }
+   },
+   "backend": "not recorded",
+   "seconds": 376.7
+  },
+  "target_rate_hz=7.5": {
+   "key": "target_rate_hz=7.5",
+   "parameter": "target_rate_hz",
+   "value": 7.5,
+   "behaviors": {
+    "mb_conditioning": {
+     "passed": true,
+     "effect": 1.0,
+     "control": 0.009999999999999998,
+     "metric": "performance index",
+     "effect_size_dz": 7.826637208916739,
+     "p_value": 0.0009765625,
+     "n": 10
+    }
+   },
+   "backend": "not recorded",
+   "seconds": 595.9
+  },
+  "target_rate_hz=10": {
+   "key": "target_rate_hz=10",
+   "parameter": "target_rate_hz",
+   "value": 10.0,
+   "behaviors": {
+    "mb_conditioning": {
+     "passed": false,
+     "effect": -0.04,
+     "control": -0.1,
+     "metric": "performance index",
+     "effect_size_dz": 0.6033613708385916,
+     "p_value": 0.05859375,
+     "n": 10
+    }
+   },
+   "backend": "not recorded",
+   "seconds": 784.7
+  },
+  "ext_gain=2": {
+   "key": "ext_gain=2",
+   "parameter": "ext_gain",
+   "value": 2.0,
+   "behaviors": {
+    "mb_conditioning": {
+     "passed": true,
+     "effect": 1.0,
+     "control": -0.030000000000000006,
+     "metric": "performance index",
+     "effect_size_dz": 7.070364372224458,
+     "p_value": 0.0009765625,
+     "n": 10
+    }
+   },
+   "backend": "not recorded",
+   "seconds": 507.7
+  },
+  "ext_gain=3": {
+   "key": "ext_gain=3",
+   "parameter": "ext_gain",
+   "value": 3.0,
+   "behaviors": {
+    "mb_conditioning": {
+     "passed": true,
+     "effect": 1.0,
+     "control": -0.045000000000000005,
+     "metric": "performance index",
+     "effect_size_dz": 8.034500729382215,
+     "p_value": 0.0009765625,
+     "n": 10
+    }
+   },
+   "backend": "not recorded",
+   "seconds": 576.5
+  },
+  "ext_gain=5": {
+   "key": "ext_gain=5",
+   "parameter": "ext_gain",
+   "value": 5.0,
+   "behaviors": {
+    "mb_conditioning": {
+     "passed": true,
+     "effect": 1.0,
+     "control": -0.035,
+     "metric": "performance index",
+     "effect_size_dz": 7.31347814326474,
+     "p_value": 0.0009765625,
+     "n": 10
+    }
+   },
+   "backend": "not recorded",
+   "seconds": 773.9
+  },
+  "ext_gain=6": {
+   "key": "ext_gain=6",
+   "parameter": "ext_gain",
+   "value": 6.0,
+   "behaviors": {
+    "mb_conditioning": {
+     "passed": true,
+     "effect": 1.0,
+     "control": -0.025,
+     "metric": "performance index",
+     "effect_size_dz": 8.487806379910957,
+     "p_value": 0.0009765625,
+     "n": 10
+    }
+   },
+   "backend": "not recorded",
+   "seconds": 672.7
+  },
+  "gain_adapt=0": {
+   "key": "gain_adapt=0",
+   "parameter": "gain_adapt",
+   "value": 0.0,
+   "behaviors": {
+    "mb_conditioning": {
+     "passed": true,
+     "effect": 0.99,
+     "control": 5.551115123125783e-18,
+     "metric": "performance index",
+     "effect_size_dz": 8.26916378888711,
+     "p_value": 0.0009765625,
+     "n": 10
+    }
+   },
+   "backend": "not recorded",
+   "seconds": 537.4
+  },
+  "gain_adapt=0.001": {
+   "key": "gain_adapt=0.001",
+   "parameter": "gain_adapt",
+   "value": 0.001,
+   "behaviors": {
+    "mb_conditioning": {
+     "passed": true,
+     "effect": 1.0,
+     "control": -0.045000000000000005,
+     "metric": "performance index",
+     "effect_size_dz": 8.034500729382215,
+     "p_value": 0.0009765625,
+     "n": 10
+    }
+   },
+   "backend": "not recorded",
+   "seconds": 314.3
+  },
+  "gain_adapt=0.004": {
+   "key": "gain_adapt=0.004",
+   "parameter": "gain_adapt",
+   "value": 0.004,
+   "behaviors": {
+    "mb_conditioning": {
+     "passed": true,
+     "effect": 1.0,
+     "control": -0.035,
+     "metric": "performance index",
+     "effect_size_dz": 6.542281164952136,
+     "p_value": 0.0009765625,
+     "n": 10
+    }
+   },
+   "backend": "not recorded",
+   "seconds": 309.6
+  },
+  "gain_adapt=0.008": {
+   "key": "gain_adapt=0.008",
+   "parameter": "gain_adapt",
+   "value": 0.008,
+   "behaviors": {
+    "mb_conditioning": {
+     "passed": true,
+     "effect": 1.0,
+     "control": -0.01,
+     "metric": "performance index",
+     "effect_size_dz": 8.127092978905173,
+     "p_value": 0.0009765625,
+     "n": 10
+    }
+   },
+   "backend": "not recorded",
+   "seconds": 309.3
+  },
+  "min_synapses=4": {
+   "key": "min_synapses=4",
+   "parameter": "min_synapses",
+   "value": 4.0,
+   "behaviors": {
+    "mb_conditioning": {
+     "passed": true,
+     "effect": 1.0,
+     "control": 0.004999999999999999,
+     "metric": "performance index",
+     "effect_size_dz": 6.807868544723574,
+     "p_value": 0.0009765625,
+     "n": 10
+    }
+   },
+   "backend": "not recorded",
+   "seconds": 318.8
+  },
+  "min_synapses=5": {
+   "key": "min_synapses=5",
+   "parameter": "min_synapses",
+   "value": 5.0,
+   "behaviors": {
+    "mb_conditioning": {
+     "passed": true,
+     "effect": 1.0,
+     "control": -0.025,
+     "metric": "performance index",
+     "effect_size_dz": 7.324543410357587,
+     "p_value": 0.0009765625,
+     "n": 10
+    }
+   },
+   "backend": "not recorded",
+   "seconds": 416.5
+  },
+  "min_synapses=6": {
+   "key": "min_synapses=6",
+   "parameter": "min_synapses",
+   "value": 6.0,
+   "behaviors": {
+    "mb_conditioning": {
+     "passed": true,
+     "effect": 1.0,
+     "control": -0.015000000000000005,
+     "metric": "performance index",
+     "effect_size_dz": 6.72118290441437,
+     "p_value": 0.0009765625,
+     "n": 10
+    }
+   },
+   "backend": "not recorded",
+   "seconds": 566.6
+  },
+  "min_synapses=8": {
+   "key": "min_synapses=8",
+   "parameter": "min_synapses",
+   "value": 8.0,
+   "behaviors": {
+    "mb_conditioning": {
+     "passed": true,
+     "effect": 1.0,
+     "control": 0.015000000000000008,
+     "metric": "performance index",
+     "effect_size_dz": 6.092459756728301,
+     "p_value": 0.0009765625,
+     "n": 10
+    }
+   },
+   "backend": "not recorded",
+   "seconds": 573.6
+  },
+  "min_synapses=10": {
+   "key": "min_synapses=10",
+   "parameter": "min_synapses",
+   "value": 10.0,
+   "behaviors": {
+    "mb_conditioning": {
+     "passed": true,
+     "effect": 1.0,
+     "control": 0.045,
+     "metric": "performance index",
+     "effect_size_dz": 7.224857725754374,
+     "p_value": 0.0009765625,
+     "n": 10
+    }
+   },
+   "backend": "not recorded",
+   "seconds": 532.4
+  }
+ }
+}

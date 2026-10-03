@@ -288,9 +288,8 @@ def _tournament(m, surf, body, y: int, st: ArcadeState) -> int:
     cols = _colors(m)
     busy = st.job is not None and st.job.running
     x = body.x + 8
-    m.text(surf, tr("A bracket of flies, each its own individuality seed. Both sides of every duel are brains: nothing about who wins is scripted."),
-           (x, y), ui.LABEL, m.f_small)
-    y += 26
+    y = m.wrapped(surf, tr("A bracket of flies, each its own individuality seed. Both sides of every duel are brains: nothing about who wins is scripted."),
+                  (x, y), body.w - 24, ui.LABEL, m.f_small, max_lines=4) + 6
     for n in (4, 8, 16):
         m.button(surf, (x, y, 70, 32), str(n), (lambda n=n: setattr(st, "size", n) or setattr(st, "favorite", None)), id=("arc_size", n),
                  active=st.size == n, enabled=not busy, tip=tr("How many flies in the bracket."))
@@ -306,19 +305,24 @@ def _tournament(m, surf, body, y: int, st: ArcadeState) -> int:
     xx = _tag(m, surf, x, y, "CONNECTOME")
     xx = _tag(m, surf, xx, y, "GAME RULE")
     xx = _tag(m, surf, xx, y, "MODEL PREDICTION")
-    m.text(surf, tr("brains steer and shoot (CONNECTOME); the arena and blaster (GAME RULE); who wins (MODEL PREDICTION)"), (xx + 6, y + 2), ui.LABEL, m.f_small)
-    y += 30
+    y = max(y + 30, m.wrapped(surf, tr("brains steer and shoot (CONNECTOME); the arena and blaster (GAME RULE); who wins (MODEL PREDICTION)"),
+                              (xx + 6, y + 2), body.right - xx - 16, ui.LABEL, m.f_small, max_lines=4) + 6)
     seeds = [st.base_seed + i for i in range(st.size)]
     m.text(surf, tr("Pick your favorite (click a fly):"), (x, y), ui.INK, m.f_bold)
     y += 26
     cards = (st.bracket or {}).get("cards", {})
-    cw = 220
+    labels = []
+    for s in seeds:
+        c = cards.get(s) or cards.get(str(s))
+        labels.append(("FAV  " if st.favorite == s else "") + (f"{s}  {c['title']}" if c else f"{tr('Fly')} {s}"))
+    bfont = m.f_bold                                        # 3.0 day 4 review: wide enough for the label in every text size (buttons use f_bold)
+    cw = max(220, max(bfont.size(t)[0] for t in labels) + 24)
+    cw = min(cw, body.w - 16)
     per_row = max(1, (body.w - 16) // (cw + 8))
     for i, s in enumerate(seeds):
         cx, cy = x + (i % per_row) * (cw + 8), y + (i // per_row) * 40
         c = cards.get(s) or cards.get(str(s))
-        label = f"{s}  {c['title']}" if c else f"{tr('Fly')} {s}"
-        m.button(surf, (cx, cy, cw, 34), ("FAV  " if st.favorite == s else "") + label, (lambda s=s: setattr(st, "favorite", s)), id=("arc_fav", s),
+        m.button(surf, (cx, cy, cw, 34), labels[i], (lambda s=s: setattr(st, "favorite", s)), id=("arc_fav", s),
                  active=st.favorite == s, enabled=not busy,
                  tip=(c["summary"] + f" · looming latency {c['loom_latency_s']:.2f} s, sugar x{c['sugar_ratio']:.2f}, steering R/L {c['turning_ratio']:.2f}"
                       " (measured from this fly's brain)") if c else tr("Its personality card is measured when the tournament runs."))
@@ -365,9 +369,10 @@ def _tournament(m, surf, body, y: int, st: ArcadeState) -> int:
         m.slider(surf, (arena.right + 16, y + 40, 300, 30), st.replay_t, 0, max(0.5, length), 0.1, "{:.1f} s", lambda v: setattr(st, "replay_t", float(v)),
                  lambda: None, id="arc_scrub")
         ev = [e for e in mt["events"] if e[0] in ("hit", "dodge", "run")]
-        m.text(surf, tr("Events:") + " " + ", ".join(f"{e[0]} {e[2]}@{e[1]:.1f}s" for e in ev[:6]), (arena.right + 16, y + 80), ui.LABEL, m.f_small)
+        ey = m.wrapped(surf, tr("Events:") + " " + ", ".join(f"{e[0]} {e[2]}@{e[1]:.1f}s" for e in ev[:6]), (arena.right + 16, y + 80),
+                       body.right - arena.right - 32, ui.LABEL, m.f_small, max_lines=4)
         m.text(surf, f"{tr('shots')} {mt['shots'][str(mt['a'])]}-{mt['shots'][str(mt['b'])]}  ·  max DNp35 level "
-                     f"{mt['max_levels'][str(mt['a'])]['fire']:.1f} / {mt['max_levels'][str(mt['b'])]['fire']:.1f}", (arena.right + 16, y + 100), ui.LABEL, m.f_small)
+                     f"{mt['max_levels'][str(mt['a'])]['fire']:.1f} / {mt['max_levels'][str(mt['b'])]['fire']:.1f}", (arena.right + 16, ey + 2), ui.LABEL, m.f_small)
         y += side + 14
     # the champion
     ch = b["champion"]
@@ -398,9 +403,8 @@ def _racing(m, surf, body, y: int, st: ArcadeState) -> int:
     cols = _colors(m)
     busy = st.job is not None and st.job.running
     x = body.x + 8
-    m.text(surf, tr("Flies race down a track with sugar and fruit lures, each through its own brain. Bet points on a fly; the odds come from its personality card."),
-           (x, y), ui.LABEL, m.f_small)
-    y += 26
+    y = m.wrapped(surf, tr("Flies race down a track with sugar and fruit lures, each through its own brain. Bet points on a fly; the odds come from its personality card."),
+                  (x, y), body.w - 24, ui.LABEL, m.f_small, max_lines=4) + 6
     m.slider(surf, (x, y, 260, 32), st.lanes, 3, 8, 1, "{:.0f} lanes", lambda v: setattr(st, "lanes", int(v)) or setattr(st, "field", None), lambda: None,
              id="race_lanes", enabled=not busy)
     m.button(surf, (x + 280, y, 130, 32), tr("New field"), lambda: (setattr(st, "race_base", st.race_base + st.lanes), setattr(st, "field", None),
@@ -412,13 +416,13 @@ def _racing(m, surf, body, y: int, st: ArcadeState) -> int:
     xx = _tag(m, surf, x, y, "CONNECTOME")
     xx = _tag(m, surf, xx, y, "GAME RULE")
     xx = _tag(m, surf, xx, y, "MODEL PREDICTION")
-    m.text(surf, tr("walking neurons set the speed (CONNECTOME); track, lures, odds, points (GAME RULE); the finish (MODEL PREDICTION)"), (xx + 6, y + 2), ui.LABEL, m.f_small)
-    y += 30
+    y = max(y + 30, m.wrapped(surf, tr("walking neurons set the speed (CONNECTOME); track, lures, odds, points (GAME RULE); the finish (MODEL PREDICTION)"),
+                              (xx + 6, y + 2), body.right - xx - 16, ui.LABEL, m.f_small, max_lines=4) + 6)
     if st.odds is None:
         m.text(surf, tr("Look at the field to see the odds."), (x, y), ui.LABEL, m.f_text)
         return y + 30
-    m.text(surf, tr("Odds (form = sugar response and calm walking drive, from the measured card). Click a fly to bet on it:"), (x, y), ui.INK, m.f_bold)
-    y += 26
+    y = m.wrapped(surf, tr("Odds (form = sugar response and calm walking drive, from the measured card). Click a fly to bet on it:"), (x, y),
+                  body.w - 24, ui.INK, m.f_bold, max_lines=3) + 4
     for o in st.odds:
         row = pygame.Rect(x, y, body.w - 24, 32)
         c = next((c for c in st.field if c["seed"] == o["fly"]), None)
@@ -467,8 +471,9 @@ def _racing(m, surf, body, y: int, st: ArcadeState) -> int:
         pygame.draw.circle(surf, cols[i % 2] if s != winner else ui.AMBER, (px, ly + 14), 10)
         m.text(surf, f"{s}", (track.x + 8, ly + 6), ui.TEXT, m.f_small)
     y += track.h + 10
-    m.text(surf, tr("MODEL PREDICTION. Points only. The headless race assay asks whether individuality predicts the finish: --headless --race"), (x, y), ui.LABEL, m.f_small)
-    return y + 24
+    y = m.wrapped(surf, tr("MODEL PREDICTION. Points only. The headless race assay asks whether individuality predicts the finish: --headless --race"),
+                  (x, y), body.w - 24, ui.LABEL, m.f_small, max_lines=3)
+    return y + 8
 
 
 def pad_nav(host, down) -> bool:
