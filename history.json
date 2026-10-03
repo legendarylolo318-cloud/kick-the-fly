@@ -1,0 +1,254 @@
+{
+ "nights": [
+  {
+   "date": "2026-09-30",
+   "commit": "2f003e1519393e3ff7b890fa38edf8e6bb5120b4",
+   "validation": {
+    "app_version": "2.13.1",
+    "backend": "cpu",
+    "passed": 12,
+    "total": 21,
+    "tests": {
+     "looming_escape": true,
+     "mdn_backward": false,
+     "sugar_feeding": true,
+     "antenna_grooming_circuit": true,
+     "adn_grooming_motor": false,
+     "mb_conditioning": true,
+     "epg_compass": false,
+     "epg_compass_wind": false,
+     "courtship_song": true,
+     "bitter_grn_to_dng28": true,
+     "co2_orn_to_pn": true,
+     "hot_trn_to_vp2pn": true,
+     "cold_trn_to_vp3pn": true,
+     "grooming_hierarchy": false,
+     "optomotor_turning": true,
+     "p1_courtship_song": false,
+     "or67d_to_da1pn": true,
+     "da1pn_to_lh_asp": true,
+     "foreleg_grn_to_p1": false,
+     "mb_extinction": false,
+     "mb_second_order": false
+    },
+    "ratios": {
+     "looming_escape": 11.809631805309467,
+     "mdn_backward": 0.9595085586233333,
+     "sugar_feeding": 2.106922129594543,
+     "antenna_grooming_circuit": 4.87097582972583,
+     "adn_grooming_motor": 1.1286488259909406,
+     "courtship_song": 1.9280385922127405,
+     "bitter_grn_to_dng28": 1.5775177384709287,
+     "co2_orn_to_pn": 2.2132239685981507,
+     "hot_trn_to_vp2pn": 1.9997641850496255,
+     "cold_trn_to_vp3pn": 1.8635216437031936,
+     "optomotor_turning": 2.7162363294600134,
+     "p1_courtship_song": 1.4275451336589107,
+     "or67d_to_da1pn": 2.575550112320789,
+     "da1pn_to_lh_asp": 2.219063963950437,
+     "foreleg_grn_to_p1": 1.199823409330022
+    },
+    "seconds": 1634.6
+   },
+   "playthrough": {
+    "counts": {
+     "pass": 250,
+     "fail": 1,
+     "skip": 12,
+     "gated": 3
+    },
+    "failed": [
+     "game2d:adult:flypaper:spider"
+    ],
+    "median_sim_real": 1.94,
+    "backend": "cpu"
+   }
+  },
+  {
+   "date": "2026-10-01",
+   "commit": "2f003e1519393e3ff7b890fa38edf8e6bb5120b4",
+   "validation": {
+    "app_version": "2.13.1",
+    "backend": "cpu",
+    "passed": 12,
+    "total": 21,
+    "tests": {
+     "looming_escape": true,
+     "mdn_backward": false,
+     "sugar_feeding": true,
+     "antenna_grooming_circuit": true,
+     "adn_grooming_motor": false,
+     "mb_conditioning": true,
+     "epg_compass": false,
+     "epg_compass_wind": false,
+     "courtship_song": true,
+     "bitter_grn_to_dng28": true,
+     "co2_orn_to_pn": true,
+     "hot_trn_to_vp2pn": true,
+     "cold_trn_to_vp3pn": true,
+     "grooming_hierarchy": false,
+     "optomotor_turning": true,
+     "p1_courtship_song": false,
+     "or67d_to_da1pn": true,
+     "da1pn_to_lh_asp": true,
+     "foreleg_grn_to_p1": false,
+     "mb_extinction": false,
+     "mb_second_order": false
+    },
+    "ratios": {
+     "looming_escape": 11.809631805309467,
+     "mdn_backward": 0.9595085586233333,
+     "sugar_feeding": 2.106922129594543,
+     "antenna_grooming_circuit": 4.87097582972583,
+     "adn_grooming_motor": 1.1286488259909406,
+     "courtship_song": 1.9280385922127405,
+     "bitter_grn_to_dng28": 1.5775177384709287,
+     "co2_orn_to_pn": 2.2132239685981507,
+     "hot_trn_to_vp2pn": 1.9997641850496255,
+     "cold_trn_to_vp3pn": 1.8635216437031936,
+     "optomotor_turning": 2.7162363294600134,
+     "p1_courtship_song": 1.4275451336589107,
+     "or67d_to_da1pn": 2.575550112320789,
+     "da1pn_to_lh_asp": 2.219063963950437,
+     "foreleg_grn_to_p1": 1.199823409330022
+    },
+    "seconds": 2114.0
+   },
+   "playthrough": {
+    "counts": {
+     "pass": 252,
+     "fail": 0,
+     "skip": 11,
+     "gated": 3
+    },
+    "failed": [],
+    "median_sim_real": 1.55,
+    "backend": "cpu"
+   }
+  },
+  {
+   "date": "2026-10-02",
+   "commit": "2f003e1519393e3ff7b890fa38edf8e6bb5120b4",
+   "validation": {
+    "app_version": "2.13.1",
+    "backend": "cpu",
+    "passed": 12,
+    "total": 21,
+    "tests": {
+     "looming_escape": true,
+     "mdn_backward": false,
+     "sugar_feeding": true,
+     "antenna_grooming_circuit": true,
+     "adn_grooming_motor": false,
+     "mb_conditioning": true,
+     "epg_compass": false,
+     "epg_compass_wind": false,
+     "courtship_song": true,
+     "bitter_grn_to_dng28": true,
+     "co2_orn_to_pn": true,
+     "hot_trn_to_vp2pn": true,
+     "cold_trn_to_vp3pn": true,
+     "grooming_hierarchy": false,
+     "optomotor_turning": true,
+     "p1_courtship_song": false,
+     "or67d_to_da1pn": true,
+     "da1pn_to_lh_asp": true,
+     "foreleg_grn_to_p1": false,
+     "mb_extinction": false,
+     "mb_second_order": false
+    },
+    "ratios": {
+     "looming_escape": 11.809631805309467,
+     "mdn_backward": 0.9595085586233333,
+     "sugar_feeding": 2.106922129594543,
+     "antenna_grooming_circuit": 4.87097582972583,
+     "adn_grooming_motor": 1.1286488259909406,
+     "courtship_song": 1.9280385922127405,
+     "bitter_grn_to_dng28": 1.5775177384709287,
+     "co2_orn_to_pn": 2.2132239685981507,
+     "hot_trn_to_vp2pn": 1.9997641850496255,
+     "cold_trn_to_vp3pn": 1.8635216437031936,
+     "optomotor_turning": 2.7162363294600134,
+     "p1_courtship_song": 1.4275451336589107,
+     "or67d_to_da1pn": 2.575550112320789,
+     "da1pn_to_lh_asp": 2.219063963950437,
+     "foreleg_grn_to_p1": 1.199823409330022
+    },
+    "seconds": 1633.5
+   },
+   "playthrough": {
+    "counts": {
+     "pass": 252,
+     "fail": 0,
+     "skip": 11,
+     "gated": 3
+    },
+    "failed": [],
+    "median_sim_real": 1.9,
+    "backend": "cpu"
+   }
+  },
+  {
+   "date": "2026-10-03",
+   "commit": "2f003e1519393e3ff7b890fa38edf8e6bb5120b4",
+   "validation": {
+    "app_version": "2.13.1",
+    "backend": "cpu",
+    "passed": 12,
+    "total": 21,
+    "tests": {
+     "looming_escape": true,
+     "mdn_backward": false,
+     "sugar_feeding": true,
+     "antenna_grooming_circuit": true,
+     "adn_grooming_motor": false,
+     "mb_conditioning": true,
+     "epg_compass": false,
+     "epg_compass_wind": false,
+     "courtship_song": true,
+     "bitter_grn_to_dng28": true,
+     "co2_orn_to_pn": true,
+     "hot_trn_to_vp2pn": true,
+     "cold_trn_to_vp3pn": true,
+     "grooming_hierarchy": false,
+     "optomotor_turning": true,
+     "p1_courtship_song": false,
+     "or67d_to_da1pn": true,
+     "da1pn_to_lh_asp": true,
+     "foreleg_grn_to_p1": false,
+     "mb_extinction": false,
+     "mb_second_order": false
+    },
+    "ratios": {
+     "looming_escape": 11.809631805309467,
+     "mdn_backward": 0.9595085586233333,
+     "sugar_feeding": 2.106922129594543,
+     "antenna_grooming_circuit": 4.87097582972583,
+     "adn_grooming_motor": 1.1286488259909406,
+     "courtship_song": 1.9280385922127405,
+     "bitter_grn_to_dng28": 1.5775177384709287,
+     "co2_orn_to_pn": 2.2132239685981507,
+     "hot_trn_to_vp2pn": 1.9997641850496255,
+     "cold_trn_to_vp3pn": 1.8635216437031936,
+     "optomotor_turning": 2.7162363294600134,
+     "p1_courtship_song": 1.4275451336589107,
+     "or67d_to_da1pn": 2.575550112320789,
+     "da1pn_to_lh_asp": 2.219063963950437,
+     "foreleg_grn_to_p1": 1.199823409330022
+    },
+    "seconds": 1680.6
+   },
+   "playthrough": {
+    "counts": {
+     "pass": 251,
+     "fail": 0,
+     "skip": 12,
+     "gated": 3
+    },
+    "failed": [],
+    "median_sim_real": 1.92,
+    "backend": "cpu"
+   }
+  }
+ ]
+}
