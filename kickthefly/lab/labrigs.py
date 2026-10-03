@@ -175,9 +175,10 @@ def draw_tethered(m, surf, box, res, t, colors) -> None:
     pygame.draw.rect(surf, (14, 16, 22), box, border_radius=8)
     cx, cy, R = box.centerx, box.centery, min(box.w, box.h) // 2 - 14
     a = _upto(res, t)
-    # the panorama's angle: rightward rotation is clockwise; 24 dark stripes
+    # the panorama's angle relative to the fly: rightward is clockwise; 24 dark stripes. It turns by the slip, which is omega_ext in open loop
+    # and omega_ext - gain * yaw rate in closed loop (3.0 release review: this used the yaw rate without the loop gain)
     dt = res["dt"] * rigs.TRACE_EVERY
-    pano = float(np.sum(a[:, C["omega_ext"]]) * dt) - (float(np.sum(a[:, C["yaw_rate"]]) * dt) if res["params"]["mode"] == "closed" else 0.0)
+    pano = panorama_angle(a, dt)
     n = 24
     for i in range(n):
         if i % 2:
@@ -189,10 +190,14 @@ def draw_tethered(m, surf, box, res, t, colors) -> None:
         pygame.draw.polygon(surf, (120, 128, 146), pts)
     pygame.draw.circle(surf, (50, 56, 68), (cx, cy), R - 16, 1)
     row = a[-1]
-    _fly(surf, (cx, cy), float(row[C["psi"]]), 26, colors[0])
+    _fly(surf, (cx, cy), 0.0, 26, colors[0])          # tethered: the fly never turns; its yaw is only read out (the heading below)
+    psi = float(row[C["psi"]])
+    pygame.draw.line(surf, colors[1], (cx, cy), (cx + math.sin(psi) * (R - 22), cy - math.cos(psi) * (R - 22)), 2)
     om = row[C["omega_ext"]]
     m.text(surf, tr("panorama {w:+.1f} rad/s", w=om), (box.x + 10, box.y + 8), ui.TEXT, m.f_small)
     m.text(surf, tr("slip {s:+.2f} rad/s", s=row[C["slip"]]), (box.x + 10, box.y + 8 + m.f_small.get_linesize()), ui.LABEL, m.f_small)
+    m.wrapped(surf, tr("line: the heading its yaw would give (read out only)"), (box.x + 10, box.y + 8 + 2 * m.f_small.get_linesize()),
+              max(80, box.w // 2 - 50), ui.LABEL, m.f_small, max_lines=3)
     # right and left steering rates
     bx, by, bh = box.right - 70, box.bottom - 14, box.h - 60
     for i, (name, col) in enumerate((("R", colors[0]), ("L", colors[1]))):
@@ -201,6 +206,11 @@ def draw_tethered(m, surf, box, res, t, colors) -> None:
         pygame.draw.rect(surf, col, (bx + i * 30, by - hh, 22, hh))
         m.text(surf, name, (bx + i * 30 + 11, by + 2), ui.TEXT, m.f_small, "midtop")
     m.text(surf, tr("DNa01/02 Hz"), (bx - 6, box.bottom - 30 - bh - m.f_small.get_linesize()), ui.LABEL, m.f_small)
+
+
+def panorama_angle(rows: np.ndarray, dt: float) -> float:
+    """How far the panorama has turned relative to the fly (rad, clockwise positive): the integral of the slip the fly saw."""
+    return float(np.sum(rows[:, C["slip"]]) * dt)
 
 
 def _arena(box, half: float):

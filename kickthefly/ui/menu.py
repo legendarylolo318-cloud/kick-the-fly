@@ -314,10 +314,53 @@ class Menu:
             y += font.get_linesize()
         return y
 
+    @staticmethod
+    def fit_lines(font, s: str, width: int, max_lines: int) -> tuple[list[str], bool]:
+        """A label in at most max_lines lines of at most `width` px: word-wrapped, and the last line cut with an ellipsis when it still
+        does not fit (never a smaller font). Returns (lines, cut)."""
+        s = str(s)
+        if font.size(s)[0] <= width or not s.strip():
+            return [s], False
+        lines, line = [], ""
+        for word in s.split():
+            trial = (line + " " + word).strip()
+            if font.size(trial)[0] > width and line:
+                lines.append(line)
+                line = word
+            else:
+                line = trial
+        lines.append(line)
+        cut = len(lines) > max_lines
+        lines = lines[:max(1, max_lines)]
+        if cut or font.size(lines[-1])[0] > width:
+            last = lines[-1]
+            while last and font.size(last + "…")[0] > width:
+                last = last[:-1]
+            lines[-1] = last.rstrip() + "…"
+            cut = True
+        return lines, cut
+
+    def _label(self, surf, rect: pygame.Rect, label, color, font) -> bool:
+        """A button's label centred in its rect, fitted by fit_lines (3.0 release review: labels used to run past their buttons, onto
+        the next one, at larger text, in German and in a narrow window). Returns True when it had to be cut."""
+        lh = font.get_linesize()
+        lines, cut = self.fit_lines(font, label, rect.w - 12, max(1, (rect.h - 4) // lh))
+        y = rect.centery - lh * len(lines) / 2
+        for ln in lines:
+            self.text(surf, ln, (rect.centerx, int(y + lh / 2)), color, font, "center")
+            y += lh
+        return cut
+
+    def label_fits(self, label, width: int, height: int, font=None) -> bool:
+        font = font or self.f_bold
+        return not self.fit_lines(font, label, width - 12, max(1, (height - 4) // font.get_linesize()))[1]
+
     def button(self, surf, rect, label, click, *, id=None, style="normal", enabled=True, tip=None, active=False,
                font=None) -> bool:
         rect = pygame.Rect(rect)
         id = id or ("btn", label, rect.topleft)
+        if tip is None and not self.label_fits(label, rect.w, rect.h, font):
+            tip = str(label)                         # a cut label can still be read in full
         over = self._register(rect, "button", id=id, click=click, enabled=enabled, tip=tip)
         down = over and self.pressed == id
         base, hover = {"primary": (BTN_PRIMARY, BTN_PRIMARY_HOVER), "danger": (BTN_DANGER, BTN_DANGER_HOVER)}.get(
@@ -328,7 +371,7 @@ class Menu:
         pygame.draw.rect(surf, fill, rect, border_radius=8)
         if (over and enabled) or active:
             pygame.draw.rect(surf, ACCENT if active else (120, 132, 156), rect, 1, border_radius=8)
-        self.text(surf, label, rect.center, INK if enabled else DIM, font or self.f_bold, "center")
+        self._label(surf, rect, label, INK if enabled else DIM, font or self.f_bold)
         return over
 
     def toggle(self, surf, rect, value: bool, change, *, id, enabled=True, tip=None) -> None:
@@ -339,7 +382,7 @@ class Menu:
         pygame.draw.rect(surf, on_col if value else ((70, 76, 90) if over else (50, 56, 68)), track, border_radius=11)
         knob = (track.right - 11 if value else track.x + 11, track.centery)
         pygame.draw.circle(surf, INK if enabled else DIM, knob, 8)
-        self.text(surf, "On" if value else "Off", (track.right + 10, track.centery), TEXT if enabled else DIM,
+        self.text(surf, tr("On") if value else tr("Off"), (track.right + 10, track.centery), TEXT if enabled else DIM,
                   self.f_small, "midleft")
 
     def segmented(self, surf, rect, labels, current: int, select, *, id, enabled=True, tip=None) -> None:
@@ -348,7 +391,8 @@ class Menu:
         w = rect.w // n
         for i, lab in enumerate(labels):
             r = pygame.Rect(rect.x + i * w, rect.y, w - 4, rect.h)
-            over = self._register(r, "button", id=(id, i), click=(lambda i=i: select(i)), enabled=enabled, tip=tip)
+            t = tip if tip is not None or self.label_fits(lab, r.w, r.h, self.f_small) else str(lab)
+            over = self._register(r, "button", id=(id, i), click=(lambda i=i: select(i)), enabled=enabled, tip=t)
             on = i == current
             fill = (BTN_PRIMARY_HOVER if over else BTN_PRIMARY) if on else (BTN_HOVER if over and enabled else BTN)
             if not enabled:
@@ -356,7 +400,7 @@ class Menu:
             pygame.draw.rect(surf, fill, r, border_radius=6)
             if on:
                 pygame.draw.rect(surf, ACCENT if enabled else DIM, r, 1, border_radius=6)
-            self.text(surf, lab, r.center, INK if enabled else DIM, self.f_small, "center")
+            self._label(surf, r, lab, INK if enabled else DIM, self.f_small)
 
     def slider(self, surf, rect, value: float, lo: float, hi: float, step: float, fmt: str, change, release, *, id,
                enabled=True, tip=None) -> None:

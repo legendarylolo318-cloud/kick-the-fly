@@ -26,6 +26,7 @@ class _St:
     def __init__(self):
         self.paper: str | None = None
         self.answers: dict[str, dict[str, str]] = {}
+        self.committed: dict[str, dict[str, str]] = {}   # the hypothesis as it was when the shown result's run started
         self.sess = classroom.ClassroomSession("looming")
         self.results: dict[str, dict] = {}
         self.job: BgJob | None = None
@@ -69,6 +70,7 @@ def start(m, pid: str) -> None:
     if s.job is not None and s.job.running:
         return
     seeds = minipapers.FULL_SEEDS if s.full else minipapers.QUICK_SEEDS
+    commit(s, pid)
 
     def work(job: BgJob):
         return minipapers.run_paper(pid, seeds, workers=_workers(), cancel=job.cancel,
@@ -76,6 +78,16 @@ def start(m, pid: str) -> None:
 
     s.error = ""
     s.job = BgJob(f"Mini-paper {pid}", work).start()
+
+
+def commit(s: _St, pid: str) -> None:
+    """Freeze the hypothesis for the run that starts now (3.0 release review: the comparison used whatever was selected when it was drawn, so a
+    hypothesis changed after seeing the result was reported as having matched it)."""
+    s.committed[pid] = dict(s.answers.get(pid, {}))
+
+
+def committed(s: _St, pid: str) -> dict[str, str]:
+    return s.committed.get(pid, s.answers.get(pid, {}))
 
 
 def collect(s: _St) -> None:
@@ -157,7 +169,8 @@ def _step_read(m, surf, x, y, w, p) -> int:
 
 
 def _step_hypothesis(m, surf, x, y, w, p, s) -> int:
-    y = _para(m, surf, x, y, w, tr("Commit to a hypothesis before anything runs. You can change it until you run."), ui.LABEL, m.f_small)
+    y = _para(m, surf, x, y, w, tr("Commit to a hypothesis before anything runs. It is fixed when you press Run; a change after that applies to your next run."),
+              ui.LABEL, m.f_small)
     ans = s.answers.setdefault(p.id, {})
     h = _h(m)
     for q in p.questions:
@@ -201,6 +214,7 @@ def _run_or_record(m, p, s) -> None:
     if ok:
         start(m, p.id)
     elif p.recorded:
+        commit(s, p.id)
         s.results[p.id] = minipapers.run_paper(p.id, minipapers.FULL_SEEDS)       # recorded numbers: instant, no brain
     else:
         s.error = why
@@ -232,7 +246,7 @@ def _step_compare(m, surf, x, y, w, p, s) -> int:
     res = s.results.get(p.id)
     if res is None:
         return _para(m, surf, x, y, w, tr("Run the experiment first."), ui.AMBER, m.f_small)
-    rows = minipapers.compare(res, s.answers.get(p.id))
+    rows = minipapers.compare(res, committed(s, p.id))
     wide = w > 880
     cw = (w - 20) // 2 if wide else w
     y0 = y

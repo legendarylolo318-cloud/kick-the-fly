@@ -270,10 +270,10 @@ def scene_run(rig: str, seed: int = 0, individuality: str = DEFAULT_MODE, backen
         if rig == "tethered":
             r = rigs.run_tethered(br, tethered_schedule(p["omega"], p["seconds"]), p["mode"], gain=float(p["gain"]), cancel=cancel, progress=progress)
             f = r["_full"]
-            summ = dict(response_right_hz=float(_win(f, 0, 99, "steer_hz")[(_win(f, 0, 99, "omega_ext") > 0)].mean()),
-                        response_left_hz=float(_win(f, 0, 99, "steer_hz")[(_win(f, 0, 99, "omega_ext") < 0)].mean()),
-                        calm_hz=float(_win(f, 0, 99, "steer_hz")[(_win(f, 0, 99, "omega_ext") == 0)].mean()),
-                        mean_abs_slip=float(np.abs(_win(f, 0, 99, "slip")).mean()))
+            # 3.0 release review: these read a 0-99 s window, so a run longer than 99 s (up to 600 s is allowed) was summarized on its start only
+            sh, om_ = f[:, rigs.COLS.index("steer_hz")], f[:, rigs.COLS.index("omega_ext")]
+            summ = dict(response_right_hz=float(sh[om_ > 0].mean()), response_left_hz=float(sh[om_ < 0].mean()), calm_hz=float(sh[om_ == 0].mean()),
+                        mean_abs_slip=float(np.abs(f[:, rigs.COLS.index("slip")]).mean()))
         elif rig == "ball":
             om = float(p["omega"])
             r = rigs.run_ball(br, p["scene"], p["mode"], seconds=float(p["seconds"]), omega_ext=om, bar_offset=math.radians(float(p["bar_deg"])),
@@ -422,16 +422,19 @@ def main(args) -> int:
     mode = getattr(args, "individuality", None) or DEFAULT_MODE
     folder = Path(args.out) if args.out else recorder.exports_dir() / f"{time.strftime('%Y%m%d-%H%M%S')}-rig-{name}"
     t0 = time.time()
+    be = getattr(args, "sim_backend", None)
+    be = None if be in (None, "auto") else be
     if assay:
         seeds = headless.parse_seeds(args.seeds, VALIDATION_SEEDS)
-        res = run_assay(assay, seeds, workers=max(1, args.workers or 1), progress=lambda d, n, label: print(f"  {d}/{n} {label}", flush=True))
+        # 3.0 release review: --sim-backend was ignored here (the assay always ran on the default backend)
+        res = run_assay(assay, seeds, workers=max(1, args.workers or 1), backend=be,
+                        progress=lambda d, n, label: print(f"  {d}/{n} {label}", flush=True))
         save(res, folder)
         print(summary(res))
         print(f"results written to {folder} ({time.time() - t0:.0f} s)")
         return 0
     seeds = headless.parse_seeds(args.seeds, (0,))
-    be = getattr(args, "sim_backend", None)
-    res = scene_run(name, seeds[0], mode, folder=folder, backend=None if be in (None, "auto") else be)
+    res = scene_run(name, seeds[0], mode, folder=folder, backend=be)
     print(f"{res['title']}: seed {res['seed']}, individuality {mode}, {res['seconds']:g} s simulated")
     for k, v in res["summary"].items():
         print(f"  {k}: {v}")

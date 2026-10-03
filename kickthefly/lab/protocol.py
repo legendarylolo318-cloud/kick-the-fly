@@ -103,10 +103,13 @@ def _check_day2(p: dict, where: str) -> None:
     from kickthefly.lab import imaging, patchclamp, pharmacology, thermogenetics
 
     if "rig" in p:
+        # 3.0 release review: params, nwb and assay_options were accepted and then silently ignored (a rig fly is built with the default
+        # Lab parameters and writes no NWB), so a protocol asking for changed parameters would have reported the defaults' result as its own
         ignored = [k for k in ("assay", "classroom", "thermogenetics", "drug", "imaging", "stimuli", "recordings", "surgery", "control",
-                               "warmup_s", "duration_s", "patch", *DAY3_KEYS) if k in p]
+                               "warmup_s", "duration_s", "patch", "params", "nwb", "assay_options", *DAY3_KEYS) if k in p]
         if ignored:
-            raise ProtocolError(f"{where}: a rig protocol stands alone; it can't use {', '.join(ignored)} (the rig sets its own timeline)")
+            raise ProtocolError(f"{where}: a rig protocol stands alone; it can't use {', '.join(ignored)} (the rig sets its own timeline "
+                                "and builds its flies with the default parameters)")
         _check_rig(p, where)
         return
     if "patch" in p:

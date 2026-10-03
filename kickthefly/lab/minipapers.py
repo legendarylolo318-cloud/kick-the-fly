@@ -28,7 +28,7 @@ import numpy as np
 
 QUICK_SEEDS = (0, 1, 2, 3)                       # exploration seeds: a first look, never a validation result
 FULL_SEEDS = tuple(range(1000, 1010))            # the validation seeds
-RATIO_MIN, P_MAX = 1.5, 0.01                     # validation.py's own criteria
+from kickthefly.lab.validation import CONTROL_PI_MAX, P_MAX, PI_MIN, RATIO_MIN  # noqa: E402  validation's own criteria, never a copy
 
 
 @dataclass(frozen=True)
@@ -137,17 +137,20 @@ _add(Paper(
     citation="Shiu PK, Sterne GR, Spiller N, Franconville R, Sandoval A, Zhou J, Simha N, Kang CH, Yu S, Kim JS, Dorkenwald S, Matsliah A, Schlegel P, Yu SC, "
              "McKellar CE, Sterling A, Costa M, Eichler K, Bates AS, Eckstein N, Funke J, Jefferis GSXE, Murthy M, Bidaye SS, Hampel S, Seeds AM, Scott K (2024) "
              "A Drosophila computational brain model reveals sensorimotor processing. Nature 634:210-219",
-    doi="10.1038/s41586-024-07763-9", read="abstract only (Europe PMC); the full text is behind a paywall and was not read",
+    doi="10.1038/s41586-024-07763-9", read="abstract (Europe PMC), and the open-access full text (PMC11446845) searched for its MN9 and bitter results in the 3.0 "
+    "release review; not read line by line",
     summary="Drive 30 sugar-pathway taste neurons and see whether the proboscis motor neuron MN9 fires more than for 30 bitter-pathway taste neurons.",
     found="A leaky integrate-and-fire model of a whole adult fly central brain, built from connectivity and predicted neurotransmitter identity, predicts "
           "which neurons respond to sugar or water taste and are required for feeding initiation; activating neurons in the feeding region predicts which of "
           "them make motor neurons fire, which the authors confirmed with optogenetic activation and behavior; activating different classes of taste neurons "
-          "predicts how several taste modalities interact.",
-    found_numbers="none stated in the abstract (it names no motor neuron and no effect size)",
+          "predicts how several taste modalities interact. In the full text, MN9 (a proboscis motor neuron) is the model's readout of sugar-sensing taste neurons, "
+          "and adding bitter taste-neuron activity to sugar inhibited MN6 and MN9 in their model.",
+    found_numbers="none quoted here (the abstract states no effect size; the full text's MN9 firing rates are in its figures, which were not transcribed)",
     cannot_check="The paper's model is built on a different connectome (a central brain of more than 125,000 neurons and 50 million synapses, per the abstract); this game's "
                  "is the MaleCNS v1.0 with 166,700 neurons and its own LIF parameters, so this is the same kind of model on other wiring, not the paper's. "
-                 "The abstract does not name MN9, so MN9 as the readout is this game's choice (the proboscis motor neuron), and the sugar and bitter sets are "
-                 "chosen from their wiring to the sugar and bitter SEL neurons, not by taste labels (the dataset has none).",
+                 "MN9 is the paper's own readout; the comparison here differs, though: sugar-pathway neurons alone against bitter-pathway neurons alone, "
+                 "where the paper adds bitter to sugar. The sugar and bitter sets are chosen from their wiring to the sugar and bitter SEL neurons, not by "
+                 "taste labels (the dataset has none).",
     questions=(_q("sugar_feeding", "You drive 30 sugar-pathway taste neurons for 2 s. What happens to MN9 (the proboscis motor neuron), compared with driving 30 "
                   "bitter-pathway taste neurons?",
                   (("up", "MN9 fires clearly more for sugar (at least 1.5x calm, and more than for bitter)"), ("same", "no difference between sugar and bitter"),
@@ -233,13 +236,19 @@ _add(Paper(
     id="colomb_2012", title="Walking between two stripes: Buridan's paradigm (Colomb et al. 2012)", short="Buridan's paradigm",
     citation="Colomb J, Reiter L, Blaszkiewicz J, Wessnitzer J, Brembs B (2012) Open source tracking and analysis of adult Drosophila locomotion in Buridan's "
              "paradigm with and without visual targets. PLoS ONE 7(8):e42247",
-    doi="10.1371/journal.pone.0042247", read="full text (open access), read through a page summary",
+    doi="10.1371/journal.pone.0042247", read="full text (open access, PMC3415391), read through a page summary; the stripe deviation's definition, the 45-degree "
+    "chance level and the activity time checked in the full text in the 3.0 release review",
     summary="Put the fly on a round platform with two opposite stripes beyond its edge (and, as the control, without them) and measure how its walking is oriented to the stripe axis.",
     found="Flies show fixation and antifixation of two inaccessible visual targets: with narrow stripes they walk directly back and forth between them, with wide stripes the "
-          "organisation is weaker. The chance level of the median stripe deviation for a random walk is 45 degrees, and flies' median stripe deviation was lower with narrow "
-          "stripes. Narrow stripes eliminated centrophobism while moving; about a third of the experiment time was spent active.",
-    found_numbers="45 degrees (chance level of stripe deviation); about 33% of the time active",
-    cannot_check="Antifixation, stripe width, the water moat, centrophobism and pauses are not modeled. The sim's fly walks steadily at one speed set by DNp09. The stripe is tracked "
+          "organisation is weaker. The chance level of the median stripe deviation, set from computer-generated walks, is 45 degrees, and flies' median stripe deviation "
+          "differed between narrow and wide stripes. Narrow stripes eliminated centrophobism while moving. The computer-generated walks were fitted to flies' activity time, "
+          "about 33% of the time active.",
+    found_numbers="45 degrees (chance level of the median stripe deviation); about 33% of the time active (the fitted activity time)",
+    cannot_check="The stripe deviation here is not the paper's metric: the paper measures the angle between the fly's movement and the direction to the "
+                 "centre of the stripe in front of it (0-120 degrees, chance 45 from computer-generated walks); the rig measures the angle between the movement "
+                 "and the line joining the stripes, folded to 0-90 degrees (chance 45 for a random walk). Both put chance at 45 degrees and both fall as walking "
+                 "lines up with the stripes, so the direction compares; the values do not. "
+                 "Antifixation, stripe width, the water moat, centrophobism and pauses are not modeled. The sim's fly walks steadily at one speed set by DNp09. The stripe is tracked "
                  "by LC10 through the duel's rule (GAME RULE) and the platform edge reflects it (GAME RULE), so the transits are produced by those rules acting on the real "
                  "steering and walking neurons; what the connectome contributes is how accurately and how fast the steering neurons carry the fly to the stripe.",
     questions=(_q("rig:buridan", "You put a fly on the platform for two minutes, with the two stripes and without. What happens to its stripe deviation (the angle between its "
@@ -286,7 +295,7 @@ def _verdict(test_id: str, t: dict, full: bool) -> dict:
     """reproduced or not, by validation's criteria on a full run; on a quick run by effect and direction only (n too small for p < 0.01)."""
     m = t["measured"]
     if test_id == "mb_conditioning":
-        eff = m["pi_mean"] >= 0.5 and abs(m["control_pi_mean"]) <= 0.25 and m["pi_mean"] > m["control_pi_mean"]
+        eff = m["pi_mean"] >= PI_MIN and abs(m["control_pi_mean"]) <= CONTROL_PI_MAX and m["pi_mean"] > m["control_pi_mean"]
     else:
         eff = m["drive_ratio_mean"] >= RATIO_MIN and m["drive_ratio_mean"] > m["control_ratio_mean"]
     n = int(m.get("n", len(t.get("per_seed", []))))
@@ -358,11 +367,6 @@ def run_paper(paper_id: str, seeds=QUICK_SEEDS, workers: int = 1, progress=None,
                 unavailable=why, seconds=round(time.time() - t0, 1), questions=qs, created=time.strftime("%Y-%m-%d %H:%M:%S"))
 
 
-def hypothesis_text(paper: Paper, answers: dict[str, str] | None) -> list[str]:
-    """For each question, whether the player's choice matched what the paper found and what the model gave: (kept for the page and --minipaper)."""
-    return []
-
-
 def compare(res: dict, answers: dict[str, str] | None = None) -> list[dict]:
     """The comparison table: per question, your hypothesis, the paper's direction, the model's result and whether they agree."""
     p = PAPERS[res["paper"]]
@@ -427,7 +431,9 @@ def svg_pairs(res: dict, width: int = 560, row_h: int = 160) -> str:
     for i, q in enumerate(qs):
         top = 10 + i * row_h
         vals = [v for pr in q["pairs"] for v in (pr["drive"], pr["control"])]
-        lo, hi = min(0.0, min(vals)), max(vals) * 1.1 or 1.0
+        lo, hi = min(0.0, min(vals)), max(0.0, max(vals))          # 3.0 release review: all-negative values (a PI) fell outside the plot
+        pad = (hi - lo) * 0.1 or 1.0
+        lo, hi = (lo - pad if lo < 0 else lo), hi + pad
         def y(v):
             return top + row_h - 40 - (v - lo) / (hi - lo) * (row_h - 70)
         out.append(f'<text x="10" y="{top + 12}">{q["test"]}</text>')

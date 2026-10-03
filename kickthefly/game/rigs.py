@@ -352,9 +352,11 @@ def preference_index(full: np.ndarray, dt: float, settle_s: float = 10.0) -> dic
 
 
 def stripe_deviation(full: np.ndarray, settle_s: float = 10.0, min_step: float = 1e-4) -> float:
-    """Median stripe deviation in degrees (GAME RULE definition, after Colomb et al. 2012's measure): the angle between the fly's
-    direction of travel and the line joining the stripes (the east-west axis), folded to 0-90 degrees (0 = along the axis, 45 = chance
-    for a random walk). Steps of the trajectory shorter than min_step are ignored."""
+    """Median stripe deviation in degrees (GAME RULE definition, named after Colomb et al. 2012's measure but not the same): the angle
+    between the fly's direction of travel and the line joining the stripes (the east-west axis), folded to 0-90 degrees (0 = along the
+    axis, 45 = chance for a random walk). Colomb et al. measure the angle to the centre of the stripe in front of the fly (0-120 degrees,
+    chance 45 from simulated walks): both have chance at 45 and fall as walking lines up with the stripes, but the values differ.
+    Steps of the trajectory shorter than min_step are ignored."""
     a = np.asarray(full, float)
     a = a[a[:, 0] > settle_s]
     dx, dy = np.diff(a[:, COLS.index("x")]), np.diff(a[:, COLS.index("y")])

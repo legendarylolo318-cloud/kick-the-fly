@@ -41,6 +41,10 @@ reachable). The fly walks from the centre, turns on DNa01/02 and goes at DNp09's
 edge is reflected (specularly). The trajectory is recorded. The control has no stripes. Measures (GAME RULE definitions, after Colomb et al.
 2012's): *stripe deviation* (the median over the run of the angle between the direction of travel and the line joining the stripes, 0-90 degrees,
 45 = chance for a random walk) and *transits* (the east-west position reaches beyond 80% of the radius on one side and then the other).
+**The stripe deviation is not Colomb et al.'s metric** (3.0 release review, checked in the full text, PMC3415391): theirs is the angle between the
+movement and the direction to the centre of the stripe in front of the fly (0-120 degrees, chance 45 set from computer-generated walks). Both put chance
+at 45 degrees and both fall as walking lines up with the stripes, so the direction compares with the paper; the values do not. The criterion (B1) was
+pre-registered on this definition and is unchanged.
 
 **Four-field olfactory arena.** A 1 m square in four quadrants, the odor ("fruit", the game's own scent pulse of 0.3 per tick) in two opposite
 ones, air in the others, sharp boundaries (a real arena mixes at the seams). The fly walks as in Buridan's arena (walls reflect it) with nothing to
