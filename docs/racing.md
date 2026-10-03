@@ -59,3 +59,27 @@ calm firing rates), not the per-neuron individuality gains: the `subtle` gains a
 speed is a stable property of its seed's brain state", not "individuality predicts the finish". The form score works (R2, R3) because half of it, the
 calm DNp09 level, is the quantity the speed rule uses: that is the model doing what its rule says (rho = -0.79 for that term alone), while the sugar ratio
 carries no information about speed (rho = -0.09). No parameter was changed after seeing this.
+
+## Why R1 does not test individuality, and R4 (3.0 day 4 review)
+
+**The cause (exploration seeds 0-15, individuality off, each fly run twice; `tools/race_diagnosis.py`, `docs/results/day4/race_diagnosis/`):**
+
+| condition | run 1 vs run 2 Spearman rho |
+|---|---|
+| A: as the assay does it (both runs start from the seed's post-warm-up state) | **+0.98** (p = 1e-10) |
+| B: a fresh warm-up per run, under the lane's own noise | +0.55 (p = 0.027) |
+| C: as A, the synaptic gain (the slow controller's one number) set to the mean over seeds | +0.94 |
+| D: as A, the calm baselines (`Brain.base`, the rates every level is read against) set to the mean over seeds | **-0.08** (p = 0.77) |
+
+The post-warm-up calm baseline of the walking group predicts a fly's finishing time almost perfectly (rho +0.98); its gain only weakly
+(-0.51). The speed rule (a GAME RULE) reads DNp09 firing **as a multiple of the fly's own calm rate**, and that calm rate is estimated
+during the 3 s warm-up from the seed's noise and then carried through the race. A fly whose warm-up happened to set a high baseline reads a
+low walking level all race long, so it is slow in both runs, individuality or not. Equalising the baselines removes the repeatability (D);
+equalising the gain does not (C). B is lower but not zero; with n = 16 that may be chance, and it is **not resolved** here. No rule was
+changed: this explains R1, it does not alter it.
+
+**R4, pre-registered in `lab/racing.py` before it was run** (committed 5c0abd2 before any held-out lane): every lane of a race shares one
+brain-state seed, so the baseline artefact is the same for all six lanes; only the individuality seed differs. Statistic: within-race rank
+repeatability r_w (run 1 vs run 2), against the `off` control (six identical brains in one state). PASS needs a within-race permutation
+p < 0.05 for `subtle` AND a 95% bootstrap CI of r_w(subtle) - r_w(off) above 0.
+`python kick_the_fly.py --headless --race-r4 --workers 3 --out DIR`
