@@ -269,7 +269,7 @@ fixes, PR #11) ships as 2.12.0.
   they are unreachable while the larva game falls back to the adult.
 - `test_batched_gpu_plastic_weights_with_individuality` uses backend `"torch-gpu"`, which is not a backend name, so
   on a CUDA/ROCm machine it runs NumPy and never tests the GPU.
-- `CHANGES_GEMINI_2.11.md` is kept as Gemini wrote it and contains claims that did not hold (larva validation x1.00 /
+- `CHANGES_GEMINI_2.11.md` (removed at 3.0.0; in git history) was kept as Gemini wrote it and contains claims that did not hold (larva validation x1.00 /
   x1.06, a CC BY-NC-SA license for the larva data, σ 0.30 for strong, torch-cpu bit-exact with individuality, the
   larva benchmark and a <0.4% individuality cost, protocol files the parser rejects).
 
