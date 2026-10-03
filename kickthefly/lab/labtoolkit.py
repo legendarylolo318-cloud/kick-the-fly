@@ -129,7 +129,7 @@ def page_genetics(m: ui.Menu, surf, rect, mouse) -> None:
         types = _types(host)
         cov = genetics.coverage(types)
     except Exception as e:
-        m.text(surf, f"needs the adult brain pack and the driver-line table: {e}", (rect.x + 24, y + 10), ui.BAD, m.f_small)
+        m.wrapped(surf, f"needs the adult brain pack and the driver-line table: {e}", (rect.x + 24, y + 10), rect.w - 48, ui.BAD, m.f_small, 4)
         _back(m, rect, "genetics")
         return
     y = m.wrapped(surf, f"{cov['lines']:,} adult split-GAL4 lines; {cov['lines_with_a_match']:,} name at least one cell type spelled like "
@@ -182,13 +182,14 @@ def page_genetics(m: ui.Menu, surf, rect, mouse) -> None:
             m.button(surf, (x2 + k * 110, yy, 102, 30), label, (lambda md=mode: _line_surgery(host, st, d, md)), id=("gen_op", mode),
                      enabled=ok, tip="Brain surgery on the cell types this line labels (the same switches as the inspector).")
         yy += 38
-        m.button(surf, (x2, yy, 210, 30), "Aim the laser at this line", lambda: _laser_line(host, d["line"], st), id="gen_laser",
-                 enabled=ok, tip="Sets the Lab laser's target to this line (activate mode) and puts the laser in your hand.")
-        m.button(surf, (x2 + 220, yy, 210, 30), "Express TrpA1 here", lambda: _thermo_line(host, "trpa1", d["line"], st), id="gen_trp",
-                 enabled=ok, tip="Adds a thermogenetic expression: activates these neurons above the TrpA1 temperature.")
-        yy += 38
-        m.button(surf, (x2, yy, 210, 30), "Express shibire-ts here", lambda: _thermo_line(host, "shibire", d["line"], st), id="gen_shi",
-                 enabled=ok, tip="Adds a thermogenetic expression: silences these neurons above the shibire-ts temperature.")
+        _, yy = m.button_row(surf, x2, yy, 30, [
+            dict(label="Aim the laser at this line", click=lambda: _laser_line(host, d["line"], st), id="gen_laser", enabled=ok, w=210,
+                 tip="Sets the Lab laser's target to this line (activate mode) and puts the laser in your hand."),
+            dict(label="Express TrpA1 here", click=lambda: _thermo_line(host, "trpa1", d["line"], st), id="gen_trp", enabled=ok, w=210,
+                 tip="Adds a thermogenetic expression: activates these neurons above the TrpA1 temperature."),
+            dict(label="Express shibire-ts here", click=lambda: _thermo_line(host, "shibire", d["line"], st), id="gen_shi", enabled=ok, w=210,
+                 tip="Adds a thermogenetic expression: silences these neurons above the shibire-ts temperature.")], right=rect.right - 24)
+        yy -= 30
         yy += 40
         if st.note:
             m.text(surf, st.note, (x2, yy), ui.AMBER, m.f_small)
@@ -287,19 +288,21 @@ def page_thermo(m: ui.Menu, surf, rect, mouse) -> None:
         pygame.draw.rect(surf, (30, 36, 48), (x + 480, y + 4, 160, 14), border_radius=7)
         pygame.draw.rect(surf, ui.AMBER if ef.kind == "activate" else (90, 150, 230), (x + 480, y + 4, max(3, int(160 * a)), 14), border_radius=7)
         m.text(surf, f"{a:.0%}", (x + 650, y + 12), ui.TEXT, m.f_small, "midleft")
-        m.button(surf, (x + 700, y, 70, 24), "Remove", (lambda j=i: tl.remove(j, [s_.brain for s_ in host.flies])), id=("th_rm", i),
-                 font=m.f_small)
+        m.button(surf, (x + 700, y, m.bw("Remove", 70, m.f_small), max(24, m.f_small.get_linesize() + 6)), "Remove",
+                 (lambda j=i: tl.remove(j, [s_.brain for s_ in host.flies])), id=("th_rm", i), font=m.f_small)
         y += 28
     if not tl.expressions:
         m.text(surf, "none yet", (x, y), ui.LABEL, m.f_small)
         y += 22
     y += 6
-    m.segmented(surf, (x, y, 340, 28), ["TrpA1 (activate)", "shibire-ts (silence)"], st.t_effector, lambda i: setattr(st, "t_effector", i),
+    seg_w = max(340, 2 * (m.f_small.size("shibire-ts (silence)")[0] + 28))    # 3.0 release review: was a fixed 340 (cut with wider fonts)
+    m.segmented(surf, (x, y, seg_w, 28), ["TrpA1 (activate)", "shibire-ts (silence)"], st.t_effector, lambda i: setattr(st, "t_effector", i),
                 id="th_eff")
-    m.text_field(surf, (x + 356, y, 240, 28), st.t_target, lambda v: setattr(st, "t_target", v), id="th_target", limit=40,
+    m.text_field(surf, (x + seg_w + 16, y, 240, 28), st.t_target, lambda v: setattr(st, "t_target", v), id="th_target", limit=40,
                  tip="A cell type (type:DNp01), prefix:KC, a group, or a driver line (line:SS00727). Lab > Genetic toolkit finds lines.")
-    m.button(surf, (x + 606, y, 90, 28), "Add", lambda: _add_expr(st, tl, host), id="th_add")
-    m.button(surf, (x + 704, y, 70, 28), "Clear", lambda: tl.clear([s_.brain for s_ in host.flies]), id="th_clear", style="danger")
+    m.button_row(surf, x + seg_w + 266, y, 28, [dict(label="Add", click=lambda: _add_expr(st, tl, host), id="th_add", w=90),
+                                       dict(label="Clear", click=lambda: tl.clear([s_.brain for s_ in host.flies]), id="th_clear",
+                                            style="danger", w=70)], gap=8)
     y += 38
     if st.note:
         m.text(surf, st.note, (x, y), ui.AMBER, m.f_small)
@@ -437,17 +440,17 @@ def page_patch(m: ui.Menu, surf, rect, mouse) -> None:
     m.number_field(surf, (x + 550, y, 64, 26), int(st.p_dur), lambda v: setattr(st, "p_dur", max(10, min(20000, int(v)))), id="pc_dur")
     m.text(surf, "x", (x + 624, y + 13), ui.TEXT, m.f_small, "midleft")
     m.number_field(surf, (x + 640, y, 44, 26), int(st.p_repeats), lambda v: setattr(st, "p_repeats", max(1, min(100, int(v)))), id="pc_rep")
-    m.button(surf, (x + 694, y, 110, 26), "Run steps", lambda: _run_steps(st, host, br, row), id="pc_run", style="primary",
+    m.button(surf, (x + 694, y, m.bw("Run steps", 110), 26), "Run steps", lambda: _run_steps(st, host, br, row), id="pc_run", style="primary",
              tip="Current-clamp steps of this amplitude and duration, repeated; the sweeps are recorded for export.")
     y += 34
     busy = st.p_job is not None and st.p_job["thread"].is_alive()
-    m.button(surf, (x, y, 210, 30), "Record I-F curve" if not busy else f"running… {st.p_job['label']}", lambda: _start_if(st, host, row),
-             id="pc_if", enabled=not busy, tip="Firing rate against injected current, several sweeps per amplitude, in the chosen mode.")
-    m.button(surf, (x + 220, y, 120, 30), "Export CSV", lambda: _export_patch(st, m, "csv"), id="pc_csv",
-             enabled=st.p_rec is not None or st.p_curve is not None)
     nwb = pc.nwb_available()
-    m.button(surf, (x + 350, y, 120, 30), "Export NWB", lambda: _export_patch(st, m, "nwb"), id="pc_nwb",
-             enabled=(st.p_rec is not None) and nwb is None, tip=nwb or "Neurodata Without Borders; the potential stays in model units.")
+    m.button_row(surf, x, y, 30, [
+        dict(label="Record I-F curve" if not busy else f"running… {st.p_job['label']}", click=lambda: _start_if(st, host, row), id="pc_if",
+             enabled=not busy, w=210, tip="Firing rate against injected current, several sweeps per amplitude, in the chosen mode."),
+        dict(label="Export CSV", click=lambda: _export_patch(st, m, "csv"), id="pc_csv", enabled=st.p_rec is not None or st.p_curve is not None, w=120),
+        dict(label="Export NWB", click=lambda: _export_patch(st, m, "nwb"), id="pc_nwb", enabled=(st.p_rec is not None) and nwb is None, w=120,
+             tip=nwb or "Neurodata Without Borders; the potential stays in model units.")])
     if st.p_job is not None and not st.p_job["thread"].is_alive() and st.p_job.get("result"):
         st.p_curve, st.p_job = st.p_job["result"], None
     if st.p_job is not None and st.p_job.get("error"):
@@ -657,7 +660,7 @@ def page_imaging(m: ui.Menu, surf, rect, mouse) -> None:
     lh_s = m.f_small.get_linesize()
     notes_h = (len(ui.Menu.fit_lines(m.f_small, ind_text, rect.w - 200, 6)[0]) + len(ui.Menu.fit_lines(m.f_small, model_text, rect.w - 200, 4)[0])) * lh_s + 8
     s = il.session
-    plot = pygame.Rect(x, y, rect.w - 48, max(110, min(190, rect.bottom - 70 - notes_h - 46 - y)))
+    plot = pygame.Rect(x, y, rect.w - 48, max(60, min(190, rect.bottom - 70 - notes_h - 46 - y)))
     if s is not None and len(s.t) > 2:
         reduced = bool(host.cfg["access.reduced_flashing"])
         data = np.array(s.true_dff if reduced else s.dff)
@@ -675,14 +678,15 @@ def page_imaging(m: ui.Menu, surf, rect, mouse) -> None:
         pygame.draw.rect(surf, (12, 14, 20), plot, border_radius=8)
         m.text(surf, "turn Imaging mode on to see the ROI traces", plot.center, ui.LABEL, m.f_small, "center")
     y = plot.bottom + 8
-    m.button(surf, (x, y, 130, 30), "Export CSV", lambda: _export_imaging(st, m, host, "csv"), id="im_csv", enabled=s is not None and len(s.t) > 1)
     nwb = imaging_nwb_reason()
-    m.button(surf, (x + 140, y, 130, 30), "Export NWB", lambda: _export_imaging(st, m, host, "nwb"), id="im_nwb",
-             enabled=s is not None and len(s.t) > 1 and nwb is None, tip=nwb or "RoiResponseSeries (dF/F and photons) and an ImageSeries.")
-    m.button(surf, (x + 280, y, 130, 30), "Export TIFF", lambda: _export_imaging(st, m, host, "tiff"), id="im_tiff",
-             enabled=bool(il.frames), tip="A multi-page TIFF of the rendered view. Turn on 'keep frames' first.")
+    xe, _ = m.button_row(surf, x, y, 30, [
+        dict(label="Export CSV", click=lambda: _export_imaging(st, m, host, "csv"), id="im_csv", enabled=s is not None and len(s.t) > 1, w=130),
+        dict(label="Export NWB", click=lambda: _export_imaging(st, m, host, "nwb"), id="im_nwb", enabled=s is not None and len(s.t) > 1 and nwb is None,
+             w=130, tip=nwb or "RoiResponseSeries (dF/F and photons) and an ImageSeries."),
+        dict(label="Export TIFF", click=lambda: _export_imaging(st, m, host, "tiff"), id="im_tiff", enabled=bool(il.frames), w=130,
+             tip="A multi-page TIFF of the rendered view. Turn on 'keep frames' first.")])
     if st.i_msg:
-        m.text(surf, st.i_msg, (x + 430, y + 15), ui.AMBER, m.f_small, "midleft")
+        m.text(surf, st.i_msg, (xe + 10, y + 15), ui.AMBER, m.f_small, "midleft")
     y += 38
     y = m.wrapped(surf, ind_text, (x, y), rect.w - 200, ui.LABEL, m.f_small, 6) + 8      # clear of the Back button
     m.wrapped(surf, model_text, (x, y), rect.w - 200, ui.LABEL, m.f_small, 4)
@@ -743,7 +747,11 @@ def page_pharm(m: ui.Menu, surf, rect, mouse) -> None:
     m.slider(surf, (x + lw, y, min(320, avail), fh), st.d_dose, 0.0, 1.0, 0.05, "{:.0%}", lambda v: setattr(st, "d_dose", float(v)), lambda: None,
              id="ph_dose", tip="Blockers scale by (1 - dose). The GABA-A agonist scales by 1 + dose (x2 at full dose, a game rule).")
     scale = ph.scale_for(st.d_drug, st.d_dose)
-    m.text(surf, f"synapse weight scale x{scale:.2f}", (x + lw + min(320, avail) + 20, y + fh // 2), ui.INK, m.f_text, "midleft")
+    sx = x + lw + min(320, avail) + 20
+    if sx + m.f_text.size(f"synapse weight scale x{scale:.2f}")[0] > rect.right - 24:     # no room beside the slider: under it
+        y += fh + 4
+        sx = x + lw
+    m.text(surf, f"synapse weight scale x{scale:.2f}", (sx, y + fh // 2), ui.INK, m.f_text, "midleft")
     y += fh + 8
     m.text(surf, "Low-confidence predictions", (x, y + fh // 2), ui.TEXT, m.f_text, "midleft")
     sw = min(240, avail // 2)
@@ -789,19 +797,22 @@ def page_pharm(m: ui.Menu, surf, rect, mouse) -> None:
     live = getattr(host, "wiring", None) or Wiring()
     new = ph.wiring_for({st.d_drug: st.d_dose}, st.d_low, st.d_cut, base=live) if st.d_dose else Wiring(live.min_synapses, live.flip_rows, live.inhibition_scale)
     applied = live == new
-    m.button(surf, (x, y, 250, 36), "Applied" if applied else "Apply to every fly", lambda: host.set_wiring(new), id="ph_apply", style="primary",
-             enabled=not applied and not getattr(host, "wiring_busy", ""),
-             tip="Reversibly scales those synapses on the live flies (the wiring machinery of Lab > Robustness).")
-    m.button(surf, (x + 260, y, 200, 36), "Wash out", lambda: host.set_wiring(Wiring(live.min_synapses, live.flip_rows, live.inhibition_scale)),
-             id="ph_wash", enabled=bool(live.nt_scales) and not getattr(host, "wiring_busy", ""))
     job = st.d_job
     busy = job is not None and job["thread"].is_alive()
-    m.button(surf, (x + 470, y, 250, 36), "Measure dose-response" if not busy else "measuring…", lambda: _start_dr(st), id="ph_dr", enabled=not busy,
-             tip="Whole-brain firing (Hz) at 0, 25, 50, 75 and 100% dose of this drug, seed 1000, 1 s each, on fresh brains.")
+    apply_label = "Applied" if applied else "Apply to every fly"
+    x_dr = x + m.bw(apply_label, 250) + 10 + m.bw("Wash out", 200) + 10          # the report button sits under this one
+    x_after, _ = m.button_row(surf, x, y, 36, [
+        dict(label=apply_label, click=lambda: host.set_wiring(new), id="ph_apply", style="primary", w=250,
+             enabled=not applied and not getattr(host, "wiring_busy", ""),
+             tip="Reversibly scales those synapses on the live flies (the wiring machinery of Lab > Robustness)."),
+        dict(label="Wash out", click=lambda: host.set_wiring(Wiring(live.min_synapses, live.flip_rows, live.inhibition_scale)), id="ph_wash", w=200,
+             enabled=bool(live.nt_scales) and not getattr(host, "wiring_busy", "")),
+        dict(label="Measure dose-response" if not busy else "measuring…", click=lambda: _start_dr(st), id="ph_dr", enabled=not busy, w=250,
+             tip="Whole-brain firing (Hz) at 0, 25, 50, 75 and 100% dose of this drug, seed 1000, 1 s each, on fresh brains.")])
     if job is not None and not busy:
         st.d_dr, st.d_job = job.get("result") or st.d_dr, None
     if live.nt_scales:
-        m.text(surf, f"live on the flies: {live.label()}", (x + 730, y + 18), ui.AMBER, m.f_small, "midleft")
+        m.wrapped(surf, f"live on the flies: {live.label()}", (x_after, y + 4), rect.right - 24 - x_after, ui.AMBER, m.f_small, 2)
     y += 46
     if st.d_drug == "picrotoxin" and st.d_low:
         from kickthefly.lab import labwiring
@@ -812,10 +823,11 @@ def page_pharm(m: ui.Menu, surf, rect, mouse) -> None:
             wst.inhibition_result = j2.get("result") or wst.inhibition_result
             wst.inhibition_job = None
         if wst.inhibition_job is None:
-            m.button(surf, (x + 470, y - 46 + 42, 250, 26), "Firing-rate distribution report", lambda: labwiring._start_inhibition(m, wst, 1.0 - st.d_dose),
+            m.button(surf, (x_dr, y - 46 + 42, m.bw("Firing-rate distribution report", 250, m.f_small), max(26, m.f_small.get_linesize() + 6)),
+                     "Firing-rate distribution report", lambda: labwiring._start_inhibition(m, wst, 1.0 - st.d_dose),
                      id="ph_report", font=m.f_small, tip="The original picrotoxin report: firing-rate histogram before and after, seed 1000.")
         else:
-            m.text(surf, "report: " + wst.inhibition_job["label"], (x + 470, y - 46 + 50), ui.LABEL, m.f_small)
+            m.text(surf, "report: " + wst.inhibition_job["label"], (x_dr, y - 46 + 50), ui.LABEL, m.f_small)
         if wst.inhibition_result:
             labwiring._draw_inhibition(m, surf, pygame.Rect(x, y + 6, rect.w - 48, rect.bottom - y - 80), wst, wst.inhibition_result)
             _back(m, rect, "pharm")

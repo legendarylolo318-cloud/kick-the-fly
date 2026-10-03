@@ -219,13 +219,13 @@ def page_bugreport(menu, surf, rect, mouse) -> None:
     elif br.get("msg"):
         menu.text(surf, br["msg"], (rect.x + 24, fy + 16), mu.GOOD, menu.f_small)
     by = rect.bottom - 62
-    menu.button(surf, (rect.x + 24, by, 210, 42), tr("Copy to clipboard"), lambda: _copy(menu, br, full),
-                id=("br", "copy"), tip=tr("Copy everything that is switched on. You paste it wherever you like."))
-    menu.button(surf, (rect.x + 246, by, 250, 42), tr("Open GitHub issue"), lambda: _open(menu, br, attach, url),
-                style="primary", id=("br", "open"),
-                tip=tr("Opens your browser on a prefilled new-issue page. If items are long, they are saved to a file to attach by hand. Nothing is sent by this program."))
-    menu.button(surf, (rect.x + 508, by, 180, 42), tr("Save to file"), lambda: _save(menu, br, full), id=("br", "save"),
-                tip=tr("Save everything that is switched on as a text file."))
+    menu.button_row(surf, rect.x + 24, by, 42, [
+        dict(label=tr("Copy to clipboard"), click=lambda: _copy(menu, br, full), id=("br", "copy"), w=210,
+             tip=tr("Copy everything that is switched on. You paste it wherever you like.")),
+        dict(label=tr("Open GitHub issue"), click=lambda: _open(menu, br, attach, url), style="primary", id=("br", "open"), w=250,
+             tip=tr("Opens your browser on a prefilled new-issue page. If items are long, they are saved to a file to attach by hand. Nothing is sent by this program.")),
+        dict(label=tr("Save to file"), click=lambda: _save(menu, br, full), id=("br", "save"), w=180,
+             tip=tr("Save everything that is switched on as a text file."))], gap=12)
     menu.button(surf, (rect.right - 164, by, 140, 42), tr("Back"), lambda: (br.clear(), menu.back()), id=("br", "back"))
 
 

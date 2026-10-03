@@ -210,7 +210,7 @@ def page_params(m: ui.Menu, surf, rect, mouse) -> None:
     m.content_h[key] = max(0, y + off - body.bottom + 8)
     surf.set_clip(prev)
     m.clip = None
-    m.button(surf, (rect.x + 24, rect.bottom - 58, 200, 42), "Reset to defaults",
+    m.button(surf, (rect.x + 24, rect.bottom - 58, m.bw("Reset to defaults", 200), 42), "Reset to defaults",
              lambda: [host.set_lab_param(n, d) for n, d in DEFAULTS.items()], id=("params", "reset"))
     m.button(surf, (rect.right - 164, rect.bottom - 58, 140, 42), "Back", m.back, style="primary", id=("params", "back"))
 
@@ -1535,7 +1535,7 @@ def page_export(m: ui.Menu, surf, rect, mouse) -> None:
             enabled=bool(st.rec_pick), tip="Closes the menu; the recording stops by itself after the duration.")
     else:
         m.button(surf, (rect.x + 24, y, 200, 44), "Stop and save", host.stop_recording, style="danger", id="rec_stop")
-    m.text(surf, f"Saved to {short(recorder.exports_dir(), 110)}", (rect.x + 24, y + 56), ui.LABEL, m.f_small)
+    m.wrapped(surf, f"Saved to {short(recorder.exports_dir(), 110)}", (rect.x + 24, y + 56), rect.w - 220, ui.LABEL, m.f_small, max_lines=2)
     last = getattr(host, "last_export", None)
     if last:
         m.text(surf, f"Last: {short(last, 110)}", (rect.x + 24, y + 76), ui.GOOD, m.f_small)

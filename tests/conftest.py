@@ -60,6 +60,20 @@ def brain_pack():
 needs_pack = pytest.mark.skipif(brain_pack() is None, reason="brain pack data/kick_brain.npz not built")
 
 
+def larva_available() -> bool:
+    """The larva pack is optional and built from a separate download (docs/larva.md). The suite never opens a network connection (the guard
+    above), so a larva test can only run where the pack, or the downloaded Data S1 archive it is built from, is already on disk."""
+    from kickthefly.sim.connectome import larva_loader
+
+    return (larva_loader.DATA_DIR / larva_loader.LARVA_PACK_NAME).exists() or larva_loader.LARVA_ZIP.exists()
+
+
+# 3.0 release review: the three larva tests tried to download Data S1 and failed on every machine without the pack (CI included) since the
+# network guard arrived in 3.0 day 3; they skip with this reason instead.
+needs_larva = pytest.mark.skipif(not larva_available(), reason="the optional larva pack is not built here (python -m "
+                                 "kickthefly.sim.connectome.larva_loader build; docs/larva.md) and the test suite never downloads it")
+
+
 @pytest.fixture(scope="session")
 def _synthetic_pack_file(tmp_path_factory):
     import synthetic_pack

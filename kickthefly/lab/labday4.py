@@ -294,9 +294,10 @@ def page_sensitivity(m: ui.Menu, surf, rect, mouse) -> None:
     body, off = _chrome(m, surf, rect, tr("SENSITIVITY ANALYSIS"), tr("Vary each LIF parameter and re-run the validated behaviors with validation's own criteria. Analysis only: the defaults never change."), st, key)
     busy = st.job is not None and st.job.running
     x, y = body.x + 8, body.y + 4
-    m.button(surf, (x, y, 250, 32), tr("Quick check (3 seeds)") if st.sens_smoke else tr("Full grid (10 seeds)"), lambda: setattr(st, "sens_smoke", not st.sens_smoke),
+    m.button(surf, (x, y, max(m.bw(tr("Quick check (3 seeds)"), 250), m.bw(tr("Full grid (10 seeds)"), 250)), 32), tr("Quick check (3 seeds)") if st.sens_smoke else tr("Full grid (10 seeds)"), lambda: setattr(st, "sens_smoke", not st.sens_smoke),
              id="se_mode", enabled=not busy, tip=tr("The quick check varies one parameter at two values on 2 behaviors and 3 seeds (underpowered: a FAIL means 'cannot pass at n = 3'). The full grid is hours; run it headless with --sensitivity."))
-    m.button(surf, (x + 260, y, 190, 32), tr("Run"), lambda: _start_sens(st), style="primary", id="se_run", enabled=not busy,
+    mode_w = max(m.bw(tr("Quick check (3 seeds)"), 250), m.bw(tr("Full grid (10 seeds)"), 250))
+    m.button(surf, (x + mode_w + 10, y, 190, 32), tr("Run"), lambda: _start_sens(st), style="primary", id="se_run", enabled=not busy,
              tip=tr("Resumable: finished cells are kept in your exports folder."))
     m.clip = body
     prev = surf.get_clip()

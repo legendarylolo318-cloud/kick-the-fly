@@ -9,7 +9,10 @@ from kickthefly.game import larva
 from kickthefly.lab import validation
 from kickthefly.sim.connectome import larva_loader
 
+from conftest import needs_larva
 
+
+@needs_larva
 def test_larva_connectome_loader_and_counts():
     """Verify neuron count, synapse count, license, and citation as read from the data."""
     pack_path = larva_loader.ensure_larva_brain_pack()
@@ -89,6 +92,7 @@ def test_larva_arena_gating():
     assert "crawling larvae" in msg_open.lower() or "larva" in msg_open.lower()
 
 
+@needs_larva
 def test_larva_validation_execution():
     """Run larva validation tests and verify honest reporting without hardcoded pass."""
     results = validation.run(brain="larva", seeds=(1000,), workers=1)

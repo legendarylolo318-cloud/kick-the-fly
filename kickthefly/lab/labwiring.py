@@ -57,10 +57,10 @@ def page(m: ui.Menu, surf, rect, mouse) -> None:
                                                  "synapse counts and neurotransmitter predictions.") - 4)
     x = rect.x + 24
     for key, label, _ in TABS:
-        r = pygame.Rect(x, ty, 200, 34)
+        r = pygame.Rect(x, ty, m.bw(label, 200), 34)
         m.button(surf, r, label, (lambda k=key: setattr(st, "wiring_tab", k)), id=("wtab", key),
                  active=st.wiring_tab == key, style="normal")
-        x += 210
+        x += r.w + 10
     body = pygame.Rect(rect.x + 16, ty + 44, rect.w - 32, rect.bottom - 70 - (ty + 44))
     busy = getattr(host, "wiring_busy", "")
     if busy:
@@ -72,7 +72,7 @@ def page(m: ui.Menu, surf, rect, mouse) -> None:
     w = getattr(host, "wiring", None)
     if w is not None and not w.is_identity:
         m.text(surf, f"live: {w.label()}", (rect.x + 24, rect.bottom - 48), ui.AMBER, m.f_small)
-        m.button(surf, (rect.x + 24, rect.bottom - 34, 200, 28), "Restore the connectome",
+        m.button(surf, (rect.x + 24, rect.bottom - 34, m.bw("Restore the connectome", 200), 28), "Restore the connectome",
                  lambda: _restore(host), id="wire_reset", style="danger")
     m.button(surf, (rect.right - 164, rect.bottom - 58, 140, 42), "Back", m.back, style="primary", id=("wire", "back"))
 
@@ -244,7 +244,7 @@ def _tab_signflip(m, surf, body, st, host) -> None:
                      f"one by hand)", (body.x + 8, y + 40), ui.AMBER, m.f_small)
     y += 62
     share = getattr(st, "flip_share", 0.5)
-    m.button(surf, (body.x + 8, y, 260, 40), "Flip them on every fly",
+    m.button(surf, (body.x + 8, y, m.bw("Flip them on every fly", 260), 40), "Flip them on every fly",
              lambda: host.set_wiring(Wiring(min_synapses=live.min_synapses if live else 1,
                                             flip_rows=wiring_mod.random_flip(g, st.flip_conf, share, 0),
                                             inhibition_scale=live.inhibition_scale if live else 1.0)),
@@ -402,7 +402,7 @@ def _tab_inhibition(m, surf, body, st, host) -> None:
                          border_radius=6)
         m.text(surf, job["label"], (body.x + 270, y + 29), ui.LABEL, m.f_small)
     else:
-        m.button(surf, (body.x + 270, y, 300, 38), "Measure firing rate distribution",
+        m.button(surf, (body.x + 270, y, m.bw("Measure firing rate distribution", 300), 38), "Measure firing rate distribution",
                  lambda: _start_inhibition(m, st, scale), id="run_inhib_dist",
                  tip="Simulates the whole connectome before (x1.00) and after (current scale) and measures the "
                      "firing rate distribution across all 166.7k neurons to document runaway excitation.")

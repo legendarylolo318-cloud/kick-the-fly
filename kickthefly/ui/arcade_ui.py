@@ -262,7 +262,7 @@ def page(m: ui.Menu, surf, rect, mouse) -> None:
     slots = _play_slots(m)
     busy = st.job is not None and st.job.running
     unmeasured = sum(1 for sl in slots if (getattr(sl, "personality", None) or {}).get("measured") is not True)
-    m.button(surf, (x + 10, rect.y + 54, 300, 32), tr("Measure the flies in play ({n})").format(n=unmeasured), lambda: _start_measure_play(m, st),
+    m.button(surf, (x + 10, rect.y + 54, m.bw(tr("Measure the flies in play ({n})").format(n=unmeasured), 300), 32), tr("Measure the flies in play ({n})").format(n=unmeasured), lambda: _start_measure_play(m, st),
              id="arcade_measure_play", enabled=bool(slots) and unmeasured > 0 and not busy,
              tip=tr("Reads each fly's personality card from its own brain (looming latency, sugar response, steering), about 10 s of compute "
                     "per fly in the background. Until then a fly shows 'card not measured': the game never shows numbers it did not measure."))

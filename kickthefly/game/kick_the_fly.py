@@ -7390,8 +7390,9 @@ def page_neuron_shapes(menu, surf, rect, mouse) -> None:
         menu.host.set_setting("brain.neuron_shapes", yes)
         menu.back()
 
-    menu.button(surf, (cx - 250, rect.bottom - 90, 240, 50), tr("Yes, download them"), lambda: answer(True), id=("ns", "yes"))
-    menu.button(surf, (cx + 10, rect.bottom - 90, 240, 50), tr("No thanks"), lambda: answer(False), style="primary",
+    bw = max(menu.bw(tr("Yes, download them"), 240), menu.bw(tr("No thanks"), 240))
+    menu.button(surf, (cx - 10 - bw, rect.bottom - 90, bw, 50), tr("Yes, download them"), lambda: answer(True), id=("ns", "yes"))
+    menu.button(surf, (cx + 10, rect.bottom - 90, bw, 50), tr("No thanks"), lambda: answer(False), style="primary",
                 id=("ns", "no"))
 
 

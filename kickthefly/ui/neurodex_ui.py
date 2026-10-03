@@ -129,7 +129,8 @@ def page_neurodex(m, surf, rect, mouse) -> None:
         else:
             st.wipe_armed = time.perf_counter()
 
-    m.button(surf, (colx, y + 66, 236, 30), tr("Click again to erase") if armed else tr("Reset Neurodex"), wipe,
+    wlab = tr("Click again to erase") if armed else tr("Reset Neurodex")
+    m.button(surf, (colx, y + 66, 236, 30 if m.label_fits(wlab, 236, 30) else 30 + m.f_bold.get_linesize()), wlab, wipe,
              style="danger" if armed else "normal", id="dex-wipe",
              tip=tr("Forget every discovery for this brain. Training memory is not touched."))
 

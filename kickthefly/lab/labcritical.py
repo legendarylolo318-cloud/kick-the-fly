@@ -58,11 +58,11 @@ def page(m: ui.Menu, surf, rect, mouse) -> None:
         m.text(surf, "interrupting is safe: finished types are written as they go and --resume picks them up",
                (rect.x + 24, y + 44), ui.DIM, m.f_small)
     else:
-        m.button(surf, (rect.x + 24, y, 250, 36), f"Run on the top {st.cp_top} types",
+        m.button(surf, (rect.x + 24, y, m.bw(f"Run on the top {st.cp_top} types", 250), 36), f"Run on the top {st.cp_top} types",
                  lambda: _start(m, st), id="cp_run", style="primary",
                  tip="Each type is silenced on its own over the validation seeds, against a same-seed unperturbed "
                      "control. Minutes, not seconds. Results are written as they finish, so it can be resumed.")
-        m.slider(surf, (rect.x + 290, y + 3, 220, 30), st.cp_top, 5, 60, 5, "{:.0f} types",
+        m.slider(surf, (rect.x + 40 + m.bw(f"Run on the top {st.cp_top} types", 250), y + 3, 220, 30), st.cp_top, 5, 60, 5, "{:.0f} types",
                  lambda v: setattr(st, "cp_top", int(v)), lambda: None, id="cp_top",
                  tip="How many candidate types to try. They are ranked by how much of the readout's input they "
                      "supply within two synaptic hops; anything outside the shortlist is not tested at all.")
@@ -74,7 +74,7 @@ def page(m: ui.Menu, surf, rect, mouse) -> None:
         m.text(surf, "No run for this target yet." if job is None else "", (body.x + 8, body.y + 8), ui.LABEL,
                m.f_small)
     if res:
-        m.button(surf, (rect.x + 24, rect.bottom - 58, 200, 42), "Export CSV + JSON",
+        m.button(surf, (rect.x + 24, rect.bottom - 58, m.bw("Export CSV + JSON", 200), 42), "Export CSV + JSON",
                  lambda: _export(m, res), id="cp_export")
     m.button(surf, (rect.right - 164, rect.bottom - 58, 140, 42), "Back", m.back, style="primary", id=("cp", "back"))
 
@@ -128,7 +128,7 @@ def _draw_table(m, surf, area, st, host, res) -> None:
         m.text(surf, f"{r['p_value']:.4f}", (area.x + 560, yy), ui.LABEL, m.f_small)
         live = f"type:{r['type']}" in {f"type:{t}" for t in getattr(host, "type_ops", {})
                                        if host.type_ops.get(t) == -1}
-        m.button(surf, (area.x + 650, yy - 3, 150, 22), "lesion applied" if live else "Apply this lesion",
+        m.button(surf, (area.x + 650, yy - 3, m.bw("Apply this lesion", 150), max(22, m.f_bold.get_linesize() + 2)), "lesion applied" if live else "Apply this lesion",
                  (lambda t=r["type"]: _apply(host, t)), id=("cp_apply", r["type"]), active=live,
                  tip=f"Silences every {r['type']} neuron on the live flies, the same way brain surgery does, so you "
                      f"can watch what this row means in the game.")

@@ -91,7 +91,7 @@ def page(m: ui.Menu, surf, rect, mouse) -> None:
                (body.x, body.y + 12), ui.LABEL, m.f_small)
 
     if res:
-        m.button(surf, (rect.x + 24, rect.bottom - 58, 200, 42), "Export CSV + JSON",
+        m.button(surf, (rect.x + 24, rect.bottom - 58, m.bw("Export CSV + JSON", 200), 42), "Export CSV + JSON",
                  lambda: _export(m, res), id="clamp_export")
     m.button(surf, (rect.right - 164, rect.bottom - 58, 140, 42), "Back", m.back, style="primary", id=("clamp", "back"))
 
