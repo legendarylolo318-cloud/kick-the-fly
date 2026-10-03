@@ -8,8 +8,8 @@ known limits and what was never verified are in [docs/3.0-review.md](docs/3.0-re
 ### Release review (Opus, final day)
 Nothing the simulation does changed: `--validate` on the 3.0.0 code against `release/3.0` before day 5 is identical (2,025 values; only
 `created`, `seconds` and the app version differ; 21 tests, 12 PASS / 9 FAIL). The four rig assays were re-run on the held-out seeds and match
-day 5's files exactly. Release gate on fdec1ec (CPU backend, this machine): the 22 validation tests pass; the fast suite 1,281 passed, 3 failed
-(the three larva-pack tests; the pack is optional and was not built), 20 skipped; `--selftest` 22 passed, 1 warning (pynwb), 0 failed;
+day 5's files exactly. Release gate on fdec1ec (CPU backend, this machine): the 22 validation tests pass; the fast suite (re-run on f014f87 after the CI fixes) 1,284 passed,
+0 failed, 23 skipped (the three larva-pack tests skip without the optional pack); `--selftest` 22 passed, 1 warning (pynwb), 0 failed;
 `--headless --playthrough all` 345 passed, 0 failed, 4 gated by design, 12 skipped; `--smoke 3` in a real window, 3D and 2D, both exit 0;
 `tools/i18n_sync.py --check` clean. Files: `docs/results/3.0-release/`.
 Artifacts made by 2.13.1 itself (config, pet, save state, replay, the 25 bundled protocols) load in 3.0; the replay gives identical spikes.
@@ -41,6 +41,10 @@ Fixed (regression tests in `tests/test_release_3_0.py` and `tests/test_layout_3_
   `--collect-data kickthefly` was skipped by PyInstaller ("not a package"), and the self-test only warned, which the release workflow
   accepts. Found by building the AppImage locally; both build scripts now add `kickthefly/data` explicitly, and a frozen build missing
   its own data now FAILs the self-test.
+- CI (the release workflow had not run since 2.13.1): the three larva tests tried to download Data S1 and failed on every machine without
+  the optional pack since the day 3 network guard (they skip now, with the reason); on Windows `socket.socketpair()` goes over 127.0.0.1,
+  so that guard failed seven streamer, live-input and playthrough tests (loopback is allowed now); the new layout test failed with
+  Ubuntu's wider DejaVu Sans, which led to `Menu.bw`/`button_row` and label-sized buttons on every Lab page, the bug report and settings.
 - 3D: Neurodex toasts are capped at three plus a count (a burst stacked dozens over the screen); the outdoor sky dome kept the day's blue at night
   and in a storm.
 - `tools/make_screenshots.py`: it forces the offscreen driver (a desktop session's `SDL_VIDEODRIVER=wayland` made it open real windows that a
