@@ -10,9 +10,14 @@ GAME RULE    the track (8 m, three lures), how walking drive becomes speed (belo
              only, no money, nothing to buy).
 MODEL PREDICTION  the finishing order, and whether individuality predicts it.
 
-Speed rule (GAME RULE): speed = V_MAX * clip(walk level / THRESH["walk"], 0, 1), where the walk level is DNp09's firing as a multiple
-of the fly's own calm rate and THRESH["walk"] is the game's own walking threshold (3.0x): a fly at its calm rate goes a third as fast
-as one whose walking command is above the threshold. Nothing is tuned to make a race close or an order predictable.
+Speed rule (GAME RULE, version 2 since the 3.0 day 4 review): speed = V_MAX * clip(walk level / THRESH["walk"], 0, 1), where the walk
+level is DNp09's firing divided by ONE FIXED reference rate, WALK_REF_HZ, the same for every fly, and THRESH["walk"] is the game's own
+walking threshold (3.0x): a fly firing at the reference rate goes a third as fast as one whose walking command is three times above it.
+Version 1 divided by each fly's own calm baseline instead, which the brain estimates during its 3 s warm-up from its seed's noise: those
+baselines range 1.75-6.43 Hz between seeds, so a fly's speed was mostly its warm-up's accident, repeatable even with identical brains
+(docs/racing.md). WALK_REF_HZ is the mean of that baseline (floored at the game's 2 Hz, as Brain.level does) over exploration seeds 0-15
+with individuality off (tools/race_diagnosis.py); it was fixed from those before any held-out run of version 2. Nothing is tuned to
+make a race close or an order predictable.
 
 The engine takes a brain-like object (poke, level, _step, dt) so it can be tested without the real pack.
 """
@@ -29,6 +34,13 @@ TICK_STEPS = 4                        # brain steps (5 ms) per engine tick: 20 m
 TIME_CAP_S = 90.0
 TRACE_EVERY = 10                      # a trace sample every 10 ticks (5 per second)
 MAX_LANES = 8
+RULE_VERSION = 2                      # 1: level against each fly's own warm-up baseline; 2: against WALK_REF_HZ (see the docstring)
+WALK_REF_HZ = 4.32                    # GAME RULE: the fixed calm DNp09 reference, exploration seeds 0-15 (tools/race_diagnosis.py)
+
+
+def walk_level(brain) -> float:
+    """DNp09's firing (Hz per neuron, the brain's own fast rate) as a multiple of the fixed reference WALK_REF_HZ (speed rule version 2)."""
+    return float(brain.hz("walk")) / WALK_REF_HZ
 
 
 def speed_of(level: float, threshold: float) -> float:
@@ -58,7 +70,7 @@ def run_lane(brain, lures=LURES, cap_s: float = TIME_CAP_S, length: float = TRAC
                 brain.poke("scent", kind, SCENT_POKE * (1.0 - d / SMELL_RANGE) + 0.05)
         for _ in range(TICK_STEPS):
             brain._step()
-        lvl = float(brain.level("walk"))
+        lvl = walk_level(brain)
         max_level = max(max_level, lvl)
         x += speed_of(lvl, k.THRESH["walk"]) * dt
         t += dt
@@ -71,7 +83,7 @@ def run_lane(brain, lures=LURES, cap_s: float = TIME_CAP_S, length: float = TRAC
             trace.append([round(t, 2), length])
             break
     return dict(finish_s=finish, distance=round(min(x, length), 3), trace=trace, lures_touched=sorted(touched),
-                max_walk_level=round(max_level, 3), seconds=round(t, 3))
+                max_walk_level=round(max_level, 3), seconds=round(t, 3), rule_version=RULE_VERSION)
 
 
 def order(results: dict[int, dict]) -> list[int]:

@@ -609,3 +609,19 @@ def test_long_files_are_sharded_and_every_test_runs_exactly_once():
             for i, k in enumerate(shard_keep(37, shards["a.py"]["n"], shards["a.py"]["keep"])):
                 seen[i] += k
     assert seen == [1] * 37, "each of the file's tests runs in exactly one chunk"
+
+
+# --- the race's speed rule version 2: a fly's speed no longer depends on the calm baseline its warm-up happened to set -------------
+def test_a_flys_race_does_not_depend_on_the_calm_baseline_its_warm_up_left(synthetic_pack):
+    from kickthefly.core import simcore
+    from kickthefly.game import flyrace
+
+    def race(base_scale):
+        br = simcore.new_brain(seed=3, individuality="off", warmup=50)
+        br.base[:] = br.base * base_scale                   # the same brain, as if its warm-up had set another baseline
+        br.reseed(11)
+        return flyrace.run_lane(br, cap_s=4.0)
+
+    a, b = race(1.0), race(3.0)
+    assert a["distance"] == b["distance"] and a["max_walk_level"] == b["max_walk_level"]
+    assert a["rule_version"] == 2

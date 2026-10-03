@@ -23,6 +23,9 @@ class FakeBrain:
     def level(self, name):
         return self.level_walk if name == "walk" else 1.0
 
+    def hz(self, name):                                  # speed rule version 2 reads DNp09's rate against the fixed reference
+        return self.level_walk * flyrace.WALK_REF_HZ if name == "walk" else flyrace.WALK_REF_HZ
+
 
 def test_speed_rule_is_linear_up_to_the_games_walk_threshold_and_capped():
     from kickthefly.game import kick_the_fly as k

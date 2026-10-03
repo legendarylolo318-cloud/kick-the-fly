@@ -55,6 +55,7 @@ def measure_card(seed: int, mode: str = DEFAULT_MODE, backend: str | None = None
     params (the Lab's individuality sigma and LIF parameters, None = the defaults) make it the card of a fly built with them; the
     card is stamped with everything it depends on (core/cards.py) so the game can show it for exactly that fly."""
     from kickthefly.core import cards as cards_mod, savestate, simcore
+    from kickthefly.game import flyrace as flyrace_mod
     from kickthefly.core.individuality import compute_personality_card
     from kickthefly.game import kick_the_fly as k
     from kickthefly.lab import assays, validation
@@ -72,8 +73,8 @@ def measure_card(seed: int, mode: str = DEFAULT_MODE, backend: str | None = None
         br._step()
         s = br.sim.spikes
         counts += (np.count_nonzero(s[right]), np.count_nonzero(s[left]))
-        if i % 4 == 3:
-            walk_levels.append(br.level("walk"))
+        if i % 4 == 3:                                   # the race's speed rule (version 2): DNp09 against the fixed reference
+            walk_levels.append(flyrace_mod.walk_level(br))
     hz = counts / (CALM_STEPS * br.dt) / np.array([max(1, len(right)), max(1, len(left))])
     turning_ratio = float((hz[0] + 0.1) / (hz[1] + 0.1))
     savestate.restore_brain(br, meta, snap, "s_")
