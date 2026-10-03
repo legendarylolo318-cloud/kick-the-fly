@@ -196,20 +196,26 @@ def run_bracket(seeds, seconds: float = flyduel.DEFAULT_SECONDS, mode: str = DEF
             results: dict[int, list[dict]] = {i: [] for i in tasks}
 
             def run_all(batch: dict[int, tuple]) -> dict[int, dict]:
-                if cancel is not None and cancel.is_set():
-                    raise RuntimeError("cancelled")
-                if play is not None:
-                    return {i: play(t) for i, t in batch.items()}
-                if pool is None:
+                # 3.0 day 4 review: Cancel is checked before every match and as every match comes back, not only once a round
+                # (a round of 8 duels is minutes); queued matches are dropped by the pool's shutdown below
+                def check():
+                    if cancel is not None and cancel.is_set():
+                        raise RuntimeError("cancelled")
+
+                check()
+                if play is not None or pool is None:
                     out = {}
                     for i, t in batch.items():
-                        out[i] = _match_task(t)
-                        if progress:
+                        check()
+                        out[i] = play(t) if play is not None else _match_task(t)
+                        if progress and play is None:
                             progress(done + len(out), total_matches, f"match {t[0]} v {t[1]}")
+                    check()
                     return out
                 futs = {pool.submit(_match_task, t): i for i, t in batch.items()}
                 out = {}
                 for f in as_completed(futs):
+                    check()
                     out[futs[f]] = f.result()
                     if progress:
                         progress(done + len(out), total_matches, f"match {pairs[futs[f]][0]} v {pairs[futs[f]][1]}")

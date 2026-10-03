@@ -170,7 +170,8 @@ def run(seeds, mode: str = "off", workers: int = 1, backend: str | None = None, 
     elif workers > 1:
         import multiprocessing
 
-        with ProcessPoolExecutor(max_workers=workers, mp_context=multiprocessing.get_context("spawn")) as ex:
+        ex = ProcessPoolExecutor(max_workers=workers, mp_context=multiprocessing.get_context("spawn"))
+        try:                                   # 3.0 day 4 review: leaving a `with` block waited for every queued fly after Cancel
             futs = {ex.submit(_task, t): t for t in tasks}
             for f in as_completed(futs):
                 if cancel is not None and cancel.is_set():
@@ -179,6 +180,8 @@ def run(seeds, mode: str = "off", workers: int = 1, backend: str | None = None, 
                 results[(r["seed"], r["disturbed"])] = r
                 if progress:
                     progress(len(results), len(tasks), f"fly {r['seed']} {'deprived' if r['disturbed'] else 'control'}")
+        finally:
+            ex.shutdown(wait=True, cancel_futures=True)
     else:
         for t in tasks:
             if cancel is not None and cancel.is_set():

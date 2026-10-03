@@ -72,8 +72,11 @@ def measure_field(seeds, mode: str = tournament.DEFAULT_MODE, backend: str | Non
     if play is None and workers > 1:
         import multiprocessing
 
-        with ProcessPoolExecutor(max_workers=workers, mp_context=multiprocessing.get_context("spawn")) as ex:
+        ex = ProcessPoolExecutor(max_workers=workers, mp_context=multiprocessing.get_context("spawn"))
+        try:                                   # 3.0 day 4 review: a `with` block waited for every queued card after Cancel
             got = tournament.measure_cards(seeds, mode, backend, workers, ex, progress, cancel)
+        finally:
+            ex.shutdown(wait=True, cancel_futures=True)
         return [got[int(s)] for s in seeds]
     out = []
     for i, s in enumerate(seeds):
@@ -123,14 +126,15 @@ def run_race(seeds, mode: str = tournament.DEFAULT_MODE, repeats: int = 1, worke
     elif workers > 1:
         import multiprocessing
 
-        with ProcessPoolExecutor(max_workers=workers, mp_context=multiprocessing.get_context("spawn")) as ex:
+        ex = ProcessPoolExecutor(max_workers=workers, mp_context=multiprocessing.get_context("spawn"))
+        try:
             futs = [ex.submit(_lane_task, t) for t in tasks]
             for f in as_completed(futs):
                 if cancel is not None and cancel.is_set():
-                    for g in futs:
-                        g.cancel()
                     raise RuntimeError("cancelled")
                 got(*f.result())
+        finally:
+            ex.shutdown(wait=True, cancel_futures=True)
     else:
         for t in tasks:
             if cancel is not None and cancel.is_set():

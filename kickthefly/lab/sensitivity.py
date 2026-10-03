@@ -132,11 +132,11 @@ def _effect_size(t: dict) -> dict:
                 effect_size_dz=dz, p_value=float(m.get("p_value", 1.0)), n=int(m.get("n", len(per))))
 
 
-def run_cell(param: str, value, seeds, tests, workers: int | None = None, progress=None) -> dict:
+def run_cell(param: str, value, seeds, tests, workers: int | None = None, progress=None, cancel=None) -> dict:
     """One (parameter, value) cell: the validation suite's code on the chosen behaviors, with that one change."""
     lab_params, wiring = _run_args(param, value)
     res = validation.run(seeds=tuple(seeds), workers=workers, progress=progress, include=set(tests), wiring=wiring,
-                         params=lab_params)
+                         params=lab_params, cancel=cancel)
     by = {t["id"]: _effect_size(t) for t in res["tests"]}
     return dict(key=cell_key(param, value), parameter=param, value=None if value is None else float(value), behaviors=by,
                 backend=res.get("backend"), seconds=res.get("seconds"))
@@ -153,8 +153,10 @@ PROGRESS_NAME = "sensitivity_progress.json"
 
 
 def run(params=None, tests=None, seeds=None, values=None, workers: int | None = None, folder: Path | str | None = None,
-        resume: bool = False, progress=None) -> dict:
-    """Run the analysis. progress(done_cells, total_cells, label) after every cell and as a cell's seeds finish.
+        resume: bool = False, progress=None, cancel=None) -> dict:
+    """Run the analysis. progress(done_cells, total_cells, label) after every cell and as a cell's seeds finish. cancel: a
+    threading.Event; when set, the cell in progress drops its queued seeds and RuntimeError("cancelled") is raised; the cells
+    already finished stay in the progress file for --resume.
 
     folder: where sensitivity_progress.json is kept (one line per finished cell). With resume=True, cells already in it (for
     the same seeds, tests and cell list) are not run again; a progress file for a different configuration is refused.
@@ -164,6 +166,8 @@ def run(params=None, tests=None, seeds=None, values=None, workers: int | None = 
     for t in tests:
         if t not in validation.BY_ID or t not in {x["id"] for x in validation.TESTS}:
             raise SensitivityError(f"unknown adult behavior {t!r}")
+        if t in validation.NO_PARAMS:              # 3.0 day 4 review: its flies ignore the LIF parameters, so every cell would be the baseline
+            raise SensitivityError(f"{t} builds its flies with the default parameters, so varying them cannot change it; leave it out")
     cell_list = cells(params, values)
     cfg = _config(seeds, tests, cell_list)
     chash = _config_hash(cfg)
@@ -188,11 +192,15 @@ def run(params=None, tests=None, seeds=None, values=None, workers: int | None = 
             if progress:
                 progress(len(done), total, f"{key}: {d}/{n} {label}")
 
-        done[key] = run_cell(p, v, seeds, tests, workers=workers, progress=inner)
+        if cancel is not None and cancel.is_set():
+            raise RuntimeError("cancelled")
+        done[key] = run_cell(p, v, seeds, tests, workers=workers, progress=inner, **({} if cancel is None else {"cancel": cancel}))
         if path is not None:
             _atomic_write(path, json.dumps(dict(config=cfg, config_hash=chash, cells=done), indent=1))
         if progress:
             progress(len(done), total, f"{key} done")
+        if cancel is not None and cancel.is_set():
+            raise RuntimeError("cancelled")
     ordered = [done[cell_key(p, v)] for p, v in cell_list]
     return dict(kind="sensitivity", created=time.strftime("%Y-%m-%d %H:%M:%S"), seconds=round(time.time() - t0, 1),
                 seeds=list(seeds), tests=list(tests), underpowered=len(seeds) < UNDERPOWERED_BELOW,

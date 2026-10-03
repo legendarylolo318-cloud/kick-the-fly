@@ -77,7 +77,13 @@ def _start_net(st: _St, brain: str, force: bool) -> None:
     st.job = BgJob("Network science", work).start()
 
 
-def _collect(st: _St, kind: str) -> None:
+_KIND = {"Network science": "net", "Sleep deprivation": "sleep", "Sensitivity": "sens"}
+
+
+def _collect(st: _St, kind: str | None = None) -> None:
+    """Take a finished job's result to ITS page. The three pages share one job slot, so the page that happens to be open may not be
+    the one that started it (3.0 day 4 review: a sleep result collected on the network-science page raised KeyError 'brain'). The
+    job's own label decides; `kind`, the calling page, is not used for that."""
     job = st.job
     if job is None or job.running:
         return
@@ -87,12 +93,13 @@ def _collect(st: _St, kind: str) -> None:
         return
     if job.cancelled or job.result is None:
         return
-    if kind == "net":
+    got = _KIND.get(job.label)
+    if got == "net":
         st.net[job.result["brain"]] = job.result
         st.cached.pop(job.result["brain"], None)
-    elif kind == "sleep":
+    elif got == "sleep":
         st.sleep = job.result
-    elif kind == "sens":
+    elif got == "sens":
         st.sens = job.result
 
 
@@ -264,7 +271,8 @@ def _start_sens(st: _St) -> None:
     def work(job: BgJob):
         res = sensitivity.run(params=["noise_std"] if smoke else None, tests=["looming_escape", "sugar_feeding"] if smoke else None,
                               seeds=validation.SEEDS[:3] if smoke else None, values={"noise_std": [0.0375, 0.075]} if smoke else None,
-                              workers=_workers(), folder=folder, resume=True, progress=lambda d, n, label: job.update(d / max(1, n), label))
+                              workers=_workers(), folder=folder, resume=True, progress=lambda d, n, label: job.update(d / max(1, n), label),
+                              cancel=job.cancel)
         sensitivity.save(res, folder)
         return res
 

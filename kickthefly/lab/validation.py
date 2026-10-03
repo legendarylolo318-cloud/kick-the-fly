@@ -279,6 +279,11 @@ EXPECTED = {
 }
 
 
+# tests whose flies are built without validation.run's `params` (the extinction and second-order assays and the compass probes take
+# none), so a run with Lab parameters refuses them rather than report the defaults' result as the changed one (3.0 day 4 review)
+NO_PARAMS = ("mb_extinction", "mb_second_order", "epg_compass", "epg_compass_wind")
+
+
 def _ratio(base: float, driven: float) -> float:
     return driven / max(base, 0.5)
 
@@ -428,13 +433,15 @@ def _wilcoxon_greater(a, b) -> float:
 
 
 def run(seeds=SEEDS, workers: int | None = None, progress=None, include=None, wiring=None, brain: str = "adult",
-        params: dict | None = None) -> dict:
+        params: dict | None = None, cancel=None) -> dict:
     """Run the suite. progress(done, total, label) is called as work finishes.
 
     wiring: a sim.wiring.Wiring every fly is built with (the threshold sweep and the sign-flip stress test use this
     to ask which of these results survive a changed connectome). The pass criteria are the same either way.
     params: Lab model parameters every fly is built with (the sensitivity analysis, lab/sensitivity.py); None, the
     default, is the validation suite as published. The pass criteria are the same either way.
+    cancel: a threading.Event; when set, the queued seeds are dropped and RuntimeError("cancelled") is raised (3.0 day 4 review: the
+    sensitivity page's Cancel button). It never changes a result: a run either finishes as before or returns nothing.
     """
     from kickthefly.lab import assays
     from kickthefly.game import kick_the_fly as k
@@ -480,6 +487,11 @@ def run(seeds=SEEDS, workers: int | None = None, progress=None, include=None, wi
                     sweet_n=assays.SWEET_N, tests=results)
     workers = workers or min(4, os.cpu_count() or 1)
     include = set(include or BY_ID)
+    if params:                                 # 3.0 day 4 review: these paths build their flies without params, so they would ignore them
+        ignored = sorted(include & set(NO_PARAMS))
+        if ignored:
+            raise ValueError(f"Lab parameters cannot be applied to {', '.join(ignored)} (its assay builds its own flies with the "
+                             "defaults); leave it out of a run with parameters")
     only = None if include >= set(BY_ID) else include          # a subset run skips the pathway tests nobody asked for
     jobs_path = [s for s in seeds] if include - {"mb_conditioning", "mb_extinction", "mb_second_order", "epg_compass", "epg_compass_wind"} else []
     jobs_tmaze = [(s, cs, paired) for s in seeds for paired in (True, False) for cs in ("odor_a", "odor_b")] \
@@ -494,10 +506,13 @@ def run(seeds=SEEDS, workers: int | None = None, progress=None, include=None, wi
         done += 1
         if progress:
             progress(done, total, label)
+        if cancel is not None and cancel.is_set():
+            raise RuntimeError("cancelled")
 
     if workers > 1:
         import multiprocessing
-        with ProcessPoolExecutor(max_workers=workers, mp_context=multiprocessing.get_context("spawn")) as ex:
+        ex = ProcessPoolExecutor(max_workers=workers, mp_context=multiprocessing.get_context("spawn"))
+        try:
             futs = {ex.submit(_pathway_seed, s, wiring, params, only): ("path", s) for s in jobs_path}
             futs.update({ex.submit(_tmaze_seed, j, wiring, params): ("tmaze", j) for j in jobs_tmaze})
             futs.update({ex.submit(_extinction_seed, s, wiring): ("ext", s) for s in jobs_ext})
@@ -514,6 +529,8 @@ def run(seeds=SEEDS, workers: int | None = None, progress=None, include=None, wi
                 elif kind == "soc":
                     soc_res[key] = f.result()
                 tick(kind)
+        finally:
+            ex.shutdown(wait=True, cancel_futures=True)
     else:
         for s in jobs_path:
             path_res[s] = _pathway_seed(s, wiring, params, only)
@@ -653,7 +670,7 @@ def run(seeds=SEEDS, workers: int | None = None, progress=None, include=None, wi
                 device=", ".join(d for _, d in ran) or "not recorded", created=time.strftime("%Y-%m-%d %H:%M:%S"), seconds=round(time.time() - t0, 1),
                 seeds=list(seeds), workers=workers, n_neurons=int(g.n), synapses=int(W.nnz),
                 wiring=(wiring.as_dict() if wiring is not None else None),
-                lab_params=dict(lab.DEFAULTS), thresholds=dict(k.THRESH), loom=[k.LOOM_MIN, k.LOOM_FULL],
+                lab_params={**lab.DEFAULTS, **(params or {})}, thresholds=dict(k.THRESH), loom=[k.LOOM_MIN, k.LOOM_FULL],
                 sweet_n=assays.SWEET_N, tests=results)
 
 

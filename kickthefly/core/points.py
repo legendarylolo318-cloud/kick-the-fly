@@ -8,6 +8,7 @@ No telemetry: the file is never sent anywhere.
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 
 START_POINTS = 100
@@ -33,12 +34,20 @@ class Wallet:
         self.load()
 
     def load(self) -> None:
+        """A missing or damaged file starts over; a hand-edited one is clamped (3.0 day 4 review: -500, Infinity or a JSON list
+        loaded as a negative balance or crashed the arcade page). Below TOP_UP_BELOW it is topped up, as after a bet."""
         try:
             d = json.loads(self.path.read_text(encoding="utf-8"))
-            self.points = int(d.get("points", START_POINTS))
-            self.history = list(d.get("history", []))[-50:]
+            v = d.get("points", START_POINTS) if isinstance(d, dict) else START_POINTS
+            if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v):
+                v = START_POINTS
+            self.points = int(v)
+            h = d.get("history", []) if isinstance(d, dict) else []
+            self.history = [x for x in h if isinstance(x, dict)][-50:] if isinstance(h, list) else []
         except (OSError, ValueError, TypeError):
             self.points, self.history = START_POINTS, []
+        if self.points < TOP_UP_BELOW:
+            self.points = TOP_UP_TO
 
     def save(self) -> None:
         try:
@@ -50,13 +59,18 @@ class Wallet:
             pass                                      # a read-only folder: the points just do not persist
 
     def can_bet(self, stake: int) -> bool:
-        return 0 < int(stake) <= self.points
+        return _whole(stake) and 0 < int(stake) <= self.points
 
     def settle(self, stake: int, odds: float, won: bool, label: str = "") -> int:
-        """Take the stake; if won, pay stake * odds. Returns the change in points. A bet the wallet cannot cover is refused."""
+        """Take the stake; if won, pay stake * odds. Returns the change in points. A bet the wallet cannot cover, a stake that is not
+        a whole positive number, or odds that are not a finite payout of at least MIN_ODDS are refused (3.0 day 4 review)."""
+        if not _whole(stake) or int(stake) <= 0:
+            raise ValueError("a stake is a whole number of points above 0")
         stake = int(stake)
         if not self.can_bet(stake):
             raise ValueError("not enough points for that stake")
+        if isinstance(odds, bool) or not isinstance(odds, (int, float)) or not math.isfinite(odds) or odds < MIN_ODDS:
+            raise ValueError(f"odds must be a finite payout of at least {MIN_ODDS}")
         delta = int(round(stake * float(odds))) - stake if won else -stake
         self.points += delta
         self.history.append(dict(label=label, stake=stake, odds=float(odds), won=bool(won), delta=delta))
@@ -65,3 +79,7 @@ class Wallet:
             self.history.append(dict(label="free top-up", stake=0, odds=0.0, won=False, delta=0))
         self.save()
         return delta
+
+
+def _whole(x) -> bool:
+    return not isinstance(x, bool) and isinstance(x, (int, float)) and math.isfinite(x) and float(x) == int(x)
