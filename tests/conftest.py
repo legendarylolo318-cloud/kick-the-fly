@@ -159,6 +159,9 @@ def snapshot_rule_globals() -> list:
     ind = sys.modules.get("kickthefly.core.individuality")
     if ind is not None:
         snap.append((ind.SIGMAS, dict(ind.SIGMAS)))
+    ng = sys.modules.get("kickthefly.core.netguard")
+    if ng is not None:                       # a headless entry point switches the network off for the process (netguard.disable)
+        snap.append((ng, {"_disabled": ng._disabled}))
     for mod_name, names in _RULE_GLOBALS:
         mod = sys.modules.get(mod_name)
         if mod is not None:

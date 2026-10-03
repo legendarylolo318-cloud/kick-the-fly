@@ -572,3 +572,15 @@ def test_a_lab_rule_a_test_changes_is_put_back_for_the_next_test():
     assert k.THRESH["escape"] == 5.5 and k.LOOM_MIN == 2.5
     restore_rule_globals(snap)
     assert k.THRESH["escape"] == 4.0 and k.LOOM_MIN == 1.5
+
+
+def test_a_headless_run_that_switches_the_network_off_does_not_leak_into_the_next_test():
+    from conftest import restore_rule_globals, snapshot_rule_globals
+    from kickthefly.core import netguard
+
+    netguard.enable()
+    snap = snapshot_rule_globals()
+    netguard.disable("a headless run")
+    assert netguard._disabled
+    restore_rule_globals(snap)
+    assert netguard._disabled is None
