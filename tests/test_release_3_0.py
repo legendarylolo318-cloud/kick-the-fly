@@ -431,3 +431,18 @@ def test_the_network_guard_allows_loopback_and_still_blocks_the_internet():
     finally:
         c.close()
         srv.close()
+
+
+def test_the_playthrough_rigs_start_their_clock_at_a_fixed_origin(synthetic_pack):
+    """The game clock started at time.perf_counter() and the fly's flight bob, the wind and the wobble read that absolute time, so the
+    playthrough drove the fly differently on every run (CI's 2D flypaper bomb and spider failed on a run whose code had passed twice)."""
+    from kickthefly.core import simclock
+    from kickthefly.game import kick_the_fly as k2
+    from kickthefly.lab import playthrough as pt
+
+    r = pt.Rig(False, "cpu")
+    try:
+        assert r.game.clock.now == pt.CLOCK_ORIGIN
+        assert k2.SimClock is simclock.SimClock                  # the real game's clock is left alone
+    finally:
+        r.close()

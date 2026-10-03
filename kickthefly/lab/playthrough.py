@@ -98,6 +98,10 @@ PASS, FAIL, SKIP, GATED = "pass", "fail", "skip", "gated"
 DEFAULT_MIN_RATIO = 0.25
 FRAME = 1 / 60
 STEPS_PER_FRAME = 3                     # 15 ms of brain per 16.7 ms frame: the game's own real-time pace, in lockstep
+# The game's clock starts at time.perf_counter(), and the fly's flight bob, the wind and the wobble are functions of that
+# absolute time, so a run started at another moment drove the fly differently (2D flypaper bomb and spider passed or failed
+# from run to run). The rigs start their clock here instead, so a playthrough is the same on every machine and every run.
+CLOCK_ORIGIN = 1000.0
 # "Fired above baseline": the busiest 100 ms after the tool was used is more than 4 standard deviations above the mean of
 # the calm 100 ms windows before it, and at least 15% and 0.5 Hz above that mean. The calm rate and its spread are
 # measured in each run (a group like the PAM neurons sits at ~30 Hz calm, a touch group at ~2 Hz), so this is not a
@@ -389,7 +393,7 @@ class Rig:
     def __init__(self, three_d: bool, backend: str, seed: int = 5, lab: bool = True):
         import pygame
 
-        from kickthefly.core import config
+        from kickthefly.core import config, simclock
         from kickthefly.game import kick_the_fly as k2
 
         pygame.init()
@@ -401,15 +405,20 @@ class Rig:
         self.cfg = config.Config(None)
         self.cfg.set("brain.mode", "lab" if lab else "play")
         self.cfg.set("brain.individuality", "off")
-        if three_d:
-            from kickthefly.game import kick3d
+        real_clock = k2.SimClock
+        k2.SimClock = lambda: simclock.SimClock(start=CLOCK_ORIGIN)   # Game.__init__ builds its clock (see CLOCK_ORIGIN)
+        try:
+            if three_d:
+                from kickthefly.game import kick3d
 
-            self.k3 = kick3d
-            hud = pygame.Surface((k2.W, k2.H), pygame.SRCALPHA)
-            self.game = kick3d.Game3D(hud, state["brain"], state["view"], state["graph"], state["weights"], cfg=self.cfg)
-        else:
-            screen = pygame.Surface((k2.W, k2.H))
-            self.game = k2.Game(screen, state["brain"], state["view"], state["graph"], state["weights"], cfg=self.cfg)
+                self.k3 = kick3d
+                hud = pygame.Surface((k2.W, k2.H), pygame.SRCALPHA)
+                self.game = kick3d.Game3D(hud, state["brain"], state["view"], state["graph"], state["weights"], cfg=self.cfg)
+            else:
+                screen = pygame.Surface((k2.W, k2.H))
+                self.game = k2.Game(screen, state["brain"], state["view"], state["graph"], state["weights"], cfg=self.cfg)
+        finally:
+            k2.SimClock = real_clock
         self.state = state
         self.probe: Probe | None = None
         self.brain_steps = 0

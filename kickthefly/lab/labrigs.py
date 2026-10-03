@@ -297,7 +297,7 @@ def page_hub(m, surf, rect, mouse) -> None:
     collect(s)
     m.text(surf, tr("BEHAVIOR RIGS"), (rect.x + 24, rect.y + 16), ui.INK, m.f_head)
     y = m.wrapped(surf, tr("Four classic ways to watch a fly, each its own scene. The fly is a real brain; what it steers and walks with are its descending neurons. "
-                           "A result the model misses is shown as a miss."), (rect.x + 24, rect.y + 50), rect.w - 48, ui.LABEL, m.f_small, max_lines=4) + 8
+                           "A result the model misses is shown as a miss."), (rect.x + 24, max(m.under_heading(rect), rect.y + 50)), rect.w - 48, ui.LABEL, m.f_small, max_lines=4) + 8
     bh = max(56, m.f_text.get_linesize() * 2 + 24)
     body = pygame.Rect(rect.x + 16, y, rect.w - 32, rect.h - (y - rect.y) - 80)
     key = "lab_rigs"

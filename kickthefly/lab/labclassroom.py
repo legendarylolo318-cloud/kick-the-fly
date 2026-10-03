@@ -36,7 +36,7 @@ def page(m: ui.Menu, surf, rect: pygame.Rect, mouse) -> None:
     m.text(surf, "CLASSROOM MODE & LECTURE PROTOCOLS", (rect.x + 24, rect.y + 16), ui.INK, m.f_head)
     y = m.wrapped(surf, "Curated sequential demonstrations for lectures and teaching. "
                         "Every behavior is either grounded in connectome wiring or labelled a game rule.",
-                  (rect.x + 24, rect.y + 48), rect.w - 48, ui.LABEL, fs, max_lines=2) + 8
+                  (rect.x + 24, max(m.under_heading(rect), rect.y + 48)), rect.w - 48, ui.LABEL, fs, max_lines=2) + 8
 
     # Lecture selection tabs across top (they wrap onto a second row when they do not fit)
     lab = m.text(surf, "Select Lecture:", (rect.x + 24, y + 4), ui.TEXT, fs)

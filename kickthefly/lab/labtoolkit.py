@@ -47,7 +47,7 @@ def _types(host):
 def _title(m, surf, rect, title: str, sub: str, tags: list[tuple[str, str]]) -> int:
     """Heading, one line of description and the tag row (chips wrap to the next line rather than leave the panel)."""
     m.text(surf, title, (rect.x + 24, rect.y + 16), ui.INK, m.f_head)
-    y = m.wrapped(surf, sub, (rect.x + 24, rect.y + 48), rect.w - 60, ui.LABEL, m.f_small, 2) + 4
+    y = m.wrapped(surf, sub, (rect.x + 24, max(m.under_heading(rect), rect.y + 48)), rect.w - 60, ui.LABEL, m.f_small, 2) + 4
     x = rect.x + 24
     limit = rect.right - 24
     step = m.f_small.get_linesize() + 6              # 3.0 release review: was a fixed 22 px, so rows overlapped at larger text

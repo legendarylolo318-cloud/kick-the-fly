@@ -10,7 +10,8 @@ Nothing the simulation does changed: `--validate` on the 3.0.0 code against `rel
 `created`, `seconds` and the app version differ; 21 tests, 12 PASS / 9 FAIL). The four rig assays were re-run on the held-out seeds and match
 day 5's files exactly. Release gate on fdec1ec (CPU backend, this machine): the 22 validation tests pass; the fast suite (re-run on f014f87 after the CI fixes) 1,284 passed,
 0 failed, 23 skipped (the three larva-pack tests skip without the optional pack); `--selftest` 22 passed, 1 warning (pynwb), 0 failed;
-`--headless --playthrough all` 345 passed, 0 failed, 4 gated by design, 12 skipped; `--smoke 3` in a real window, 3D and 2D, both exit 0;
+`--headless --playthrough adult` (re-run after the clock fix below) 342 passed, 0 failed, 4 gated by design, 14 skipped (before the fix
+the PASS/SKIP split moved from run to run: 345 and 12 here, 13-16 skipped on CI); `--smoke 3` in a real window, 3D and 2D, both exit 0;
 `tools/i18n_sync.py --check` clean. Files: `docs/results/3.0-release/`.
 Artifacts made by 2.13.1 itself (config, pet, save state, replay, the 25 bundled protocols) load in 3.0; the replay gives identical spikes.
 Fixed (regression tests in `tests/test_release_3_0.py` and `tests/test_layout_3_0.py`, which fail on the day 5 code):
@@ -45,6 +46,12 @@ Fixed (regression tests in `tests/test_release_3_0.py` and `tests/test_layout_3_
   the optional pack since the day 3 network guard (they skip now, with the reason); on Windows `socket.socketpair()` goes over 127.0.0.1,
   so that guard failed seven streamer, live-input and playthrough tests (loopback is allowed now); the new layout test failed with
   Ubuntu's wider DejaVu Sans, which led to `Menu.bw`/`button_row` and label-sized buttons on every Lab page, the bug report and settings.
+  On Windows at larger text, Segoe UI's taller heading overlapped the description under it on six Lab pages that placed it at a fixed
+  height (Protocols, Model assumptions, Asymmetry, Behavior rigs, Classroom, the toolkit pages); they start under the heading's real line
+  height now (`Menu.under_heading`). **The playthrough was not reproducible:** the game clock starts at `time.perf_counter()` and the fly's
+  flight bob, wind and wobble read that absolute time, so a run started at another moment drove the fly differently; 2D flypaper bomb and
+  spider failed on one CI run of code that had passed on two. The playthrough's games now start their clock at a fixed 1000.0 (chosen
+  before any result was seen); the same combo now gives identical numbers in separate processes. No pass criterion was changed.
 - 3D: Neurodex toasts are capped at three plus a count (a burst stacked dozens over the screen); the outdoor sky dome kept the day's blue at night
   and in a storm.
 - `tools/make_screenshots.py`: it forces the offscreen driver (a desktop session's `SDL_VIDEODRIVER=wayland` made it open real windows that a

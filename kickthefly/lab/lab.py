@@ -704,7 +704,7 @@ ASSUMPTIONS = (
 def page_assumptions(m: ui.Menu, surf, rect, mouse) -> None:
     m.text(surf, "MODEL ASSUMPTIONS & SIMPLIFICATIONS", (rect.x + 24, rect.y + 16), ui.INK, m.f_head)
     top = m.wrapped(surf, "Scientific caveats and approximations distinguishing the simulation from living biology.",
-                    (rect.x + 24, rect.y + 50), rect.w - 48, ui.LABEL, m.f_small, max_lines=2) + 8
+                    (rect.x + 24, max(m.under_heading(rect), rect.y + 50)), rect.w - 48, ui.LABEL, m.f_small, max_lines=2) + 8
     body = pygame.Rect(rect.x + 16, top, rect.w - 32, rect.bottom - 70 - top)
     key = "lab_assumptions"
     off = int(m.scroll.get(key, 0))
@@ -767,7 +767,7 @@ def page_asymmetry(m: ui.Menu, surf, rect, mouse) -> None:
     host = m.host
     m.text(surf, "LEFT / RIGHT ASYMMETRY AUDIT", (rect.x + 24, rect.y + 16), ui.INK, m.f_head)
     top = m.wrapped(surf, "Audit bilateral differences in connectome structure and spontaneous turning bias.",
-                    (rect.x + 24, rect.y + 50), rect.w - 48, ui.LABEL, m.f_small, max_lines=2) + 8
+                    (rect.x + 24, max(m.under_heading(rect), rect.y + 50)), rect.w - 48, ui.LABEL, m.f_small, max_lines=2) + 8
 
     body = pygame.Rect(rect.x + 16, top, rect.w - 32, rect.bottom - 70 - top)
     key = "lab_asymmetry"
@@ -1604,7 +1604,7 @@ def page_protocols(m: ui.Menu, surf, rect, mouse) -> None:
     st = _state(m)
     m.text(surf, "PROTOCOLS", (rect.x + 24, rect.y + 16), ui.INK, m.f_head)
     top = m.wrapped(surf, f"YAML experiment files. Put your own in {short(paths.get().data_dir / 'protocols', 60)}. Headless: "
-                          "KickTheFly --headless --protocol FILE", (rect.x + 24, rect.y + 48), rect.w - 48, ui.LABEL, m.f_small, max_lines=3) + 10
+                          "KickTheFly --headless --protocol FILE", (rect.x + 24, max(m.under_heading(rect), rect.y + 48)), rect.w - 48, ui.LABEL, m.f_small, max_lines=3) + 10
     job = getattr(st, "proto_job", None)
     busy = job is not None and job["thread"].is_alive()
     # 3.0 release review: the list showed only the first 12 files (the four rig protocols and others could not be run from here), was not
