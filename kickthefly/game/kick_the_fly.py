@@ -437,9 +437,11 @@ Fly individuality (2.11; Kain et al. 2012, Linneweber et al. 2020).
   Plastic KC->MBON weights learn normally on top. Shared weight matrix structure preserves streaming
   SpMM on batched torch backends. NumPy and Numba stay bit-exact; torch-cpu only with it off. Settings > Brain > Individuality
   (off / subtle / strong, default subtle in Play). Forced OFF for --validate.
-- Personality cards: short profiles per fly (temperament, steering bias, feeding drive, learning) with their
-  thresholds shown. Known issue: without assay metrics (the game's case) the metrics are seeded draws, not measured. Displayed in fly picker (F), pet mode, and
-  neuron inspector header.
+- Personality cards: short profiles per fly (temperament, steering bias, feeding drive) with their thresholds shown. CONNECTOME: the
+  numbers, MEASURED from the fly's own brain (lab/tournament.measure_card). GAME RULE: the words and cut-offs. Since the 3.0 day 4
+  review the game shows only measured cards (core/cards.py): a fly in play or the pet says "card not measured" until Esc > Fly arcade >
+  Measure the flies in play reads it (cached by seed, individuality mode and sigma, LIF parameters and pack). Before, these were
+  numbers drawn from the seed, not measured. Displayed in the focus note (F), pet mode and the neuron inspector header.
 
 Pet mode (2.11; core/pet.py).
 - New mode in Esc > Mode alongside Play and Lab. One fly (adult or larva) persists across real days,
@@ -1712,6 +1714,27 @@ class Fly:
         return hits
 
 
+def pet_card(pet, slot) -> dict | None:
+    """The pet's personality card: the MEASURED card of the pet fly (the original fly, built from Settings > Brain > Random seed), never
+    the pet file's own seed (3.0 day 4 review: the card was drawn from pet.seed, a different number from the seed the pet's brain is
+    built from). A measured card the pet file carries for that same fly and settings is put back into the card cache; the slot's
+    measured card is written into the pet file, so the pet keeps it."""
+    from kickthefly.core import cards
+
+    if slot is None:
+        return None
+    card = slot.personality if (slot.personality or {}).get("measured") is True else None
+    stored = cards.check_pet_card(getattr(pet, "personality_card", None)) if pet is not None else None
+    if card is None and stored is not None:
+        mode, sigma, params = slot.card_settings()
+        if stored.get("card_key") == cards.key(slot.seed, mode, sigma, params):
+            cards.store(stored)
+            slot.personality = card = stored
+    if pet is not None and card is not None and getattr(pet, "personality_card", None) is not card:
+        pet.personality_card = card
+    return card
+
+
 class FlySlot:
     """One spawned fly: its ragdoll body, its own independent Brain/LIFSim thread, and the episode-scoped bookkeeping
     (hits, pain, reward, loom state...) that used to live directly on Game when there was only ever one fly."""
@@ -1720,9 +1743,29 @@ class FlySlot:
         self.fly, self.brain, self.seed, self.primary = fly, brain, seed, primary
         self.persist_memory = primary          # only the original fly's learning is saved to disk (see README)
         self.hue = (seed * 0.6180339887) % 1.0  # golden-ratio spread so several flies look visually distinct
-        from kickthefly.core.individuality import compute_personality_card
-        self.personality = compute_personality_card(seed)
+        self.refresh_card()
         self.reset_episode()
+
+    def card_settings(self) -> tuple[str, float | None, dict]:
+        """(individuality mode, sigma, LIF parameters) this fly's brain really runs with: what its measured card must match. A brain
+        that asked for individuality but has no gains (the gl backend) runs the shared connectome, so its card is the 'off' one."""
+        sim = getattr(self.brain, "sim", None)
+        if sim is None:
+            return "off", None, {}
+        mode = str(getattr(sim, "individuality", "off") or "off")
+        if getattr(sim, "d_pre", None) is None and getattr(sim, "d_post", None) is None:
+            mode = "off"
+        p = getattr(sim, "p", None)
+        params = {k: float(getattr(p, k)) for k in ("noise_std", "bias", "target_rate_hz", "ext_gain", "gain_adapt") if hasattr(p, k)}
+        return mode, getattr(sim, "individuality_sigma", None), params
+
+    def refresh_card(self) -> None:
+        """This fly's MEASURED personality card from the card cache, or 'card not measured' (3.0 day 4 review, decision A: the card
+        used to be numbers drawn from the seed, shown as if they described this fly; core/cards.py)."""
+        from kickthefly.core import cards
+
+        mode, sigma, params = self.card_settings()
+        self.personality = cards.for_fly(self.seed, mode, sigma, params)
 
     def reset_episode(self) -> None:
         self.hits = 0
@@ -3537,9 +3580,9 @@ class Game:
             self.focus = (self.focus + step) % len(self.flies)
             self._manual_focus_until = time.perf_counter() + 5.0
             slot = self.flies[self.focus]
-            pers = getattr(slot, "personality", None)
-            pers_str = f" [{pers['title']}]" if pers else ""
-            self.note(f"FOCUS    fly #{self.focus + 1}/{len(self.flies)}{pers_str}")
+            from kickthefly.core import cards
+
+            self.note(f"FOCUS    fly #{self.focus + 1}/{len(self.flies)} [{cards.label(getattr(slot, 'personality', None))}]")
 
     def _update_focus(self) -> None:
         """The brain panel (and whichever fly training/surgery act on) always follows the fly nearest to you,
@@ -4694,7 +4737,9 @@ class Game:
         slot = self.flies[self.focus] if self.focus < len(self.flies) else None
         pers = getattr(slot, "personality", None)
         if pers:
-            self._text(surf, f"Fly #{self.focus + 1} · {pers['title']}", (x, y), ACCENT, self.f_small)
+            from kickthefly.core import cards
+
+            self._text(surf, f"Fly #{self.focus + 1} · {cards.label(pers)}", (x, y), ACCENT, self.f_small)
             self._text(surf, info["type"], (x, y + 16), INK, self.f_head)
             inst_label = f"   {info['instance']}" if info.get("instance") else ""
             self._text(surf, f"{info['pop']}{inst_label}", (x, y + 38), LABEL, self.f_small)
@@ -6558,9 +6603,10 @@ class Game:
         pygame.draw.rect(card, (10, 12, 18, 180), card.get_rect(), border_radius=10)
         surf.blit(card, (x, y))
 
-        card_p = pet.personality_card or {}
-        title = card_p.get("title", "Pet Fly")
-        self._text(surf, f"PET: {title}", (x + 12, y + 8), ACCENT, self.f_small)
+        from kickthefly.core import cards
+
+        slot = self.flies[0] if getattr(self, "flies", None) else None
+        self._text(surf, f"PET: {cards.label(pet_card(pet, slot))}", (x + 12, y + 8), ACCENT, self.f_small)
 
         bx, bw = x + 12, w - 24
         self._text(surf, f"hunger {int(pet.hunger * 100)}%", (bx, y + 26), TEXT, self.f_small)

@@ -381,10 +381,14 @@ class Fly:
     # --- 3.0 day 4: a measured personality card, and a duel against another fly --------------------------------------------
     def card(self, mode: str = "subtle") -> dict:
         """This fly's personality card MEASURED from its brain (looming latency to its dodge threshold, sugar -> MN9 ratio, steering
-        R/L ratio): CONNECTOME readouts of the individual this seed builds (lab/tournament.measure_card). Builds its own brain."""
+        R/L ratio): CONNECTOME readouts of the individual this seed builds (lab/tournament.measure_card). Builds its own brain. The
+        card is added to the card cache, so the game shows it for a fly with this seed and these settings (core/cards.py)."""
+        from kickthefly.core import cards
         from kickthefly.lab import tournament
 
-        return tournament.measure_card(self.seed, mode)
+        card = tournament.measure_card(self.seed, mode)
+        cards.store(card)
+        return card
 
     def duel(self, other: "Fly", seconds: float = 20.0, seed: int = 0) -> dict:
         """1v1 against another Fly: both brains steer, shoot, dodge and run (game/flyduel.py). The arena and blaster are GAME RULE,

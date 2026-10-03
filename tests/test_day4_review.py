@@ -256,3 +256,207 @@ def test_parameters_are_refused_for_a_test_that_would_silently_ignore_them(test_
         validation.run(seeds=(1, 2), workers=1, include={test_id}, params={"noise_std": 0.06})
     with pytest.raises(sv.SensitivityError):
         sv.run(params=["noise_std"], tests=[test_id], seeds=(1, 2, 3))
+
+
+# --- network science: the rich-club null keeps the degrees the coefficient is defined on; an enrichment over zero is undefined -------
+def test_the_rich_club_null_keeps_every_neurons_undirected_degree(synthetic_pack, monkeypatch):
+    from kickthefly.lab import netsci
+
+    seen = []
+    real = netsci.rich_club
+
+    def spy(edges, deg, ks):
+        seen.append(np.asarray(deg).copy())
+        return real(edges, deg, ks)
+
+    monkeypatch.setattr(netsci, "rich_club", spy)
+    res = netsci.compute("adult", nulls=2, wedges=2000, seed=1, cache=False)
+    assert res["reciprocity"]["reciprocal_pairs"] > 0, "the test needs reciprocal pairs (they are what the directed swaps split)"
+    assert len(seen) == 3
+    for d in seen[1:]:
+        assert np.array_equal(d, seen[0]), "phi(k) and phi_null(k) must count neurons of the same skeleton degree"
+
+
+def test_undirected_swaps_keep_degrees_and_make_no_loop_or_repeat():
+    from kickthefly.lab import netsci
+
+    rng = np.random.default_rng(3)
+    n = 60
+    a = rng.random((n, n)) < 0.15
+    a = np.triu(a | a.T, 1)
+    lo, hi = np.nonzero(a)
+    nlo, nhi = netsci.rewire_undirected(lo.astype(np.int64), hi.astype(np.int64), n, np.random.default_rng(0))
+    deg = lambda x, y: np.bincount(np.concatenate([x, y]), minlength=n)          # noqa: E731
+    assert np.array_equal(deg(lo, hi), deg(nlo, nhi))
+    assert np.all(nlo != nhi) and len(np.unique(np.minimum(nlo, nhi) * n + np.maximum(nlo, nhi))) == len(nlo)
+    assert len(set(zip(lo.tolist(), hi.tolist())) & set(zip(np.minimum(nlo, nhi).tolist(), np.maximum(nlo, nhi).tolist()))) < 0.6 * len(lo)
+
+
+def test_a_motif_the_null_never_produced_has_an_undefined_enrichment_with_its_reason(synthetic_pack, monkeypatch, tmp_path):
+    from kickthefly.lab import netsci
+
+    real = netsci.motif_estimate
+    calls = [0]
+
+    def est(*a, **k):
+        r = real(*a, **k)
+        calls[0] += 1
+        if calls[0] > 1:                                   # every null graph: none of the all-mutual triad
+            r["counts"][12] = 0.0
+        return r
+
+    monkeypatch.setattr(netsci, "motif_estimate", est)
+    res = netsci.compute("adult", nulls=2, wedges=2000, seed=1, cache=False)
+    m = res["motifs"][12]
+    assert m["motif"] == "300" and m["enrichment"] is None and m["z"] is None
+    assert "undefined" in m["enrichment_note"] and "2 null graphs" in m["enrichment_note"]
+    text = netsci.summary(res)
+    assert "nan" not in text.lower() and "undefined" in text
+    netsci.export_csv(res, tmp_path)
+    rows = (tmp_path / "netsci_adult_motifs.csv").read_text().splitlines()
+    assert rows[0].endswith(",note") and "undefined" in rows[13] and "nan" not in rows[13].lower()
+    json.dumps(m, allow_nan=False)                           # the cached/exported JSON has no NaN for this motif any more
+
+
+def test_the_netsci_page_draws_an_undefined_enrichment(menu, synthetic_pack, monkeypatch):
+    from test_day4_pages import draw
+    from kickthefly.lab import labday4, netsci
+
+    res = netsci.compute("adult", nulls=2, wedges=2000, seed=1, cache=False)
+    res["motifs"][12] = dict(res["motifs"][12], enrichment=None, z=None, enrichment_note="undefined: none of the 2 null graphs had this motif")
+    st = labday4._st(menu)
+    st.net["adult"], st.cached["adult"] = res, True
+    draw(menu, "lab_netsci")
+
+
+# --- decision A: the game shows only MEASURED personality cards, labelled; a seed-drawn card is never shown as a measurement --------
+def test_a_card_without_readouts_says_it_was_drawn_from_the_seed_not_measured():
+    from kickthefly.core.individuality import compute_personality_card
+
+    drawn = compute_personality_card(123)
+    assert drawn["measured"] is False and "drawn from the seed" in drawn["source"]
+    real = compute_personality_card(123, looming_latency=0.1, turning_ratio=1.0, sugar_ratio=2.0)
+    assert real["measured"] is True and real["title"] == "Skittish Straight-walker"
+
+
+def _slot(seed, mode, isolated=True):
+    from kickthefly.core import simcore
+    from kickthefly.game import kick_the_fly as k
+
+    br = simcore.new_brain(seed=seed, individuality=mode, warmup=5)
+    return k.FlySlot(k.Fly(300.0), br, seed=seed)
+
+
+def test_a_fly_in_play_shows_card_not_measured_until_its_own_card_is_measured(isolated_home, synthetic_pack):
+    from kickthefly.core import cards
+    from kickthefly.lab import tournament
+
+    slot = _slot(7, "subtle")
+    assert slot.personality["measured"] is False and cards.label(slot.personality) == "card not measured"
+    assert "Not measured yet" in slot.personality["summary"] and not slot.personality["traits"]
+    card = tournament.measure_card(7, "subtle", warmup=100)
+    assert cards.store(card) == 1
+    slot.refresh_card()
+    assert slot.personality["measured"] is True and slot.personality["loom_latency_s"] == card["loom_latency_s"]
+    assert cards.label(slot.personality).endswith("(measured)")
+    other = _slot(7, "off")                                   # same seed, other individuality: not the same fly, not its card
+    assert other.personality["measured"] is False
+    noisy = _slot(7, "subtle")
+    noisy.brain.sim.p.noise_std = 0.09                         # a fly running other LIF parameters is not the fly that was measured
+    noisy.refresh_card()
+    assert noisy.personality["measured"] is False
+
+
+def test_the_card_cache_survives_damage_and_ignores_another_version(isolated_home, synthetic_pack):
+    from kickthefly.core import cards
+
+    card = cards.stamp(dict(seed=3, mode="subtle", measured=True, title="Bold Right-turner", summary="s", traits=[], loom_latency_s=0.3))
+    cards.store(card)
+    assert cards.lookup(3, "subtle")["title"] == "Bold Right-turner"
+    cards.cache_file().write_text("{broken", encoding="utf-8")
+    assert cards.lookup(3, "subtle") is None and cards.for_fly(3, "subtle")["measured"] is False
+    cards.cache_file().write_text(json.dumps(dict(version=999, cards={card["card_key"]: card})), encoding="utf-8")
+    assert cards.lookup(3, "subtle") is None
+    assert cards.store(dict(seed=3, mode="subtle", measured=False, title="drawn")) == 0, "an unmeasured card is never cached"
+
+
+def test_measured_cards_from_a_tournament_reach_the_flies_in_play(isolated_home, synthetic_pack):
+    from kickthefly.core import cards
+    from kickthefly.lab import tournament
+
+    got = tournament.measure_cards([11, 12], "subtle")
+    assert {s: cards.lookup(s, "subtle")["loom_latency_s"] for s in (11, 12)} == {s: got[s]["loom_latency_s"] for s in (11, 12)}
+
+
+OLD_PET = {"seed": 4242, "brain_type": "adult", "born_time": 1.0e9, "last_saved_time": 1.0e9, "hunger": 0.3, "sleep_pressure": 0.2,
+           "is_sleeping": False, "mood": 0.6, "real_stakes": False, "is_dead": False, "timeline": [],
+           "personality_card": {"seed": 4242, "mode": "subtle", "title": "Bold Right-turner", "summary": "Bold · Right-turner · Sugar lover",
+                                "traits": ["Bold", "Right-turner", "Sugar lover"], "metrics": {"looming_latency": 0.31}}}
+
+
+def test_an_old_pet_file_keeps_its_drawn_card_as_legacy_and_shows_card_not_measured(isolated_home, synthetic_pack, tmp_path):
+    from kickthefly.core import cards, pet as pet_mod
+    from kickthefly.game import kick_the_fly as k
+
+    d = tmp_path / "pet"
+    d.mkdir()
+    (d / "pet.ktfsave").write_text(json.dumps(OLD_PET), encoding="utf-8")
+    p = pet_mod.PetManager(d)
+    p.load_or_create()
+    assert p.personality_card == {} and p.legacy_personality_card["title"] == "Bold Right-turner"
+    slot = _slot(7, "subtle")                                 # the pet fly: built from the brain seed (7), not pet.seed (4242)
+    assert k.pet_card(p, slot) is None and cards.label(k.pet_card(p, slot)) == "card not measured"
+    p.save()
+    saved = json.loads((d / "pet.ktfsave").read_text())
+    assert saved["legacy_personality_card"]["title"] == "Bold Right-turner", "the old card is never deleted"
+
+
+def test_the_pet_shows_and_keeps_the_measured_card_of_its_own_fly(isolated_home, synthetic_pack, tmp_path):
+    from kickthefly.core import cards, pet as pet_mod
+    from kickthefly.game import kick_the_fly as k
+    from kickthefly.lab import tournament
+
+    p = pet_mod.PetManager(tmp_path / "pet")
+    p.create_new_pet(seed=4242)
+    assert p.personality_card == {}, "a new pet starts without a drawn card"
+    slot = _slot(7, "subtle")
+    card = tournament.measure_card(7, "subtle", warmup=100)
+    cards.store(card)
+    slot.refresh_card()
+    assert k.pet_card(p, slot)["card_key"] == card["card_key"] and p.personality_card["card_key"] == card["card_key"]
+    p.save()
+    cards.cache_file().unlink()                               # the cache is gone: the pet file still carries its fly's card
+    again = pet_mod.PetManager(tmp_path / "pet")
+    again.load_or_create()
+    slot2 = _slot(7, "subtle")
+    assert slot2.personality["measured"] is False
+    assert k.pet_card(again, slot2)["loom_latency_s"] == card["loom_latency_s"] and slot2.personality["measured"] is True
+    stranger = _slot(8, "subtle")                             # a pet file's card never goes to a different fly
+    assert k.pet_card(again, stranger) is None
+
+
+def test_the_arcade_measures_the_flies_in_play(menu, isolated_home, synthetic_pack, monkeypatch):
+    from test_day4_pages import draw, hit
+    from kickthefly.lab import tournament
+    from kickthefly.ui import arcade_ui
+
+    slots = [_slot(7, "subtle"), _slot(8, "subtle")]
+    menu.host.flies = slots
+    draw(menu, "arcade")
+    assert hit(menu, "arcade_measure_play")["enabled"]
+    seen = []
+
+    def fake(seeds, mode, backend=None, workers=1, pool=None, progress=None, cancel=None, sigma=None, params=None):
+        seen.append((tuple(seeds), mode, params))
+        from kickthefly.core import cards
+        out = {s: tournament.measure_card(s, mode, warmup=100, sigma=sigma, params=params) for s in seeds}
+        cards.store(list(out.values()))
+        return out
+
+    monkeypatch.setattr(tournament, "measure_cards", fake)
+    st = arcade_ui.state(menu)
+    arcade_ui._start_measure_play(menu, st)
+    st.job.thread.join(120)
+    draw(menu, "arcade")
+    assert seen and seen[0][0] == (7, 8) and seen[0][1] == "subtle" and seen[0][2]["noise_std"] == pytest.approx(0.05)
+    assert all(s.personality["measured"] for s in slots) and not hit(menu, "arcade_measure_play")["enabled"]

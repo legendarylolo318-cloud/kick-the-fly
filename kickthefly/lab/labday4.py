@@ -153,8 +153,13 @@ def page_netsci(m: ui.Menu, surf, rect, mouse) -> None:
         m.text(surf, tr("3-node motifs (sampled estimate; enrichment over the degree-preserving null)"), (x, y), ui.INK, m.f_bold)
         y += 24
         for mo in res["motifs"]:
-            zc = ui.GOOD if mo["enrichment"] == mo["enrichment"] and mo["enrichment"] > 1.5 else (ui.BAD if mo["enrichment"] == mo["enrichment"] and mo["enrichment"] < 0.67 else ui.TEXT)
-            m.text(surf, f"{mo['motif']:<5} {mo['count_estimate']:>14,.0f}   x{mo['enrichment']:>8.2f}   z {mo['z']:>7.1f}   {mo['description']}", (x + 8, y), zc, m.f_small)
+            e = mo.get("enrichment")
+            zc = ui.GOOD if e is not None and e > 1.5 else (ui.BAD if e is not None and e < 0.67 else ui.TEXT)
+            m.text(surf, f"{mo['motif']:<5} {mo['count_estimate']:>14,.0f}   {netsci.fmt_enrichment(mo):>9}   z {netsci.fmt_z(mo):>9}   {mo['description']}",
+                   (x + 8, y), zc, m.f_small)
+            if e is None and mo.get("enrichment_note"):         # 3.0 day 4 review: undefined, with its reason, rather than "nan"
+                y += 17
+                m.text(surf, "      " + mo["enrichment_note"], (x + 8, y), ui.LABEL, m.f_small)
             y += 19
         y += 8
         m.text(surf, tr("Rich club (rho = phi / phi_null; above 1 means more than degrees alone give)"), (x, y), ui.INK, m.f_bold)

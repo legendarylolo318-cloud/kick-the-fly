@@ -84,7 +84,13 @@ def measure_field(seeds, mode: str = tournament.DEFAULT_MODE, backend: str | Non
             raise RuntimeError("cancelled")
         if progress:
             progress(i, len(seeds), f"measuring the personality card of fly {s}")
-        out.append(tournament.measure_card(int(s), mode, backend) if play is None else play(("card", int(s), mode)))
+        if play is None:
+            from kickthefly.core import cards
+
+            out.append(tournament.measure_card(int(s), mode, backend))
+            cards.store(out[-1])
+        else:
+            out.append(play(("card", int(s), mode)))
     return out
 
 

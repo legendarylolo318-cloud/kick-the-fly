@@ -11,7 +11,7 @@ The personality card here is MEASURED (measure_card): the same fly seed builds t
 the seed, core/individuality.py), and three readouts are taken from that brain at rest: the giant fiber's latency to its dodge
 threshold when the looming detectors are driven (temperament), the sugar-pathway -> MN9 drive ratio (feeding), and the right/left
 DNa01/02 firing ratio (steering). The card's trait words and their cut-offs are core/individuality.compute_personality_card's.
-(The card the game shows for a fly in play is not measured: it is derived from the seed. This one is.)
+Since the 3.0 day 4 review the game shows only cards measured this way (core/cards.py); before, it showed numbers drawn from the seed.
 
 Pre-registered analysis (written before any run; `analyze`): does personality predict winning?
   Primary, one test per trait: over the matches decided by the brains (coin tosses excluded), how often does the fly with the
@@ -49,14 +49,17 @@ class TournamentError(ValueError):
 
 
 # --- the measured personality card ------------------------------------------------------------------------------------------
-def measure_card(seed: int, mode: str = DEFAULT_MODE, backend: str | None = None, warmup: int = 600) -> dict:
-    """Build the fly of this individuality seed and read its card numbers from its own brain (see the module docstring)."""
-    from kickthefly.core import savestate, simcore
+def measure_card(seed: int, mode: str = DEFAULT_MODE, backend: str | None = None, warmup: int = 600, sigma: float | None = None,
+                 params: dict | None = None) -> dict:
+    """Build the fly of this individuality seed and read its card numbers from its own brain (see the module docstring). sigma and
+    params (the Lab's individuality sigma and LIF parameters, None = the defaults) make it the card of a fly built with them; the
+    card is stamped with everything it depends on (core/cards.py) so the game can show it for exactly that fly."""
+    from kickthefly.core import cards as cards_mod, savestate, simcore
     from kickthefly.core.individuality import compute_personality_card
     from kickthefly.game import kick_the_fly as k
     from kickthefly.lab import assays, validation
 
-    br = simcore.new_brain(seed=int(seed), individuality=mode, backend=backend, warmup=warmup)
+    br = simcore.new_brain(seed=int(seed), individuality=mode, backend=backend, warmup=warmup, individuality_sigma=sigma, params=params)
     check_individual(br, mode)
     g = assays.groups(br)
     snap: dict = {}
@@ -87,20 +90,25 @@ def measure_card(seed: int, mode: str = DEFAULT_MODE, backend: str | None = None
             break
     card = compute_personality_card(int(seed), looming_latency=latency, turning_ratio=turning_ratio, sugar_ratio=sugar_ratio,
                                     tmaze_pi=None, mode=mode)
-    return dict(seed=int(seed), mode=mode, loom_latency_s=float(latency), loom_crossed=crossed, sugar_ratio=sugar_ratio,
-                turning_ratio=turning_ratio, turning_log_ratio=float(math.log(turning_ratio)),
-                walk_level_calm=float(np.mean(walk_levels)),
-                title=card["title"], summary=card["summary"], traits=card["traits"], measured=True,
-                tmaze_pi="not measured (a T-maze costs about a minute per fly)")
+    out = dict(seed=int(seed), mode=mode, loom_latency_s=float(latency), loom_crossed=crossed, sugar_ratio=sugar_ratio,
+               turning_ratio=turning_ratio, turning_log_ratio=float(math.log(turning_ratio)),
+               walk_level_calm=float(np.mean(walk_levels)),
+               title=card["title"], summary=card["summary"], traits=card["traits"], measured=True,
+               tmaze_pi="not measured (a T-maze costs about a minute per fly)", backend=br.sim.backend.name)
+    return cards_mod.stamp(out, sigma, params)
 
 
 def _card_task(args: tuple) -> dict:
-    seed, mode, backend = args
-    return measure_card(seed, mode, backend)
+    seed, mode, backend, *rest = args                  # (seed, mode, backend[, sigma, params])
+    return measure_card(seed, mode, backend, sigma=rest[0] if rest else None, params=rest[1] if len(rest) > 1 else None)
 
 
-def measure_cards(seeds, mode: str, backend: str | None = None, workers: int = 1, pool=None, progress=None, cancel=None) -> dict[int, dict]:
-    """The measured cards of several flies, in worker processes when workers > 1 (each takes about ten seconds)."""
+def measure_cards(seeds, mode: str, backend: str | None = None, workers: int = 1, pool=None, progress=None, cancel=None,
+                  sigma: float | None = None, params: dict | None = None) -> dict[int, dict]:
+    """The measured cards of several flies, in worker processes when workers > 1 (each takes about ten seconds). Each card is also
+    added to the card cache (core/cards.py) as it comes back, so the game can show it for those flies."""
+    from kickthefly.core import cards as cards_mod
+
     out: dict[int, dict] = {}
     seeds = [int(s) for s in seeds]
     if pool is None or workers <= 1:
@@ -109,13 +117,15 @@ def measure_cards(seeds, mode: str, backend: str | None = None, workers: int = 1
                 raise RuntimeError("cancelled")
             if progress:
                 progress(i, len(seeds), f"measuring the personality card of fly {s} ({i + 1}/{len(seeds)})")
-            out[s] = measure_card(s, mode, backend)
+            out[s] = measure_card(s, mode, backend, sigma=sigma, params=params)
+            cards_mod.store(out[s])
         return out
-    futs = {pool.submit(_card_task, (s, mode, backend)): s for s in seeds}
+    futs = {pool.submit(_card_task, (s, mode, backend, sigma, params)): s for s in seeds}
     for f in as_completed(futs):
         if cancel is not None and cancel.is_set():
             raise RuntimeError("cancelled")
         out[futs[f]] = f.result()
+        cards_mod.store(out[futs[f]])
         if progress:
             progress(len(out), len(seeds), f"measured the personality card of fly {futs[f]} ({len(out)}/{len(seeds)})")
     return out

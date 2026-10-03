@@ -27,11 +27,13 @@ The code is `kickthefly/game/flyduel.py` (the engine, pure: it takes two brain-l
 
 ## The personality card is measured
 
-The card the game shows for an ordinary fly is derived from its seed. The tournament's is **measured from the fly's own brain**
+Since the 3.0 day 4 review the game shows only measured cards (before, an ordinary fly's card was drawn from its seed). The tournament's
+card is **measured from the fly's own brain**
 (`tournament.measure_card`): the same seed builds the same individual, and three readouts are taken at rest: the giant fiber's latency
 to its dodge threshold when the looming detectors are driven (temperament), the sugar-pathway -> MN9 drive ratio (feeding), and the
 right/left DNa01/02 firing ratio (steering). The trait words and their cut-offs are `core/individuality.compute_personality_card`'s. The
-T-maze (learning) is not measured here: it costs about a minute per fly.
+T-maze (learning) is not measured here: it costs about a minute per fly. Every card a tournament or race measures goes into the card cache,
+so the same fly in play shows it.
 
 ## The champion's brain report
 

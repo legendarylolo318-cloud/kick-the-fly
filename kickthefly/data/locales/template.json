@@ -497,5 +497,8 @@
   "synapses": "",
   "walking neurons set the speed (CONNECTOME); track, lures, odds, points (GAME RULE); the finish (MODEL PREDICTION)": "",
   "with regions": "",
-  "won": ""
+  "won": "",
+  "Measure the flies in play ({n})": "",
+  "Measured {n} personality card(s): the flies in play show them now.": "",
+  "Reads each fly's personality card from its own brain (looming latency, sugar response, steering), about 10 s of compute per fly in the background. Until then a fly shows 'card not measured': the game never shows numbers it did not measure.": ""
 }

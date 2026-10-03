@@ -82,6 +82,43 @@ def _start_tournament(m, st: ArcadeState) -> None:
     st.job = BgJob("Tournament", work).start()
 
 
+MEASURE_PLAY = "Measuring the flies in play"
+
+
+def _play_slots(m) -> list:
+    return [sl for sl in (getattr(m.host, "flies", None) or []) if hasattr(sl, "card_settings")]
+
+
+def _start_measure_play(m, st: ArcadeState) -> None:
+    """Measure the personality cards of the flies in play (3.0 day 4 review, decision A): each with the individuality mode, sigma
+    and LIF parameters its brain really runs with, in worker processes; the cards go into the card cache and the flies show them."""
+    from kickthefly.lab import tournament
+
+    groups: dict = {}
+    for sl in _play_slots(m):
+        mode, sigma, params = sl.card_settings()
+        groups.setdefault((mode, sigma, tuple(sorted(params.items()))), []).append(int(sl.seed))
+
+    def work(job: BgJob):
+        import multiprocessing
+        from concurrent.futures import ProcessPoolExecutor
+
+        out, total = {}, sum(len(v) for v in groups.values())
+        pool = ProcessPoolExecutor(max_workers=_workers(), mp_context=multiprocessing.get_context("spawn"))  # not the game's process
+        try:
+            for (mode, sigma, params), seeds in groups.items():
+                got = tournament.measure_cards(seeds, mode, None, 2, pool,
+                                               lambda d, n, label: job.update((len(out) + d) / max(1, total), label), job.cancel,
+                                               sigma=sigma, params=dict(params))
+                out.update(got)
+        finally:
+            pool.shutdown(wait=True, cancel_futures=True)
+        return out
+
+    st.error = ""
+    st.job = BgJob(MEASURE_PLAY, work).start()
+
+
 def _mode(m) -> str:
     mode = str(m.host.cfg["brain.individuality"]) if hasattr(m.host, "cfg") else "subtle"
     return mode if mode in ("off", "subtle", "strong") else "subtle"
@@ -136,6 +173,10 @@ def _collect(m, st: ArcadeState) -> None:
         if st.favorite is not None:
             m.flash(tr("Your favorite won the tournament!") if champion == st.favorite else tr("Your favorite lost. Fly {n} won.").format(n=champion),
                     ui.GOOD if champion == st.favorite else ui.AMBER)
+    elif job.label == MEASURE_PLAY:
+        for sl in _play_slots(m):
+            sl.refresh_card()
+        m.flash(tr("Measured {n} personality card(s): the flies in play show them now.").format(n=len(job.result)), ui.GOOD)
     elif job.label == "Looking at the field":
         from kickthefly.lab import racing
 
@@ -218,6 +259,13 @@ def page(m: ui.Menu, surf, rect, mouse) -> None:
     for key, label in (("tournament", tr("Tournament")), ("race", tr("Racing"))):
         m.button(surf, (x, rect.y + 54, 150, 32), label, (lambda k=key: setattr(st, "tab", k)), id=("arcade_tab", key), active=st.tab == key)
         x += 158
+    slots = _play_slots(m)
+    busy = st.job is not None and st.job.running
+    unmeasured = sum(1 for sl in slots if (getattr(sl, "personality", None) or {}).get("measured") is not True)
+    m.button(surf, (x + 10, rect.y + 54, 300, 32), tr("Measure the flies in play ({n})").format(n=unmeasured), lambda: _start_measure_play(m, st),
+             id="arcade_measure_play", enabled=bool(slots) and unmeasured > 0 and not busy,
+             tip=tr("Reads each fly's personality card from its own brain (looming latency, sugar response, steering), about 10 s of compute "
+                    "per fly in the background. Until then a fly shows 'card not measured': the game never shows numbers it did not measure."))
     body = pygame.Rect(rect.x + 16, rect.y + 96, rect.w - 32, rect.h - 96 - 76)
     key = "arcade_" + st.tab
     off = int(m.scroll.get(key, 0))

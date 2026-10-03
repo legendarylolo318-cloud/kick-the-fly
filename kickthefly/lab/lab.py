@@ -458,6 +458,19 @@ ASSUMPTIONS = (
      "control. The 'drivers' list is a correlation (nothing is silenced), and touch neurons lead it because a hit fly fires them.",
      "kickthefly/game/flyduel.py · kickthefly/lab/tournament.py · Esc > Fly arcade · --tournament N"),
 
+    ("Personality cards are measured from the fly's brain; the trait words are rules",
+     "GAME RULE",
+     "A card's three numbers are CONNECTOME readouts of the individual a seed builds, at rest: the giant fiber's latency to its dodge "
+     "threshold with the looming detectors driven, the sugar-pathway -> MN9 drive ratio, and the right/left DNa01/02 firing ratio "
+     "(lab/tournament.measure_card). The words (Bold, Skittish, Right-turner, Sugar lover...) and their cut-offs are this game's. Since "
+     "the 3.0 day 4 review the game shows only measured cards: a fly in play or the pet says 'card not measured' until Esc > Fly arcade > "
+     "Measure the flies in play has read it (about 10 s per fly, in the background). Before, the card showed numbers drawn from a random "
+     "generator seeded by the fly's seed, from no brain at all (and the pet's from a seed its brain is not built from).",
+     "A card is a snapshot of one simulated individual at rest, at the default warm-up; no published fly personality statistic is used. "
+     "With individuality off every fly has the same brain and the cards differ only by noise and warm-up state, not individuality "
+     "(the race assay found that state is what makes a fly's speed repeatable: docs/racing.md).",
+     "kickthefly/core/cards.py · kickthefly/lab/tournament.py · Esc > Fly arcade"),
+
     ("Fly racing: the walking neurons set the speed; the track, the odds and the points are rules",
      "GAME RULE",
      "Each fly runs a lane of an 8 m track with sugar and fruit lures. Its speed is V_MAX x clip(DNp09's level / the game's walking "

@@ -23,7 +23,11 @@ Definitions (the same ones written into every export)
     spread of the null samples, which is rough with few of them.
   - Rich club: phi(k) = 2 E(>k) / (N(>k) (N(>k) - 1)) on the undirected skeleton, over the neurons whose skeleton degree exceeds
     k, normalised by the same quantity on the null graphs (rho = phi / phi_null; rho > 1 is a rich club beyond what degrees alone
-    give).
+    give). Its null is its own: degree-preserving UNDIRECTED swaps of the skeleton's edges, so every neuron keeps the skeleton
+    degree phi(k) is defined on (analysis version 2, 3.0 day 4 review; version 1 took the skeleton of the directed null, which
+    splits reciprocal pairs and so gives most neurons a different skeleton degree than they have).
+  - An enrichment over a null mean of 0 (a motif none of the null graphs produced in the sampled wedges) is undefined, not
+    infinite: it is reported as undefined with that reason, and its z as undefined too.
   - Communities: a Louvain-style modularity maximisation on the symmetrised synapse-weighted graph (A + A^T), run with
     synchronous moves on a random half of the neurons each sweep. It is a heuristic: the partition is not unique, and the
     reported Q is the exact modularity of the partition it found, not the maximum possible. NMI is the normalised mutual
@@ -44,7 +48,7 @@ from pathlib import Path
 
 import numpy as np
 
-ANALYSIS_VERSION = 1
+ANALYSIS_VERSION = 2               # 2: the rich club's own undirected null; undefined enrichments (3.0 day 4 review)
 DEFAULT_NULLS = 3
 DEFAULT_WEDGES = 300_000
 DEFAULT_SEED = 0
@@ -163,6 +167,36 @@ def rewire(src: np.ndarray, dst: np.ndarray, n: int, rng: np.random.Generator, r
     return src, dst
 
 
+def rewire_undirected(lo: np.ndarray, hi: np.ndarray, n: int, rng: np.random.Generator, rounds: int = 10, cancel=None):
+    """Degree-preserving null for an UNDIRECTED edge list (each pair once): every round pairs the edges at random and swaps one end
+    ((a-b), (c-d)) -> ((a-d), (c-b)) when that makes no self-loop and no pair that exists or repeats. Every node's degree is exactly
+    preserved. Used for the rich club, whose coefficient is defined on the skeleton's degrees."""
+    a_, b_ = lo.copy(), hi.copy()
+    m = len(a_)
+    for _ in range(rounds):
+        _check(cancel)
+        flip = rng.random(m) < 0.5                     # which end of each edge is "first": both swap patterns get used
+        a_, b_ = np.where(flip, b_, a_), np.where(flip, a_, b_)
+        perm = rng.permutation(m)
+        half = m // 2
+        i, j = perm[:half], perm[half:2 * half]
+        a, b, c, d = a_[i], b_[i], a_[j], b_[j]
+        k1 = np.minimum(a, d) * n + np.maximum(a, d)
+        k2 = np.minimum(c, b) * n + np.maximum(c, b)
+        ok = (a != d) & (c != b)
+        existing = np.sort(np.minimum(a_, b_) * n + np.maximum(a_, b_))
+        for k in (k1, k2):
+            pos = np.searchsorted(existing, k)
+            pos[pos >= m] = m - 1
+            ok &= existing[pos] != k
+        both = np.concatenate([k1, k2])
+        _, inv, cnt = np.unique(both, return_inverse=True, return_counts=True)
+        dup = cnt[inv] > 1
+        ok &= ~dup[:half] & ~dup[half:]
+        b_[i[ok]], b_[j[ok]] = d[ok], b[ok]
+    return np.minimum(a_, b_), np.maximum(a_, b_)
+
+
 # --- the undirected skeleton ---------------------------------------------------------------------------------------------
 def skeleton(src, dst, n) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """(indptr, indices, degree) of the undirected skeleton (each connected pair once, either direction or both)."""
@@ -255,6 +289,43 @@ def motif_estimate(src, dst, n, rng, wedges: int, sk=None, cancel=None) -> dict:
         se.append(total_wedges * float(x.std(ddof=1) / np.sqrt(wedges)))
     return dict(counts=est, se=se, total_wedges=total_wedges,
                 connected_triples=total_wedges * float(w.mean()), unclassified=int((cls < 0).sum()))
+
+
+def motif_table(mot_real: dict, null_counts: list, wedges: int) -> list[dict]:
+    """One row per motif: the estimate, its sampling error, the null mean and sd, the enrichment (real / null mean) and z. An
+    enrichment or z whose null mean or spread is 0 is undefined: None, with the reason in `enrichment_note` (3.0 day 4 review:
+    the all-mutual triad's enrichment was printed as nan)."""
+    nc = np.asarray(null_counts, float) if len(null_counts) else np.zeros((0, len(MOTIFS)))
+    rows = []
+    for k, (name, desc, _) in enumerate(MOTIFS):
+        mean = float(nc[:, k].mean()) if len(nc) else None
+        sd = float(nc[:, k].std(ddof=1)) if len(nc) > 1 else None
+        real = float(mot_real["counts"][k])
+        sd_eff = float(np.hypot(sd, mot_real["se"][k])) if sd is not None else None
+        note = ""
+        if not len(nc):
+            enr = z = None
+            note = "undefined: no null graphs were made"
+        elif mean <= 0:
+            enr = z = None
+            note = (f"undefined: none of the {len(nc)} null graphs had this motif in {int(wedges):,} sampled wedges each "
+                    f"(the real graph has about {real:,.0f}); real / 0 has no value")
+        else:
+            enr = real / mean
+            z = (real - mean) / sd_eff if sd_eff is not None and sd_eff > 0 else None
+            if z is None:
+                note = "z undefined: fewer than two null graphs, or no spread among them"
+        rows.append(dict(motif=name, description=desc, count_estimate=real, sampling_se=float(mot_real["se"][k]), null_mean=mean,
+                         null_sd=sd, enrichment=enr, z=z, enrichment_note=note))
+    return rows
+
+
+def fmt_enrichment(m: dict) -> str:
+    return "undefined" if m.get("enrichment") is None else f"x{m['enrichment']:.2f}"
+
+
+def fmt_z(m: dict) -> str:
+    return "undefined" if m.get("z") is None else f"{m['z']:.1f}"
 
 
 # --- rich club ---------------------------------------------------------------------------------------------------------
@@ -480,6 +551,7 @@ def compute(brain: str = "adult", nulls: int = DEFAULT_NULLS, wedges: int = DEFA
     step(0.12, "sampling motifs in the real graph")
     mot_real = motif_estimate(src, dst, n, rng, wedges, sk=sk, cancel=cancel)
     null_counts, null_rich, null_rec = [], [], []
+    rich_rng = np.random.default_rng(seed + 2)               # its own stream: the motif nulls are the same as with analysis version 1
     for i in range(nulls):
         base = 0.15 + 0.4 * i / max(1, nulls)
         step(base, f"null graph {i + 1}/{nulls}: swapping edges")
@@ -487,19 +559,12 @@ def compute(brain: str = "adult", nulls: int = DEFAULT_NULLS, wedges: int = DEFA
         step(base + 0.2 / max(1, nulls), f"null graph {i + 1}/{nulls}: motifs and rich club")
         nsk = skeleton(ns, nd, n)
         null_counts.append(motif_estimate(ns, nd, n, rng, wedges, sk=nsk, cancel=cancel)["counts"])
-        null_rich.append([r["phi"] for r in rich_club(_skel_edges(ns, nd, n), nsk[2], ks)])
         null_rec.append(reciprocity(ns, nd, np.ones(len(ns)), n)["binary"])
         del ns, nd, nsk
-    nc = np.asarray(null_counts) if null_counts else np.zeros((0, len(MOTIFS)))
-    motifs = []
-    for k, (name, desc, _) in enumerate(MOTIFS):
-        mean = float(nc[:, k].mean()) if len(nc) else float("nan")
-        sd = float(nc[:, k].std(ddof=1)) if len(nc) > 1 else float("nan")
-        real = mot_real["counts"][k]
-        sd_eff = float(np.hypot(sd, mot_real["se"][k])) if len(nc) > 1 else float("nan")
-        motifs.append(dict(motif=name, description=desc, count_estimate=real, sampling_se=mot_real["se"][k], null_mean=mean,
-                           null_sd=sd, enrichment=real / mean if mean and mean > 0 else float("nan"),
-                           z=(real - mean) / sd_eff if len(nc) > 1 and sd_eff > 0 else float("nan")))
+        ulo, uhi = rewire_undirected(se[0], se[1], n, rich_rng, cancel=cancel)       # the rich club's own null (see the docstring)
+        null_rich.append([r["phi"] for r in rich_club((ulo, uhi), skel_deg, ks)])
+        del ulo, uhi
+    motifs = motif_table(mot_real, null_counts, wedges)
     rich = []
     for i, r in enumerate(rich_real):
         pn = [row[i] for row in null_rich]
@@ -545,7 +610,8 @@ def summary(res: dict) -> str:
              f"  communities: {c['communities']:,}, modularity Q = {c['modularity']:.3f}, NMI with regions {c['nmi_with_regions']:.2f}",
              "  motifs (estimated by sampling; enrichment = real / degree-preserving null):"]
     for m in res["motifs"]:
-        lines.append(f"    {m['motif']:5s} {m['count_estimate']:>14,.0f}  x{m['enrichment']:.2f}  z {m['z']:.1f}  {m['description']}")
+        lines.append(f"    {m['motif']:5s} {m['count_estimate']:>14,.0f}  {fmt_enrichment(m):>9}  z {fmt_z(m):>9}  {m['description']}"
+                     + (f"  [{m['enrichment_note']}]" if m.get("enrichment") is None and m.get("enrichment_note") else ""))
     lines.append("  rich club (rho = phi / phi_null):  " + "  ".join(f"k>{x['k']:.0f}: {x['rho']:.2f}" for x in res["rich_club"]))
     lines.append("  every number here is computed from the wiring: CONNECTOME. The analysis choices (nulls, samples) are GAME RULE.")
     return "\n".join(lines)
@@ -576,8 +642,9 @@ def export_csv(res: dict, folder: Path | str) -> list[Path]:
     r = res["reciprocity"]
     w("reciprocity", ["binary", "weighted", "reciprocal_pairs", "null_binary_mean", "enrichment"],
       [[r["binary"], r["weighted"], r["reciprocal_pairs"], r["null_binary_mean"], r["enrichment"]]])
-    w("motifs", ["motif", "description", "count_estimate", "sampling_se", "null_mean", "null_sd", "enrichment", "z"],
-      [[m[k] for k in ("motif", "description", "count_estimate", "sampling_se", "null_mean", "null_sd", "enrichment", "z")]
+    w("motifs", ["motif", "description", "count_estimate", "sampling_se", "null_mean", "null_sd", "enrichment", "z", "note"],
+      [[*("" if m[k] is None else m[k] for k in ("motif", "description", "count_estimate", "sampling_se", "null_mean", "null_sd",
+                                                   "enrichment", "z")), m.get("enrichment_note", "")]
        for m in res["motifs"]])
     w("rich_club", ["k", "neurons_above_k", "edges_among_them", "phi", "phi_null", "rho"],
       [[x["k"], x["neurons"], x["edges"], x["phi"], x["phi_null"], x["rho"]] for x in res["rich_club"]])
