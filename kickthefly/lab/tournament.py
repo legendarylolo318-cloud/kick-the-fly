@@ -57,6 +57,7 @@ def measure_card(seed: int, mode: str = DEFAULT_MODE, backend: str | None = None
     from kickthefly.lab import assays, validation
 
     br = simcore.new_brain(seed=int(seed), individuality=mode, backend=backend, warmup=warmup)
+    check_individual(br, mode)
     g = assays.groups(br)
     snap: dict = {}
     meta = savestate.brain_state(br, "s_", snap)
@@ -120,11 +121,20 @@ def measure_cards(seeds, mode: str, backend: str | None = None, workers: int = 1
     return out
 
 
+def check_individual(br, mode: str) -> None:
+    """A brain asked for individuality that did not get it (the gl backend does not implement it) would make every fly identical:
+    refuse, rather than run a tournament between clones and report it as one between individuals."""
+    if mode != "off" and getattr(br.sim, "d_pre", None) is None and getattr(br.sim, "d_post", None) is None:
+        raise TournamentError(f"individuality '{mode}' is not available on the {br.sim.backend.name} backend, so every fly would be the same; "
+                              "use another --sim-backend (cpu, numba, torch-cpu) or --individuality off")
+
+
 def build_fighter(seed: int, mode: str, noise_seed: int | None, backend: str | None = None):
     """The individual of this seed, with a match-specific noise stream when noise_seed is given."""
     from kickthefly.core import simcore
 
     br = simcore.new_brain(seed=int(seed), individuality=mode, backend=backend)
+    check_individual(br, mode)
     if noise_seed is not None:
         br.reseed(int(noise_seed) & 0x7FFFFFFF)
     return br

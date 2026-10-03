@@ -27,7 +27,9 @@ to 25 for free. They cannot be bought, sold or cashed out. There is no telemetry
 ## Using it
 
 - **Esc > Fly arcade > Racing:** choose 3 to 8 lanes, **Look at the field** (measures the cards, a few seconds each, in the background),
-  read the odds, click a fly and a stake, **Start race**. The replay animates the lanes; the result and your points are shown.
+  read the odds, click a fly and a stake, **Start race**. The replay animates the lanes; the result and your points are shown. Palettes, larger
+  text and the gamepad apply (3D: bumpers pick the fly to bet on, kill cam / big-view change the lanes, the trigger looks at the field and then starts
+  the race, the Neurodex button switches to Tournament, B or Start closes the page); nothing flashes.
 - **Headless race assay:** `python kick_the_fly.py --headless --race --seeds 1000-1047 --lanes 6 --races 8 --workers 4 [--individuality off] --out DIR`.
   Each fly runs the same race twice (new noise each time), so a fly's finishing time can be compared with itself.
 - **Python:** `from kickthefly.lab.api import race; r = race(range(3000, 3006), repeats=2)`.

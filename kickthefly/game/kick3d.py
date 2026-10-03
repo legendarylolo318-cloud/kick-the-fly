@@ -693,8 +693,9 @@ class Game3D(k2.Game):
             esc = pygame.event.Event(pygame.KEYDOWN, key=pygame.K_ESCAPE, mod=0, unicode="\x1b", scancode=0)
             self.handle3d(esc, now, lambda q: q)
         if self.menu.open:
-            from kickthefly.ui import neurodex_ui
+            from kickthefly.ui import arcade_ui, neurodex_ui
             neurodex_ui.pad_nav(self, down)          # 3.0: the Neurodex panel can be browsed with the pad
+            arcade_ui.pad_nav(self, down)            # 3.0 day 4: and the Fly arcade (favorite, bet, size, run)
             return {}, (0.0, 0.0)
         if self.x3.pad_event(down):                  # 3.0: Neurodex button, kill cam button / skip
             return {}, (0.0, 0.0)

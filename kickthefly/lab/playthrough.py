@@ -1658,7 +1658,7 @@ def extra_day4_pages(rig: Rig, r: Result) -> None:
     import pygame
 
     from kickthefly.game import kick_the_fly as k2
-    from kickthefly.lab import labday4, racing, sensitivity, tournament as tn
+    from kickthefly.lab import labday4, racing, tournament as tn
     from kickthefly.ui import arcade_ui
 
     g = rig.game

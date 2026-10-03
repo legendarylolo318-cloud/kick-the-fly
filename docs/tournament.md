@@ -40,13 +40,21 @@ shows the firing in those windows against the type's firing over the whole of it
 was silenced, and a fly that was just hit also fires its touch neurons, so those lead the list. A second list shows the cell types the
 duel's own rules read (DNp35, DNpe052, DNa01, DNa02, LC10, LC11, LC18, LC21, LC26, DNp01) whatever their rank.
 
+## Backends
+
+Matches are deterministic for a seed on the CPU backends (cpu, numba; torch-cpu is bit-exact only with individuality off). **The gl backend
+does not implement individuality** (docs/individuality.md), so a tournament on it would be between clones; it is refused with that
+reason instead. The arcade uses the backend `auto` picks; GPU backends are statistical, not bit-exact.
+
 ## Using it
 
 - **Esc > Fly arcade > Tournament:** choose 4, 8 or 16, the duel length, **New flies** for a different set of seeds, click a fly to pick it as
   your favorite, then **Run tournament**. It runs in the background (worker processes, a progress bar, Cancel). Click any match in the
   bracket to replay it (play, pause, scrub); the champion's card and brain report are under the bracket. Settings > Brain > Individuality
-  (`off`, `subtle`, `strong`) sets how different the flies are. Palettes, larger text and the gamepad (every control is a registered menu
-  button) apply; nothing flashes. A tournament is not a tool, so it has no loadout slot.
+  (`off`, `subtle`, `strong`) sets how different the flies are. Accessibility: the colorblind palettes colour the two flies and the heatmap-style
+  marks, Larger text applies, and nothing flashes (replays are smooth). **Gamepad (3D):** the bumpers pick the favorite, the kill cam / big-view
+  buttons change the bracket size, the trigger runs the tournament, the Neurodex button switches to Racing, B or Start closes the page. A
+  tournament is not a tool, so it has no loadout slot.
 - **Headless:** `python kick_the_fly.py --headless --tournament 16 --seeds 1000-1063 --workers 4 [--individuality off] [--match-seconds 20] --out DIR`
   runs one bracket per 16 consecutive seeds and prints the analysis (below).
 - **Python:** `from kickthefly.lab.api import tournament; b = tournament(range(1000, 1008))` (the bracket plus `b["analysis"]`),

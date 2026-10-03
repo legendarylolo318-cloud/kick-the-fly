@@ -59,7 +59,7 @@ def _colors(m):
 def _workers() -> int:
     from kickthefly.lab import labjobs
 
-    return max(1, min(4, labjobs.default_workers()))
+    return max(1, min(2, labjobs.default_workers()))        # each worker holds a brain (about 1 GB): two keeps a small machine usable
 
 
 def _backend(m):
@@ -270,7 +270,7 @@ def _tournament(m, surf, body, y: int, st: ArcadeState) -> int:
         cx, cy = x + (i % per_row) * (cw + 8), y + (i // per_row) * 40
         c = cards.get(s) or cards.get(str(s))
         label = f"{s}  {c['title']}" if c else f"{tr('Fly')} {s}"
-        m.button(surf, (cx, cy, cw, 34), ("★ " if st.favorite == s else "") + label, (lambda s=s: setattr(st, "favorite", s)), id=("arc_fav", s),
+        m.button(surf, (cx, cy, cw, 34), ("FAV  " if st.favorite == s else "") + label, (lambda s=s: setattr(st, "favorite", s)), id=("arc_fav", s),
                  active=st.favorite == s, enabled=not busy,
                  tip=(c["summary"] + f" · looming latency {c['loom_latency_s']:.2f} s, sugar x{c['sugar_ratio']:.2f}, steering R/L {c['turning_ratio']:.2f}"
                       " (measured from this fly's brain)") if c else tr("Its personality card is measured when the tournament runs."))
@@ -294,7 +294,7 @@ def _tournament(m, surf, body, y: int, st: ArcadeState) -> int:
             pygame.draw.rect(surf, ui.ACCENT if sel else ui.BORDER, box, 1, border_radius=6)
             for k, f in enumerate((mt["a"], mt["b"])):
                 won = mt["winner"] == f
-                m.text(surf, f"{'★' if b.get('favorite') == f else ''}{f}  " + (tr("won") if won else ""), (box.x + 8, box.y + 4 + k * 18),
+                m.text(surf, f"{'FAV ' if b.get('favorite') == f else ''}{f}  " + (tr("won") if won else ""), (box.x + 8, box.y + 4 + k * 18),
                        ui.GOOD if won else ui.TEXT, m.f_small)
             m._register(box, "button", id=("arc_match", ri, mi), click=(lambda ri=ri, mi=mi: (setattr(st, "sel_match", (ri, mi)), setattr(st, "replay_t", 0.0))),
                         enabled=True, tip=f"{mt['decided_by']}; hits {mt['hits'][str(mt['a'])]}-{mt['hits'][str(mt['b'])]}"
@@ -374,7 +374,7 @@ def _racing(m, surf, body, y: int, st: ArcadeState) -> int:
     for o in st.odds:
         row = pygame.Rect(x, y, body.w - 24, 32)
         c = next((c for c in st.field if c["seed"] == o["fly"]), None)
-        m.button(surf, row, f"{'► ' if st.bet_fly == o['fly'] else ''}fly {o['fly']}  {o['title']}   x{o['decimal_odds']:g}   ({o['p_win'] * 100:.0f}%)",
+        m.button(surf, row, f"{'BET  ' if st.bet_fly == o['fly'] else ''}fly {o['fly']}  {o['title']}   x{o['decimal_odds']:g}   ({o['p_win'] * 100:.0f}%)",
                  (lambda f=o["fly"]: setattr(st, "bet_fly", f)), id=("race_bet", o["fly"]), active=st.bet_fly == o["fly"], enabled=not busy,
                  tip=(c["summary"] + f" · sugar x{c['sugar_ratio']:.2f}, calm walking drive {c['walk_level_calm']:.2f}") if c else None)
         y += 36
@@ -421,3 +421,52 @@ def _racing(m, surf, body, y: int, st: ArcadeState) -> int:
     y += track.h + 10
     m.text(surf, tr("MODEL PREDICTION. Points only. The headless race assay asks whether individuality predicts the finish: --headless --race"), (x, y), ui.LABEL, m.f_small)
     return y + 24
+
+
+def pad_nav(host, down) -> bool:
+    """Gamepad while the Fly arcade is open (3D). `down` holds the action names whose buttons just went down, so these are the pad's own
+    bindings: the bumpers (next / previous tool) pick the favorite or the fly to bet on, the kill cam and big-view buttons change the
+    bracket size or the number of lanes, the trigger (use) runs the tournament, or looks at the field and then starts the race, the
+    Neurodex button switches between Tournament and Racing, and B (crouch) or Start closes the page. True if a button was used."""
+    m = host.menu
+    if m.screen != "arcade":
+        return False
+    st = state(m)
+    busy = st.job is not None and st.job.running
+    if down & {"crouch", "menu"}:
+        m.back()
+        return True
+    used = False
+    if "neurodex" in down:
+        st.tab = "race" if st.tab == "tournament" else "tournament"
+        used = True
+    if busy:
+        return used
+    step = (1 if "tool_next" in down else -1) if down & {"tool_next", "tool_prev"} else 0
+    if step and st.tab == "tournament":
+        seeds = [st.base_seed + i for i in range(st.size)]
+        cur = seeds.index(st.favorite) if st.favorite in seeds else (-1 if step > 0 else 0)
+        st.favorite = seeds[(cur + step) % len(seeds)]
+        used = True
+    elif step and st.odds:
+        flies = [o["fly"] for o in st.odds]
+        cur = flies.index(st.bet_fly) if st.bet_fly in flies else (-1 if step > 0 else 0)
+        st.bet_fly = flies[(cur + step) % len(flies)]
+        used = True
+    if down & {"killcam", "big_view"}:
+        d = 1 if "killcam" in down else -1
+        if st.tab == "tournament":
+            sizes = (4, 8, 16)
+            st.size, st.favorite = sizes[(sizes.index(st.size) + d) % 3], None
+        else:
+            st.lanes, st.field, st.odds = int(min(8, max(3, st.lanes + d))), None, None
+        used = True
+    if "use" in down:
+        if st.tab == "tournament":
+            _start_tournament(m, st)
+        elif st.field is None:
+            _start_field(m, st)
+        else:
+            _start_race(m, st)
+        used = True
+    return used

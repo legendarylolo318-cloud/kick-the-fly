@@ -263,3 +263,21 @@ def test_two_real_brains_can_duel_and_replay_frames_are_recorded(synthetic_pack)
     b = tn.build_fighter(6, "subtle", 12)
     r = flyduel.run_duel(a, b, seed=1, seconds=1.0, names=("5", "6"), drivers=True)
     assert r["steps"] == 200 and r["winner"] in ("5", "6", None) and len(r["frames"]) == 10 and set(r["_drivers"]) == {"5", "6"}
+
+
+def test_a_backend_without_individuality_is_refused_not_run_as_clones():
+    from types import SimpleNamespace
+
+    gl = SimpleNamespace(sim=SimpleNamespace(d_pre=None, d_post=None, backend=SimpleNamespace(name="gl")))
+    with pytest.raises(tn.TournamentError, match="gl backend"):
+        tn.check_individual(gl, "subtle")
+    tn.check_individual(gl, "off")                                  # clones are what 'off' asks for
+    ok = SimpleNamespace(sim=SimpleNamespace(d_pre=np.ones(3), d_post=np.ones(3), backend=SimpleNamespace(name="cpu")))
+    tn.check_individual(ok, "strong")
+
+
+def test_real_brains_of_different_seeds_differ_under_individuality_and_are_clones_without(synthetic_pack):
+    a, b = tn.build_fighter(5, "subtle", 1), tn.build_fighter(6, "subtle", 1)
+    assert not np.allclose(a.sim.d_pre, b.sim.d_pre)
+    c, d = tn.build_fighter(5, "off", 1), tn.build_fighter(6, "off", 1)
+    assert c.sim.d_pre is None and d.sim.d_pre is None

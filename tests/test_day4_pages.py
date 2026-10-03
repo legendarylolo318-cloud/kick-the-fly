@@ -266,3 +266,56 @@ def test_the_heavy_work_never_runs_on_the_calling_thread():
     j = BgJob("t", lambda job: seen.append(threading.get_ident())).start()
     j.thread.join(2)
     assert seen and seen[0] != main
+
+
+# --- the gamepad (the pad's own bindings reach the arcade; the menus are otherwise mouse-driven) --------------------------------------
+def test_the_gamepad_can_pick_a_favorite_change_the_size_and_run_the_tournament_and_close_the_page(menu, monkeypatch):
+    from types import SimpleNamespace
+
+    from kickthefly.ui import arcade_ui
+
+    host = SimpleNamespace(menu=menu)
+    st = arcade_ui.state(menu)
+    menu.screen = "other"
+    assert arcade_ui.pad_nav(host, {"use"}) is False, "only while the arcade page is open"
+    menu.screen = "arcade"
+    assert arcade_ui.pad_nav(host, {"tool_next"}) and st.favorite == st.base_seed
+    assert arcade_ui.pad_nav(host, {"tool_next"}) and st.favorite == st.base_seed + 1
+    assert arcade_ui.pad_nav(host, {"tool_prev"}) and st.favorite == st.base_seed
+    assert arcade_ui.pad_nav(host, {"killcam"}) and st.size == 16 and st.favorite is None
+    assert arcade_ui.pad_nav(host, {"big_view"}) and st.size == 8
+    started = []
+    monkeypatch.setattr(arcade_ui, "_start_tournament", lambda m, s: started.append("t"))
+    monkeypatch.setattr(arcade_ui, "_start_field", lambda m, s: started.append("f"))
+    monkeypatch.setattr(arcade_ui, "_start_race", lambda m, s: started.append("r"))
+    assert arcade_ui.pad_nav(host, {"use"}) and started == ["t"]
+    assert arcade_ui.pad_nav(host, {"neurodex"}) and st.tab == "race"
+    assert arcade_ui.pad_nav(host, {"use"}) and started == ["t", "f"]
+    st.field = [fake_card(s) for s in (1, 2, 3)]
+    from kickthefly.lab import racing
+
+    st.odds = racing.odds_table(st.field)
+    assert arcade_ui.pad_nav(host, {"tool_next"}) and st.bet_fly == 1
+    assert arcade_ui.pad_nav(host, {"use"}) and started == ["t", "f", "r"]
+    assert arcade_ui.pad_nav(host, {"killcam"}) and st.lanes == 6 and st.field is None and st.odds is None
+    closed = []
+    monkeypatch.setattr(menu, "back", lambda: closed.append(1))
+    assert arcade_ui.pad_nav(host, {"crouch"}) and closed == [1]
+
+
+def test_a_running_job_ignores_everything_but_the_tab_switch_and_close(menu):
+    from types import SimpleNamespace
+
+    from kickthefly.ui import arcade_ui
+
+    host = SimpleNamespace(menu=menu)
+    st = arcade_ui.state(menu)
+    menu.screen = "arcade"
+    ev = threading.Event()
+    st.job = BgJob("Tournament", lambda job: ev.wait(2)).start()
+    try:
+        assert arcade_ui.pad_nav(host, {"use"}) is False and arcade_ui.pad_nav(host, {"tool_next"}) is False and st.favorite is None
+        assert arcade_ui.pad_nav(host, {"neurodex"}) is True
+    finally:
+        ev.set()
+        st.job.thread.join(3)

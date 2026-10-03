@@ -1067,7 +1067,7 @@ def page_assays(m: ui.Menu, surf, rect, mouse) -> None:
     x0, y = rect.x + 24, rect.y + 78
     busy = st.job is not None and st.job.running
     m.text(surf, "Assay", (x0, y + 15), ui.TEXT, m.f_text, "midleft")
-    m.segmented(surf, (x0 + 110, y, 700, 30), [labjobs.ASSAY_LABEL[k] for k in labjobs.ASSAYS],
+    m.segmented(surf, (x0 + 110, y, rect.w - 134, 30), [labjobs.ASSAY_LABEL[k] for k in labjobs.ASSAYS],
                 labjobs.ASSAYS.index(st.kind), lambda i: setattr(st, "kind", labjobs.ASSAYS[i]), id="assay_kind",
                 enabled=not busy)
     y += 40

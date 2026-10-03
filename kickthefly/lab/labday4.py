@@ -34,7 +34,7 @@ def _st(m) -> _St:
 def _workers() -> int:
     from kickthefly.lab import labjobs
 
-    return max(1, min(4, labjobs.default_workers()))
+    return max(1, min(2, labjobs.default_workers()))        # each worker holds a brain (about 1 GB): two keeps a small machine usable
 
 
 def _chrome(m, surf, rect, title: str, sub: str, st: _St, key: str):
@@ -224,7 +224,7 @@ def page_sleepdep(m: ui.Menu, surf, rect, mouse) -> None:
     m.text(surf, tr("What is what in this assay:"), (x, y), ui.INK, m.f_bold)
     y += 24
     for label, tag in sleepdep.COMPONENTS:
-        xx = _tags(m, surf, x + 8, y, [tag.split(" ")[0] if not tag.startswith("MODEL") else "MODEL PREDICTION"])
+        xx = _tags(m, surf, x + 8, y, [next(t for t in ("GAME RULE", "CONNECTOME", "MODEL PREDICTION") if tag.startswith(t))])
         m.text(surf, label, (xx + 4, y + 2), ui.TEXT, m.f_small)
         y += 24
     y += 8
