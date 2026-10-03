@@ -1,0 +1,17 @@
+MINI-PAPER: Walking between two stripes: Buridan's paradigm (Colomb et al. 2012)
+  Colomb J, Reiter L, Blaszkiewicz J, Wessnitzer J, Brembs B (2012) Open source tracking and analysis of adult Drosophila locomotion in Buridan's paradigm with and without visual targets. PLoS ONE 7(8):e42247
+  doi:10.1371/journal.pone.0042247   read: full text (open access), read through a page summary
+
+  The paper reports: Flies show fixation and antifixation of two inaccessible visual targets: with narrow stripes they walk directly back and forth between them, with wide stripes the organisation is weaker. The chance level of the median stripe deviation for a random walk is 45 degrees, and flies' median stripe deviation was lower with narrow stripes. Narrow stripes eliminated centrophobism while moving; about a third of the experiment time was spent active.
+  Numbers the paper states: 45 degrees (chance level of stripe deviation); about 33% of the time active
+
+  Your result: RUN NOW on 4 flies (seeds 0-3, exploration seeds: a first look)
+
+  Q (rig:buridan): You put a fly on the platform for two minutes, with the two stripes and without. What happens to its stripe deviation (the angle between its walking direction and the line joining the stripes; 45 degrees is chance)?
+    the direction the paper's finding points to: lower with the stripes than without, well below chance
+    your hypothesis: not given
+    the model REPRODUCES that (the rig's minimum effects (B1 10 degrees, B2 3 transits) only: n = 4 is too few flies for p < 0.01 (the smallest one-sided Wilcoxon p at n = 4 is 0.0625))
+    numbers: deviation_stripes_deg 3.34, deviation_none_deg 43.1, transits_stripes 17.8, transits_none 6.25, n 4
+    The model's fly orients its walking along the stripe axis when the stripes are there and wanders at about chance when they are not, the direction the paper reports. Its deviation is far lower and far less variable than real flies', because the tracking rule is strong and the sim has no pauses or antifixation.
+
+  What this model cannot check: Antifixation, stripe width, the water moat, centrophobism and pauses are not modeled. The sim's fly walks steadily at one speed set by DNp09. The stripe is tracked by LC10 through the duel's rule (GAME RULE) and the platform edge reflects it (GAME RULE), so the transits are produced by those rules acting on the real steering and walking neurons; what the connectome contributes is how accurately and how fast the steering neurons carry the fly to the stripe.

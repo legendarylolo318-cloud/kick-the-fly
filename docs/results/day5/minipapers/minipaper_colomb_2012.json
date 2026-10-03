@@ -1,0 +1,84 @@
+{
+ "result": {
+  "kind": "minipaper",
+  "paper": "colomb_2012",
+  "title": "Walking between two stripes: Buridan's paradigm (Colomb et al. 2012)",
+  "citation": "Colomb J, Reiter L, Blaszkiewicz J, Wessnitzer J, Brembs B (2012) Open source tracking and analysis of adult Drosophila locomotion in Buridan's paradigm with and without visual targets. PLoS ONE 7(8):e42247",
+  "doi": "10.1371/journal.pone.0042247",
+  "read": "full text (open access), read through a page summary",
+  "seeds": [
+   0,
+   1,
+   2,
+   3
+  ],
+  "full": false,
+  "source": "live",
+  "unavailable": "",
+  "seconds": 75.7,
+  "questions": [
+   {
+    "test": "rig:buridan",
+    "prompt": "You put a fly on the platform for two minutes, with the two stripes and without. What happens to its stripe deviation (the angle between its walking direction and the line joining the stripes; 45 degrees is chance)?",
+    "expected": "lower",
+    "verdict": {
+     "reproduced": true,
+     "measured": {
+      "deviation_stripes_deg": 3.342521707422942,
+      "deviation_none_deg": 43.05510332957525,
+      "transits_stripes": 17.75,
+      "transits_none": 6.25,
+      "n": 4
+     },
+     "n": 4,
+     "basis": "the rig's minimum effects (B1 10 degrees, B2 3 transits) only: n = 4 is too few flies for p < 0.01 (the smallest one-sided Wilcoxon p at n = 4 is 0.0625)"
+    },
+    "pairs": [
+     {
+      "seed": 0,
+      "drive": 3.441829027455492,
+      "control": 48.24173379719739
+     },
+     {
+      "seed": 1,
+      "drive": 3.410838496262087,
+      "control": 25.56543670385473
+     },
+     {
+      "seed": 2,
+      "drive": 3.197842500921146,
+      "control": 62.85428205683721
+     },
+     {
+      "seed": 3,
+      "drive": 3.3195768050530416,
+      "control": 35.558960760411686
+     }
+    ],
+    "note": "The model's fly orients its walking along the stripe axis when the stripes are there and wanders at about chance when they are not, the direction the paper reports. Its deviation is far lower and far less variable than real flies', because the tracking rule is strong and the sim has no pauses or antifixation."
+   }
+  ],
+  "created": "2026-10-03 01:17:09"
+ },
+ "comparison": [
+  {
+   "test": "rig:buridan",
+   "question": "You put a fly on the platform for two minutes, with the two stripes and without. What happens to its stripe deviation (the angle between its walking direction and the line joining the stripes; 45 degrees is chance)?",
+   "your_hypothesis": null,
+   "paper_direction": "lower with the stripes than without, well below chance",
+   "model_reproduces_paper": true,
+   "you_matched_the_paper": null,
+   "you_matched_the_model": null,
+   "basis": "the rig's minimum effects (B1 10 degrees, B2 3 transits) only: n = 4 is too few flies for p < 0.01 (the smallest one-sided Wilcoxon p at n = 4 is 0.0625)",
+   "note": "The model's fly orients its walking along the stripe axis when the stripes are there and wanders at about chance when they are not, the direction the paper reports. Its deviation is far lower and far less variable than real flies', because the tracking rule is strong and the sim has no pauses or antifixation.",
+   "measured": {
+    "deviation_stripes_deg": 3.342521707422942,
+    "deviation_none_deg": 43.05510332957525,
+    "transits_stripes": 17.75,
+    "transits_none": 6.25,
+    "n": 4
+   }
+  }
+ ],
+ "hypotheses": {}
+}
