@@ -23,7 +23,8 @@ C = {c: i for i, c in enumerate(rigs.COLS)}
 PAGES = {"tethered": "lab_rig_tethered", "ball": "lab_rig_ball", "buridan": "lab_rig_buridan", "fourfield": "lab_rig_fourfield"}
 BLURB = {
     "tethered": "The fly is held still. A striped panorama rotates around it; the fly's yaw is read from its steering descending neurons DNa01/DNa02 (right minus left). "
-                "Open loop: the panorama turns whatever the fly does. Closed loop: the panorama is also turned by the fly's own yaw, so it can cancel the rotation.",
+                "Open loop: the panorama turns whatever the fly does. Closed loop: the panorama is also turned by the fly's own yaw, so it can cancel the rotation. "
+                "The line from the fly is the heading its yaw would give (read out only: the fly never turns).",
     "ball": "A fly on a spherical treadmill in a virtual world driven by the ball: turning comes from DNa01/02, walking from DNp09. In the bar scene a distant bar is tracked "
             "by LC10; in the panorama scene the world drifts and the fly's turning feeds back. Open loop freezes the VR.",
     "buridan": "A round platform with two opposite stripes beyond its edge. The fly walks wherever its steering and walking neurons take it; the trajectory is recorded. "
@@ -196,8 +197,6 @@ def draw_tethered(m, surf, box, res, t, colors) -> None:
     om = row[C["omega_ext"]]
     m.text(surf, tr("panorama {w:+.1f} rad/s", w=om), (box.x + 10, box.y + 8), ui.TEXT, m.f_small)
     m.text(surf, tr("slip {s:+.2f} rad/s", s=row[C["slip"]]), (box.x + 10, box.y + 8 + m.f_small.get_linesize()), ui.LABEL, m.f_small)
-    m.wrapped(surf, tr("line: the heading its yaw would give (read out only)"), (box.x + 10, box.y + 8 + 2 * m.f_small.get_linesize()),
-              max(80, box.w // 2 - 50), ui.LABEL, m.f_small, max_lines=3)
     # right and left steering rates
     bx, by, bh = box.right - 70, box.bottom - 14, box.h - 60
     for i, (name, col) in enumerate((("R", colors[0]), ("L", colors[1]))):
@@ -213,9 +212,11 @@ def panorama_angle(rows: np.ndarray, dt: float) -> float:
     return float(np.sum(rows[:, C["slip"]]) * dt)
 
 
-def _arena(box, half: float):
-    s = min(box.w, box.h) / 2 - 24
-    cx, cy = box.centerx, box.centery
+def _arena(box, half: float, top: int = 24):
+    """Arena coordinates in the canvas; `top` keeps the caption line above the arena clear (3.0 release review: at larger text the
+    caption sat on the arena's frame)."""
+    s = min(box.w, box.h - 2 * top) / 2 - 8
+    cx, cy = box.centerx, box.centery + (top - 24) // 2
     return (lambda x, y: (cx + x / half * s, cy - y / half * s)), s, cx, cy
 
 
@@ -225,7 +226,7 @@ def draw_ball(m, surf, box, res, t, colors) -> None:
     p = res["params"]
     xs, ys = a[:, C["x"]], a[:, C["y"]]
     ext = max(1.0, float(np.abs(_rows(res)[:, [C["x"], C["y"]]]).max()) * 1.15)
-    f, s, cx, cy = _arena(box, ext)
+    f, s, cx, cy = _arena(box, ext, m.f_small.get_linesize() + 14)
     pygame.draw.rect(surf, (22, 26, 34), (cx - s, cy - s, 2 * s, 2 * s))
     if len(a) > 1:
         pygame.draw.lines(surf, colors[0], False, [f(x, y) for x, y in zip(xs, ys)], 2)
@@ -243,7 +244,7 @@ def draw_buridan(m, surf, box, res, t, colors) -> None:
     pygame.draw.rect(surf, (14, 16, 22), box, border_radius=8)
     a = _upto(res, t)
     R = res["geometry"]["platform_radius"]
-    f, s, cx, cy = _arena(box, R / 0.62)            # the platform fills 62% of the view; the stripes are drawn at the border, not to scale
+    f, s, cx, cy = _arena(box, R / 0.62, m.f_small.get_linesize() + 14)            # the platform fills 62% of the view; the stripes are drawn at the border, not to scale
     pygame.draw.circle(surf, (26, 30, 40), (cx, cy), int(0.62 * s))
     pygame.draw.circle(surf, (70, 76, 92), (cx, cy), int(0.62 * s), 1)
     if res["params"]["mode"] == "stripes":
@@ -261,7 +262,7 @@ def draw_fourfield(m, surf, box, res, t, colors) -> None:
     pygame.draw.rect(surf, (14, 16, 22), box, border_radius=8)
     a = _upto(res, t)
     half = res["geometry"]["field_half"]
-    f, s, cx, cy = _arena(box, half)
+    f, s, cx, cy = _arena(box, half, m.f_small.get_linesize() + 14)
     for q, (qx, qy) in enumerate(((1, 1), (1, -1), (-1, -1), (-1, 1))):
         odor = q in res["geometry"]["odor_quadrants"] and res["params"]["mode"] == "odor"
         col = (colors[1][0] // 4 + 14, colors[1][1] // 4 + 14, colors[1][2] // 4 + 14) if odor else (22, 26, 34)

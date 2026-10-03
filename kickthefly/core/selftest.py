@@ -202,6 +202,16 @@ def run_backend(name: str, steps: int = BACKEND_STEPS, seed: int = 42) -> dict:
                 blocks=blocks.tolist(), steps=steps, seconds=round(dt, 3), steps_per_s=round(steps / max(dt, 1e-9), 1))
 
 
+def _child_env(**extra: str) -> dict:
+    """The child's environment. From source, the package's folder goes on PYTHONPATH (3.0 release review: run from any other directory,
+    `python -m kickthefly` in the child could not import the package, so the gl backend FAILED and the OpenGL check warned for no reason)."""
+    env = dict(os.environ, **extra)
+    if not getattr(sys, "frozen", False):
+        root = str(Path(__file__).resolve().parents[2])
+        env["PYTHONPATH"] = root + (os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
+    return env
+
+
 def _child_command(*args: str) -> list[str]:
     if getattr(sys, "frozen", False):
         return [sys.executable, *args]
@@ -211,7 +221,7 @@ def _child_command(*args: str) -> list[str]:
 def _in_child(name: str, steps: int) -> dict:
     """Run one backend in a child process with a time limit. Used for GPU backends: a hung or crashed driver ends the
     child, not the self-test."""
-    env = dict(os.environ, SDL_VIDEODRIVER="dummy", SDL_AUDIODRIVER="dummy")
+    env = _child_env(SDL_VIDEODRIVER="dummy", SDL_AUDIODRIVER="dummy")
     try:
         p = subprocess.run(_child_command("--selftest-child", name, str(steps)), capture_output=True, text=True,
                            timeout=CHILD_TIMEOUT_S, env=env)
@@ -307,7 +317,7 @@ def gl_info_child() -> dict:
 
 @_timed
 def check_graphics() -> list[Check]:
-    env = dict(os.environ, SDL_AUDIODRIVER="dummy")
+    env = _child_env(SDL_AUDIODRIVER="dummy")
     try:
         p = subprocess.run(_child_command("--selftest-child", "gl-info", "0"), capture_output=True, text=True, timeout=60,
                            env=env)

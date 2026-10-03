@@ -53,15 +53,15 @@ def _st(m):
 def page(m: ui.Menu, surf, rect, mouse) -> None:
     st, host = _st(m), m.host
     m.text(surf, "CONNECTOME ROBUSTNESS", (rect.x + 24, rect.y + 16), ui.INK, m.f_head)
-    m.text(surf, "Change the wiring itself and re-run the behaviors. Everything here acts on the dataset's own "
-                 "synapse counts and neurotransmitter predictions.", (rect.x + 24, rect.y + 48), ui.LABEL, m.f_small)
+    ty = max(rect.y + 72, m.subtitle(surf, rect, "Change the wiring itself and re-run the behaviors. Everything here acts on the dataset's own "
+                                                 "synapse counts and neurotransmitter predictions.") - 4)
     x = rect.x + 24
     for key, label, _ in TABS:
-        r = pygame.Rect(x, rect.y + 72, 200, 34)
+        r = pygame.Rect(x, ty, 200, 34)
         m.button(surf, r, label, (lambda k=key: setattr(st, "wiring_tab", k)), id=("wtab", key),
                  active=st.wiring_tab == key, style="normal")
         x += 210
-    body = pygame.Rect(rect.x + 16, rect.y + 116, rect.w - 32, rect.h - 116 - 70)
+    body = pygame.Rect(rect.x + 16, ty + 44, rect.w - 32, rect.bottom - 70 - (ty + 44))
     busy = getattr(host, "wiring_busy", "")
     if busy:
         m.text(surf, f"applying to every fly: {busy} …", (rect.right - 24, rect.y + 84), ui.AMBER, m.f_small,
@@ -84,6 +84,17 @@ def _restore(host) -> None:
 
 
 # --- synapse threshold ------------------------------------------------------------------------------------------
+def _intro(m, surf, body, y: int, lead: str, more: str, chip: str, chip_text: str) -> int:
+    """A tab's two description paragraphs and its tag line, wrapped and measured (3.0 release review: they were single lines at fixed
+    offsets that ran off a 860 px menu and overlapped each other at larger text). Returns the y below."""
+    w = body.w - 16
+    y = m.wrapped(surf, lead, (body.x + 8, y), w, ui.TEXT, m.f_small, max_lines=3)
+    y = m.wrapped(surf, more, (body.x + 8, y + 2), w, ui.LABEL, m.f_small, max_lines=3) + 6
+    r = m.chip(surf, (body.x + 8, y), chip)
+    y = m.wrapped(surf, chip_text, (r.right + 10, y + 1), body.right - 8 - r.right - 10, ui.LABEL, m.f_small, max_lines=2)
+    return max(y, r.bottom) + 10
+
+
 @tab("threshold", "Synapse threshold")
 def _tab_threshold(m, surf, body, st, host) -> None:
     from kickthefly.lab import robustness
@@ -91,15 +102,11 @@ def _tab_threshold(m, surf, body, st, host) -> None:
     from kickthefly.sim.wiring import Wiring
 
     y = body.y
-    m.text(surf, "Drop every connection the reconstruction found fewer than N synapses for, then watch the fly and "
-                 "re-run the behaviors.", (body.x + 8, y), ui.TEXT, m.f_small)
-    m.text(surf, f"Weak contacts are the ones most likely to be reconstruction noise. The brain pack already drops "
-                 f"anything below {robustness.MIN_PACK_SYNAPSES} synapses, so 1-{robustness.MIN_PACK_SYNAPSES} "
-                 f"change nothing.", (body.x + 8, y + 18), ui.LABEL, m.f_small)
-    m.chip(surf, (body.x + 8, y + 40), "CONNECTOME")
-    m.text(surf, "the synapse counts are the dataset's; which thresholds to try is a game choice",
-           (body.x + 120, y + 48), ui.LABEL, m.f_small, "midleft")
-    y += 72
+    y = _intro(m, surf, body, y, "Drop every connection the reconstruction found fewer than N synapses for, then watch the fly and "
+                                 "re-run the behaviors.",
+               f"Weak contacts are the ones most likely to be reconstruction noise. The brain pack already drops "
+               f"anything below {robustness.MIN_PACK_SYNAPSES} synapses, so 1-{robustness.MIN_PACK_SYNAPSES} change nothing.",
+               "CONNECTOME", "the synapse counts are the dataset's; which thresholds to try is a game choice")
     m.text(surf, "Minimum synapses", (body.x + 8, y + 15), ui.TEXT, m.f_text, "midleft")
     m.slider(surf, (body.x + 200, y, body.w - 420, 30), st.min_syn, 1, 15, 1, "{:.0f}",
              lambda v: setattr(st, "min_syn", int(v)), lambda: None, id="min_syn",
@@ -185,9 +192,9 @@ def _draw_sweep(m, surf, area, st, res) -> None:
                ui.BAD if b["breaks_at"] else ui.GOOD, m.f_small)
         y += 20
     y += 6
-    m.text(surf, "A behavior that breaks at a low threshold depends on connections the reconstruction saw only a few "
-                 "synapses of.", (area.x, y), ui.LABEL, m.f_small)
-    m.button(surf, (area.x, min(y + 20, area.bottom - 34), 200, 30), "Export CSV + JSON",
+    y = m.wrapped(surf, "A behavior that breaks at a low threshold depends on connections the reconstruction saw only a few "
+                 "synapses of.", (area.x, y), area.w, ui.LABEL, m.f_small, max_lines=3)
+    m.button(surf, (area.x, min(y + 4, area.bottom - 34), 200, 30), "Export CSV + JSON",
              lambda: _export(m, res), id="sweep_export")
 
 
@@ -199,14 +206,11 @@ def _tab_signflip(m, surf, body, st, host) -> None:
     from kickthefly.sim.wiring import Wiring
 
     y = body.y
-    m.text(surf, "MaleCNS v1.0 predicts every neuron's neurotransmitter and says how sure it is. This flips the "
-                 "least certain ones from excitatory to inhibitory, or back.", (body.x + 8, y), ui.TEXT, m.f_small)
-    m.text(surf, "A neuron with the wrong sign in the dataset has the wrong sign here too. The stress test asks "
-                 "which validated behaviors survive that being true.", (body.x + 8, y + 18), ui.LABEL, m.f_small)
-    m.chip(surf, (body.x + 8, y + 40), "CONNECTOME")
-    m.text(surf, "the predictions and confidences are the dataset's; the cutoff, the share and the trial count are "
-                 "game choices", (body.x + 120, y + 48), ui.LABEL, m.f_small, "midleft")
-    y += 72
+    y = _intro(m, surf, body, y, "MaleCNS v1.0 predicts every neuron's neurotransmitter and says how sure it is. This flips the "
+                                 "least certain ones from excitatory to inhibitory, or back.",
+               "A neuron with the wrong sign in the dataset has the wrong sign here too. The stress test asks "
+               "which validated behaviors survive that being true.",
+               "CONNECTOME", "the predictions and confidences are the dataset's; the cutoff, the share and the trial count are game choices")
     try:
         g = simcore.pack()[0]
         stats = wiring_mod.confidence_stats(g, st.flip_conf)
@@ -218,8 +222,12 @@ def _tab_signflip(m, surf, body, st, host) -> None:
              lambda v: setattr(st, "flip_conf", float(v)), lambda: None, id="flip_conf",
              tip="Neurons the dataset is less sure than this about are the ones a trial may flip. 1.00 includes "
                  "everything except the neurons with a measured transmitter.")
-    m.text(surf, "Share flipped", (body.x + 530, y + 15), ui.TEXT, m.f_text, "midleft")
-    m.slider(surf, (body.x + 650, y, 220, 30), st.flip_share if hasattr(st, "flip_share") else 0.5, 0.1, 1.0, 0.1,
+    sx = body.x + 530
+    if sx + 120 + 220 > body.right - 8:                       # a narrow menu: the second slider goes on its own row
+        y += 40
+        sx = body.x + 8
+    m.text(surf, "Share flipped", (sx, y + 15), ui.TEXT, m.f_text, "midleft")
+    m.slider(surf, (sx + max(120, m.f_text.size("Share flipped")[0] + 12), y, 220, 30), st.flip_share if hasattr(st, "flip_share") else 0.5, 0.1, 1.0, 0.1,
              "{:.0%}", lambda v: setattr(st, "flip_share", float(v)), lambda: None, id="flip_share",
              tip="Each trial flips this share of the candidates, chosen at random. Which of them are actually wrong "
                  "is unknowable, so a trial samples one possible world and the trials together give the answer.")
@@ -308,9 +316,8 @@ def _draw_flips(m, surf, area, res) -> None:
         m.text(surf, f"{b['control_effect']:.2f}", (area.x + 690, y), ui.LABEL, m.f_small)
         y += 20
     y += 4
-    m.text(surf, "A behavior that survives every trial does not depend on the signs the dataset is unsure of.",
-           (area.x, y), ui.LABEL, m.f_small)
-    m.button(surf, (area.x, min(y + 20, area.bottom - 34), 200, 30), "Export CSV + JSON",
+    y = m.wrapped(surf, "A behavior that survives every trial does not depend on the signs the dataset is unsure of.", (area.x, y), area.w, ui.LABEL, m.f_small, max_lines=3)
+    m.button(surf, (area.x, min(y + 4, area.bottom - 34), 200, 30), "Export CSV + JSON",
              lambda: _export(m, res), id="flips_export")
 
 
@@ -456,8 +463,8 @@ def _draw_inhibition(m, surf, area, st, res) -> None:
         y += 18
 
     y += 6
-    m.text(surf, "Runaway activity is an observed emergent outcome of uninhibited recurrent excitation across 166.7k "
-                 "neurons, not a scripted seizure.", (area.x, y), ui.LABEL, m.f_small)
-    m.button(surf, (area.x, min(y + 20, area.bottom - 34), 200, 30), "Export CSV + JSON",
+    y = m.wrapped(surf, "Runaway activity is an observed emergent outcome of uninhibited recurrent excitation across 166.7k "
+                 "neurons, not a scripted seizure.", (area.x, y), area.w, ui.LABEL, m.f_small, max_lines=3)
+    m.button(surf, (area.x, min(y + 4, area.bottom - 34), 200, 30), "Export CSV + JSON",
              lambda: _export(m, res), id="inhib_export")
 

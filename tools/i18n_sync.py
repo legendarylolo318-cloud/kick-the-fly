@@ -21,7 +21,7 @@ MODULES = ("kickthefly/ui/loadout_ui.py", "kickthefly/ui/tutorial.py", "kickthef
            "kickthefly/ui/crashscreen.py", "kickthefly/game/kick_the_fly.py", "kickthefly/game/kick3d.py",
            "kickthefly/ui/neurodex_ui.py", "kickthefly/ui/share_ui.py", "kickthefly/game/extras3.py",
            "kickthefly/ui/arcade_ui.py", "kickthefly/lab/labday4.py", "kickthefly/ui/whatsnew_ui.py", "kickthefly/lab/labrigs.py",
-           "kickthefly/ui/minipaper_ui.py")
+           "kickthefly/ui/minipaper_ui.py", "kickthefly/ui/menu.py")              # 3.0 release review: menu.py was never scanned
 NEW_SETTINGS = ("controls.loadout_preset", "brain.neurodex", "brain.killcam", "brain.neuron_of_day", "brain.imaging_indicator",
                 "brain.imaging_fps", "brain.imaging_f0_tau_s", "brain.mic_sensitivity", "stream.allow_tool",
                 "stream.allow_arena", "stream.allow_surgery", "stream.window_s", "stream.cooldown_s", "stream.min_votes")

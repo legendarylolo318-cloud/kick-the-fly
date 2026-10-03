@@ -188,8 +188,9 @@ def page_neurodex(m, surf, rect, mouse) -> None:
         y = rect.bottom - 52
         m.text(surf, tr("Neuron of the day") + f": {c['type']}" + (f" (+{c['also']})" if c["also"] else ""),
                (rect.x + 24, y + 4), ui.TEXT, m.f_small)
-        m.text(surf, _truncate(m.f_small, c["plan"]["text"], 560), (rect.x + 24, y + 22), ui.DIM, m.f_small)
-        m.button(surf, (rect.x + 600, y, 140, 38), tr("Try it"), lambda: _try(host, c, m), id="dex-try",
+        try_x = min(rect.x + 600, rect.right - 164 - 150)           # 3.0 release review: clear of Back in a 860 px menu
+        m.text(surf, _truncate(m.f_small, c["plan"]["text"], try_x - rect.x - 40), (rect.x + 24, y + 4 + m.f_small.get_linesize()), ui.DIM, m.f_small)
+        m.button(surf, (try_x, y, 140, 38), tr("Try it"), lambda: _try(host, c, m), id="dex-try",
                  enabled=c["plan"]["action"] != "none",
                  tip=c["plan"]["text"] + " " + tr("It closes this screen so you can watch."))
 

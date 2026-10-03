@@ -31,11 +31,8 @@ def _st(m):
 def page(m: ui.Menu, surf, rect, mouse) -> None:
     st, host = _st(m), m.host
     m.text(surf, "PSYCHOMETRIC CURVE GENERATOR", (rect.x + 24, rect.y + 16), ui.INK, m.f_head)
-    m.text(surf, "Sweep experimental parameters across headless trials with error bars. "
-                 "Exports publication-quality SVG, PDF, and CSV.",
-           (rect.x + 24, rect.y + 48), ui.LABEL, m.f_small)
-
-    y = rect.y + 80
+    y = max(rect.y + 80, m.subtitle(surf, rect, "Sweep experimental parameters across headless trials with error bars. "
+                                                "Exports publication-quality SVG, PDF, and CSV."))
     busy = st.psych_job is not None and st.psych_job["thread"].is_alive()
 
     # Target assay selector

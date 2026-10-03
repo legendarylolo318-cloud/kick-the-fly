@@ -298,7 +298,11 @@ def _tournament(m, surf, body, y: int, st: ArcadeState) -> int:
              id="arc_len", enabled=not busy, tip=tr("How long a duel lasts if nobody is knocked out. More health at the end wins."))
     m.button(surf, (x + 280, y, 130, 32), tr("New flies"), lambda: setattr(st, "base_seed", st.base_seed + st.size) or setattr(st, "favorite", None),
              id="arc_new", enabled=not busy, tip=tr("Pick a different set of individuality seeds."))
-    m.button(surf, (x + 420, y, 190, 32), tr("Run tournament"), lambda: _start_tournament(m, st), style="primary", id="arc_run",
+    rw = max(190, m.f_bold.size(tr("Run tournament"))[0] + 32)
+    if x + 420 + rw > body.right - 8:                       # a narrow menu at larger text: the Run button goes on its own row
+        y += 40
+        x = body.x + 8 - 420
+    m.button(surf, (x + 420, y, rw, 32), tr("Run tournament"), lambda: _start_tournament(m, st), style="primary", id="arc_run",
              enabled=not busy, tip=tr("Measures each fly's personality card, then plays the bracket. Minutes: it runs in the background."))
     y += 44
     x = body.x + 8

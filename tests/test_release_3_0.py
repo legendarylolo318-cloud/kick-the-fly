@@ -254,3 +254,83 @@ def test_a_neurodex_table_built_for_one_pack_is_never_returned_for_another(monke
     assert got == ("table of", "synthetic.npz")
     assert nd.table("adult") == ("table of", "synthetic.npz")
     nd.reset_cache()
+
+
+# --- release polish: pre-existing page bugs -----------------------------------------------------------------------------------------
+def test_every_bundled_protocol_gets_a_summary_and_rig_ones_are_runnable():
+    """Lab > Protocols showed only the first 12 files (the rig protocols could not be run from it) and a classroom protocol's summary was
+    a KeyError ('stimuli')."""
+    from kickthefly.lab import lab, protocol
+
+    files = lab.protocol_files()
+    assert len(files) > 12
+    kinds = {}
+    for f in files:
+        desc, runnable = lab.protocol_summary(protocol.load(f))
+        assert desc and "'" not in desc[:1]
+        kinds[f.name] = runnable
+    assert all(kinds[n] for n in kinds if n.startswith("rig_"))
+    assert not any(kinds[n] for n in kinds if n.startswith("lecture_"))
+
+
+def test_no_ui_string_uses_a_glyph_the_fallback_font_lacks():
+    """The classroom page's buttons and two HUD labels used glyphs (▶ ↺ ⟵ ⟶ ★ ✓) that the Linux fallback font (FreeSans, and its bold) does
+    not have: they rendered as empty boxes."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1] / "kickthefly"
+    bad = []
+    for p in list(root.rglob("*.py")) + list((root / "data").rglob("*.json")) + list((root / "data").glob("*.yaml")):
+        for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
+            if line.lstrip().startswith("#") or "3.0 release review" in line or "fonts don't all have" in line:
+                continue
+            if any(c in line for c in "▶↺⟵⟶★✓"):
+                bad.append(f"{p.name}:{i}")
+    assert not bad, bad
+
+
+def test_the_selftest_children_find_the_package_from_any_directory(monkeypatch):
+    """Run from source outside the repo, the self-test's child processes could not import kickthefly: a false FAIL for the gl backend and
+    a false OpenGL warning."""
+    import os
+    from pathlib import Path
+
+    from kickthefly.core import selftest
+
+    monkeypatch.delenv("PYTHONPATH", raising=False)
+    env = selftest._child_env(SDL_AUDIODRIVER="dummy")
+    root = Path(selftest.__file__).resolve().parents[2]
+    assert env["PYTHONPATH"].split(os.pathsep)[0] == str(root) and (root / "kickthefly" / "__init__.py").exists()
+    assert env["SDL_AUDIODRIVER"] == "dummy"
+
+
+def test_classroom_tabs_carry_their_lecture_names(monkeypatch):
+    """The lecture tabs drew their title, then an empty button over it: five blank tabs."""
+    from test_labpages import StubHost
+
+    from kickthefly.lab import labclassroom
+    from kickthefly.ui import menu as ui
+
+    pygame.init()
+    pygame.display.set_mode((1280, 760))
+    m = ui.Menu(StubHost())
+    m.fonts()
+    m.mouse, m.hits = (0, 0), []
+    labclassroom.page(m, pygame.Surface((1280, 760)), pygame.Rect(150, 40, 980, 680), (0, 0))
+    labels = {d["id"][1]: d for _, _, d in m.hits if isinstance(d.get("id"), tuple) and d["id"][0] == "class_tab"}
+    assert set(labels) == {"looming", "tmaze", "moonwalker", "sugar", "gf_lesion"}
+    pygame.display.quit()
+
+
+def test_the_asymmetry_page_says_partners_and_names_the_giant_fiber_right():
+    """The page labelled partner counts as synapses ("In-Syn"), called DNp01 a "braking / backward command" (it is the giant fiber), and
+    called the 77,507 bilateral pairs "paired neurons"."""
+    import inspect
+
+    from kickthefly.lab import headless, lab
+
+    src = inspect.getsource(lab.page_asymmetry)
+    assert "Braking / backward" not in src and "Giant fiber: escape takeoff" in src
+    assert "In-Syn" not in src and "In-partners" in src and "77,507 bilateral left/right pairs (155,014 neurons)" in src
+    assert "In-Syn" not in inspect.getsource(headless.format_asymmetry_report)
+    assert "10,272,125 synapses" not in inspect.getsource(lab.page_benchmark)

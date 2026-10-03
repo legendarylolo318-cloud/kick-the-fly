@@ -152,14 +152,13 @@ def modified(params: dict) -> dict:
 def page_hub(m: ui.Menu, surf, rect, mouse) -> None:
     host = m.host
     m.text(surf, "LAB", (rect.x + 24, rect.y + 16), ui.INK, m.f_head)
-    m.text(surf, "Research tools. Everything here runs on the same connectome sim as the game.", (rect.x + 24, rect.y + 50),
-           ui.LABEL, m.f_small)
+    top = max(rect.y + 84, m.subtitle(surf, rect, "Research tools. Everything here runs on the same connectome sim as the game.", rect.y + 50))
     b_obj = getattr(getattr(getattr(host, "brain", None), "sim", None), "backend", None)
     b_name = getattr(b_obj, "name", "CPU (NumPy)")
     b_dev = getattr(b_obj, "device", "CPU")
     m.text(surf, f"Engine: {b_name} · {b_dev}", (rect.right - 24, rect.y + 20), (120, 220, 240), m.f_small, "topright")
     items = [(label, page, tip) for label, page, tip in host.lab_pages() if page in m.pages]
-    body = pygame.Rect(rect.x + 8, rect.y + 84, rect.w - 16, rect.h - 84 - 96)
+    body = pygame.Rect(rect.x + 8, top, rect.w - 16, rect.bottom - 96 - top)
     off = int(m.scroll.get("lab", 0))
     m.clip = body
     prev = surf.get_clip()
@@ -180,17 +179,17 @@ def page_hub(m: ui.Menu, surf, rect, mouse) -> None:
     w = getattr(host, "wiring", None)
     if w is not None and not w.is_identity:
         notes.append(f"Modified connectome: {w.label()}")
-    for i, note in enumerate(notes):
-        m.text(surf, note, (rect.x + 24, rect.bottom - 100 + i * 18), ui.AMBER, m.f_small)
+    ny = rect.bottom - 100
+    for note in notes:
+        ny = m.wrapped(surf, note, (rect.x + 24, ny), rect.w - 220, ui.AMBER, m.f_small, max_lines=2)
     m.button(surf, (rect.right - 164, rect.bottom - 58, 140, 42), "Back", m.back, style="primary", id=("lab", "back"))
 
 
 def page_params(m: ui.Menu, surf, rect, mouse) -> None:
     host = m.host
     m.text(surf, "PARAMETERS", (rect.x + 24, rect.y + 16), ui.INK, m.f_head)
-    m.text(surf, "Applies live to every fly. Validation results were measured at the defaults.", (rect.x + 24, rect.y + 50),
-           ui.LABEL, m.f_small)
-    body = pygame.Rect(rect.x + 16, rect.y + 80, rect.w - 32, rect.h - 80 - 70)
+    top = max(rect.y + 80, m.subtitle(surf, rect, "Applies live to every fly. Validation results were measured at the defaults.", rect.y + 50))
+    body = pygame.Rect(rect.x + 16, top, rect.w - 32, rect.bottom - 70 - top)
     key = "lab_params"
     off = int(m.scroll.get(key, 0))
     m.clip = body
@@ -704,9 +703,9 @@ ASSUMPTIONS = (
 
 def page_assumptions(m: ui.Menu, surf, rect, mouse) -> None:
     m.text(surf, "MODEL ASSUMPTIONS & SIMPLIFICATIONS", (rect.x + 24, rect.y + 16), ui.INK, m.f_head)
-    m.text(surf, "Scientific caveats and approximations distinguishing the simulation from living biology.",
-           (rect.x + 24, rect.y + 50), ui.LABEL, m.f_small)
-    body = pygame.Rect(rect.x + 16, rect.y + 80, rect.w - 32, rect.h - 80 - 70)
+    top = m.wrapped(surf, "Scientific caveats and approximations distinguishing the simulation from living biology.",
+                    (rect.x + 24, rect.y + 50), rect.w - 48, ui.LABEL, m.f_small, max_lines=2) + 8
+    body = pygame.Rect(rect.x + 16, top, rect.w - 32, rect.bottom - 70 - top)
     key = "lab_assumptions"
     off = int(m.scroll.get(key, 0))
     m.clip = body
@@ -723,35 +722,38 @@ def page_assumptions(m: ui.Menu, surf, rect, mouse) -> None:
         "GAME RULE": (220, 150, 50),
     }
 
-    card_h = 136
-    max_w = body.w - 74
+    # 3.0 release review: the cards had a fixed height (136) and fixed rows, so at larger text the wrapped lines ran into each other, the
+    # category chip (84 px) was narrower than its word and the Bio text was cut at two lines. Every part is now measured from the font.
+    fs, fb = m.f_small, m.f_bold
+    lh, bh = fs.get_linesize(), fb.get_linesize()
+    lab_w = max(fs.size(t)[0] for t in ("Sim:", "Bio:", "Doc:")) + 10
+
+    def n_lines(text, font, width):
+        return len(ui.Menu.fit_lines(font, text, width, 99)[0])
+
     for title, cat, sim_rule, bio_reality, docs in ASSUMPTIONS:
-        card = pygame.Rect(body.x, y, body.w - 12, card_h)
+        cw = body.w - 12
+        chip_w = fs.size(cat)[0] + 14
+        title_x = 12 + chip_w + 10
+        tw = cw - title_x - 12
+        text_w = cw - 14 - lab_w - 12
+        rows = [(n_lines(sim_rule, fs, text_w)), (n_lines(bio_reality, fs, text_w)), (n_lines(docs, fs, text_w))]
+        card_h = 10 + max(lh + 4, n_lines(title, fb, tw) * bh) + 6 + sum(r * lh + 6 for r in rows) + 6
+        card = pygame.Rect(body.x, y, cw, card_h)
         pygame.draw.rect(surf, (24, 28, 38), card, border_radius=8)
         pygame.draw.rect(surf, (45, 52, 68), card, 1, border_radius=8)
 
-        # Category chip
         col = category_colors.get(cat, ui.LABEL)
-        chip = pygame.Rect(card.x + 12, card.y + 10, 84, 20)
+        chip = pygame.Rect(card.x + 12, card.y + 10, chip_w, lh + 4)
         pygame.draw.rect(surf, (15, 18, 26), chip, border_radius=4)
         pygame.draw.rect(surf, col, chip, 1, border_radius=4)
-        m.text(surf, cat, chip.center, col, m.f_small, "center")
-
-        # Title
-        m.text(surf, title, (card.x + 106, card.y + 10), ui.INK, m.f_bold)
-
-        # Sim rule
-        m.text(surf, "Sim:", (card.x + 14, card.y + 36), (140, 180, 220), m.f_small)
-        m.wrapped(surf, sim_rule, (card.x + 50, card.y + 36), max_w, ui.TEXT, m.f_small, max_lines=2)
-
-        # Biology reality
-        m.text(surf, "Bio:", (card.x + 14, card.y + 68), (220, 150, 100), m.f_small)
-        m.wrapped(surf, bio_reality, (card.x + 50, card.y + 68), max_w, (185, 190, 200), m.f_small, max_lines=2)
-
-        # Documentation reference
-        m.text(surf, "Doc:", (card.x + 14, card.y + 104), ui.LABEL, m.f_small)
-        m.text(surf, docs, (card.x + 50, card.y + 104), (130, 160, 210), m.f_small)
-
+        m.text(surf, cat, chip.center, col, fs, "center")
+        yy = m.wrapped(surf, title, (card.x + title_x, card.y + 10), tw, ui.INK, fb, max_lines=99)
+        yy = max(yy, chip.bottom) + 6
+        for label, text, color, lab_col in (("Sim:", sim_rule, ui.TEXT, (140, 180, 220)), ("Bio:", bio_reality, (185, 190, 200), (220, 150, 100)),
+                                            ("Doc:", docs, (130, 160, 210), ui.LABEL)):
+            m.text(surf, label, (card.x + 14, yy), lab_col, fs)
+            yy = m.wrapped(surf, text, (card.x + 14 + lab_w, yy), text_w, color, fs, max_lines=99) + 6
         y += card_h + 12
 
     m.content_h[key] = max(0, y + off - body.bottom + 8)
@@ -764,57 +766,57 @@ def page_assumptions(m: ui.Menu, surf, rect, mouse) -> None:
 def page_asymmetry(m: ui.Menu, surf, rect, mouse) -> None:
     host = m.host
     m.text(surf, "LEFT / RIGHT ASYMMETRY AUDIT", (rect.x + 24, rect.y + 16), ui.INK, m.f_head)
-    m.text(surf, "Audit bilateral differences in connectome structure and spontaneous turning bias.",
-           (rect.x + 24, rect.y + 50), ui.LABEL, m.f_small)
+    top = m.wrapped(surf, "Audit bilateral differences in connectome structure and spontaneous turning bias.",
+                    (rect.x + 24, rect.y + 50), rect.w - 48, ui.LABEL, m.f_small, max_lines=2) + 8
 
-    body = pygame.Rect(rect.x + 16, rect.y + 80, rect.w - 32, rect.h - 80 - 70)
+    body = pygame.Rect(rect.x + 16, top, rect.w - 32, rect.bottom - 70 - top)
     key = "lab_asymmetry"
     off = int(m.scroll.get(key, 0))
     m.clip = body
     prev = surf.get_clip()
     surf.set_clip(body)
     y = body.y + 4 - off
+    fs, fb = m.f_small, m.f_bold
+    lh = fs.get_linesize()
 
     mirror = bool(host.cfg["brain.mirror_weights"]) if hasattr(host, "cfg") else False
 
-    # Status & Context Card
-    card_h = 130
-    card = pygame.Rect(body.x, y, body.w - 12, card_h)
-    pygame.draw.rect(surf, (24, 28, 38), card, border_radius=8)
-    pygame.draw.rect(surf, (45, 52, 68), card, 1, border_radius=8)
-
+    # Status & context card. 3.0 release review: measured from the font (it had a fixed 130 px height and a 210 px chip), the pairs count
+    # corrected (77,507 bilateral pairs, 155,014 neurons, not "77,507 paired neurons"), and the table says where its numbers come from.
     chip_col = (240, 160, 60) if mirror else (100, 180, 240)
     chip_txt = "GAME RULE: MIRROR-AVERAGED" if mirror else "CONNECTOME: RAW DATA"
-    chip = pygame.Rect(card.x + 12, card.y + 10, 210, 22)
-    pygame.draw.rect(surf, (15, 18, 26), chip, border_radius=4)
-    pygame.draw.rect(surf, chip_col, chip, 1, border_radius=4)
-    m.text(surf, chip_txt, chip.center, chip_col, m.f_small, "center")
-
     bias_txt = "+1.00 Hz (symmetric weights)" if mirror else "+0.10 Hz (right turn bias)"
-    m.text(surf, f"Baseline Turning Bias: {bias_txt}", (card.x + 235, card.y + 12), ui.INK, m.f_bold)
-
     expl = (
         "In the raw MaleCNS v1.0 connectome, bilateral asymmetries arise from both true biology and uneven electron "
         "microscopy (EM) reconstruction and proofreading depth between hemispheres. Descending steering neurons DNa01 and "
-        "DNa02 drive a mild spontaneous rightward turning bias in quiet walking.\n"
-        "Mirror-averaging synaptic weights across 77,507 paired bilateral neurons enforces exact structural symmetry. "
+        "DNa02 drive a mild spontaneous rightward turning bias in quiet walking. "
+        "Mirror-averaging synaptic weights across the 77,507 bilateral left/right pairs (155,014 neurons) enforces exact structural symmetry. "
         "Because this alters real connectome data, it is tagged strictly as a Game Rule."
     )
-    m.wrapped(surf, expl, (card.x + 14, card.y + 40), card.w - 28, ui.TEXT, m.f_small, max_lines=4)
-    y += card_h + 14
-
-    # Table Header Card
-    hdr_h = 32
-    hdr = pygame.Rect(body.x, y, body.w - 12, hdr_h)
-    pygame.draw.rect(surf, (32, 38, 52), hdr, border_radius=6)
-    m.text(surf, "Key Cell Type", (hdr.x + 14, hdr.centery), ui.INK, m.f_bold, "midleft")
-    m.text(surf, "Functional Role", (hdr.x + 120, hdr.centery), ui.LABEL, m.f_small, "midleft")
-    m.text(surf, "Count L/R", (hdr.x + 370, hdr.centery), ui.LABEL, m.f_small, "midleft")
-    m.text(surf, "In-Syn L/R", (hdr.x + 470, hdr.centery), ui.LABEL, m.f_small, "midleft")
-    m.text(surf, "Out-Syn L/R", (hdr.x + 580, hdr.centery), ui.LABEL, m.f_small, "midleft")
-    m.text(surf, "Calm Rate L/R", (hdr.x + 690, hdr.centery), ui.LABEL, m.f_small, "midleft")
-    m.text(surf, "Diff (R-L)", (hdr.right - 14, hdr.centery), ui.LABEL, m.f_small, "midright")
-    y += hdr_h + 6
+    cw = body.w - 12
+    n_expl = len(ui.Menu.fit_lines(fs, expl, cw - 28, 99)[0])
+    chip_w = fs.size(chip_txt)[0] + 16
+    bias_line = f"Baseline turning bias: {bias_txt}"
+    bias_below = chip_w + 24 + fb.size(bias_line)[0] > cw - 14
+    card_h = 10 + lh + 6 + (fb.get_linesize() + 6 if bias_below else 0) + n_expl * lh + 12
+    card = pygame.Rect(body.x, y, cw, card_h)
+    pygame.draw.rect(surf, (24, 28, 38), card, border_radius=8)
+    pygame.draw.rect(surf, (45, 52, 68), card, 1, border_radius=8)
+    chip = pygame.Rect(card.x + 12, card.y + 10, chip_w, lh + 4)
+    pygame.draw.rect(surf, (15, 18, 26), chip, border_radius=4)
+    pygame.draw.rect(surf, chip_col, chip, 1, border_radius=4)
+    m.text(surf, chip_txt, chip.center, chip_col, fs, "center")
+    if bias_below:
+        m.text(surf, bias_line, (card.x + 14, chip.bottom + 6), ui.INK, fb)
+        yy = chip.bottom + 6 + fb.get_linesize() + 6
+    else:
+        m.text(surf, bias_line, (chip.right + 14, chip.centery), ui.INK, fb, "midleft")
+        yy = chip.bottom + 6
+    m.wrapped(surf, expl, (card.x + 14, yy), cw - 28, ui.TEXT, fs, max_lines=99)
+    y += card_h + 10
+    y = m.wrapped(surf, "Recorded from python kick_the_fly.py --headless --audit-asymmetry" + (" --mirror-weights" if mirror else "")
+                  + " (seed 0, a 5 s calm run, CPU backend). Partners: the number of distinct pre- (in) or postsynaptic (out) partner neurons, "
+                  "averaged over each side's neurons of the type; not synapse counts.", (body.x + 4, y), cw - 8, ui.LABEL, fs, max_lines=6) + 8
 
     rows_data = [
         ("DNa01", "Steering descending command", "1 / 1", "393 / 402", "577 / 577", "316 / 311", "532 / 532", "2.4 / 3.0 Hz", "2.2 / 3.2 Hz", "+0.60 Hz", "+1.00 Hz"),
@@ -822,23 +824,44 @@ def page_asymmetry(m: ui.Menu, surf, rect, mouse) -> None:
         ("LC10", "Courtship tracking / fixation", "479 / 481", "78 / 97", "86 / 106", "54 / 60", "72 / 80", "3.8 / 3.9 Hz", "4.0 / 4.1 Hz", "+0.18 Hz", "+0.07 Hz"),
         ("LPLC2", "Rapid looming escape", "94 / 91", "232 / 283", "243 / 295", "93 / 97", "125 / 131", "10.2 / 6.5 Hz", "10.5 / 7.7 Hz", "-3.66 Hz", "-2.79 Hz"),
         ("LC4", "Collision looming avoidance", "112 / 90", "191 / 224", "210 / 244", "79 / 85", "116 / 125", "0.7 / 1.1 Hz", "0.8 / 0.9 Hz", "+0.38 Hz", "+0.13 Hz"),
-        ("DNp01", "Braking / backward command", "1 / 1", "558 / 482", "836 / 836", "136 / 125", "200 / 200", "6.6 / 6.2 Hz", "7.6 / 8.6 Hz", "-0.40 Hz", "+1.00 Hz"),
+        ("DNp01", "Giant fiber: escape takeoff", "1 / 1", "558 / 482", "836 / 836", "136 / 125", "200 / 200", "6.6 / 6.2 Hz", "7.6 / 8.6 Hz", "-0.40 Hz", "+1.00 Hz"),
     ]
+    heads = ("Count L/R", "In-partners L/R", "Out-partners L/R", "Calm rate L/R", "Diff (R-L)")
+    cells = [(r[2], r[4] if mirror else r[3], r[6] if mirror else r[5], r[8] if mirror else r[7], r[10] if mirror else r[9]) for r in rows_data]
+    name_w = max(max(fb.size(r[0])[0] for r in rows_data), fb.size("Type")[0]) + 16
+    col_w = [max(fs.size(h)[0], max(fs.size(c[i])[0] for c in cells)) + 16 for i, h in enumerate(heads)]
+    role_inline = name_w + max(fs.size(r[1])[0] for r in rows_data) + 16 + sum(col_w) <= cw - 28
+    role_w = (max(fs.size(r[1])[0] for r in rows_data) + 16) if role_inline else 0
+    xs, x = [], 14 + name_w + role_w
+    spare = max(0, (cw - 28) - (name_w + role_w + sum(col_w)))
+    for w in col_w:
+        xs.append(x)
+        x += w + spare // len(col_w)
+    hdr = pygame.Rect(body.x, y, cw, max(32, lh + 12))
+    pygame.draw.rect(surf, (32, 38, 52), hdr, border_radius=6)
+    m.text(surf, "Type", (hdr.x + 14, hdr.centery), ui.INK, fb, "midleft")
+    if role_inline:
+        m.text(surf, "Functional role", (hdr.x + 14 + name_w, hdr.centery), ui.LABEL, fs, "midleft")
+    for xx, h in zip(xs, heads):
+        m.text(surf, h, (hdr.x + xx, hdr.centery), ui.LABEL, fs, "midleft")
+    y += hdr.h + 6
 
-    row_h = 36
-    for t, role, counts, in_raw, in_mir, out_raw, out_mir, r_raw, r_mir, d_raw, d_mir in rows_data:
-        rbox = pygame.Rect(body.x, y, body.w - 12, row_h)
+    row_h = max(36, fb.get_linesize() + 12) if role_inline else fb.get_linesize() + lh + 14
+    for r, c in zip(rows_data, cells):
+        rbox = pygame.Rect(body.x, y, cw, row_h)
         pygame.draw.rect(surf, (20, 24, 33), rbox, border_radius=6)
-        m.text(surf, t, (rbox.x + 14, rbox.centery), ui.INK, m.f_bold, "midleft")
-        m.text(surf, role, (rbox.x + 120, rbox.centery), (150, 180, 220), m.f_small, "midleft")
-        m.text(surf, counts, (rbox.x + 370, rbox.centery), ui.TEXT, m.f_small, "midleft")
-        m.text(surf, in_mir if mirror else in_raw, (rbox.x + 470, rbox.centery), ui.TEXT, m.f_small, "midleft")
-        m.text(surf, out_mir if mirror else out_raw, (rbox.x + 580, rbox.centery), ui.TEXT, m.f_small, "midleft")
-        m.text(surf, r_mir if mirror else r_raw, (rbox.x + 690, rbox.centery), ui.TEXT, m.f_small, "midleft")
-        diff_str = d_mir if mirror else d_raw
-        diff_val = abs(float(diff_str.replace(" Hz", "")))
-        diff_col = ui.GOOD if diff_val < 0.2 else (240, 160, 60)
-        m.text(surf, diff_str, (rbox.right - 14, rbox.centery), diff_col, m.f_small, "midright")
+        if role_inline:
+            m.text(surf, r[0], (rbox.x + 14, rbox.centery), ui.INK, fb, "midleft")
+            m.text(surf, r[1], (rbox.x + 14 + name_w, rbox.centery), (150, 180, 220), fs, "midleft")
+        else:
+            m.text(surf, r[0], (rbox.x + 14, rbox.y + 6), ui.INK, fb)
+            m.text(surf, r[1], (rbox.x + 14, rbox.y + 6 + fb.get_linesize()), (150, 180, 220), fs)
+        cy = rbox.centery if role_inline else rbox.y + 6 + fb.get_linesize() // 2      # two-line rows: numbers on the name's line
+        for i, (xx, v) in enumerate(zip(xs, c)):
+            col = ui.TEXT
+            if i == len(c) - 1:
+                col = ui.GOOD if abs(float(v.replace(" Hz", ""))) < 0.2 else (240, 160, 60)
+            m.text(surf, v, (rbox.x + xx, cy), col, fs, "midleft")
         y += row_h + 6
 
     m.content_h[key] = max(0, y + off - body.bottom + 8)
@@ -849,7 +872,8 @@ def page_asymmetry(m: ui.Menu, surf, rect, mouse) -> None:
     def toggle():
         if hasattr(host, "toggle_mirror_weights"):
             host.toggle_mirror_weights()
-    m.button(surf, (rect.x + 24, rect.bottom - 58, 250, 42), btn_txt, toggle,
+    bw = max(250, fb.size(btn_txt)[0] + 32)
+    m.button(surf, (rect.x + 24, rect.bottom - 58, bw, 42), btn_txt, toggle,
              id=("asymmetry", "toggle_mirror"), tip="Toggle bilateral weight symmetrization [GAME RULE]")
     m.button(surf, (rect.right - 164, rect.bottom - 58, 140, 42), "Back", m.back, style="primary", id=("asymmetry", "back"))
 
@@ -862,10 +886,9 @@ def page_benchmark(m: ui.Menu, surf, rect, mouse) -> None:
     global _bench_job
     host = m.host
     m.text(surf, "SIMULATION BENCHMARK", (rect.x + 24, rect.y + 16), ui.INK, m.f_head)
-    m.text(surf, "Throughput, real-time pace, neurons/sec and memory footprint across 1, 8, and 16 flies.",
-           (rect.x + 24, rect.y + 50), ui.LABEL, m.f_small)
-
-    body = pygame.Rect(rect.x + 16, rect.y + 80, rect.w - 32, rect.h - 80 - 70)
+    top = max(rect.y + 80, m.subtitle(surf, rect, "Throughput, real-time pace, neurons/sec and memory footprint across 1, 8, and 16 flies.",
+                                      rect.y + 50))
+    body = pygame.Rect(rect.x + 16, top, rect.w - 32, rect.bottom - 70 - top)
     key = "lab_benchmark"
     off = int(m.scroll.get(key, 0))
     m.clip = body
@@ -878,21 +901,25 @@ def page_benchmark(m: ui.Menu, surf, rect, mouse) -> None:
         res = benchmark.load_benchmark_results()
         host._benchmark_results = res
 
-    # System card
-    card_h = 94
-    card = pygame.Rect(body.x, y, body.w - 12, card_h)
-    pygame.draw.rect(surf, (24, 28, 38), card, border_radius=8)
-    pygame.draw.rect(surf, (45, 52, 68), card, 1, border_radius=8)
-
+    # System card (3.0 release review: fixed 20 px line steps overlapped at larger text; the "synapses" it showed (10,272,125) are the weight matrix's nonzero
+    # entries, i.e. connections: the pack holds about 39 million synapses in them)
     sys_info = (res or {}).get("system") or benchmark.get_system_info()
     b_name = (res or {}).get("backend") or getattr(getattr(getattr(host, "brain", None), "sim", None), "backend", None)
     b_name = getattr(b_name, "name", str(b_name or "CPU (NumPy)"))
     b_dev = (res or {}).get("device") or getattr(getattr(getattr(host, "brain", None), "sim", None), "backend", None)
     b_dev = getattr(b_dev, "device", str(b_dev or "CPU"))
-    m.text(surf, f"CPU: {sys_info.get('cpu_model')} ({sys_info.get('cpu_count')} threads)", (card.x + 14, card.y + 12), ui.INK, m.f_bold)
-    m.text(surf, f"OS: {sys_info.get('os')}  ·  Python: {sys_info.get('python')}", (card.x + 14, card.y + 32), ui.TEXT, m.f_small)
-    m.text(surf, f"Sim Backend: {b_name}  ·  Device: {b_dev}", (card.x + 14, card.y + 50), (120, 220, 240), m.f_small)
-    m.text(surf, "Connectome: Janelia MaleCNS v1.0 (166,700 neurons, 10,272,125 synapses)", (card.x + 14, card.y + 70), (140, 180, 220), m.f_small)
+    lines = [(f"CPU: {sys_info.get('cpu_model')} ({sys_info.get('cpu_count')} threads)", ui.INK, m.f_bold),
+             (f"OS: {sys_info.get('os')}  ·  Python: {sys_info.get('python')}", ui.TEXT, m.f_small),
+             (f"Sim Backend: {b_name}  ·  Device: {b_dev}", (120, 220, 240), m.f_small),
+             ("Connectome: Janelia MaleCNS v1.0 (166,700 neurons, 10,272,125 connections)", (140, 180, 220), m.f_small)]
+    cw = body.w - 12
+    card_h = 20 + sum(len(ui.Menu.fit_lines(f, t, cw - 28, 3)[0]) * f.get_linesize() + 2 for t, _, f in lines)
+    card = pygame.Rect(body.x, y, cw, card_h)
+    pygame.draw.rect(surf, (24, 28, 38), card, border_radius=8)
+    pygame.draw.rect(surf, (45, 52, 68), card, 1, border_radius=8)
+    yy = card.y + 10
+    for t, col, f in lines:
+        yy = m.wrapped(surf, t, (card.x + 14, yy), cw - 28, col, f, max_lines=3) + 2
     y += card_h + 16
 
     # Results Table
@@ -932,8 +959,8 @@ def page_benchmark(m: ui.Menu, surf, rect, mouse) -> None:
                (body.x + 12, y + 10), ui.LABEL, m.f_small)
         y += 36
     else:
-        m.text(surf, "No benchmark results found. Click 'Run Benchmark' to measure multi-fly simulation throughput.",
-               (body.x + 14, y + 10), ui.TEXT, m.f_text)
+        m.wrapped(surf, "No benchmark results found. Click 'Run Benchmark' to measure multi-fly simulation throughput.",
+                  (body.x + 14, y + 10), body.w - 40, ui.TEXT, m.f_text, max_lines=3)
         y += 40
 
     m.content_h[key] = max(0, y + off - body.bottom + 8)
@@ -1103,15 +1130,17 @@ def page_assays(m: ui.Menu, surf, rect, mouse) -> None:
 
     st, host = _state(m), m.host
     m.text(surf, "ASSAYS AND REPEATED TRIALS", (rect.x + 24, rect.y + 16), ui.INK, m.f_head)
-    m.text(surf, "Each fly is a fresh, untrained brain with its own seed. Your saved training memory isn't used or "
-                 "changed.", (rect.x + 24, rect.y + 48), ui.LABEL, m.f_small)
-    x0, y = rect.x + 24, rect.y + 78
+    y = m.subtitle(surf, rect, "Each fly is a fresh, untrained brain with its own seed. Your saved training memory isn't used or changed.")
+    x0 = rect.x + 24
     busy = st.job is not None and st.job.running
     m.text(surf, "Assay", (x0, y + 15), ui.TEXT, m.f_text, "midleft")
-    m.segmented(surf, (x0 + 110, y, rect.w - 134, 30), [labjobs.ASSAY_LABEL[k] for k in labjobs.ASSAYS],
-                labjobs.ASSAYS.index(st.kind), lambda i: setattr(st, "kind", labjobs.ASSAYS[i]), id="assay_kind",
-                enabled=not busy)
-    y += 40
+    # 3.0 release review: eight assays in one segmented row gave each 101 px, too narrow for most names; they flow over rows now
+    if busy:
+        m.text(surf, labjobs.ASSAY_LABEL[st.kind] + " (running)", (x0 + 110, y + 15), ui.INK, m.f_bold, "midleft")
+        y += 40
+    else:
+        y = m.flow_buttons(surf, x0 + 110, y, rect.right - 24, [(labjobs.ASSAY_LABEL[k], (lambda k=k: setattr(st, "kind", k)), ("assay_kind", k),
+                                                                st.kind == k, None) for k in labjobs.ASSAYS], h=30) + 10
     m.text(surf, "Flies", (x0, y + 15), ui.TEXT, m.f_text, "midleft")
     m.slider(surf, (x0 + 110, y, 300, 30), st.flies, 2, 30, 1, "{:.0f}", lambda v: setattr(st, "flies", int(v)),
              lambda: None, id="assay_flies", enabled=not busy,
@@ -1462,11 +1491,10 @@ def page_export(m: ui.Menu, surf, rect, mouse) -> None:
     if not hasattr(st, "rec_pick"):
         st.rec_pick, st.rec_seconds = {"dnp01", "loom", "reaction_dns"}, 10
     m.text(surf, "RECORD AND EXPORT", (rect.x + 24, rect.y + 16), ui.INK, m.f_head)
-    m.text(surf, "Records spike times from the fly your brain panel shows, live, while you play. Files: spikes and rates "
-                 "as CSV and npz, plus a metadata JSON.", (rect.x + 24, rect.y + 48), ui.LABEL, m.f_small)
+    y = max(rect.y + 84, m.subtitle(surf, rect, "Records spike times from the fly your brain panel shows, live, while you play. Files: spikes and "
+                                                "rates as CSV and npz, plus a metadata JSON."))
     if not hasattr(st, "rec_nwb"):
         st.rec_nwb = True
-    y = rect.y + 84
     options = list(RECORD_GROUPS)
     insp = getattr(host, "inspect", None)
     if insp:
@@ -1497,12 +1525,11 @@ def page_export(m: ui.Menu, surf, rect, mouse) -> None:
                            "plus the full metadata and the MaleCNS v1.0 citation. Opens in pynwb, the NWB inspector "
                            "and NWB Explorer. CSV and npz are always written as the quick option.")
     if why:
-        m.text(surf, why, (rect.x + 24, y + 34), ui.AMBER, m.f_small)
-        y += 20
+        y = m.wrapped(surf, why, (rect.x + 24, y + 34), rect.w - 48, ui.AMBER, m.f_small, max_lines=2) - 30
     y += 44
     rec = getattr(host, "recording", None)
     if rec is None:
-        m.button(surf, (rect.x + 24, y, 260, 44), "Start recording and resume", lambda: host.start_recording(
+        m.button(surf, (rect.x + 24, y, max(260, m.f_bold.size("Start recording and resume")[0] + 32), 44), "Start recording and resume", lambda: host.start_recording(
             [(lbl, s) for lbl, s in options if s in st.rec_pick], st.rec_seconds,
             nwb=bool(st.rec_nwb) and not why), style="primary", id="rec_start",
             enabled=bool(st.rec_pick), tip="Closes the menu; the recording stops by itself after the duration.")
@@ -1550,6 +1577,23 @@ def protocol_files() -> list:
     return out
 
 
+def protocol_summary(p: dict) -> tuple[str, bool]:
+    """One line describing a checked protocol of any kind, and whether Lab > Protocols can run it (classroom lectures are stepped
+    through in Lab > Classroom instead)."""
+    flies = f"{len(p.get('seeds', []))} fly(s)"
+    if p.get("classroom"):
+        return f"classroom lecture, {len(p.get('steps', []))} steps (Lab > Classroom)", False
+    if "rig" in p:
+        r = p["rig"]
+        return f"behavior rig {r['name']}" + (f", {r['mode']}" if r.get("mode") else "") + f", {flies}", True
+    if "patch" in p:
+        return f"patch clamp of {p['patch'].get('neuron', '?')}, {flies}", True
+    if "assay" in p:
+        return f"assay {p['assay']}, {flies}" + (", with surgery + control" if p.get("surgery") else ""), True
+    return (f"{len(p.get('stimuli', []))} stimuli, {len(p.get('recordings', []))} recordings, {flies}"
+            + (", with surgery + control" if p.get("surgery") else "")), True
+
+
 def page_protocols(m: ui.Menu, surf, rect, mouse) -> None:
     import threading
 
@@ -1559,23 +1603,33 @@ def page_protocols(m: ui.Menu, surf, rect, mouse) -> None:
 
     st = _state(m)
     m.text(surf, "PROTOCOLS", (rect.x + 24, rect.y + 16), ui.INK, m.f_head)
-    m.text(surf, f"YAML experiment files. Put your own in {short(paths.get().data_dir / 'protocols', 60)}. Headless: "
-                 "KickTheFly --headless --protocol FILE", (rect.x + 24, rect.y + 48), ui.LABEL, m.f_small)
+    top = m.wrapped(surf, f"YAML experiment files. Put your own in {short(paths.get().data_dir / 'protocols', 60)}. Headless: "
+                          "KickTheFly --headless --protocol FILE", (rect.x + 24, rect.y + 48), rect.w - 48, ui.LABEL, m.f_small, max_lines=3) + 10
     job = getattr(st, "proto_job", None)
     busy = job is not None and job["thread"].is_alive()
-    y = rect.y + 84
-    for f in protocol_files()[:12]:
+    # 3.0 release review: the list showed only the first 12 files (the four rig protocols and others could not be run from here), was not
+    # clipped (rows ran under the Back button), and a classroom, patch or rig protocol showed a KeyError ('stimuli') as its summary.
+    body = pygame.Rect(rect.x + 16, top, rect.w - 32, rect.bottom - 110 - top)
+    key = "lab_protocols"
+    off = int(m.scroll.get(key, 0))
+    prev = surf.get_clip()
+    surf.set_clip(body)
+    m.clip = body
+    y = body.y - off
+    rh = max(42, m.f_bold.get_linesize() + m.f_small.get_linesize() + 10)
+    bh = max(30, m.f_small.get_linesize() + 12)
+    for f in protocol_files():
+        runnable = True
         try:
             p = protocol.load(f)
-            desc = (f"assay {p['assay']}, " if "assay" in p else f"{len(p['stimuli'])} stimuli, {len(p['recordings'])} "
-                    f"recordings, ") + f"{len(p['seeds'])} fly(s)" + (", with surgery + control" if p.get("surgery") else "")
+            desc, runnable = protocol_summary(p)
             err = None
         except Exception as e:
-            desc, err, p = str(e), True, None
-        row = pygame.Rect(rect.x + 24, y, rect.w - 48, 42)
+            desc, err, p = f"{type(e).__name__}: {e}", True, None
+        row = pygame.Rect(rect.x + 24, y, rect.w - 48, rh)
         pygame.draw.rect(surf, (26, 30, 40), row, border_radius=8)
         m.text(surf, f.name, (row.x + 12, row.y + 4), ui.INK, m.f_bold)
-        m.text(surf, desc[:120], (row.x + 12, row.y + 23), ui.BAD if err else ui.LABEL, m.f_small)
+        m.wrapped(surf, desc, (row.x + 12, row.y + 4 + m.f_bold.get_linesize()), row.w - 140, ui.BAD if err else ui.LABEL, m.f_small, max_lines=1)
 
         def start(p=p):
             j = dict(done=0, total=1, folder=None, error=None, name=p["name"])
@@ -1591,9 +1645,13 @@ def page_protocols(m: ui.Menu, surf, rect, mouse) -> None:
             j["thread"].start()
             st.proto_job = j
 
-        m.button(surf, (row.right - 110, row.y + 6, 96, 30), "Run", start, id=("proto", f.name),
-                 enabled=not err and not busy, font=m.f_small)
-        y += 50
+        m.button(surf, (row.right - 110, row.centery - bh // 2, 96, bh), "Run", start, id=("proto", f.name),
+                 enabled=not err and not busy and runnable, font=m.f_small,
+                 tip=None if runnable or err else "A classroom lecture: step through it in Lab > Classroom.")
+        y += rh + 8
+    m.content_h[key] = max(0, y + off - body.bottom)
+    surf.set_clip(prev)
+    m.clip = None
     if job is not None:
         if busy:
             frac = job["done"] / max(1, job["total"])

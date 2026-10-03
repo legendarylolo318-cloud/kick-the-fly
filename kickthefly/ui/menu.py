@@ -355,6 +355,33 @@ class Menu:
         font = font or self.f_bold
         return not self.fit_lines(font, label, width - 12, max(1, (height - 4) // font.get_linesize()))[1]
 
+    def subtitle(self, surf, rect, text: str, y: int | None = None, max_lines: int = 3) -> int:
+        """A page's description line under its heading, wrapped to the panel (3.0 release review: most pages drew it as one line, which ran
+        off a 860 px menu and at larger text). Returns the y below it, with a gap."""
+        return self.wrapped(surf, text, (rect.x + 24, rect.y + 48 if y is None else y), rect.w - 48, LABEL, self.f_small, max_lines) + 8
+
+    def flow_buttons(self, surf, x: int, y: int, right: int, items, *, h: int | None = None, font=None, gap: int = 8,
+                     label: str | None = None) -> int:
+        """A row of choice buttons, each as wide as its label, wrapping onto more rows before `right`. items: (text, click, id, active,
+        tip). With `label`, the label comes first and the buttons follow it on the same line when they fit there. Returns the bottom y."""
+        font = font or self.f_small
+        h = h or max(28, font.get_linesize() + 10)
+        x0 = x
+        if label:
+            r = self.text(surf, label, (x, y + h // 2), TEXT, self.f_text, "midleft")
+            widest = max((font.size(str(it[0]))[0] + 24 for it in items), default=0)
+            if r.right + 12 + widest <= right:
+                x0 = x = r.right + 12
+            else:
+                y += h + 4
+        for text, click, ident, active, tip in items:
+            w = min(font.size(str(text))[0] + 24, right - x0)
+            if x + w > right and x > x0:
+                x, y = x0, y + h + 6
+            self.button(surf, (x, y, w, h), text, click, id=ident, active=active, tip=tip, font=font)
+            x += w + gap
+        return y + h
+
     def button(self, surf, rect, label, click, *, id=None, style="normal", enabled=True, tip=None, active=False,
                font=None) -> bool:
         rect = pygame.Rect(rect)
@@ -477,7 +504,8 @@ class Menu:
         if page is None:
             self.screen = "pause"
             page = self._page_pause
-        pw, ph = (440, min(650, H - 20)) if self.screen in ("pause", "confirm_quit") else (min(980, W - 40), min(680, H - 30))
+        # 3.0 release review: a narrow window gives a tall HUD (1280x2588 or 900x1820 logical); pages that do not scroll may use more of that height
+        pw, ph = (440, min(650, H - 20)) if self.screen in ("pause", "confirm_quit") else (min(980, W - 40), min(680 if H < 1100 else 860, H - 30))
         if self.screen == "confirm_quit":
             ph = 250
         rect = pygame.Rect((W - pw) // 2, (H - ph) // 2, pw, ph)
@@ -569,8 +597,10 @@ class Menu:
 
     def _page_confirm_quit(self, surf, rect) -> None:
         self.text(surf, tr("Quit Kick the Fly?"), (rect.centerx, rect.y + 30), INK, self.f_head, "midtop")
-        self.text(surf, tr("The fly's training memory and your settings are saved."), (rect.centerx, rect.y + 76),
-                  LABEL, self.f_small, "midtop")
+        msg = tr("The fly's training memory and your settings are saved.")         # wrapped: the German line is wider than the dialog
+        lines = Menu.fit_lines(self.f_small, msg, rect.w - 48, 3)[0]
+        for i, ln in enumerate(lines):
+            self.text(surf, ln, (rect.centerx, rect.y + 76 + i * self.f_small.get_linesize()), LABEL, self.f_small, "midtop")
         self.button(surf, (rect.centerx - 170, rect.bottom - 90, 160, 50), tr("Quit"),
                     lambda: self.host.menu_action("quit_now"), style="danger", id=("cq", "quit"))
         self.button(surf, (rect.centerx + 10, rect.bottom - 90, 160, 50), tr("Cancel"), self.back, id=("cq", "cancel"))
@@ -578,10 +608,15 @@ class Menu:
     def _page_settings(self, surf, rect) -> None:
         cfg, host = self.host.cfg, self.host
         self.text(surf, "SETTINGS", (rect.x + 24, rect.y + 16), INK, self.f_head)
-        tw = (rect.w - 48) // len(TABS)
-        for i, tab in enumerate(TABS):
-            self.button(surf, (rect.x + 24 + i * tw, rect.y + 54, tw - 8, 38), tr(tab),
+        # 3.0 release review: equal-width tabs cut "Accessibility" (and "Barrierefreiheit") at larger text in a 860 px menu; each tab is now
+        # as wide as its label needs, with the spare room shared out
+        need = [self.f_bold.size(tr(t))[0] + 24 for t in TABS]
+        spare = max(0, (rect.w - 48) - sum(need) - 8 * len(TABS)) // len(TABS)
+        tx = rect.x + 24
+        for tab, w in zip(TABS, need):
+            self.button(surf, (tx, rect.y + 54, w + spare, 38), tr(tab),
                         (lambda t=tab: setattr(self, "tab", t)), active=tab == self.tab, id=("tab", tab))
+            tx += w + spare + 8
         body = pygame.Rect(rect.x + 16, rect.y + 104, rect.w - 32, rect.h - 104 - 70)
         key = self._scroll_key()
         off = int(self.scroll.get(key, 0))
@@ -596,16 +631,31 @@ class Menu:
             if s.tab != self.tab or not config.visible(s, host.three_d):
                 continue
             on = config.enabled(s, host.three_d)
-            row = pygame.Rect(body.x, y, body.w, 44)
+            # a choice whose labels do not fit their segments on one line gets a taller row, so they wrap instead of being cut
+            extra, own_line = 0, False
+            chips = ([s.tag] if s.tag else []) + (["RESTART"] if s.restart else []) + ([] if on else ["3D ONLY"])
+            chips_end = max(body.x + 12 + self.f_text.size(tr(s.label))[0] + 10, body.x + label_w) + \
+                sum(self.f_small.size(c.upper())[0] + 18 for c in chips)
+            cx0 = max(ctl_x, chips_end + 8)              # 3.0 release review: two chips (RESTART, 3D ONLY) ran into the control
+            if s.kind == "choice" and len(s.labels or s.options) <= 4:
+                labs = s.labels or tuple(map(str, s.options))
+                seg = (ctl_x + ctl_w - cx0) // len(labs) - 4
+                if any(self.f_small.size(str(lb))[0] > seg - 12 for lb in labs):
+                    extra = self.f_small.get_linesize()
+                    if any(Menu.fit_lines(self.f_small, str(lb), seg - 12, 2)[1] for lb in labs):
+                        own_line = True                 # not even two lines fit: the choice gets the row's full width, under its label
+                        extra = 38
+            row = pygame.Rect(body.x, y, body.w, 44 + extra)
             if row.collidepoint(self.mouse) and body.collidepoint(self.mouse):
                 pygame.draw.rect(surf, ROW_HOVER, row, border_radius=8)
             tip = tr(s.tip) + ("" if on else "  (3D game only.)")
-            lr = self.text(surf, tr(s.label), (row.x + 12, row.centery), TEXT if on else DIM, self.f_text, "midleft")
+            ly = row.y + 22 if own_line else row.centery
+            lr = self.text(surf, tr(s.label), (row.x + 12, ly), TEXT if on else DIM, self.f_text, "midleft")
             self._register(pygame.Rect(row.x, row.y, label_w + 150, row.h), "label", id=("label", s.key), tip=tip)
             cx = max(lr.right + 10, row.x + label_w)
             for chip in ([s.tag] if s.tag else []) + (["RESTART"] if s.restart else []) + ([] if on else ["3D ONLY"]):
-                cx = self.chip(surf, (cx, row.centery - 10), chip).right + 6
-            ctl = pygame.Rect(ctl_x, row.y + 7, ctl_w, 30)
+                cx = self.chip(surf, (cx, ly - 10), chip).right + 6
+            ctl = pygame.Rect(body.x + 24, row.y + 44, body.w - 40, 30) if own_line else pygame.Rect(cx0, row.y + 7, ctl_x + ctl_w - cx0, 30 + extra)
             v = cfg[s.key]
             if s.kind == "bool":
                 self.toggle(surf, ctl, bool(v), lambda nv, k=s.key: host.set_setting(k, nv), id=s.key, enabled=on,
@@ -618,11 +668,12 @@ class Menu:
                                    tip=tip)
                 else:
                     i = s.options.index(v)
+                    mid = max(152, max(self.f_bold.size(str(lb))[0] for lb in labels) + 16)   # the widest label fits between the arrows
                     self.button(surf, (ctl.x, ctl.y, 44, ctl.h), "<",
                                 lambda k=s.key, o=s.options, i=i: host.set_setting(k, o[(i - 1) % len(o)]),
                                 id=(s.key, "<"), enabled=on, tip=tip)
-                    self.text(surf, labels[i], (ctl.x + 120, ctl.centery), INK, self.f_bold, "center")
-                    self.button(surf, (ctl.x + 196, ctl.y, 44, ctl.h), ">",
+                    self.text(surf, labels[i], (ctl.x + 44 + mid // 2, ctl.centery), INK, self.f_bold, "center")
+                    self.button(surf, (ctl.x + 44 + mid, ctl.y, 44, ctl.h), ">",
                                 lambda k=s.key, o=s.options, i=i: host.set_setting(k, o[(i + 1) % len(o)]),
                                 id=(s.key, ">"), enabled=on, tip=tip)
             elif s.kind == "float":
@@ -635,7 +686,7 @@ class Menu:
                 self.button(surf, (ctl.x + 192, ctl.y, 110, ctl.h), "Random",
                             lambda k=s.key: host.set_setting(k, random.randrange(1, 2**31 - 1)), id=(s.key, "rand"),
                             tip="Pick a new random seed.", font=self.f_small)
-            y += 48
+            y += 48 + extra
         if self.tab == "Controls":
             y = self._keybinds(surf, body, y + 8)
         if self.tab == "Help":

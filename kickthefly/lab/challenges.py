@@ -1038,9 +1038,8 @@ def page_challenges(m, surf, rect, mouse) -> None:
 
     game = m.host
     m.text(surf, "CHALLENGES", (rect.x + 24, rect.y + 16), ui.INK, m.f_head)
-    m.text(surf, "Games built on real fly experiments. The fly's brain decides how it does.", (rect.x + 24, rect.y + 50),
-           ui.LABEL, m.f_small)
-    body = pygame.Rect(rect.x + 16, rect.y + 80, rect.w - 32, rect.h - 80 - 70)
+    top = max(rect.y + 80, m.subtitle(surf, rect, "Games built on real fly experiments. The fly's brain decides how it does.", rect.y + 50))
+    body = pygame.Rect(rect.x + 16, top, rect.w - 32, rect.bottom - 70 - top)
     key = "challenges"
     off = int(m.scroll.get(key, 0))
     m.clip = body
@@ -1049,10 +1048,14 @@ def page_challenges(m, surf, rect, mouse) -> None:
     scores = load_scores()
     y = body.y + 4 - off
     for c_key, title, desc, unit, better in INFO:
-        card = pygame.Rect(body.x + 8, y, body.w - 16, 150)
+        # 3.0 release review: the description was one line (cut at larger text or a 860 px menu); it wraps now and the card grows with it
+        n_desc = len(ui.Menu.fit_lines(m.f_text, desc, body.w - 56, 3)[0])
+        extra = (n_desc - 1) * m.f_text.get_linesize()
+        card = pygame.Rect(body.x + 8, y, body.w - 16, 150 + extra)
         pygame.draw.rect(surf, (28, 32, 42), card, border_radius=12)
         m.text(surf, title, (card.x + 20, card.y + 16), ui.INK, m.f_head)
-        m.text(surf, desc, (card.x + 20, card.y + 54), ui.TEXT, m.f_text)
+        m.wrapped(surf, desc, (card.x + 20, card.y + 54), card.w - 40, ui.TEXT, m.f_text, max_lines=3)
+        card = card.move(0, extra)                      # the score row and Start button sit under the description
         best = scores.get(c_key)
         if best is not None:
             shown = f"{best:.0f}/10" if c_key == "tmaze" else f"{best:.1f} fly lengths" if c_key == "sneak" else f"{best:.0f} stars" if c_key == "reverse_surgery" else f"{best:.0f}%"
@@ -1062,7 +1065,7 @@ def page_challenges(m, surf, rect, mouse) -> None:
             m.text(surf, "Not played yet", (card.x + 20, card.y + 96), ui.LABEL, m.f_text)
         m.button(surf, (card.right - 170, card.y + 86, 150, 46), "Start", (lambda k=c_key: game.start_challenge(k)),
                  style="primary", id=("challenge", c_key))
-        y += 166
+        y += 166 + extra
     m.content_h[key] = max(0, y + off - body.bottom + 8)
     surf.set_clip(prev)
     m.clip = None

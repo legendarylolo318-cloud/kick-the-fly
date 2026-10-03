@@ -583,5 +583,8 @@
   "slip {s:+.2f} rad/s": "slip {s:+.2f} rad/s",
   "walking trajectory; the stripes lie beyond the edge (not to scale)": "walking trajectory; the stripes lie beyond the edge (not to scale)",
   "The model {v} the direction the paper's finding points to.": "The model {v} the direction the paper's finding points to.",
-  "You expected: {a}. The paper's finding points to: {b}.": "You expected: {a}. The paper's finding points to: {b}."
+  "You expected: {a}. The paper's finding points to: {b}.": "You expected: {a}. The paper's finding points to: {b}.",
+  "Commit to a hypothesis before anything runs. It is fixed when you press Run; a change after that applies to your next run.": "Commit to a hypothesis before anything runs. It is fixed when you press Run; a change after that applies to your next run.",
+  "On": "On",
+  "unbound": "unbound"
 }

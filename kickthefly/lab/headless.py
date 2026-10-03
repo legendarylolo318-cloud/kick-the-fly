@@ -244,7 +244,7 @@ def format_asymmetry_report(res: dict) -> str:
     lines = [
         f"LEFT/RIGHT ASYMMETRY AUDIT ({res['seconds']:.1f} s calm run, seed={res['seed']}, mirror={res['mirror']})",
         "-" * 88,
-        f"{'Cell Type':<9} {'Count L/R':<11} {'In-Syn L/R':<15} {'Out-Syn L/R':<15} {'Firing Rate L/R':<18} {'Diff (R-L)':<10}",
+        f"{'Cell Type':<9} {'Count L/R':<11} {'In-partners':<15} {'Out-partners':<15} {'Firing Rate L/R':<18} {'Diff (R-L)':<10}",
         "-" * 88,
     ]
     for r in res["records"]:

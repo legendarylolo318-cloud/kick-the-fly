@@ -56,6 +56,16 @@ def _workers() -> int:
     return max(1, min(3, labjobs.default_workers()))
 
 
+def read_label(p) -> str:
+    """A short note of how much of the paper was read, for the list."""
+    r = p.read.lower()
+    if r.startswith("full text"):
+        return "full text"
+    if "full text" in r and "searched" in r:
+        return "abstract, full text searched"
+    return "abstract only"
+
+
 def open_paper(m, pid: str) -> None:
     s = st(m)
     s.paper = pid
@@ -130,7 +140,7 @@ def _pairs_plot(m, surf, box, q: dict, colors) -> None:
     lo, hi = min(0.0, min(vals)), max(vals) * 1.12
     if hi - lo < 1e-9:
         hi = lo + 1.0
-    top, bottom = box.y + 28, box.bottom - 30
+    top, bottom = box.y + m.f_small.get_linesize() + 14, box.bottom - m.f_small.get_linesize() - 12   # under the axis title, above the legend
     left, right = box.x + 70, box.right - 16
 
     def Y(v):
@@ -199,7 +209,8 @@ def _step_run(m, surf, x, y, w, p, s) -> int:
                     tip=tr("Quick is a first look (seeds 0-3, too few flies for the validation's p < 0.01 bar). Full is the validation seeds 1000-1009 and takes several times longer."))
         y += h + 8
     res = s.results.get(p.id)
-    m.button(surf, (x, y, 220, h), tr("Run the experiment") if ok else tr("Show recorded numbers"), lambda: _run_or_record(m, p, s), style="primary",
+    run_label = tr("Run the experiment") if ok else tr("Show recorded numbers")
+    m.button(surf, (x, y, max(220, m.f_bold.size(run_label)[0] + 32), h), run_label, lambda: _run_or_record(m, p, s), style="primary",
              id=("mp_run", p.id), enabled=ready and not busy)
     y += h + 8
     if res is not None:
@@ -304,9 +315,12 @@ def page(m, surf, rect, mouse) -> None:
                                        "result next to what the paper found. Where the model misses the paper, it says so and why."), ui.LABEL, m.f_small)
         for pid in minipapers.ORDER:
             p = minipapers.PAPERS[pid]
-            r = pygame.Rect(x, y, min(w, 900), max(h, m.f_text.get_linesize() + m.f_small.get_linesize() + 18))
+            # 3.0 release review: the "what was read" note was drawn on top of the button, over a long centred title; it sits beside it now
+            note = tr(read_label(p))
+            nw = m.f_small.size(note)[0]
+            r = pygame.Rect(x, y, min(w, 900) - nw - 16, max(h, 2 * m.f_bold.get_linesize() + 12))
             m.button(surf, r, tr(p.title), (lambda i=pid: open_paper(m, i)), id=("mp_paper", pid), tip=tr(p.summary))
-            m.text(surf, tr(p.read.split(" (")[0]), (r.right - 10, r.centery), ui.LABEL, m.f_small, "midright")
+            m.text(surf, note, (r.right + 12, r.centery), ui.LABEL, m.f_small, "midleft")
             y += r.h + 8
         y = _para(m, surf, x, y + 4, w, tr("Headless: --minipaper list, then --minipaper ID [--seeds A-B]. docs/minipapers.md."), ui.LABEL, m.f_small)
     else:

@@ -4510,7 +4510,7 @@ class Game:
             sparkle = 0.8 + 0.2 * math.sin(now * 6)
             pygame.draw.circle(surf, (255, 245, 220), (int(gx), int(gy)), 14)
             pygame.draw.circle(surf, (255, 255, 255), (int(gx), int(gy)), int(10 * sparkle))
-            self._text(surf, "★ SUGAR GOAL ★", (int(gx), FLOOR + 10), (255, 220, 100), self.f_small, "midtop")
+            self._text(surf, "SUGAR GOAL", (int(gx), FLOOR + 10), (255, 220, 100), self.f_small, "midtop")
         elif arena == "thermo":
             bar_y = FLOOR - 6
             bar_h = 10
@@ -6693,7 +6693,7 @@ class Game:
         elapsed = (self.escaperoom_finish_t if self.escaperoom_completed else now) - self.escaperoom_start_t
         elapsed = max(0.0, elapsed)
 
-        status_txt = "★ GOAL REACHED! ★" if self.escaperoom_completed else "ESCAPE ROOM: SPEEDRUN"
+        status_txt = "GOAL REACHED!" if self.escaperoom_completed else "ESCAPE ROOM: SPEEDRUN"
         col = (255, 220, 100) if self.escaperoom_completed else (120, 210, 255)
         self._text(surf, status_txt, (cx + 14, cy + 8), col, self.f_small)
 

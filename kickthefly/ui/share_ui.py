@@ -113,26 +113,25 @@ def _share_dir():
 def page_share(m, surf, rect, mouse) -> None:
     host = m.host
     st = _state(m)
-    m.text(surf, tr("SHARE"), (rect.x + 24, rect.y + 14), ui.INK, m.f_head)
-    m.chip(surf, (rect.x + 120, rect.y + 18), "GAME RULE")
-    m.text(surf, tr("A code carries settings the game already has. Import shows what it would change first."),
-           (rect.x + 222, rect.y + 20), ui.DIM, m.f_small)
+    head = m.text(surf, tr("SHARE"), (rect.x + 24, rect.y + 14), ui.INK, m.f_head)
+    chip_r = m.chip(surf, (max(rect.x + 120, head.right + 12), rect.y + 18), "GAME RULE")     # never on the heading (larger text)
+    sub_bottom = m.wrapped(surf, tr("A code carries settings the game already has. Import shows what it would change first."),
+                           (chip_r.right + 16, rect.y + 14), rect.right - 24 - chip_r.right - 16, ui.DIM, m.f_small, max_lines=2)
+    ty = max(rect.y + 52, sub_bottom + 6)
     for i, (key, label) in enumerate((("export", tr("Make a code")), ("import", tr("Import a code")))):
-        m.button(surf, (rect.x + 24 + i * 190, rect.y + 52, 180, 36), label, (lambda k=key: setattr(st, "tab", k)),
+        m.button(surf, (rect.x + 24 + i * 190, ty, 180, 36), label, (lambda k=key: setattr(st, "tab", k)),
                  active=st.tab == key, id=("share-tab", key))
     m.button(surf, (rect.right - 164, rect.bottom - 58, 140, 42), tr("Back"), m.back, style="primary", id=("share", "back"))
-    body = pygame.Rect(rect.x + 24, rect.y + 100, rect.w - 48, rect.h - 100 - 70)
+    body = pygame.Rect(rect.x + 24, ty + 48, rect.w - 48, rect.bottom - 70 - (ty + 48))
     (_page_export if st.tab == "export" else _page_import)(m, surf, body, st, host)
 
 
 def _page_export(m, surf, body, st, host) -> None:
     x, y = body.x, body.y
     m.text(surf, tr("What to share"), (x, y), ui.LABEL, m.f_small)
-    bw = 150
-    for i, k in enumerate(KINDS):
-        m.button(surf, (x + i * (bw + 8), y + 20, bw, 34), tr(KIND_NAMES[k]), (lambda k=k: setattr(st, "kind", k)),
-                 active=st.kind == k, id=("share-kind", k))
-    y += 70
+    yb = m.flow_buttons(surf, x, y + 20, body.right, [(tr(KIND_NAMES[k]), (lambda k=k: setattr(st, "kind", k)), ("share-kind", k), st.kind == k, None)
+                                                     for k in KINDS], h=34, font=m.f_bold)
+    y = max(y + 70, yb + 16)
     if st.kind == "loadout":
         m.text(surf, tr("Name"), (x, y + 5), ui.TEXT, m.f_small)
         m.text_field(surf, (x + 60, y, 260, 28), st.loadout_name, lambda v: setattr(st, "loadout_name", v.strip()[:24] or "Shared loadout"),
