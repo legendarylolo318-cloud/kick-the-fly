@@ -61,6 +61,10 @@ Fixed (regression tests in `tests/test_release_3_0.py` and `tests/test_layout_3_
   On the merge PR's checks (2026-10-04 UTC) `test_the_neurodex_hides_everything_about_an_undiscovered_type` failed: the panel's Neuron
   of the Day line names the day's curated type whether discovered or not (as documented), that day's pick was LPLC2, the type the
   test hides. The test now leaves the date-picked card out; the Neurodex-related tests all pass with the date pinned to that day.
+  The tag run for v3.0.0-rc.1 then failed on Windows at the kitchen's burner (peak 44.3 Hz, needed 46.0, calm 18.5 +- 6.9 Hz): each calm
+  sample began right after the fly was moved from the previous station, whose response was still decaying, which inflated the calm
+  SD and the bar. The fly now settles at the calm spot for 1 s, unsampled, first (vinegar's calm: ~1.5 +- 1.2 Hz instead of
+  ~3 +- 7). Nothing was published from v3.0.0-rc.1.
   **The playthrough was not reproducible:** the game clock starts at `time.perf_counter()` and the fly's
   flight bob, wind and wobble read that absolute time, so a run started at another moment drove the fly differently; 2D flypaper bomb and
   spider failed on one CI run of code that had passed on two. The playthrough's games now start their clock at a fixed 1000.0 (chosen

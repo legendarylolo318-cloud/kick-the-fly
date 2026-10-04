@@ -1033,7 +1033,9 @@ def extra_kitchen(rig: Rig, r: Result) -> None:
 
     def station(name, xyz, seconds, probes, engaged=None, hold=True):
         calm = (KITCHEN_CALM[0], stand, KITCHEN_CALM[1])
-        _put(rig, calm)
+        for _ in range(4):                                             # 1 s to settle, not sampled: the calm windows used to start
+            _put(rig, calm)                                            # with the previous station's response still decaying, which
+            rig.seconds(0.25)                                          # inflated their SD (heat: 18 +- 7 Hz) and the bar above it
         rig.probe = Probe(br, probes)
         for _ in range(6):                                             # held there through the calm 1.5 s too: placed once, a fly
             _put(rig, calm)                                            # still fleeing the burner flew into the vinegar's smell
