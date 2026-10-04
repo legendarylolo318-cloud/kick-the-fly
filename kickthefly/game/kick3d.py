@@ -1401,7 +1401,7 @@ class Game3D(k2.Game):
     def _scents(self, slot: "k2.FlySlot", now: float, mouse=None) -> None:
         fly = slot.fly
         slot.scent_now, slot.sugar_scent = None, False
-        if fly.dead:
+        if fly.dead or self.puppet_active:                    # Puppeteer: nothing of yours is near it (no smell, no remembered fear of one)
             return
         head = fly.p[HEAD]
         if not self._overlay_open() and np.linalg.norm(self.tool_tip() - head) < 2.5:
@@ -3157,6 +3157,9 @@ class Game3D(k2.Game):
         if self.preds.list:
             from kickthefly.game import predator_play
             predator_play.draw3d(self.preds, rd, now)
+        ch = getattr(self, "challenge", None)
+        if ch is not None and hasattr(ch, "draw_world3d"):          # 3.1.0: Puppeteer's goal post
+            ch.draw_world3d(rd, now)
         for sh in self.shards3:
             R = rot_x(sh["rot"][0]) @ rot_y(sh["rot"][1]) @ rot_z(sh["rot"][2])
             rd.add("cube", trs(sh["p"], R, (sh["size"], sh["size"] * 0.6, sh["size"] * 0.3)),

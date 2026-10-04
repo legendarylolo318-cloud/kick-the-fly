@@ -2552,6 +2552,8 @@ class Game:
         from kickthefly.lab import validation
         self.menu.pages["challenges"] = challenges.page_challenges
         self.challenge = None
+        self.puppet_active = False                     # 3.1.0 task 10: Puppeteer mode (lab/puppet_challenge.py): nothing of yours may touch the fly
+        self.note_hooks: list = []                     # called with each reaction note's text (Puppeteer reads its goals through this)
         self.recording: dict | None = None
         self.last_export: str | None = None
         self.science_card: tuple[dict, float] | None = None
@@ -2889,6 +2891,8 @@ class Game:
 
     def select_tool(self, name: str) -> bool:
         """Take a tool in hand by name, from the hotbar, the wheel, the mouse wheel or the gamepad."""
+        if self.puppet_active:                         # Puppeteer: the laser is the only tool
+            return False
         if name not in TOOL_NAMES or not loadout_mod.available(name, lab=self.cfg.lab, larva=self.is_larva):
             return False
         self.tool = TOOL_NAMES.index(name)
@@ -2898,6 +2902,8 @@ class Game:
 
     def select_slot(self, slot: int) -> bool:
         """Hotbar slot 0-9 (keys 1-9, 0) on the page showing."""
+        if self.puppet_active and getattr(self.challenge, "pick_chip", None):
+            return self.challenge.pick_chip(slot)          # Puppeteer: the keys choose a palette cell type
         name = self.loadout.slot_tool(slot)
         return self.select_tool(name) if name else False
 
@@ -4042,7 +4048,7 @@ class Game:
         """Each tool carries its own scent (6 of the 53 olfactory glomeruli; a game rule) that the fly smells up close."""
         fly = slot.fly
         slot.scent_now, slot.sugar_scent = None, False
-        if fly.dead:
+        if fly.dead or self.puppet_active:                    # Puppeteer: nothing of yours is near it, so no smell and no remembered fear of one
             return
         name = TOOLS[self.tool][0]
         name = "sugar" if name == "fruit" else name           # fruit smells like sugar: same glomeruli, same memory
@@ -5456,6 +5462,8 @@ class Game:
         return out
 
     def hit(self, slot: "FlySlot", i: int, strength: float) -> None:
+        if self.puppet_active:                         # Puppeteer: you cannot hit the fly (no tool, no body, no kick pokes its touch neurons)
+            return
         key = particle_region(i)
         slot.pending_hits[key] = max(slot.pending_hits.get(key, 0.0), strength)
         self.record_event("hit", key[0], TOOLS[self.tool][0], strength, slot)
@@ -5501,6 +5509,11 @@ class Game:
         src = source or reaction_source(text)
         self.log.append((self.clock.now, text, src))
         self.log = self.log[-7:]
+        for hook in tuple(self.note_hooks):
+            try:
+                hook(text)
+            except Exception:
+                log.exception("a note hook failed")
         self.record_event("note", text.split()[0] if text.split() else "note", text.strip(), 0.0,
                           extra=dict(source=src))
 

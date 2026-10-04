@@ -34,6 +34,9 @@ INFO = (
     ("reverse_surgery", "Mystery defect (Reverse surgery)",
      "One brain circuit is turned off! Test the fly with tools, ask for hints, and deduce what's missing.",
      "stars", "high"),
+    ("puppeteer", "Puppeteer",
+     "You cannot touch the fly. Steer it only with the optogenetics laser and by switching its real neurons on and off: ten puzzles, each with a par and the circuit that solves it.",
+     "levels", "high"),
     ("predict", "Predict the move (Motor readouts)",
      "A descending motor spike surge flashes on the monitor. Can you predict the fly's move before it triggers?",
      "correct predictions", "high"),
@@ -72,6 +75,8 @@ def stars(key: str, value: float) -> int:
         return 3 if value >= 9 else 2 if value >= 7 else 1 if value >= 5 else 0
     if key == "sneak":
         return 3 if value <= 1.0 else 2 if value <= 2.0 else 1 if value <= 3.5 else 0
+    if key == "puppeteer":                                   # levels finished, of ten
+        return 3 if value >= 10 else 2 if value >= 7 else 1 if value >= 3 else 0
     if key in ("reverse_surgery", "mystery"):
         return 3 if value >= 3 else 2 if value >= 2 else 1 if value >= 1 else 0
     if key == "predict":
@@ -1030,7 +1035,22 @@ class PredictNeuron(Challenge):
         self.draw_buttons(surf, mouse)
 
 
-CLASSES = {"tmaze": TMaze, "sneak": Sneak, "sweet": Sweet, "reverse_surgery": ReverseSurgery, "predict": PredictNeuron}
+class _Classes(dict):
+    """The challenge classes; Puppeteer (3.1.0) is loaded when asked for, since its module imports this one."""
+
+    def __missing__(self, key):
+        if key == "puppeteer":
+            from kickthefly.lab.puppet_challenge import Puppeteer
+
+            self[key] = Puppeteer
+            return Puppeteer
+        raise KeyError(key)
+
+    def __contains__(self, key):
+        return key == "puppeteer" or super().__contains__(key)
+
+
+CLASSES = _Classes({"tmaze": TMaze, "sneak": Sneak, "sweet": Sweet, "reverse_surgery": ReverseSurgery, "predict": PredictNeuron})
 
 
 def page_challenges(m, surf, rect, mouse) -> None:
@@ -1058,7 +1078,7 @@ def page_challenges(m, surf, rect, mouse) -> None:
         card = card.move(0, extra)                      # the score row and Start button sit under the description
         best = scores.get(c_key)
         if best is not None:
-            shown = f"{best:.0f}/10" if c_key == "tmaze" else f"{best:.1f} fly lengths" if c_key == "sneak" else f"{best:.0f} stars" if c_key == "reverse_surgery" else f"{best:.0f}%"
+            shown = f"{best:.0f}/10" if c_key == "tmaze" else f"{best:.1f} fly lengths" if c_key == "sneak" else f"{best:.0f} stars" if c_key == "reverse_surgery" else f"{best:.0f}/10 levels" if c_key == "puppeteer" else f"{best:.0f}%"
             m.text(surf, f"Best: {shown}", (card.x + 20, card.y + 96), ui.AMBER, m.f_bold)
             draw_stars(surf, (card.x + 250, card.y + 106), stars(c_key, best), 11)
         else:
