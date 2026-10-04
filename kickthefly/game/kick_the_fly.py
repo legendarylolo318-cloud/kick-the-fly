@@ -2527,6 +2527,7 @@ HELP = (
     (";", "kill cam: slow-motion replay of the fly's last seconds, after it dies"),
     ("Z [ ] .", "pause time, slower, faster, single step"),
     ("F3", "profiler overlay: sim, physics, render and UI milliseconds, FPS, engine (off at every launch)"),
+    ("F4", "fly's-eye view: the scene as a fly's eyes sample it (wide field, hexagonal ommatidia, UV-blue-green color); visual only, not fed to the brain"),
     ("H", "this help"),
     ("Esc", "close a panel, or open the menu (settings, save, quit)"),
 )
@@ -2594,6 +2595,8 @@ class Game:
         self.shadow = make_shadow()
         self.view = view
         from kickthefly.sim import realshapes
+        from kickthefly.game import fly_eye
+        self.fly_eye = fly_eye.FlyEyeView()               # 3.1.0 task 11: the scene as a fly's eyes sample it (GAME RULE, visual only)
         self.shapes = realshapes.ShapeLoader()           # 3.1.0 task 9: real neuron shapes, asked for when a neuron is inspected
         self._shape_cache: dict = {}
         if hasattr(view, "pref"):

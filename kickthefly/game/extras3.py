@@ -318,6 +318,9 @@ class Extras:
                 from kickthefly.core.profiler import PROF
                 g.note("PROFILER  on (F3 again to hide)" if PROF.toggle() else "PROFILER  off")
                 return True
+            if "fly_eye" in acts:                       # 3.1.0 task 11: GAME RULE, visual only
+                g.note("FLY'S EYE  on (F4 again to leave)" if g.fly_eye.toggle() else "FLY'S EYE  off")
+                return True
             if "killcam" in acts and self.kc_available():
                 self.kc_start()
                 return True
@@ -367,6 +370,62 @@ class Extras:
         return False
 
     # --- drawing -----------------------------------------------------------------------------------------------------------------------
+    def draw_fly_eye(self, surf) -> None:
+        """The fly's-eye view's overlay (game/fly_eye.py): in 2D the filtered picture of what is ahead of the fly; in both, the GAME RULE tag, why it is not
+        fed to the brain, and the brain's own visual activity beside it."""
+        from kickthefly.game import fly_eye as fe
+        from kickthefly.game import kick_the_fly as k2
+
+        g = self.g
+        slot = g.flies[g.focus]
+        W = k2.PLAY_W
+        if not g.three_d:
+            try:
+                head = slot.fly.p[k2.HEAD]
+                img = g.fly_eye.frame_2d(surf, (float(head[0]), float(head[1])), int(slot.fly.facing))
+                box = pygame.Rect((W - img.get_width()) // 2, 108, img.get_width(), img.get_height())
+                pygame.draw.rect(surf, (4, 5, 8), box.inflate(8, 8), border_radius=6)
+                surf.blit(img, box)
+                pygame.draw.rect(surf, (90, 100, 120), box.inflate(8, 8), 1, border_radius=6)
+            except Exception:
+                from kickthefly.core.crash import log
+                log.exception("the 2D fly's-eye view failed")
+                g.fly_eye.on = False
+                return
+        f, fb = g.f_small, g.f_bold
+        head_txt = "FLY'S-EYE VIEW"
+        tag = fe.TAG
+        x = 270 if g.three_d else (W - 520) // 2
+        y = 64 if g.three_d else 40
+        surf.blit(fb.render(head_txt, True, (255, 236, 160)), (x, y))
+        chip = pygame.Rect(x + fb.size(head_txt)[0] + 10, y + 1, f.size(tag)[0] + 14, f.get_linesize() + 2)
+        pygame.draw.rect(surf, (220, 150, 50), chip, border_radius=5)
+        surf.blit(f.render(tag, True, (12, 14, 18)), (chip.x + 7, chip.y + 1))
+        words, line, yy = fe.NOTE.split(), "", y + 22
+        for wd in words:
+            trial = (line + " " + wd).strip()
+            if f.size(trial)[0] > 430 and line:
+                surf.blit(f.render(line, True, (205, 212, 224)), (x, yy))
+                yy += f.get_linesize()
+                line = wd
+            else:
+                line = trial
+        surf.blit(f.render(line, True, (205, 212, 224)), (x, yy))
+        rows = g.fly_eye.activity.read(slot.brain)
+        panel = pygame.Rect(12, k2.H - 300, 300, 22 + 22 * len(rows)) if g.three_d else pygame.Rect(W - 312, 108 + 268, 300, 22 + 22 * len(rows))
+        bg = pygame.Surface(panel.size, pygame.SRCALPHA)
+        pygame.draw.rect(bg, (8, 10, 16, 215), bg.get_rect(), border_radius=8)
+        surf.blit(bg, panel)
+        surf.blit(f.render("THE BRAIN'S OWN VISUAL NEURONS (Hz)", True, (130, 142, 160)), (panel.x + 10, panel.y + 5))
+        for i, (label, what, n, hz, calm) in enumerate(rows):
+            ry = panel.y + 24 + 22 * i
+            surf.blit(f.render(f"{label}", True, (230, 234, 242)), (panel.x + 10, ry))
+            top = max(8.0, 3.0 * max(calm, 1.0))
+            bar = pygame.Rect(panel.x + 92, ry + 3, 130, 10)
+            pygame.draw.rect(surf, (30, 36, 48), bar, border_radius=4)
+            pygame.draw.rect(surf, (255, 170, 90) if hz > calm * 1.6 + 1 else (110, 190, 255), (bar.x, bar.y, max(2, int(bar.w * min(1.0, hz / top))), bar.h), border_radius=4)
+            surf.blit(f.render(f"{hz:5.1f}", True, (205, 212, 224)), (bar.right + 6, ry))
+
     def draw_profiler(self, surf) -> None:
         """The frame profiler (core/profiler.py): FPS, the sections' milliseconds, a frame-time strip, the engine and the brain view."""
         from kickthefly.core.profiler import PROF
@@ -403,6 +462,8 @@ class Extras:
         from kickthefly.core.profiler import PROF
         if PROF.on:
             self.draw_profiler(surf)
+        if getattr(getattr(g, "fly_eye", None), "on", False):
+            self.draw_fly_eye(surf)
         if self.player is not None:
             self.draw_killcam(surf, wall)
             return

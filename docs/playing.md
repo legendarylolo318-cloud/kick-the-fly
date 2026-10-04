@@ -79,6 +79,7 @@ Every key below can be rebound in Settings > Controls (a key that's already take
 
 | key | what it does |
 |---|---|
+| F4 | the fly's-eye view: the scene through hexagonal ommatidia with a fly's color sensitivity, wide field in 3D; visual only (GAME RULE; not fed to the brain). [fly-eye.md](fly-eye.md) |
 | F3 | the profiler overlay: FPS, frame time and the sim, physics, render and UI milliseconds, the engine and the brain view (off at every launch; GAME RULE: timings only). [performance.md](performance.md) |
 | Esc | close a panel, or open the pause menu: Resume, Challenges (Play) or Lab tools (Lab), Neurodex, Settings, Share, Save State, Load State, Mode, Quit |
 | WASD | walk (Shift sprint, Ctrl or C crouch); walk into the fly to kick it |

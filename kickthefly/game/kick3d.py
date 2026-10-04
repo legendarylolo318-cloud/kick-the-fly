@@ -184,6 +184,7 @@ HELP3D = (
     ("R", "reset to a single fresh fly"),
     ("Z  [  ]  .", "pause time, slower, faster, single step"),
     ("F3", "profiler overlay: sim, physics, render and UI milliseconds, FPS, engine (off at every launch)"),
+    ("F4", "fly's-eye view: the scene as a fly's eyes sample it (wide field, hexagonal ommatidia, UV-blue-green color); visual only, not fed to the brain"),
     ("Esc", "close a panel, or open the menu (settings, save, quit)"),
 )
 
@@ -3780,6 +3781,15 @@ class App:
         self.hud_tex.filter = self.hud_filter
         return self.hud_tex
 
+    def _eye_texture(self, size: tuple[int, int]) -> moderngl.Texture:
+        if getattr(self, "_eye_tex_size", None) != size:
+            if getattr(self, "_eye_tex", None) is not None:
+                self._eye_tex.release()
+            self._eye_tex = self.ctx.texture(size, 4)
+            self._eye_tex.filter = moderngl.NEAREST, moderngl.NEAREST
+            self._eye_tex_size = size
+        return self._eye_tex
+
     def _ensure_scene(self, w: int, h: int):
         if self.scene_size == (w, h):
             return
@@ -3829,13 +3839,26 @@ class App:
         if not getattr(game, "photo_mode", False):
             lens[0, 3] = play_w / view_w - 1                  # shift in clip x by w: moves the image center left
         proj = lens @ proj
-        rd.clear()
-        game.draw_world(rd, now)
-        rd.set_scene(view, proj, eye, lights, now)
-        rd.draw_layer("opaque")
-        rd.draw_layer("blend")
-        rd.draw_particles()
-        if not getattr(game, "photo_mode", False):
+        eye_on = bool(getattr(game, "fly_eye", None) is not None and game.fly_eye.on)      # 3.1.0: the fly's eyes replace the player's view
+        eye_frame = None
+        if eye_on:
+            try:
+                eye_frame = game.fly_eye.frame_3d(game, self, now, (max(64, int(round(view_w * s))), max(64, Hn)))
+            except Exception:
+                game.fly_eye.on = False
+                k2.log.exception("the fly's-eye view failed; back to your own view")
+                eye_on = False
+            fb.use()
+            ctx.viewport = (0, 0, vw, vh)
+            ctx.enable(moderngl.DEPTH_TEST)
+        if not eye_on:
+            rd.clear()
+            game.draw_world(rd, now)
+            rd.set_scene(view, proj, eye, lights, now)
+            rd.draw_layer("opaque")
+            rd.draw_layer("blend")
+            rd.draw_particles()
+        if not getattr(game, "photo_mode", False) and not eye_on:
             # the tool in your hand: squeezed into the front 10% of the depth range so it never sinks into walls,
             # lit by the same lights moved into camera space
             game.draw_viewmodel(rd, now)
@@ -3849,7 +3872,7 @@ class App:
                          cam_lights, now)
             rd.draw_layer("view")
             rd.draw_layer("view_blend")
-        if self.ms is not None:
+        if self.ms is not None and not eye_on:
             ctx.copy_framebuffer(self.scene, self.ms)
 
         def project(p):
@@ -3876,6 +3899,10 @@ class App:
         if dof > 0:
             rd.blit_dof(self.scene_tex, self.scene.depth_attachment, (0, 0, round(view_w * s), Hn), (Wn, Hn),
                         focus=focus, dof=dof, flip=False, blend=False)
+        elif eye_on and eye_frame is not None:
+            et = self._eye_texture(eye_frame.get_size())
+            et.write(pygame.image.tobytes(eye_frame, "RGBA", False))
+            rd.blit_texture(et, (0, 0, round(view_w * s), Hn), (Wn, Hn), flip=True, blend=False)
         else:
             rd.blit_texture(self.scene_tex, (0, 0, round(view_w * s), Hn), (Wn, Hn), flip=False, blend=False)
         if not (getattr(game, "photo_mode", False) and getattr(game, "photo_hide_ui", False)):
@@ -3883,6 +3910,34 @@ class App:
         self.view_frac = view_w / hud_w
         _sec.__exit__()
         return (Wn, Hn, s, hud_w, hud_h, play_w, view_w)
+
+    def render_view(self, game: Game3D, now: float, eye, forward, fov_deg: float, px: int) -> np.ndarray:
+        """The scene from any eye and heading, `px` square, as an (px, px, 3) byte image (rows top first). Used by the fly's-eye view (game/fly_eye.py);
+        draws the world only: no HUD, no viewmodel."""
+        ctx = self.ctx
+        key = ("eye", px)
+        cache = self.__dict__.setdefault("_view_fb", {})
+        if key not in cache:
+            tex = ctx.texture((px, px), 4)
+            depth = ctx.depth_texture((px, px))
+            cache[key] = (tex, depth, ctx.framebuffer(color_attachments=[tex], depth_attachment=depth))
+        tex, depth, fb = cache[key]
+        fb.use()
+        ctx.viewport = (0, 0, px, px)
+        lights, clear_col, far = scene_setup(game)
+        ctx.clear(*clear_col, depth=1.0)
+        ctx.enable(moderngl.DEPTH_TEST)
+        eye = np.asarray(eye, float)
+        view = look_at(eye, eye + np.asarray(forward, float))
+        proj = perspective(math.radians(fov_deg), 1.0, 0.03, far)
+        self.rd.clear()
+        game.draw_world(self.rd, now)
+        self.rd.set_scene(view, proj, eye, lights, now)
+        self.rd.draw_layer("opaque")
+        self.rd.draw_layer("blend")
+        self.rd.draw_particles()
+        data = fb.read(viewport=(0, 0, px, px), components=3)
+        return np.frombuffer(data, np.uint8).reshape(px, px, 3)[::-1].copy()
 
     def capture(self, game: Game3D) -> None:
         """Downscale the finished frame into the GIF buffer (15 fps)."""

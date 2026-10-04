@@ -290,6 +290,7 @@ ACTIONS: tuple[tuple[str, str, str], ...] = (
     ("photo_mode", "Photo mode / free camera", "f10"),
     ("stethoscope", "Brain stethoscope", "k"),
     ("profiler", "Profiler overlay", "f3"),
+    ("fly_eye", "Fly's-eye view", "f4"),
     ("timelapse", "Time-lapse record", "l"),
     ("recall", "Recall a lost fly (outdoors)", "j"),
     ("cycle_fly", "Cycle focused fly", "f"),
