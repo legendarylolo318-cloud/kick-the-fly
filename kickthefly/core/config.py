@@ -133,6 +133,59 @@ SETTINGS: tuple[Setting, ...] = (
       "in Play.", options=("auto", "on", "off"), labels=("Auto", "On", "Off")),
     S("brain.science_popups", "Brain", "Real-science popups", "bool", False,
       "Show a short card when the fly does something real flies were shown to do."),
+    S("brain.neurodex", "Brain", "Neurodex discoveries", "bool", True,
+      "Collect cell types in the Neurodex (default key D): a type is discovered the first time its neurons fire well "
+      "above their own calm rate while you play or stimulate it (tagged 'in play' or 'by stimulation'; a calm, untouched fly discovers nothing, and 'at rest' entries from older builds are kept). The numbers in an entry come from the dataset (Connectome); what counts "
+      "as discovered, and the collection, are game rules. Off stops collecting; what you found stays.",
+      tag=GAME_RULE),
+    S("brain.killcam", "Brain", "Kill cam offer", "bool", True,
+      "When the fly dies, offer a slow-motion replay of the last 6 seconds of its brain and highlight the neurons whose "
+      "firing rose most. The firing is the real simulated rate of each neuron (Connectome); the offer, the window and the "
+      "slow motion are game rules. Skippable; can be saved as a video or GIF.", tag=GAME_RULE),
+    S("brain.neuron_of_day", "Brain", "Neuron of the day", "bool", True,
+      "A small card at launch with one curated cell type, a fact with its citation (from the literature, not measured "
+      "here) and a Try it button that sets up a one-click experiment. Separate from the real-science popups. Which type, "
+      "the card and Try it are game rules.", tag=GAME_RULE),
+    S("brain.neuron_shapes", "Brain", "Download real neuron shapes", "bool", False,
+      "Lets the brain view download the EM skeletons of ten neurons (two each of DNp01, DNa02, MBON01, MBON14 and KCg) from "
+      "Janelia's neuPrint, once, into a cache. Off by default: it is the game's only network use outside Streamer mode. "
+      "Shapes are drawing only: the simulation treats every neuron as a point either way, so no result depends on this. "
+      "Shapes already in the cache load without the network. Never used in headless runs or tests.", restart=True),
+    S("brain.mic_sensitivity", "Brain", "Microphone sensitivity", "float", 1.0,
+      "Esc > Mic and streamer: how loud a band must be to drive the Johnston's organ JO-A/JO-B neurons fully (the sound is band-passed "
+      "into JO-B, below ~100 Hz, and JO-A, higher; neurons from the dataset, the transduction and every number a GAME RULE). Only the "
+      "sensitivity is saved: the microphone itself is off every time the game starts, shows a red MIC ON pill while on, and nothing it "
+      "hears is saved or sent.", lo=0.1, hi=10.0, step=0.1, fmt="{:.1f}x", tag=GAME_RULE),
+    S("stream.allow_tool", "Brain", "Streamer mode: viewers may vote !tool", "bool", True,
+      "Esc > Mic and streamer: whether Twitch viewers can change the tool in hand by chat vote (!tool NAME, only tools on your hotbar). "
+      "GAME RULE. Streamer mode itself is off every time the game starts and only reads chat anonymously.", tag=GAME_RULE),
+    S("stream.allow_arena", "Brain", "Streamer mode: viewers may vote !arena", "bool", False,
+      "Whether viewers can change the arena by chat vote (!arena NAME). Off until you switch it on. GAME RULE.", tag=GAME_RULE),
+    S("stream.allow_surgery", "Brain", "Streamer mode: viewers may vote !surgery", "bool", False,
+      "Whether viewers can silence or restore a neuron group by chat vote (!surgery NAME). Off until you switch it on. GAME RULE.",
+      tag=GAME_RULE),
+    S("stream.window_s", "Brain", "Streamer mode: vote window", "float", 20.0,
+      "Seconds a chat vote stays open after the first vote. The winner needs at least the minimum votes. GAME RULE.",
+      lo=5.0, hi=120.0, step=5.0, fmt="{:.0f} s", tag=GAME_RULE),
+    S("stream.cooldown_s", "Brain", "Streamer mode: cooldown", "float", 30.0,
+      "Seconds after a vote ends during which new votes are ignored. GAME RULE.", lo=5.0, hi=300.0, step=5.0, fmt="{:.0f} s",
+      tag=GAME_RULE),
+    S("stream.min_votes", "Brain", "Streamer mode: minimum votes", "int", 2,
+      "The fewest votes the winning option needs to take effect. GAME RULE.", lo=1, hi=50, step=1, tag=GAME_RULE),
+    S("brain.imaging_indicator", "Brain", "Imaging indicator", "choice", "gcamp6s",
+      "Lab > Calcium imaging: which GCaMP the simulated imaging uses. MODEL: spikes from the simulation convolved with the "
+      "indicator's kernel plus photon shot noise, not a measurement. The rise and decay come from Chen 2013 (GCaMP6s/6f, its "
+      "Supplementary Table 3: mouse cortex, single spikes) and Zhang 2023 (jGCaMP8m, fly visual responses). Off until you turn "
+      "Imaging mode on.", options=("gcamp6s", "gcamp6f", "jgcamp8m"), labels=("GCaMP6s", "GCaMP6f", "GCaMP8m"), tag="MODEL"),
+    S("brain.imaging_fps", "Brain", "Imaging frame rate", "choice", 20,
+      "Lab > Calcium imaging: frames per second of the simulated imaging (the 5 ms simulation step quantizes it). MODEL, not a "
+      "measurement.", options=(5, 10, 20, 30, 40), labels=("5 Hz", "10 Hz", "20 Hz", "30 Hz", "40 Hz"), tag="MODEL", restart=True),
+    S("brain.imaging_f0_tau_s", "Brain", "Imaging baseline (F0) time constant", "choice", 30,
+      "Lab > Calcium imaging: dF/F is measured against a running mean of each neuron's own fluorescence with this time constant. "
+      "A steady firing rate reads as 0 and only changes show; the first seconds of a session are inflated or deflated while the "
+      "mean settles. Shorter hides slow changes, longer takes longer to settle. GAME RULE (a choice made for this game, not a "
+      "measurement); Off until you turn Imaging mode on.", options=(10, 30, 60, 120),
+      labels=("10 s", "30 s (default)", "60 s", "120 s"), tag=GAME_RULE, restart=True),
     S("brain.autopilot", "Brain", "Autopilot / spectator", "bool", False,
       "Hands-off mode where only environmental inputs reach the fly. Hotkey Y.", tag=GAME_RULE),
     S("brain.autopilot_orbit", "Brain", "Autopilot brain orbit", "bool", True,
@@ -144,8 +197,8 @@ SETTINGS: tuple[Setting, ...] = (
       "drives its real cold- and hot-sensing antennal neurons. Open field and Orchard are large outdoor 3D worlds "
       "(the 2D game stays indoors). The sensory neurons each arena drives are real; the places themselves are game "
       "rules. Hotkey E cycles them.",
-      options=("room", "fan", "flypaper", "pool", "lamp", "thermo", "escaperoom", "field", "orchard"),
-      labels=("Room", "Fan", "Flypaper", "Pool", "Lamp", "Thermo", "Escape room", "Open field", "Orchard"),
+      options=("room", "fan", "flypaper", "pool", "lamp", "thermo", "escaperoom", "field", "orchard", "kitchen"),
+      labels=("Room", "Fan", "Flypaper", "Pool", "Lamp", "Thermo", "Escape room", "Open field", "Orchard", "Kitchen"),
       tag=GAME_RULE),
     S("brain.song_buzz", "Brain", "Courtship song buzz", "bool", True,
       "Plays a synthesized pulse-song buzz when its ps1 wing motor neurons fire (SONG). The neurons are real "
@@ -233,6 +286,8 @@ ACTIONS: tuple[tuple[str, str, str], ...] = (
     ("recall", "Recall a lost fly (outdoors)", "j"),
     ("cycle_fly", "Cycle focused fly", "f"),
     ("loadout", "Loadout editor", "q"),
+    ("neurodex", "Neurodex", "d"),
+    ("killcam", "Kill cam (after the fly dies)", ";"),
     ("tool_wheel", "Tool wheel (hold)", "`"),
     *((f"slot{i + 1}", f"Hotbar slot {i + 1}", str((i + 1) % 10)) for i in range(10)),
     ("page_prev", "Hotbar previous page", "-"),
@@ -255,6 +310,7 @@ PAD_ACTIONS: tuple[tuple[str, str, str], ...] = (
     ("tool_prev", "Previous tool", "leftshoulder"), ("tool_wheel", "Tool wheel (hold)", "y"), ("loadout", "Loadout editor", "x"),
     ("sprint", "Sprint", "leftstick"), ("crouch", "Crouch / fly down", "b"), ("up", "Fly up (photo mode)", "a"),
     ("menu", "Menu (Esc)", "start"), ("big_view", "Big brain view", "back"),
+    ("neurodex", "Neurodex", "dpup"), ("killcam", "Kill cam / skip it", "dpdown"),
 )
 PAD_LABEL = {a: label for a, label, _ in PAD_ACTIONS}
 
@@ -291,12 +347,24 @@ def _coerce(s: Setting, v):
     raise ValueError(s.kind)
 
 
+# Pairs that may share a key on purpose (3.0): the Neurodex key is D, which is also walk right in the 3D game. The 3D game
+# opens the Neurodex on D only while the mouse is free, so walking is never taken away. Rebind either and it is gone.
+OVERLAP_OK = ({"right", "neurodex"},)
+
+
+def _allowed_overlap(actions: list[str]) -> bool:
+    return any(set(actions) <= pair for pair in OVERLAP_OK)
+
+
 SCHEMA_VERSION = 3
 # 2.13 (schema 3): [loadout] custom slots and up to five saved loadouts, and [first_run] flags. A config from before
 # 2.13 (schema < 3) had players on keys 1-9, 0, - and =, which then reached every tool, so it migrates to the All
 # preset (nobody's muscle memory breaks) with a one-time notice pointing at the loadout editor, and it counts as
 # already onboarded (no first-launch tutorial; Settings > Help replays it). A fresh install gets Base and the tutorial.
-FIRST_RUN_DEFAULTS = {"tutorial_done": False, "loadout_notice": False}
+# 3.0 day 5: "whatsnew_3_0_seen" (the What's New in 3.0 screen). It is a key of the existing [first_run] table, so an older config.toml
+# simply lacks it, reads as False and shows the screen once; a fresh install (no config file) starts with it True, because the
+# tutorial is its welcome. No schema bump: a missing key and a False key mean the same thing.
+FIRST_RUN_DEFAULTS = {"tutorial_done": False, "loadout_notice": False, "neuron_shapes_asked": False, "whatsnew_3_0_seen": False}
 
 
 class Config:
@@ -375,14 +443,24 @@ class Config:
         key_name = key_name.lower()
         if key_name in RESERVED_KEYS:
             return False, f"'{key_name}' is reserved (Esc opens the menu)"
-        other = self.action_for(key_name)
         old = self.keys[action]
+        # Every action on that key that may not share it with this one moves: the first to this action's old key (a swap,
+        # as before), unless that would itself clash (3.0: D is shared by walk-right and the Neurodex, so the old key can
+        # still be taken); anything left over is unbound and says so. Before this, only the first action on the key was
+        # moved, which left two actions on D (review, Day 1).
+        displaced = [a for a in self.actions_for(key_name) if a != action and not _allowed_overlap([a, action])]
         self.keys[action] = key_name
         self.dirty = True
-        if other and other != action:
-            self.keys[other] = old
-            return True, f"'{key_name}' was used by {ACTION_LABEL[other]}; swapped, that is now '{old}'"
-        return True, ""
+        notes = []
+        for a in displaced:
+            holders = [b for b in self.actions_for(old) if b != a] if old else []
+            if old and all(_allowed_overlap([a, b]) for b in holders):
+                self.keys[a] = old
+                notes.append(f"'{key_name}' was used by {ACTION_LABEL[a]}; swapped, that is now '{old}'")
+            else:
+                self.keys[a] = ""
+                notes.append(f"'{key_name}' was used by {ACTION_LABEL[a]}; that is now unbound (Settings > Controls)")
+        return True, "; ".join(notes)
 
     def bind_pad(self, action: str, binding: str) -> tuple[bool, str]:
         """Rebind a gamepad action. A binding another action uses swaps the two. Returns (ok, message)."""
@@ -398,18 +476,26 @@ class Config:
             return True, f"{b} was used by {other}; swapped, that is now {old or 'unbound'}"
         return True, ""
 
+    def actions_for(self, key_name: str) -> list[str]:
+        """Every action bound to a key (action_for returns only the first). D is walk-right and the Neurodex key at once
+        by design (3.0): in the 3D game it opens the Neurodex only when the mouse is free (Tab)."""
+        if not key_name:
+            return []
+        return [a for a, k in self.keys.items() if k == key_name]
+
     def conflicts(self) -> dict[str, list[str]]:
         seen: dict[str, list[str]] = {}
         for a, k in self.keys.items():
             if k:                                            # "" is unbound, and any number of actions can be
                 seen.setdefault(k, []).append(a)
-        return {k: v for k, v in seen.items() if len(v) > 1}
+        return {k: v for k, v in seen.items() if len(v) > 1 and not _allowed_overlap(v)}
 
     # --- files ------------------------------------------------------------------------------------------------------
     @classmethod
     def load(cls, path: Path) -> "Config":
         cfg = cls(path)
         if not path.exists():
+            cfg.first_run["whatsnew_3_0_seen"] = True       # a fresh install has no "what's new": the tutorial is its welcome
             return cfg
         try:
             data = tomllib.loads(path.read_text(encoding="utf-8"))
@@ -462,8 +548,13 @@ class Config:
                                                 f"{ACTION_LABEL[a]} is unbound (Settings > Controls)")
             for k, acts in cfg.conflicts().items():          # a hand-edited file bound one key twice: keep the first
                 for a in acts[1:]:
-                    cfg.keys[a] = next(d for x, _, d in ACTIONS if x == a)
-                    cfg.warnings.append(f"key '{k}' was bound twice; {a} reset to its default")
+                    default = next(d for x, _, d in ACTIONS if x == a)
+                    # review (3.0): the default can be the contested key itself (the Neurodex's is D), or taken by another
+                    # action; then the action is unbound instead of staying doubled up
+                    taken = [b for b in cfg.actions_for(default) if b != a and not _allowed_overlap([a, b])]
+                    cfg.keys[a] = "" if (default == k or taken) else default
+                    cfg.warnings.append(f"key '{k}' was bound twice; {a} "
+                                        + ("is unbound (Settings > Controls)" if not cfg.keys[a] else "reset to its default"))
         schema = data.get("schema_version", 1)
         if not isinstance(schema, int) or isinstance(schema, bool):
             schema = 1

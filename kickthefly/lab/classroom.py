@@ -380,20 +380,27 @@ def _build_curated_lectures() -> dict[str, LectureProtocol]:
 
 
 CURATED_LECTURES = _build_curated_lectures()
+# 3.0 day 5: guided mini-papers (lab/minipapers.py) are lecture protocols too, kept apart so the five curated lectures stay five.
+EXTRA_LECTURES: dict[str, LectureProtocol] = {}
+
+
+def lecture(lecture_id: str) -> LectureProtocol | None:
+    """A curated lecture or a registered mini-paper protocol, by id."""
+    return CURATED_LECTURES.get(lecture_id) or EXTRA_LECTURES.get(lecture_id)
 
 
 class ClassroomSession:
     """Headless state machine for stepping through classroom lecture protocols."""
 
     def __init__(self, lecture_id: str = "looming", brain=None):
-        self.lecture_id = lecture_id if lecture_id in CURATED_LECTURES else "looming"
+        self.lecture_id = lecture_id if lecture(lecture_id) is not None else "looming"
         self.step_idx = 0
         self.brain = brain
         self.last_action_applied = None
 
     @property
     def protocol(self) -> LectureProtocol:
-        return CURATED_LECTURES[self.lecture_id]
+        return lecture(self.lecture_id)
 
     @property
     def current_step(self) -> LectureStep:
@@ -404,7 +411,7 @@ class ClassroomSession:
         return len(self.protocol.steps)
 
     def set_lecture(self, lecture_id: str) -> None:
-        if lecture_id in CURATED_LECTURES:
+        if lecture(lecture_id) is not None:
             self.lecture_id = lecture_id
             self.step_idx = 0
             self.last_action_applied = None

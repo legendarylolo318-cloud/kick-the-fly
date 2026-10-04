@@ -1,0 +1,14 @@
+key,value
+pack,kick_larva_brain.npz
+pack_sha256,eb89f9857b06f129b5ca8632aca62521b72e439cb27e3d38218f8b7b089b11ca
+modularity,0.5333837980792835
+communities,12
+nmi_with_regions,0.24278218089245487
+version,2
+nulls,3
+wedges,300000
+seed,0
+rich_percentiles,"[50, 75, 90, 95, 98, 99]"
+sweeps_per_level,12
+tag,CONNECTOME for every number; analysis choices GAME RULE; no MODEL PREDICTION
+note,"motif counts are sampled estimates; the community partition is a heuristic, not a unique optimum"

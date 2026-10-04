@@ -31,11 +31,8 @@ def _st(m):
 def page(m: ui.Menu, surf, rect, mouse) -> None:
     st, host = _st(m), m.host
     m.text(surf, "PSYCHOMETRIC CURVE GENERATOR", (rect.x + 24, rect.y + 16), ui.INK, m.f_head)
-    m.text(surf, "Sweep experimental parameters across headless trials with error bars. "
-                 "Exports publication-quality SVG, PDF, and CSV.",
-           (rect.x + 24, rect.y + 48), ui.LABEL, m.f_small)
-
-    y = rect.y + 80
+    y = max(rect.y + 80, m.subtitle(surf, rect, "Sweep experimental parameters across headless trials with error bars. "
+                                                "Exports publication-quality SVG, PDF, and CSV."))
     busy = st.psych_job is not None and st.psych_job["thread"].is_alive()
 
     # Target assay selector
@@ -43,8 +40,9 @@ def page(m: ui.Menu, surf, rect, mouse) -> None:
     target_labels = [psychometrics.SWEEP_PRESETS[k]["label"] for k in targets]
     target_idx = targets.index(st.psych_target) if st.psych_target in targets else 0
 
+    lw = max(m.f_text.size(t)[0] for t in ("Assay target:", "Flies / point:")) + 20        # 3.0 release review: was a fixed 126 px
     m.text(surf, "Assay target:", (rect.x + 24, y + 6), ui.TEXT, m.f_text)
-    m.segmented(surf, (rect.x + 150, y, 620, 32),
+    m.segmented(surf, (rect.x + 24 + lw, y, min(620, rect.right - 48 - lw), 32),
                 ["Looming speed", "Sugar dose", "T-maze pairings"],
                 target_idx, lambda i: setattr(st, "psych_target", targets[i]),
                 id="psych_target", enabled=not busy)
@@ -52,13 +50,13 @@ def page(m: ui.Menu, surf, rect, mouse) -> None:
 
     # Flies slider
     m.text(surf, "Flies / point:", (rect.x + 24, y + 6), ui.TEXT, m.f_text)
-    m.slider(surf, (rect.x + 150, y, 260, 32), st.psych_flies, 2, 8, 1, "{:.0f} flies",
+    m.slider(surf, (rect.x + 24 + lw, y, 260, 32), st.psych_flies, 2, 8, 1, "{:.0f} flies",
              lambda v: setattr(st, "psych_flies", int(v)), lambda: None,
              id="psych_flies", enabled=not busy,
              tip="Number of seeds to run per point (more gives tighter error bars)")
 
     base_seed = int(host.cfg["brain.seed"]) if hasattr(host, "cfg") else 1000
-    m.text(surf, f"Base seed: {base_seed}", (rect.x + 430, y + 16), ui.LABEL, m.f_small, "midleft")
+    m.text(surf, f"Base seed: {base_seed}", (rect.x + 24 + lw + 280, y + 16), ui.LABEL, m.f_small, "midleft")
     y += 44
 
     # Run / Status / Export
@@ -110,7 +108,7 @@ def page(m: ui.Menu, surf, rect, mouse) -> None:
                 saved = psychometrics.save_all_formats(st.psych_result, fname, folder)
                 st.psych_msg = f"Exported CSV, SVG & PDF to {saved['svg'].parent.name}/"
 
-            m.button(surf, (rect.x + 230, y, 240, 38), "Export CSV, SVG & PDF", export_all,
+            m.button(surf, (rect.x + 230, y, m.bw("Export CSV, SVG & PDF", 240), 38), "Export CSV, SVG & PDF", export_all,
                      id="psych_export_all", tip="Export publication-ready vector figures and CSV.")
 
         if st.psych_msg:

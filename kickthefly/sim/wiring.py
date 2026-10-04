@@ -12,6 +12,9 @@ reconstruction being right".
                    this simulation could be wrong.
   inhibition_scale scale every synapse whose presynaptic neuron the dataset calls inhibitory (GABA or glutamate).
                    At 0 they are gone; at 1 nothing changes.
+  nt_scales        (3.0 day 2, Lab > Pharmacology) scale the synapses of each presynaptic neurotransmitter separately:
+                   ((transmitter, factor), ...). nt_min_conf > 0 leaves out neurons whose transmitter is a low-confidence
+                   prediction (only measured ones, or predictions at least that sure, are scaled).
 
 All three are reversible: apply() remembers the values it overwrote, so the next apply() or a clear() puts the brain
 back exactly as it was, learned synapses included.
@@ -21,6 +24,7 @@ How a severity slider maps onto them, and which neurons a bulk flip picks, are c
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from functools import lru_cache
 
@@ -37,10 +41,13 @@ class Wiring:
     min_synapses: int = 1
     flip_rows: tuple[int, ...] = field(default=())
     inhibition_scale: float = 1.0
+    nt_scales: tuple = field(default=())             # ((transmitter, factor), ...), e.g. (("acetylcholine", 0.4),)
+    nt_min_conf: float = 0.0
 
     @property
     def is_identity(self) -> bool:
-        return self.min_synapses <= 1 and not self.flip_rows and self.inhibition_scale == 1.0
+        return (self.min_synapses <= 1 and not self.flip_rows and self.inhibition_scale == 1.0
+                and all(float(f) == 1.0 for _, f in self.nt_scales))
 
     def label(self) -> str:
         bits = []
@@ -50,15 +57,22 @@ class Wiring:
             bits.append(f"{len(self.flip_rows):,} neurons sign-flipped")
         if self.inhibition_scale != 1.0:
             bits.append(f"inhibition x{self.inhibition_scale:g}")
+        for nt, f in self.nt_scales:
+            if float(f) != 1.0:
+                bits.append(f"{nt} synapses x{float(f):g}" + (f" (confidence >= {self.nt_min_conf:g} only)" if self.nt_min_conf > 0 else ""))
         return ", ".join(bits) or "unmodified connectome"
 
     def as_dict(self) -> dict:
         """For metadata and exports: what was changed, without the (possibly huge) list of flipped neurons."""
-        return dict(min_synapses=int(self.min_synapses), flipped_neurons=len(self.flip_rows),
-                    inhibition_scale=float(self.inhibition_scale), label=self.label())
+        d = dict(min_synapses=int(self.min_synapses), flipped_neurons=len(self.flip_rows),
+                 inhibition_scale=float(self.inhibition_scale), label=self.label())
+        if self.nt_scales:                                # only when used, so older files and validation output are unchanged
+            d["nt_scales"] = {str(nt): float(f) for nt, f in self.nt_scales}
+            d["nt_min_conf"] = float(self.nt_min_conf)
+        return d
 
     def with_rows(self, rows) -> "Wiring":
-        return Wiring(self.min_synapses, tuple(int(r) for r in rows), self.inhibition_scale)
+        return Wiring(self.min_synapses, tuple(int(r) for r in rows), self.inhibition_scale, self.nt_scales, self.nt_min_conf)
 
     @staticmethod
     def from_dict(d: dict | None, rows=()) -> "Wiring":
@@ -66,7 +80,29 @@ class Wiring:
         if not d:
             return Wiring()
         return Wiring(int(d.get("min_synapses", 1)), tuple(int(r) for r in rows),
-                      float(d.get("inhibition_scale", 1.0)))
+                      float(d.get("inhibition_scale", 1.0)), _nt_scales_from(d.get("nt_scales")),
+                      _finite_or(d.get("nt_min_conf", 0.0), 0.0))
+
+
+def _finite_or(v, default: float) -> float:
+    try:
+        v = float(v)
+    except (TypeError, ValueError):
+        return default
+    return v if math.isfinite(v) else default
+
+
+def _nt_scales_from(nts) -> tuple:
+    """nt_scales as saved ({transmitter: factor}). 3.0 day 2 review: a damaged save (a list, a text factor, NaN) crashed the load
+    or put NaN into every synapse of that transmitter; anything that isn't a finite, non-negative factor is left out."""
+    if not isinstance(nts, dict):
+        return ()
+    out = []
+    for k, v in nts.items():
+        f = _finite_or(v, -1.0)
+        if f >= 0.0 and f != 1.0:
+            out.append((str(k), f))
+    return tuple(sorted(out))
 
 
 @lru_cache(maxsize=1)
@@ -199,6 +235,22 @@ def _inhibitory_edges(g) -> np.ndarray:
     return inhib[edge_pre()]
 
 
+def confidence_ok(g, min_conf: float) -> np.ndarray:
+    """Neurons whose transmitter may be scaled when low-confidence predictions are left out: every measured one
+    (source ground_truth) and every prediction with at least min_conf confidence. min_conf <= 0 accepts all."""
+    nt, conf, source = transmitters(g)
+    if min_conf <= 0:
+        return np.ones(len(nt), bool)
+    return (source == "ground_truth") | (np.nan_to_num(conf, nan=-1.0) >= float(min_conf))
+
+
+def _transmitter_edges(g, nt_name: str, min_conf: float = 0.0) -> np.ndarray:
+    """Entries of W whose presynaptic neuron has this predicted transmitter (and passes the confidence cut)."""
+    nt, _, _ = transmitters(g)
+    ok = (nt == nt_name) & confidence_ok(g, min_conf)
+    return ok[edge_pre()]
+
+
 def inhibition_stats(g, scale: float = 1.0) -> dict:
     """Statistics for scaling inhibitory (GABA/glutamate) synapses."""
     nt, conf, source = transmitters(g)
@@ -234,6 +286,9 @@ def modified_entries(g, w: Wiring) -> tuple[np.ndarray, np.ndarray]:
         mult[flip[edge_pre()]] *= -1.0
     if w.inhibition_scale != 1.0:
         mult[_inhibitory_edges(g)] *= np.float32(w.inhibition_scale)
+    for nt_name, factor in w.nt_scales:
+        if float(factor) != 1.0:
+            mult[_transmitter_edges(g, nt_name, w.nt_min_conf)] *= np.float32(factor)
     idx = np.flatnonzero(mult != 1.0)
     return idx, mult[idx]
 

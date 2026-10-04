@@ -1,0 +1,6 @@
+# 3.0 day 5: a fly on a ball with a virtual-reality world driven by the ball (game/rigs.py). Turning from DNa01/02, walking from DNp09
+# (CONNECTOME); ball, VR and bar (a distant landmark, tracked by LC10 through the duel's rule) are GAME RULE. mode: open freezes the VR.
+name: rig-ball
+seed: 0
+flies: 1
+rig: {name: ball, mode: closed, scene: bar, seconds: 30, bar_deg: 90}

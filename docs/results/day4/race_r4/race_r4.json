@@ -1,0 +1,1497 @@
+{
+ "subtle": {
+  "kind": "race_r4",
+  "individuality": "subtle",
+  "design": [
+   {
+    "race": 0,
+    "state_seed": 1000,
+    "individuality_seeds": [
+     1000,
+     1001,
+     1002,
+     1003,
+     1004,
+     1005
+    ]
+   },
+   {
+    "race": 1,
+    "state_seed": 1001,
+    "individuality_seeds": [
+     1006,
+     1007,
+     1008,
+     1009,
+     1010,
+     1011
+    ]
+   },
+   {
+    "race": 2,
+    "state_seed": 1002,
+    "individuality_seeds": [
+     1012,
+     1013,
+     1014,
+     1015,
+     1016,
+     1017
+    ]
+   },
+   {
+    "race": 3,
+    "state_seed": 1003,
+    "individuality_seeds": [
+     1018,
+     1019,
+     1020,
+     1021,
+     1022,
+     1023
+    ]
+   },
+   {
+    "race": 4,
+    "state_seed": 1004,
+    "individuality_seeds": [
+     1024,
+     1025,
+     1026,
+     1027,
+     1028,
+     1029
+    ]
+   },
+   {
+    "race": 5,
+    "state_seed": 1005,
+    "individuality_seeds": [
+     1030,
+     1031,
+     1032,
+     1033,
+     1034,
+     1035
+    ]
+   },
+   {
+    "race": 6,
+    "state_seed": 1006,
+    "individuality_seeds": [
+     1036,
+     1037,
+     1038,
+     1039,
+     1040,
+     1041
+    ]
+   },
+   {
+    "race": 7,
+    "state_seed": 1007,
+    "individuality_seeds": [
+     1042,
+     1043,
+     1044,
+     1045,
+     1046,
+     1047
+    ]
+   }
+  ],
+  "flies": [
+   {
+    "race": 0,
+    "state_seed": 1000,
+    "individuality_seed": 1000,
+    "times": [
+     34.92,
+     39.64
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 0,
+    "state_seed": 1000,
+    "individuality_seed": 1001,
+    "times": [
+     35.98,
+     35.96
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 0,
+    "state_seed": 1000,
+    "individuality_seed": 1002,
+    "times": [
+     38.32,
+     41.74
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 0,
+    "state_seed": 1000,
+    "individuality_seed": 1003,
+    "times": [
+     52.34,
+     53.54
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 0,
+    "state_seed": 1000,
+    "individuality_seed": 1004,
+    "times": [
+     54.24,
+     50.58
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 0,
+    "state_seed": 1000,
+    "individuality_seed": 1005,
+    "times": [
+     43.28,
+     41.18
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 1,
+    "state_seed": 1001,
+    "individuality_seed": 1006,
+    "times": [
+     50.34,
+     51.8
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 1,
+    "state_seed": 1001,
+    "individuality_seed": 1007,
+    "times": [
+     44.42,
+     46.1
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 1,
+    "state_seed": 1001,
+    "individuality_seed": 1008,
+    "times": [
+     27.92,
+     28.72
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 1,
+    "state_seed": 1001,
+    "individuality_seed": 1009,
+    "times": [
+     64.72,
+     63.14
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 1,
+    "state_seed": 1001,
+    "individuality_seed": 1010,
+    "times": [
+     62.72,
+     65.28
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 1,
+    "state_seed": 1001,
+    "individuality_seed": 1011,
+    "times": [
+     41.9,
+     43.86
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 2,
+    "state_seed": 1002,
+    "individuality_seed": 1012,
+    "times": [
+     45.58,
+     45.54
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 2,
+    "state_seed": 1002,
+    "individuality_seed": 1013,
+    "times": [
+     58.7,
+     54.94
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 2,
+    "state_seed": 1002,
+    "individuality_seed": 1014,
+    "times": [
+     53.0,
+     49.54
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 2,
+    "state_seed": 1002,
+    "individuality_seed": 1015,
+    "times": [
+     43.76,
+     40.54
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 2,
+    "state_seed": 1002,
+    "individuality_seed": 1016,
+    "times": [
+     50.7,
+     51.1
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 2,
+    "state_seed": 1002,
+    "individuality_seed": 1017,
+    "times": [
+     37.22,
+     36.96
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 3,
+    "state_seed": 1003,
+    "individuality_seed": 1018,
+    "times": [
+     28.34,
+     27.16
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 3,
+    "state_seed": 1003,
+    "individuality_seed": 1019,
+    "times": [
+     49.4,
+     46.1
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 3,
+    "state_seed": 1003,
+    "individuality_seed": 1020,
+    "times": [
+     29.5,
+     28.52
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 3,
+    "state_seed": 1003,
+    "individuality_seed": 1021,
+    "times": [
+     27.3,
+     24.42
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 3,
+    "state_seed": 1003,
+    "individuality_seed": 1022,
+    "times": [
+     57.8,
+     52.9
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 3,
+    "state_seed": 1003,
+    "individuality_seed": 1023,
+    "times": [
+     60.96,
+     62.84
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 4,
+    "state_seed": 1004,
+    "individuality_seed": 1024,
+    "times": [
+     42.22,
+     46.18
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 4,
+    "state_seed": 1004,
+    "individuality_seed": 1025,
+    "times": [
+     56.94,
+     54.38
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 4,
+    "state_seed": 1004,
+    "individuality_seed": 1026,
+    "times": [
+     57.22,
+     57.64
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 4,
+    "state_seed": 1004,
+    "individuality_seed": 1027,
+    "times": [
+     39.2,
+     38.44
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 4,
+    "state_seed": 1004,
+    "individuality_seed": 1028,
+    "times": [
+     49.02,
+     50.94
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 4,
+    "state_seed": 1004,
+    "individuality_seed": 1029,
+    "times": [
+     44.24,
+     45.52
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 5,
+    "state_seed": 1005,
+    "individuality_seed": 1030,
+    "times": [
+     44.6,
+     49.08
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 5,
+    "state_seed": 1005,
+    "individuality_seed": 1031,
+    "times": [
+     52.16,
+     53.3
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 5,
+    "state_seed": 1005,
+    "individuality_seed": 1032,
+    "times": [
+     43.36,
+     43.08
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 5,
+    "state_seed": 1005,
+    "individuality_seed": 1033,
+    "times": [
+     50.88,
+     55.02
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 5,
+    "state_seed": 1005,
+    "individuality_seed": 1034,
+    "times": [
+     57.48,
+     60.32
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 5,
+    "state_seed": 1005,
+    "individuality_seed": 1035,
+    "times": [
+     47.74,
+     49.76
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 6,
+    "state_seed": 1006,
+    "individuality_seed": 1036,
+    "times": [
+     46.42,
+     51.54
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 6,
+    "state_seed": 1006,
+    "individuality_seed": 1037,
+    "times": [
+     42.46,
+     40.54
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 6,
+    "state_seed": 1006,
+    "individuality_seed": 1038,
+    "times": [
+     45.32,
+     44.86
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 6,
+    "state_seed": 1006,
+    "individuality_seed": 1039,
+    "times": [
+     25.88,
+     25.5
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 6,
+    "state_seed": 1006,
+    "individuality_seed": 1040,
+    "times": [
+     54.24,
+     56.86
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 6,
+    "state_seed": 1006,
+    "individuality_seed": 1041,
+    "times": [
+     39.88,
+     41.76
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 7,
+    "state_seed": 1007,
+    "individuality_seed": 1042,
+    "times": [
+     39.36,
+     38.86
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 7,
+    "state_seed": 1007,
+    "individuality_seed": 1043,
+    "times": [
+     58.18,
+     61.02
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 7,
+    "state_seed": 1007,
+    "individuality_seed": 1044,
+    "times": [
+     42.36,
+     47.08
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 7,
+    "state_seed": 1007,
+    "individuality_seed": 1045,
+    "times": [
+     46.74,
+     45.52
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 7,
+    "state_seed": 1007,
+    "individuality_seed": 1046,
+    "times": [
+     40.2,
+     41.1
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 7,
+    "state_seed": 1007,
+    "individuality_seed": 1047,
+    "times": [
+     37.9,
+     34.98
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   }
+  ],
+  "seconds": 1573.5,
+  "tags": {
+   "speed_from_walking_neurons": "CONNECTOME",
+   "track_lures_odds_points": "GAME RULE",
+   "order_and_prediction": "MODEL PREDICTION"
+  }
+ },
+ "off": {
+  "kind": "race_r4",
+  "individuality": "off",
+  "design": [
+   {
+    "race": 0,
+    "state_seed": 1000,
+    "individuality_seeds": [
+     1000,
+     1001,
+     1002,
+     1003,
+     1004,
+     1005
+    ]
+   },
+   {
+    "race": 1,
+    "state_seed": 1001,
+    "individuality_seeds": [
+     1006,
+     1007,
+     1008,
+     1009,
+     1010,
+     1011
+    ]
+   },
+   {
+    "race": 2,
+    "state_seed": 1002,
+    "individuality_seeds": [
+     1012,
+     1013,
+     1014,
+     1015,
+     1016,
+     1017
+    ]
+   },
+   {
+    "race": 3,
+    "state_seed": 1003,
+    "individuality_seeds": [
+     1018,
+     1019,
+     1020,
+     1021,
+     1022,
+     1023
+    ]
+   },
+   {
+    "race": 4,
+    "state_seed": 1004,
+    "individuality_seeds": [
+     1024,
+     1025,
+     1026,
+     1027,
+     1028,
+     1029
+    ]
+   },
+   {
+    "race": 5,
+    "state_seed": 1005,
+    "individuality_seeds": [
+     1030,
+     1031,
+     1032,
+     1033,
+     1034,
+     1035
+    ]
+   },
+   {
+    "race": 6,
+    "state_seed": 1006,
+    "individuality_seeds": [
+     1036,
+     1037,
+     1038,
+     1039,
+     1040,
+     1041
+    ]
+   },
+   {
+    "race": 7,
+    "state_seed": 1007,
+    "individuality_seeds": [
+     1042,
+     1043,
+     1044,
+     1045,
+     1046,
+     1047
+    ]
+   }
+  ],
+  "flies": [
+   {
+    "race": 0,
+    "state_seed": 1000,
+    "individuality_seed": 1000,
+    "times": [
+     25.54,
+     24.62
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 0,
+    "state_seed": 1000,
+    "individuality_seed": 1001,
+    "times": [
+     24.08,
+     25.08
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 0,
+    "state_seed": 1000,
+    "individuality_seed": 1002,
+    "times": [
+     24.34,
+     26.88
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 0,
+    "state_seed": 1000,
+    "individuality_seed": 1003,
+    "times": [
+     24.94,
+     28.94
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 0,
+    "state_seed": 1000,
+    "individuality_seed": 1004,
+    "times": [
+     28.18,
+     24.22
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 0,
+    "state_seed": 1000,
+    "individuality_seed": 1005,
+    "times": [
+     28.48,
+     24.66
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 1,
+    "state_seed": 1001,
+    "individuality_seed": 1006,
+    "times": [
+     36.18,
+     36.22
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 1,
+    "state_seed": 1001,
+    "individuality_seed": 1007,
+    "times": [
+     37.68,
+     41.52
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 1,
+    "state_seed": 1001,
+    "individuality_seed": 1008,
+    "times": [
+     36.04,
+     42.56
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 1,
+    "state_seed": 1001,
+    "individuality_seed": 1009,
+    "times": [
+     38.02,
+     39.4
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 1,
+    "state_seed": 1001,
+    "individuality_seed": 1010,
+    "times": [
+     41.4,
+     38.84
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 1,
+    "state_seed": 1001,
+    "individuality_seed": 1011,
+    "times": [
+     43.7,
+     41.02
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 2,
+    "state_seed": 1002,
+    "individuality_seed": 1012,
+    "times": [
+     57.98,
+     57.92
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 2,
+    "state_seed": 1002,
+    "individuality_seed": 1013,
+    "times": [
+     57.02,
+     57.22
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 2,
+    "state_seed": 1002,
+    "individuality_seed": 1014,
+    "times": [
+     53.28,
+     57.28
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 2,
+    "state_seed": 1002,
+    "individuality_seed": 1015,
+    "times": [
+     55.24,
+     61.2
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 2,
+    "state_seed": 1002,
+    "individuality_seed": 1016,
+    "times": [
+     55.46,
+     55.64
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 2,
+    "state_seed": 1002,
+    "individuality_seed": 1017,
+    "times": [
+     58.5,
+     58.1
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 3,
+    "state_seed": 1003,
+    "individuality_seed": 1018,
+    "times": [
+     39.8,
+     42.22
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 3,
+    "state_seed": 1003,
+    "individuality_seed": 1019,
+    "times": [
+     40.8,
+     42.94
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 3,
+    "state_seed": 1003,
+    "individuality_seed": 1020,
+    "times": [
+     41.26,
+     39.46
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 3,
+    "state_seed": 1003,
+    "individuality_seed": 1021,
+    "times": [
+     40.86,
+     41.88
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 3,
+    "state_seed": 1003,
+    "individuality_seed": 1022,
+    "times": [
+     42.1,
+     42.58
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 3,
+    "state_seed": 1003,
+    "individuality_seed": 1023,
+    "times": [
+     38.1,
+     41.14
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 4,
+    "state_seed": 1004,
+    "individuality_seed": 1024,
+    "times": [
+     50.86,
+     52.22
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 4,
+    "state_seed": 1004,
+    "individuality_seed": 1025,
+    "times": [
+     48.2,
+     51.36
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 4,
+    "state_seed": 1004,
+    "individuality_seed": 1026,
+    "times": [
+     45.74,
+     50.78
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 4,
+    "state_seed": 1004,
+    "individuality_seed": 1027,
+    "times": [
+     52.94,
+     49.14
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 4,
+    "state_seed": 1004,
+    "individuality_seed": 1028,
+    "times": [
+     46.62,
+     51.98
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 4,
+    "state_seed": 1004,
+    "individuality_seed": 1029,
+    "times": [
+     52.94,
+     54.3
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 5,
+    "state_seed": 1005,
+    "individuality_seed": 1030,
+    "times": [
+     54.92,
+     54.64
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 5,
+    "state_seed": 1005,
+    "individuality_seed": 1031,
+    "times": [
+     54.42,
+     54.72
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 5,
+    "state_seed": 1005,
+    "individuality_seed": 1032,
+    "times": [
+     55.68,
+     57.4
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 5,
+    "state_seed": 1005,
+    "individuality_seed": 1033,
+    "times": [
+     62.48,
+     55.74
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 5,
+    "state_seed": 1005,
+    "individuality_seed": 1034,
+    "times": [
+     51.62,
+     54.04
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 5,
+    "state_seed": 1005,
+    "individuality_seed": 1035,
+    "times": [
+     55.08,
+     53.42
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 6,
+    "state_seed": 1006,
+    "individuality_seed": 1036,
+    "times": [
+     47.6,
+     46.12
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 6,
+    "state_seed": 1006,
+    "individuality_seed": 1037,
+    "times": [
+     46.72,
+     48.04
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 6,
+    "state_seed": 1006,
+    "individuality_seed": 1038,
+    "times": [
+     46.16,
+     48.64
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 6,
+    "state_seed": 1006,
+    "individuality_seed": 1039,
+    "times": [
+     44.22,
+     50.48
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 6,
+    "state_seed": 1006,
+    "individuality_seed": 1040,
+    "times": [
+     43.72,
+     48.9
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 6,
+    "state_seed": 1006,
+    "individuality_seed": 1041,
+    "times": [
+     47.32,
+     45.34
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 7,
+    "state_seed": 1007,
+    "individuality_seed": 1042,
+    "times": [
+     54.16,
+     56.32
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 7,
+    "state_seed": 1007,
+    "individuality_seed": 1043,
+    "times": [
+     57.22,
+     53.98
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 7,
+    "state_seed": 1007,
+    "individuality_seed": 1044,
+    "times": [
+     53.9,
+     54.76
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 7,
+    "state_seed": 1007,
+    "individuality_seed": 1045,
+    "times": [
+     57.36,
+     56.74
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 7,
+    "state_seed": 1007,
+    "individuality_seed": 1046,
+    "times": [
+     49.4,
+     57.24
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   },
+   {
+    "race": 7,
+    "state_seed": 1007,
+    "individuality_seed": 1047,
+    "times": [
+     63.58,
+     65.48
+    ],
+    "finished": [
+     true,
+     true
+    ]
+   }
+  ],
+  "seconds": 1836.7,
+  "tags": {
+   "speed_from_walking_neurons": "CONNECTOME",
+   "track_lures_odds_points": "GAME RULE",
+   "order_and_prediction": "MODEL PREDICTION"
+  }
+ },
+ "analysis": {
+  "kind": "race_r4_analysis",
+  "flies": 48,
+  "races": 8,
+  "r_within_subtle": 0.9357142857142857,
+  "r_within_off": -0.06082299535498801,
+  "perm_p_subtle": 9.999000099990002e-05,
+  "perm_p_off": 0.6578342165783422,
+  "ci_subtle": [
+   0.9008789168044838,
+   0.9602849414057866
+  ],
+  "ci_off": [
+   -0.31148458700922244,
+   0.18051913832545208
+  ],
+  "difference": 0.9965372810692738,
+  "ci_difference": [
+   0.7519800937889569,
+   1.2488909174867435
+  ],
+  "criterion_i": true,
+  "criterion_ii": true,
+  "passed": true,
+  "criteria": "(i) subtle r_w > 0, within-race permutation p < 0.05 (10,000, seed 0); (ii) 95% bootstrap CI of r_w(subtle) - r_w(off) above 0 (10,000 within-race resamples, seed 1). Both needed.",
+  "reading": "PASS: individuality makes a fly's within-race rank repeatable beyond its brain state and noise"
+ }
+}

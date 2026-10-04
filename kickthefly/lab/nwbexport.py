@@ -344,8 +344,8 @@ def _provenance(meta: dict, rec, n_stim: int, n_event: int) -> dict:
         "citation": CITATION,
         "license": "Connectome data CC BY 4.0. This file is simulation output, not a recording from an animal.",
         "app_version": meta.get("app_version", __version__),
-        "backend": meta.get("sim_backend", getattr(getattr(br.sim, "backend", None), "name", "unknown")),
-        "device": meta.get("sim_device", getattr(getattr(br.sim, "backend", None), "device", "unknown")),
+        "backend": meta.get("sim_backend", getattr(getattr(rec.brain.sim, "backend", None), "name", "unknown")),
+        "device": meta.get("sim_device", getattr(getattr(rec.brain.sim, "backend", None), "device", "unknown")),
     }
 
 

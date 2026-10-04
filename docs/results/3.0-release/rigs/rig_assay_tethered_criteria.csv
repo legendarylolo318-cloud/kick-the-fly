@@ -1,0 +1,5 @@
+individuality,id,label,n,mean_effect,unit,min_effect,p,passed
+subtle,T1,"open loop: right-minus-left steering after a rightward minus a leftward panorama rotation (3 rad/s), Hz",10,8.577516053713783,Hz,3.0,0.0009765625,1
+subtle,T2,"closed loop: share of an imposed 1 rad/s rotation the fly cancels (yaw rate / rotation, calm baseline removed)",10,0.42649156886980305,fraction,0.1,0.0009765625,1
+off,T1,"open loop: right-minus-left steering after a rightward minus a leftward panorama rotation (3 rad/s), Hz",10,8.62356817562766,Hz,3.0,0.0009765625,1
+off,T2,"closed loop: share of an imposed 1 rad/s rotation the fly cancels (yaw rate / rotation, calm baseline removed)",10,0.38767303092757543,fraction,0.1,0.0009765625,1

@@ -46,9 +46,23 @@ def default_cache_dir() -> Path:
     return paths.ensure_dir(Path(__file__).resolve().parent.parent.parent / "data" / "skeletons", user)
 
 
+_OPT_IN = False                     # 3.0 day 3 review: the download is opt-in (Settings > Brain > Download real neuron shapes)
+
+
+def set_opt_in(on: bool) -> None:
+    """The player's choice (config brain.neuron_shapes). Cached skeletons load either way; only fetching needs it."""
+    global _OPT_IN
+    _OPT_IN = bool(on)
+
+
 def network_allowed() -> bool:
-    """KICK_THE_FLY_OFFLINE=1 keeps the game (and the test suite) from contacting neuPrint; cached skeletons still load."""
-    return os.environ.get("KICK_THE_FLY_OFFLINE", "").strip() not in ("1", "true", "yes")
+    """KICK_THE_FLY_OFFLINE=1 keeps the game (and the test suite) from contacting neuPrint; cached skeletons still load. 3.0 day 3
+    review: the fetch also goes through core/netguard, so a headless run (--validate, --playthrough, protocols, which call
+    netguard.disable and set KTF_NO_NETWORK) and the tests never contact neuPrint either."""
+    if not _OPT_IN or os.environ.get("KICK_THE_FLY_OFFLINE", "").strip() in ("1", "true", "yes"):
+        return False
+    from kickthefly.core import netguard
+    return netguard.allowed()[0]
 
 
 def parse_swc(text: str, n_samples: int = 21) -> np.ndarray | None:
@@ -149,6 +163,7 @@ def load_key_skeletons(graph, cache_dir: Path | None = None, allow_network: bool
     if skeletons:
         status = f"Real morphology: {len(skeletons)} neurons drawn from neuPrint skeletons"
     else:
-        status = "Skeletons offline - using synthetic fibers"
+        status = ("Skeletons offline - using synthetic fibers" if _OPT_IN else
+                  "Estimated fibers: real shapes are off (Settings > Brain > Download real neuron shapes)")
 
     return skeletons, status

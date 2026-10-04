@@ -1,0 +1,19 @@
+# 3.0 day 2, Thermogenetics: TrpA1 in DNp01 (chosen by driver line), room warmed from 22 C to 32 C at t = 2 s.
+# GAME RULE: TrpA1 turns on from 25 C and is fully on at 29 C (onset after Pulver et al. 2009); the current size and kinetics are
+# game rules (lab/thermogenetics.py). Each seed also runs without the channel (no expression) through a second protocol file;
+# here the giant fiber is recorded before and after the shift.
+name: thermogenetic-dnp01
+seed: 100
+flies: 5
+warmup_s: 2
+duration_s: 5
+thermogenetics:
+  expression:
+    - {effector: trpa1, target: "line:SS00727"}
+  temperature_c:
+    - {at_s: 0, c: 22}
+    - {at_s: 2, c: 32}
+  kinetics: real
+recordings:
+  - {name: giant_fiber, neurons: dnp01}
+  - {name: descending, neurons: "superclass:descending_neuron"}

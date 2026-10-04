@@ -59,6 +59,17 @@ PARAMS = (
      "how the two antennae split it by heading is a game rule."),
     ("field.wind_speed", "Open field: wind speed (m/s)", "rule", 3.0, 0.0, 10.0, 0.5, "{:.1f}",
      "Steady wind strength in the open field. 6 m/s and above drives the wind neurons fully (game rule)."),
+    ("weather.rain", "Weather: rain intensity", "rule", 0.0, 0.0, 1.0, 0.05, "{:.2f}",
+     "Rain in the open field and the orchard (0 = none). Drops hit the body by part and fire the real touch neurons (head, "
+     "body, legs, wings), the air drives the humidity neurons, and enough rain wets the wings so the fly can't take off, "
+     "as after the pool. The hit rate, strengths, parts and wetting are game rules."),
+    ("weather.gust_hz", "Weather: gusts per second", "rule", 0.0, 0.0, 0.5, 0.02, "{:.2f}",
+     "How often a gust blows in the open field and the orchard. A gust is extra wind speed (2-6 m/s for 1-3 s) fed through "
+     "the existing wind -> Johnston's organ JO-C/E transduction. The gust's size, length and turn are game rules."),
+    ("weather.storm", "Weather: storm (0 off, 1 on)", "rule", 0.0, 0.0, 1.0, 1.0, "{:.0f}",
+     "A storm is at least 70% rain, 0.2 gusts a second and +3 m/s of wind, a darker scene, and lightning every 5-14 s that "
+     "drives the photoreceptors (the screen swells slowly instead of flashing with Reduced flashing on). Thunder follows "
+     "the flash. The storm preset is a game rule."),
     ("outdoor.sun_az", "Outdoors: sun azimuth (deg)", "rule", 135.0, 0.0, 355.0, 5.0, "{:.0f}",
      "Where the sun stands. Sunlight drives the real photoreceptors, split between the eyes by heading (game rule)."),
     ("outdoor.sun_el", "Outdoors: sun elevation (deg)", "rule", 45.0, -10.0, 90.0, 5.0, "{:.0f}",
@@ -141,14 +152,13 @@ def modified(params: dict) -> dict:
 def page_hub(m: ui.Menu, surf, rect, mouse) -> None:
     host = m.host
     m.text(surf, "LAB", (rect.x + 24, rect.y + 16), ui.INK, m.f_head)
-    m.text(surf, "Research tools. Everything here runs on the same connectome sim as the game.", (rect.x + 24, rect.y + 50),
-           ui.LABEL, m.f_small)
+    top = max(rect.y + 84, m.subtitle(surf, rect, "Research tools. Everything here runs on the same connectome sim as the game.", rect.y + 50))
     b_obj = getattr(getattr(getattr(host, "brain", None), "sim", None), "backend", None)
     b_name = getattr(b_obj, "name", "CPU (NumPy)")
     b_dev = getattr(b_obj, "device", "CPU")
     m.text(surf, f"Engine: {b_name} · {b_dev}", (rect.right - 24, rect.y + 20), (120, 220, 240), m.f_small, "topright")
     items = [(label, page, tip) for label, page, tip in host.lab_pages() if page in m.pages]
-    body = pygame.Rect(rect.x + 8, rect.y + 84, rect.w - 16, rect.h - 84 - 96)
+    body = pygame.Rect(rect.x + 8, top, rect.w - 16, rect.bottom - 96 - top)
     off = int(m.scroll.get("lab", 0))
     m.clip = body
     prev = surf.get_clip()
@@ -169,17 +179,17 @@ def page_hub(m: ui.Menu, surf, rect, mouse) -> None:
     w = getattr(host, "wiring", None)
     if w is not None and not w.is_identity:
         notes.append(f"Modified connectome: {w.label()}")
-    for i, note in enumerate(notes):
-        m.text(surf, note, (rect.x + 24, rect.bottom - 100 + i * 18), ui.AMBER, m.f_small)
+    ny = rect.bottom - 100
+    for note in notes:
+        ny = m.wrapped(surf, note, (rect.x + 24, ny), rect.w - 220, ui.AMBER, m.f_small, max_lines=2)
     m.button(surf, (rect.right - 164, rect.bottom - 58, 140, 42), "Back", m.back, style="primary", id=("lab", "back"))
 
 
 def page_params(m: ui.Menu, surf, rect, mouse) -> None:
     host = m.host
     m.text(surf, "PARAMETERS", (rect.x + 24, rect.y + 16), ui.INK, m.f_head)
-    m.text(surf, "Applies live to every fly. Validation results were measured at the defaults.", (rect.x + 24, rect.y + 50),
-           ui.LABEL, m.f_small)
-    body = pygame.Rect(rect.x + 16, rect.y + 80, rect.w - 32, rect.h - 80 - 70)
+    top = max(rect.y + 80, m.subtitle(surf, rect, "Applies live to every fly. Validation results were measured at the defaults.", rect.y + 50))
+    body = pygame.Rect(rect.x + 16, top, rect.w - 32, rect.bottom - 70 - top)
     key = "lab_params"
     off = int(m.scroll.get(key, 0))
     m.clip = body
@@ -200,7 +210,7 @@ def page_params(m: ui.Menu, surf, rect, mouse) -> None:
     m.content_h[key] = max(0, y + off - body.bottom + 8)
     surf.set_clip(prev)
     m.clip = None
-    m.button(surf, (rect.x + 24, rect.bottom - 58, 200, 42), "Reset to defaults",
+    m.button(surf, (rect.x + 24, rect.bottom - 58, m.bw("Reset to defaults", 200), 42), "Reset to defaults",
              lambda: [host.set_lab_param(n, d) for n, d in DEFAULTS.items()], id=("params", "reset"))
     m.button(surf, (rect.right - 164, rect.bottom - 58, 140, 42), "Back", m.back, style="primary", id=("params", "back"))
 
@@ -210,7 +220,7 @@ ASSUMPTIONS = (
      "SYNAPSE",
      "The sim treats raw EM synapse counts between neuron pairs as directly proportional to synaptic conductance.",
      "Biological synapses vary widely in vesicle pool size, neurotransmitter release probability, post-synaptic receptor density, and phosphorylation state. Real connection efficacy does not linearly track anatomical contact count.",
-     "README.md § Connectome vs Game Rule · kickthefly/sim/connectome/sim.py:LIFParams"),
+     "docs/connectome-and-game-rules.md · kickthefly/sim/connectome/sim.py:LIFParams"),
 
     ("Uniform synaptic efficacy per connection type",
      "SYNAPSE",
@@ -234,7 +244,7 @@ ASSUMPTIONS = (
      "DYNAMICS",
      "No voltage-dependent ion channel gating, NMDA slow kinetics, or broad volumetric neuromodulator wash.",
      "Neuropeptides and biogenic amines (octopamine, serotonin, dopamine) set global arousal, hunger, and sleep states. Except for modeled reward-driven plasticity, broad state transitions are simplified.",
-     "kickthefly/sim/connectome/sim.py · README.md § Limitations"),
+     "kickthefly/sim/connectome/sim.py · docs/3.0-review.md (Known limits)"),
 
     ("Tonic depolarizing bias (0.20 threshold)",
      "TUNING",
@@ -254,7 +264,7 @@ ASSUMPTIONS = (
      "inebriation level rises 0 to 1 and decays over ~45 s, scaling tremors, wobbly flight and slower escape reflexes.",
      "Ethanol acts pharmacologically across the whole nervous system (channel gating, dopaminergic and octopaminergic "
      "signalling), none of which is modelled. No simulated neuron is drunk: only the body's movement is degraded.",
-     "README.md § Connectome vs Game Rule · kickthefly/game/kick_the_fly.py:Game._alcohol · kickthefly/game/kick3d.py:Game3D._alcohol3d"),
+     "docs/connectome-and-game-rules.md · kickthefly/game/kick_the_fly.py:Game._alcohol · kickthefly/game/kick3d.py:Game3D._alcohol3d"),
 
     ("Weak connections are kept as real wiring",
      "DATASET",
@@ -319,7 +329,7 @@ ASSUMPTIONS = (
      "DATASET",
      "Asymmetries in synaptic weights or firing between left and right hemibrains reflect both biology and reconstruction noise.",
      "MaleCNS v1.0 EM tracing has variable proofreading depth, staining artifacts, and truncation near slice boundaries. L/R differences may stem from incomplete reconstruction rather than true lateralization.",
-     "README.md § Connectome Data · kickthefly/lab/headless.py"),
+     "docs/connectome-and-game-rules.md (bilateral symmetry) · Lab > Asymmetry audit · kickthefly/lab/headless.py:audit_asymmetry"),
 
     ("Dynamic neural clamp breaks closed-loop sensorimotor feedback",
      "DYNAMICS",
@@ -331,7 +341,203 @@ ASSUMPTIONS = (
      "SYNAPSE",
      "A 0-100% severity slider scales inhibitory synaptic weights (W_inh * (1 - s)). Runaway excitation (>30 Hz) is an emergent recurrent network outcome; visual convulsion twitching is a game rule.",
      "Picrotoxin pharmacologically blocks ionotropic GABA_A (Rdl) chloride channels with non-uniform subunit affinities and dose kinetics. Receptor-dependent washes (octopamine, dopamine antagonists) and metabotropic cascades are omitted.",
-     "kickthefly/sim/wiring.py · kickthefly/lab/robustness.py · Lab > Robustness > Inhibition block"),
+     "kickthefly/sim/wiring.py · kickthefly/lab/robustness.py · Lab > Pharmacology (picrotoxin; moved from Robustness in 3.0)"),
+
+    ("Driver lines: a literature table matched to connectome types by exact name",
+     "DATASET",
+     "Lab > Genetic toolkit picks neurons by split-GAL4 line. The line -> cell type mapping is copied from Meissner et al. 2025 (eLife, "
+     "CC BY 4.0; 2,667 adult lines with cell types); neuron counts come from the pack. A cell-type name counts only if it is spelled "
+     "exactly like a MaleCNS type (about half of the table's names are, since it uses the light-microscopy literature's names); the "
+     "rest are shown as unmatched, never guessed.",
+     "The table is the authors' claim about what a line labels, not a measurement on this connectome, and says nothing about expression "
+     "strength or timing. The off-target note is only the paper's quality score. No GAL4 (non-split) mapping was found that could be "
+     "redistributed, so those lines are not offered.",
+     "kickthefly/lab/genetics.py · kickthefly/data/driver_lines.yaml · tools/build_driver_lines.py"),
+
+    ("Thermogenetics: a temperature-gated current, nothing more",
+     "BIOPHYSICS",
+     "TrpA1 adds a depolarizing current above ~25 C (Pulver 2009) and shibire-ts a silencing current near 30 C (Kitamoto 2001) to the "
+     "neurons that express them. The curve's other end, the 1 s / 40 s / 20 s kinetics and the current size are game rules. Escape vs "
+     "temperature in the DNp01 assay is the model's response to that game-rule current.",
+     "Temperature changes nothing else (no Q10 on any neuron or synapse). shibire-ts really blocks synaptic vesicle recycling at the "
+     "terminal; the model silences the whole neuron, which also stops its spiking. Expression is all-or-nothing in the chosen types.",
+     "kickthefly/lab/thermogenetics.py · Lab > Thermogenetics · assay thermo_escape"),
+
+    ("Virtual patch clamp on a point-neuron model",
+     "BIOPHYSICS",
+     "Current-clamp steps and I-F curves of one simulated neuron. Every neuron is the same leaky integrate-and-fire unit, so in isolation "
+     "every neuron has the same I-F curve; in the wired brain the membrane potential also carries the real synaptic input around it.",
+     "Potential is in model units (threshold 1.0, reset 0.0), never millivolts; no spike waveform, dendrite, ion channel, adaptation or "
+     "cell-specific property; 5 ms resolution. This is not electrophysiology and is not calibrated to any recording.",
+     "kickthefly/lab/patchclamp.py · Lab > Patch clamp · inspector PATCH button"),
+
+    ("Simulated calcium imaging is a forward model on spikes",
+     "BIOPHYSICS",
+     "Spikes are convolved with a two-exponential GCaMP kernel, averaged over an ROI, and given Poisson photon shot noise; dF/F is "
+     "against a running mean (30 s by default, a setting). Kernel speeds: Chen 2013 Supplementary Table 3 (GCaMP6s/6f, mouse V1, 1 action "
+     "potential) and Zhang 2023 (jGCaMP8m, fly visual responses), each checked in the paper.",
+     "Linear in spikes, equal brightness for every neuron in an ROI, dF/F per spike and the photon budget are game parameters; no "
+     "subthreshold calcium, bleaching, motion, scattering or neuropil; a real pipeline estimates F0 and segments cells.",
+     "kickthefly/lab/imaging.py · Lab > Calcium imaging"),
+
+    ("Pharmacology scales synapses by predicted transmitter",
+     "SYNAPSE",
+     "Picrotoxin, a cholinergic block, a glutamate-Cl block and a GABA-A agonist multiply the weights of every synapse whose presynaptic "
+     "neuron is predicted to release that transmitter. The panel counts the affected synapses at each confidence level and can leave "
+     "out low-confidence predictions. Octopamine and dopamine modulation are left out: those synapses are not in the simulated matrix.",
+     "No receptor subtypes, subunit affinities, location on the cell, kinetics, washout or side effects. The simulator's slow global "
+     "gain works against any drug that changes overall synaptic strength, so effects are read soon after a drug goes on.",
+     "kickthefly/lab/pharmacology.py · kickthefly/sim/wiring.py · Lab > Pharmacology"),
+
+    ("Predators: a game rule that reaches the fly only as something growing in its view",
+     "GAME RULE",
+     "The frog (a tongue that takes 0.07 s), the dragonfly (a chase from above that only takes a fly in the air) and the mantis (a "
+     "10 cm/s creep, then a 0.06 s strike) are state machines with numbers chosen for play. Each shows up to the fly only as a growing "
+     "circle, through the game's existing looming transduction onto LPLC2/LC4 -> DNp01; a capture fires the real touch neurons by body "
+     "part. Whether the mantis's creep is noticed follows from the looming threshold (itself a game rule). The escape probabilities of "
+     "the Predator escape assay are MODEL PREDICTIONS with 95% Wilson intervals.",
+     "No real frog, dragonfly or mantis is measured or implied: no published speed, reach or timing is used. The fly in the assay does "
+     "not move, so an 'escape' is DNp01 crossing the game's escape threshold before the capture, not a flight path that clears the "
+     "tongue. The larva has no looming detectors in this model, so it has no predators.",
+     "kickthefly/game/predators.py · kickthefly/game/predator_play.py · kickthefly/lab/predators.py · Lab > Assays > Predator escape"),
+
+    ("Rain, gusts and storms: touch, humidity, wind and light pokes with game-rule numbers",
+     "GAME RULE",
+     "Raindrop hits poke the real touch neurons by body part (wings, body, head, legs), the wet air pokes the humidity neurons, a gust "
+     "adds wind speed to the existing wind -> JO-C/E transduction, and lightning pokes the photoreceptors. How often drops hit, which "
+     "part (by exposed area), how hard, when the wings count as wet (the pool's rule), the gusts' size and length, the lightning's "
+     "timing and the storm preset are game rules. Reduced flashing turns the screen's lightning into one slow swell.",
+     "Raindrops are not simulated: a hit is a touch pulse of a set strength. No shelter under the trees, no evaporation, no cooling, "
+     "no wind shear. The humidity neurons idle at about 18 Hz in this model, so rain moves their mean rate only about 14%, though "
+     "their 100 ms peaks rise clearly.",
+     "kickthefly/game/weather.py · kickthefly/game/kick3d.py · Lab > Parameters (weather.*) · protocol weather:"),
+
+    ("The kitchen: every part is a game rule on the neurons the fly already has",
+     "GAME RULE",
+     "Fruit in the bowl is the orchard's feeding (taste and PAM reward neurons). The vinegar trap pokes the fermentation glomeruli "
+     "DM1/DM2/DP1m, and the fly flies to it only if those neurons' own firing is well above its calm rate; a fly that hovers over the "
+     "mouth falls in and is stuck (trap physics are a game rule). The sink is the pool's water in a basin (humidity neurons, wet wings, "
+     "drowning); the burner is the lamp's heat. The cook swats every 10-20 s at where a fly was, slowly enough to be seen coming.",
+     "The counter is the floor; the room is the 3D room with different furniture. No real vinegar chemistry, no real trap catch rates, "
+     "no stove heat transfer. Whether a given fly dodges a swat is a MODEL PREDICTION, not a measurement.",
+     "kickthefly/game/kitchen.py · kickthefly/game/kick3d.py · arena E > kitchen (3D only)"),
+
+    ("Microphone to Johnston's organ: air pressure treated as antennal vibration",
+     "GAME RULE",
+     "The microphone's sound is band-passed into JO-B (10-100 Hz) and JO-A (100-1,000 Hz) and becomes current on those neurons (88 and "
+     "50 in the dataset); JO-C/E are left to the wind. JO-A/B are the sound-sensitive groups (Kamikouchi 2009); JO-B prefers low and "
+     "JO-A higher frequencies (Ishikawa et al. 2019, Front Physiol, citing Matsuo 2014 and Patella & Wilson 2018). Everything else, the filters, the loudness mapping, the noise gate and "
+     "the equal current per neuron, is a game rule. The hum demo's P1 and song-motor-neuron ratios are MODEL PREDICTIONS.",
+     "A microphone is not an antenna; the real organ is a mechanical resonator and each neuron has its own tuning. Humming drives the "
+     "P1 courtship cluster here but not the song motor neurons, and the model is not tuned to the song's 35 ms rhythm (a 70 ms rhythm "
+     "drives P1 about as much), whereas real pC1 neurons are tuned to 35-65 ms intervals (Zhou et al. 2015, eLife), so here the "
+     "model disagrees with a measurement. The song numbers (pulses every ~35 ms, a 220 Hz carrier) are from Zhou et al. 2015. Opt-in, off at every launch; nothing is recorded or sent.",
+     "kickthefly/core/mic.py · kickthefly/lab/audio.py · Esc > Mic and streamer · assay hum_demo"),
+
+    ("Streamer mode: chat votes through the game's own actions",
+     "GAME RULE",
+     "Viewers of a Twitch channel vote (!tool, !arena, !surgery) and the winner runs the same action a player would. The streamer "
+     "chooses which commands count; a round, a cooldown, a minimum vote count and rate limits are all game rules. It only reads chat "
+     "anonymously (no login, no token), keeps no names, and shows its connection on screen.",
+     "Nothing here touches the connectome. The anonymous login is described in Twitch developer-forum threads, not the current "
+     "official documentation, so Twitch may stop allowing it. Off at every launch and never during validation, protocols or tests.",
+     "kickthefly/core/streamer.py · kickthefly/core/netguard.py · Esc > Mic and streamer"),
+
+    ("Fly tournament: both sides of every duel are brains; the arena and the blaster are rules",
+     "GAME RULE",
+     "A bracket of 4, 8 or 16 flies, each a different individuality seed (its per-neuron gains come from the seed), fights 1v1 duels in a "
+     "flat 12 m square. A fly turns on DNa01/02 right minus left, shoots when DNp35/DNpe052 rise above the game's own threshold, dodges "
+     "when the giant fiber DNp01 does and runs when the body-touch group does; it sees the other fly the way it sees you in the duel "
+     "(LC10 tracking, small-object detectors, looming from pellets). The arena, the start, the blaster, the hit's touch and reward/"
+     "punishment pulses, the match length, the pairing and the tie-break (two rematches, then a seeded coin toss that is labelled) are "
+     "game rules. The personality card is MEASURED from the fly's own brain. Who wins, which neurons fired before a winner's landed shots "
+     "and whether personality predicts winning are MODEL PREDICTIONS.",
+     "A duel is not a fight between real flies, and no published fight statistic is used. A bracket of n flies has n - 1 matches, so one "
+     "bracket cannot show that personality predicts winning; pool brackets (--tournament N --seeds ...) and run --individuality off as the "
+     "control. The 'drivers' list is a correlation (nothing is silenced), and touch neurons lead it because a hit fly fires them.",
+     "kickthefly/game/flyduel.py · kickthefly/lab/tournament.py · Esc > Fly arcade · --tournament N"),
+
+    ("Personality cards are measured from the fly's brain; the trait words are rules",
+     "GAME RULE",
+     "A card's three numbers are CONNECTOME readouts of the individual a seed builds, at rest: the giant fiber's latency to its dodge "
+     "threshold with the looming detectors driven, the sugar-pathway -> MN9 drive ratio, and the right/left DNa01/02 firing ratio "
+     "(lab/tournament.measure_card). The words (Bold, Skittish, Right-turner, Sugar lover...) and their cut-offs are this game's. Since "
+     "the 3.0 day 4 review the game shows only measured cards: a fly in play or the pet says 'card not measured' until Esc > Fly arcade > "
+     "Measure the flies in play has read it (about 10 s per fly, in the background). Before, the card showed numbers drawn from a random "
+     "generator seeded by the fly's seed, from no brain at all (and the pet's from a seed its brain is not built from).",
+     "A card is a snapshot of one simulated individual at rest, at the default warm-up; no published fly personality statistic is used. "
+     "With individuality off every fly has the same brain and the cards differ only by noise and warm-up state, not individuality "
+     "(the race assay found that state is what makes a fly's speed repeatable: docs/racing.md).",
+     "kickthefly/core/cards.py · kickthefly/lab/tournament.py · Esc > Fly arcade"),
+
+    ("Fly racing: the walking neurons set the speed; the track, the odds and the points are rules",
+     "GAME RULE",
+     "Each fly runs a lane of an 8 m track with sugar and fruit lures. Its speed is V_MAX x clip(DNp09's level / the game's walking "
+     "threshold, 0, 1), the level being DNp09's firing against one fixed reference rate (4.32 Hz) for every fly (speed rule version 2, "
+     "3.0 day 4 review: version 1 read it against each fly's own warm-up baseline, which made speed mostly an accident of the warm-up); a lure ahead drives the real olfactory neurons of its scent and touching it drives the taste and PAM reward "
+     "neurons, with the game's own pulse strengths. The odds are the softmax of a form score (the mean of the z-scores of the fly's measured "
+     "sugar -> MN9 ratio and calm walking drive) and pay a fair price less 10%. Bets are in-game points only: no money, nothing to buy. "
+     "The finishing order and whether individuality predicts it are MODEL PREDICTIONS.",
+     "Flies never touch or block each other (every lane is its own simulation). The form score is a modelling choice, not a finding; the race "
+     "assay measures whether it works (R1-R3, Holm-corrected). With identical brains (--individuality off) differences are noise.",
+     "kickthefly/game/flyrace.py · kickthefly/lab/racing.py · kickthefly/core/points.py · --race"),
+
+    ("Network science: computed from the wiring, with analysis choices that are rules",
+     "DATASET",
+     "Degree distributions, reciprocity, 3-node motif counts against a degree-preserving null, the rich-club coefficient, modularity and "
+     "communities and per-region summaries are computed from the pack's synapse counts (nothing is simulated), cached with a checksum. The "
+     "number of null graphs and wedge samples, the seed, the rich-club cut-offs and the community-detection method are GAME RULE choices "
+     "that change how precisely a number is estimated, not what the wiring is.",
+     "The pack keeps connections of 3 or more synapses and EM coverage is uneven, so every number is about this pack. Motif counts are sampled "
+     "estimates; the community partition is a heuristic (the reported Q is exact for the partition found, not the maximum); no power law is "
+     "fitted. Nothing here is a MODEL PREDICTION.",
+     "kickthefly/lab/netsci.py · Lab > Network science · --netsci"),
+
+    ("Sleep deprivation: pressure is a rule, the dFB readout is the connectome's, the rebound is a prediction",
+     "GAME RULE",
+     "Sleep pressure (0 to 1) rises while the fly is awake and falls while it sleeps, on a compressed clock (the pet's rule); it becomes a "
+     "current on every FB6/FB7 neuron (CONNECTOME: those neurons' firing, read as a multiple of their calm rate, is the game's SLEEP "
+     "readout). Disturbances (a touch every 3 s that holds the fly awake 2 s), the compressed day and what counts as sleep (dFB above its "
+     "threshold for 1 s) are game rules; daylight reaches the photoreceptors and the clock neurons l-LNv/s-LNv. The rebound is a MODEL "
+     "PREDICTION.",
+     "A rebound is expected from the pressure rule: the assay shows that it works through the real dFB neurons, not that the fly's brain has "
+     "a sleep homeostat. The current that pressure becomes was chosen on exploration seeds 11 and 12 from the dFB's response curve and was "
+     "not tuned to a criterion.",
+     "kickthefly/lab/sleepdep.py · Lab > Sleep deprivation · --sleep-deprivation · protocol assay: sleep_deprivation"),
+
+    ("Sensitivity analysis: a map of the model's own parameters, not a reason to change them",
+     "TUNING",
+     "Each LIF parameter (noise, tonic drive, target rate, sensory gain, gain adaptation) and the minimum synapse count is varied across a "
+     "documented range, one at a time, and every validated behavior is re-run with validation's own code and pass criteria. Each heatmap "
+     "cell (PASS or FAIL and an effect size) is a statement about the model. The pathways are CONNECTOME; the ranges and the criteria "
+     "(chosen for this release) are GAME RULE.",
+     "One parameter at a time: interactions are not explored. Fewer than 7 seeds cannot reach p < 0.01, so a small run is marked "
+     "underpowered. The defaults are NOT changed by anything this reports, and a behavior that is robust to a parameter is not evidence "
+     "the default is right.",
+     "kickthefly/lab/sensitivity.py · Lab > Sensitivity analysis · --sensitivity"),
+
+    ("Behavior rigs: the steering and walking neurons are the connectome's; the rig around them is rules",
+     "GAME RULE",
+     "Four rigs (tethered flight simulator, fly on a ball, Buridan's paradigm, four-field olfactory arena) read a fly's yaw from DNa01 + DNa02 "
+     "right minus left (the duel's rule: a 1.5 Hz dead zone, 0.24 rad/s per Hz, at most 2.1 rad/s) and its walking speed from DNp09 against the "
+     "race's fixed reference rate (CONNECTOME readouts). Wide-field rotation reaches them through the T4/T5 EMD stage (a GAME RULE transduction; "
+     "the optomotor_turning validation passes through it). A stripe or bar is tracked by LC10 on the side it is on, the duel's rule, which no validation "
+     "test checks; one stripe at a time in Buridan's arena is a rule. The platform, its edge (a fly is reflected), the ball, the VR, the arena's "
+     "quadrants, sharp odor boundaries, the stripe deviation, transits and the preference index are all rules. What the fly then does is a MODEL PREDICTION.",
+     "Each rig has pre-registered criteria written before any held-out run (lab/rigassay.py) and an --individuality off control; a miss is reported as a "
+     "miss. The sim's tracking is far stronger and less variable than real flies' (no pauses, no antifixation), the olfactory arena gives an odor no valence, "
+     "and the E-PG compass tests FAIL, so no rig here needs a heading memory. One run in a Lab scene is one fly, not a result.",
+     "kickthefly/game/rigs.py · kickthefly/lab/rigassay.py · Lab > Behavior rigs · --rig / --rig-assay · protocols/rig_*.yaml"),
+
+    ("Mini-papers: the experiment is the validation's, the paper's finding is quoted from the paper, your result is a prediction",
+     "LITERATURE",
+     "A guided experiment runs a validation test (or the Buridan rig) on the model, next to what the paper itself states: its direction and any numbers, with "
+     "the citation and how much of the paper was read (abstract only, or full text through a summary). Nothing is invented or inferred: where the "
+     "paper states no number, none is shown, and a claim that rests on another paper that was not read is marked as such. A quick run uses exploration "
+     "seeds and is a first look; the full run uses the validation seeds and the validation's own criteria.",
+     "Where the model fails a paper's result (the aDN-to-leg test, the larva rolling pair) the mini-paper says so and why, from docs/validation.md; the "
+     "larva paper shows recorded numbers when the larva pack is not built. The model is not the paper's model: Shiu et al. used another connectome.",
+     "kickthefly/lab/minipapers.py · kickthefly/ui/minipaper_ui.py · Esc > Mini-papers · --minipaper"),
 
     ("Hemifield lesion as static connectome wiring ablation",
      "DATASET",
@@ -453,14 +659,53 @@ ASSUMPTIONS = (
      "In real flies extinction forms a parallel opposing memory through reward dopamine neurons (Felsenberg et al. "
      "2018), and second-order conditioning needs MBON-to-dopamine-neuron feedback.",
      "kickthefly/lab/assays.py:extinction_fly, second_order_fly · kickthefly/core/memory.py"),
+
+    ("Neurodex: what counts as discovered (3.0)",
+     "GAME RULE",
+     "Discovered = 6+ spikes/s, 3x its calm rate and a Poisson count test (alpha ~1e-11) for 150 ms. A calm fly "
+     "discovers nothing (3.0 Day 2 decision); only play or stimulation counts.",
+     "Nothing in a real fly is 'discovered'. The rule reads the type as a whole, so sparse big types (Kenyon cells) are "
+     "mostly found by stimulating them, and the entry says so.",
+     "kickthefly/core/neurodex.py · docs/neurodex.md"),
+
+    ("Neurodex literature facts (3.0)",
+     "DATASET",
+     "One sentence and a citation for about 30 curated types, written from the paper's abstract or full text and checked "
+     "against it. Every other type shows dataset data only.",
+     "A fact is what the paper reported in a real fly, not what this simulation does. That a dataset type is the paper's "
+     "named neuron is the dataset's annotation (aDN1/aDN2 = DNg62/DNge078).",
+     "kickthefly/data/neurodex_facts.yaml"),
+
+    ("Kill cam (3.0)",
+     "GAME RULE",
+     "On death, the last 6 s of each neuron's own firing rate is replayed at 0.25x on the brain panel, with the 12 neurons "
+     "that rose most highlighted. Frames in memory: nothing feeds back, the body is not re-simulated.",
+     "Death is a game rule (the drive is cancelled over 1.5 s), so the replay ends at that cut-off. A rising rate shows "
+     "what was active, not what caused the death.",
+     "kickthefly/core/killcam.py · docs/killcam.md"),
+
+    ("Share codes and experiment bundles (3.0)",
+     "GAME RULE",
+     "Containers for settings and results the game already has; they add nothing to the simulation. A bundle rerun is "
+     "bit-exact on CPU backends, and statistical (three numbers fixed beforehand) on a GPU backend.",
+     "A matching rerun shows the software is deterministic on that backend. It does not show the result is biologically "
+     "true.",
+     "kickthefly/core/sharecode.py · kickthefly/lab/bundle.py · docs/share-codes.md · docs/bundles.md"),
+
+    ("Neuron of the Day (3.0)",
+     "GAME RULE",
+     "A launch card picks one curated type by date and shows its fact. Try it stimulates that type in brain surgery or "
+     "the Lab laser. Its own setting, default on; nothing is sent or remembered about you.",
+     "Constant current is not how a real neuron is activated in a fly, and experimental driver lines are not modelled.",
+     "kickthefly/core/neuron_of_day.py · docs/neurodex.md"),
 )
 
 
 def page_assumptions(m: ui.Menu, surf, rect, mouse) -> None:
     m.text(surf, "MODEL ASSUMPTIONS & SIMPLIFICATIONS", (rect.x + 24, rect.y + 16), ui.INK, m.f_head)
-    m.text(surf, "Scientific caveats and approximations distinguishing the simulation from living biology.",
-           (rect.x + 24, rect.y + 50), ui.LABEL, m.f_small)
-    body = pygame.Rect(rect.x + 16, rect.y + 80, rect.w - 32, rect.h - 80 - 70)
+    top = m.wrapped(surf, "Scientific caveats and approximations distinguishing the simulation from living biology.",
+                    (rect.x + 24, max(m.under_heading(rect), rect.y + 50)), rect.w - 48, ui.LABEL, m.f_small, max_lines=2) + 8
+    body = pygame.Rect(rect.x + 16, top, rect.w - 32, rect.bottom - 70 - top)
     key = "lab_assumptions"
     off = int(m.scroll.get(key, 0))
     m.clip = body
@@ -477,35 +722,38 @@ def page_assumptions(m: ui.Menu, surf, rect, mouse) -> None:
         "GAME RULE": (220, 150, 50),
     }
 
-    card_h = 136
-    max_w = body.w - 74
+    # 3.0 release review: the cards had a fixed height (136) and fixed rows, so at larger text the wrapped lines ran into each other, the
+    # category chip (84 px) was narrower than its word and the Bio text was cut at two lines. Every part is now measured from the font.
+    fs, fb = m.f_small, m.f_bold
+    lh, bh = fs.get_linesize(), fb.get_linesize()
+    lab_w = max(fs.size(t)[0] for t in ("Sim:", "Bio:", "Doc:")) + 10
+
+    def n_lines(text, font, width):
+        return len(ui.Menu.fit_lines(font, text, width, 99)[0])
+
     for title, cat, sim_rule, bio_reality, docs in ASSUMPTIONS:
-        card = pygame.Rect(body.x, y, body.w - 12, card_h)
+        cw = body.w - 12
+        chip_w = fs.size(cat)[0] + 14
+        title_x = 12 + chip_w + 10
+        tw = cw - title_x - 12
+        text_w = cw - 14 - lab_w - 12
+        rows = [(n_lines(sim_rule, fs, text_w)), (n_lines(bio_reality, fs, text_w)), (n_lines(docs, fs, text_w))]
+        card_h = 10 + max(lh + 4, n_lines(title, fb, tw) * bh) + 6 + sum(r * lh + 6 for r in rows) + 6
+        card = pygame.Rect(body.x, y, cw, card_h)
         pygame.draw.rect(surf, (24, 28, 38), card, border_radius=8)
         pygame.draw.rect(surf, (45, 52, 68), card, 1, border_radius=8)
 
-        # Category chip
         col = category_colors.get(cat, ui.LABEL)
-        chip = pygame.Rect(card.x + 12, card.y + 10, 84, 20)
+        chip = pygame.Rect(card.x + 12, card.y + 10, chip_w, lh + 4)
         pygame.draw.rect(surf, (15, 18, 26), chip, border_radius=4)
         pygame.draw.rect(surf, col, chip, 1, border_radius=4)
-        m.text(surf, cat, chip.center, col, m.f_small, "center")
-
-        # Title
-        m.text(surf, title, (card.x + 106, card.y + 10), ui.INK, m.f_bold)
-
-        # Sim rule
-        m.text(surf, "Sim:", (card.x + 14, card.y + 36), (140, 180, 220), m.f_small)
-        m.wrapped(surf, sim_rule, (card.x + 50, card.y + 36), max_w, ui.TEXT, m.f_small, max_lines=2)
-
-        # Biology reality
-        m.text(surf, "Bio:", (card.x + 14, card.y + 68), (220, 150, 100), m.f_small)
-        m.wrapped(surf, bio_reality, (card.x + 50, card.y + 68), max_w, (185, 190, 200), m.f_small, max_lines=2)
-
-        # Documentation reference
-        m.text(surf, "Doc:", (card.x + 14, card.y + 104), ui.LABEL, m.f_small)
-        m.text(surf, docs, (card.x + 50, card.y + 104), (130, 160, 210), m.f_small)
-
+        m.text(surf, cat, chip.center, col, fs, "center")
+        yy = m.wrapped(surf, title, (card.x + title_x, card.y + 10), tw, ui.INK, fb, max_lines=99)
+        yy = max(yy, chip.bottom) + 6
+        for label, text, color, lab_col in (("Sim:", sim_rule, ui.TEXT, (140, 180, 220)), ("Bio:", bio_reality, (185, 190, 200), (220, 150, 100)),
+                                            ("Doc:", docs, (130, 160, 210), ui.LABEL)):
+            m.text(surf, label, (card.x + 14, yy), lab_col, fs)
+            yy = m.wrapped(surf, text, (card.x + 14 + lab_w, yy), text_w, color, fs, max_lines=99) + 6
         y += card_h + 12
 
     m.content_h[key] = max(0, y + off - body.bottom + 8)
@@ -518,57 +766,57 @@ def page_assumptions(m: ui.Menu, surf, rect, mouse) -> None:
 def page_asymmetry(m: ui.Menu, surf, rect, mouse) -> None:
     host = m.host
     m.text(surf, "LEFT / RIGHT ASYMMETRY AUDIT", (rect.x + 24, rect.y + 16), ui.INK, m.f_head)
-    m.text(surf, "Audit bilateral differences in connectome structure and spontaneous turning bias.",
-           (rect.x + 24, rect.y + 50), ui.LABEL, m.f_small)
+    top = m.wrapped(surf, "Audit bilateral differences in connectome structure and spontaneous turning bias.",
+                    (rect.x + 24, max(m.under_heading(rect), rect.y + 50)), rect.w - 48, ui.LABEL, m.f_small, max_lines=2) + 8
 
-    body = pygame.Rect(rect.x + 16, rect.y + 80, rect.w - 32, rect.h - 80 - 70)
+    body = pygame.Rect(rect.x + 16, top, rect.w - 32, rect.bottom - 70 - top)
     key = "lab_asymmetry"
     off = int(m.scroll.get(key, 0))
     m.clip = body
     prev = surf.get_clip()
     surf.set_clip(body)
     y = body.y + 4 - off
+    fs, fb = m.f_small, m.f_bold
+    lh = fs.get_linesize()
 
     mirror = bool(host.cfg["brain.mirror_weights"]) if hasattr(host, "cfg") else False
 
-    # Status & Context Card
-    card_h = 130
-    card = pygame.Rect(body.x, y, body.w - 12, card_h)
-    pygame.draw.rect(surf, (24, 28, 38), card, border_radius=8)
-    pygame.draw.rect(surf, (45, 52, 68), card, 1, border_radius=8)
-
+    # Status & context card. 3.0 release review: measured from the font (it had a fixed 130 px height and a 210 px chip), the pairs count
+    # corrected (77,507 bilateral pairs, 155,014 neurons, not "77,507 paired neurons"), and the table says where its numbers come from.
     chip_col = (240, 160, 60) if mirror else (100, 180, 240)
     chip_txt = "GAME RULE: MIRROR-AVERAGED" if mirror else "CONNECTOME: RAW DATA"
-    chip = pygame.Rect(card.x + 12, card.y + 10, 210, 22)
-    pygame.draw.rect(surf, (15, 18, 26), chip, border_radius=4)
-    pygame.draw.rect(surf, chip_col, chip, 1, border_radius=4)
-    m.text(surf, chip_txt, chip.center, chip_col, m.f_small, "center")
-
     bias_txt = "+1.00 Hz (symmetric weights)" if mirror else "+0.10 Hz (right turn bias)"
-    m.text(surf, f"Baseline Turning Bias: {bias_txt}", (card.x + 235, card.y + 12), ui.INK, m.f_bold)
-
     expl = (
         "In the raw MaleCNS v1.0 connectome, bilateral asymmetries arise from both true biology and uneven electron "
         "microscopy (EM) reconstruction and proofreading depth between hemispheres. Descending steering neurons DNa01 and "
-        "DNa02 drive a mild spontaneous rightward turning bias in quiet walking.\n"
-        "Mirror-averaging synaptic weights across 77,507 paired bilateral neurons enforces exact structural symmetry. "
+        "DNa02 drive a mild spontaneous rightward turning bias in quiet walking. "
+        "Mirror-averaging synaptic weights across the 77,507 bilateral left/right pairs (155,014 neurons) enforces exact structural symmetry. "
         "Because this alters real connectome data, it is tagged strictly as a Game Rule."
     )
-    m.wrapped(surf, expl, (card.x + 14, card.y + 40), card.w - 28, ui.TEXT, m.f_small, max_lines=4)
-    y += card_h + 14
-
-    # Table Header Card
-    hdr_h = 32
-    hdr = pygame.Rect(body.x, y, body.w - 12, hdr_h)
-    pygame.draw.rect(surf, (32, 38, 52), hdr, border_radius=6)
-    m.text(surf, "Key Cell Type", (hdr.x + 14, hdr.centery), ui.INK, m.f_bold, "midleft")
-    m.text(surf, "Functional Role", (hdr.x + 120, hdr.centery), ui.LABEL, m.f_small, "midleft")
-    m.text(surf, "Count L/R", (hdr.x + 370, hdr.centery), ui.LABEL, m.f_small, "midleft")
-    m.text(surf, "In-Syn L/R", (hdr.x + 470, hdr.centery), ui.LABEL, m.f_small, "midleft")
-    m.text(surf, "Out-Syn L/R", (hdr.x + 580, hdr.centery), ui.LABEL, m.f_small, "midleft")
-    m.text(surf, "Calm Rate L/R", (hdr.x + 690, hdr.centery), ui.LABEL, m.f_small, "midleft")
-    m.text(surf, "Diff (R-L)", (hdr.right - 14, hdr.centery), ui.LABEL, m.f_small, "midright")
-    y += hdr_h + 6
+    cw = body.w - 12
+    n_expl = len(ui.Menu.fit_lines(fs, expl, cw - 28, 99)[0])
+    chip_w = fs.size(chip_txt)[0] + 16
+    bias_line = f"Baseline turning bias: {bias_txt}"
+    bias_below = chip_w + 24 + fb.size(bias_line)[0] > cw - 14
+    card_h = 10 + lh + 6 + (fb.get_linesize() + 6 if bias_below else 0) + n_expl * lh + 12
+    card = pygame.Rect(body.x, y, cw, card_h)
+    pygame.draw.rect(surf, (24, 28, 38), card, border_radius=8)
+    pygame.draw.rect(surf, (45, 52, 68), card, 1, border_radius=8)
+    chip = pygame.Rect(card.x + 12, card.y + 10, chip_w, lh + 4)
+    pygame.draw.rect(surf, (15, 18, 26), chip, border_radius=4)
+    pygame.draw.rect(surf, chip_col, chip, 1, border_radius=4)
+    m.text(surf, chip_txt, chip.center, chip_col, fs, "center")
+    if bias_below:
+        m.text(surf, bias_line, (card.x + 14, chip.bottom + 6), ui.INK, fb)
+        yy = chip.bottom + 6 + fb.get_linesize() + 6
+    else:
+        m.text(surf, bias_line, (chip.right + 14, chip.centery), ui.INK, fb, "midleft")
+        yy = chip.bottom + 6
+    m.wrapped(surf, expl, (card.x + 14, yy), cw - 28, ui.TEXT, fs, max_lines=99)
+    y += card_h + 10
+    y = m.wrapped(surf, "Recorded from python kick_the_fly.py --headless --audit-asymmetry" + (" --mirror-weights" if mirror else "")
+                  + " (seed 0, a 5 s calm run, CPU backend). Partners: the number of distinct pre- (in) or postsynaptic (out) partner neurons, "
+                  "averaged over each side's neurons of the type; not synapse counts.", (body.x + 4, y), cw - 8, ui.LABEL, fs, max_lines=6) + 8
 
     rows_data = [
         ("DNa01", "Steering descending command", "1 / 1", "393 / 402", "577 / 577", "316 / 311", "532 / 532", "2.4 / 3.0 Hz", "2.2 / 3.2 Hz", "+0.60 Hz", "+1.00 Hz"),
@@ -576,23 +824,44 @@ def page_asymmetry(m: ui.Menu, surf, rect, mouse) -> None:
         ("LC10", "Courtship tracking / fixation", "479 / 481", "78 / 97", "86 / 106", "54 / 60", "72 / 80", "3.8 / 3.9 Hz", "4.0 / 4.1 Hz", "+0.18 Hz", "+0.07 Hz"),
         ("LPLC2", "Rapid looming escape", "94 / 91", "232 / 283", "243 / 295", "93 / 97", "125 / 131", "10.2 / 6.5 Hz", "10.5 / 7.7 Hz", "-3.66 Hz", "-2.79 Hz"),
         ("LC4", "Collision looming avoidance", "112 / 90", "191 / 224", "210 / 244", "79 / 85", "116 / 125", "0.7 / 1.1 Hz", "0.8 / 0.9 Hz", "+0.38 Hz", "+0.13 Hz"),
-        ("DNp01", "Braking / backward command", "1 / 1", "558 / 482", "836 / 836", "136 / 125", "200 / 200", "6.6 / 6.2 Hz", "7.6 / 8.6 Hz", "-0.40 Hz", "+1.00 Hz"),
+        ("DNp01", "Giant fiber: escape takeoff", "1 / 1", "558 / 482", "836 / 836", "136 / 125", "200 / 200", "6.6 / 6.2 Hz", "7.6 / 8.6 Hz", "-0.40 Hz", "+1.00 Hz"),
     ]
+    heads = ("Count L/R", "In-partners L/R", "Out-partners L/R", "Calm rate L/R", "Diff (R-L)")
+    cells = [(r[2], r[4] if mirror else r[3], r[6] if mirror else r[5], r[8] if mirror else r[7], r[10] if mirror else r[9]) for r in rows_data]
+    name_w = max(max(fb.size(r[0])[0] for r in rows_data), fb.size("Type")[0]) + 16
+    col_w = [max(fs.size(h)[0], max(fs.size(c[i])[0] for c in cells)) + 16 for i, h in enumerate(heads)]
+    role_inline = name_w + max(fs.size(r[1])[0] for r in rows_data) + 16 + sum(col_w) <= cw - 28
+    role_w = (max(fs.size(r[1])[0] for r in rows_data) + 16) if role_inline else 0
+    xs, x = [], 14 + name_w + role_w
+    spare = max(0, (cw - 28) - (name_w + role_w + sum(col_w)))
+    for w in col_w:
+        xs.append(x)
+        x += w + spare // len(col_w)
+    hdr = pygame.Rect(body.x, y, cw, max(32, lh + 12))
+    pygame.draw.rect(surf, (32, 38, 52), hdr, border_radius=6)
+    m.text(surf, "Type", (hdr.x + 14, hdr.centery), ui.INK, fb, "midleft")
+    if role_inline:
+        m.text(surf, "Functional role", (hdr.x + 14 + name_w, hdr.centery), ui.LABEL, fs, "midleft")
+    for xx, h in zip(xs, heads):
+        m.text(surf, h, (hdr.x + xx, hdr.centery), ui.LABEL, fs, "midleft")
+    y += hdr.h + 6
 
-    row_h = 36
-    for t, role, counts, in_raw, in_mir, out_raw, out_mir, r_raw, r_mir, d_raw, d_mir in rows_data:
-        rbox = pygame.Rect(body.x, y, body.w - 12, row_h)
+    row_h = max(36, fb.get_linesize() + 12) if role_inline else fb.get_linesize() + lh + 14
+    for r, c in zip(rows_data, cells):
+        rbox = pygame.Rect(body.x, y, cw, row_h)
         pygame.draw.rect(surf, (20, 24, 33), rbox, border_radius=6)
-        m.text(surf, t, (rbox.x + 14, rbox.centery), ui.INK, m.f_bold, "midleft")
-        m.text(surf, role, (rbox.x + 120, rbox.centery), (150, 180, 220), m.f_small, "midleft")
-        m.text(surf, counts, (rbox.x + 370, rbox.centery), ui.TEXT, m.f_small, "midleft")
-        m.text(surf, in_mir if mirror else in_raw, (rbox.x + 470, rbox.centery), ui.TEXT, m.f_small, "midleft")
-        m.text(surf, out_mir if mirror else out_raw, (rbox.x + 580, rbox.centery), ui.TEXT, m.f_small, "midleft")
-        m.text(surf, r_mir if mirror else r_raw, (rbox.x + 690, rbox.centery), ui.TEXT, m.f_small, "midleft")
-        diff_str = d_mir if mirror else d_raw
-        diff_val = abs(float(diff_str.replace(" Hz", "")))
-        diff_col = ui.GOOD if diff_val < 0.2 else (240, 160, 60)
-        m.text(surf, diff_str, (rbox.right - 14, rbox.centery), diff_col, m.f_small, "midright")
+        if role_inline:
+            m.text(surf, r[0], (rbox.x + 14, rbox.centery), ui.INK, fb, "midleft")
+            m.text(surf, r[1], (rbox.x + 14 + name_w, rbox.centery), (150, 180, 220), fs, "midleft")
+        else:
+            m.text(surf, r[0], (rbox.x + 14, rbox.y + 6), ui.INK, fb)
+            m.text(surf, r[1], (rbox.x + 14, rbox.y + 6 + fb.get_linesize()), (150, 180, 220), fs)
+        cy = rbox.centery if role_inline else rbox.y + 6 + fb.get_linesize() // 2      # two-line rows: numbers on the name's line
+        for i, (xx, v) in enumerate(zip(xs, c)):
+            col = ui.TEXT
+            if i == len(c) - 1:
+                col = ui.GOOD if abs(float(v.replace(" Hz", ""))) < 0.2 else (240, 160, 60)
+            m.text(surf, v, (rbox.x + xx, cy), col, fs, "midleft")
         y += row_h + 6
 
     m.content_h[key] = max(0, y + off - body.bottom + 8)
@@ -603,7 +872,8 @@ def page_asymmetry(m: ui.Menu, surf, rect, mouse) -> None:
     def toggle():
         if hasattr(host, "toggle_mirror_weights"):
             host.toggle_mirror_weights()
-    m.button(surf, (rect.x + 24, rect.bottom - 58, 250, 42), btn_txt, toggle,
+    bw = max(250, fb.size(btn_txt)[0] + 32)
+    m.button(surf, (rect.x + 24, rect.bottom - 58, bw, 42), btn_txt, toggle,
              id=("asymmetry", "toggle_mirror"), tip="Toggle bilateral weight symmetrization [GAME RULE]")
     m.button(surf, (rect.right - 164, rect.bottom - 58, 140, 42), "Back", m.back, style="primary", id=("asymmetry", "back"))
 
@@ -616,10 +886,9 @@ def page_benchmark(m: ui.Menu, surf, rect, mouse) -> None:
     global _bench_job
     host = m.host
     m.text(surf, "SIMULATION BENCHMARK", (rect.x + 24, rect.y + 16), ui.INK, m.f_head)
-    m.text(surf, "Throughput, real-time pace, neurons/sec and memory footprint across 1, 8, and 16 flies.",
-           (rect.x + 24, rect.y + 50), ui.LABEL, m.f_small)
-
-    body = pygame.Rect(rect.x + 16, rect.y + 80, rect.w - 32, rect.h - 80 - 70)
+    top = max(rect.y + 80, m.subtitle(surf, rect, "Throughput, real-time pace, neurons/sec and memory footprint across 1, 8, and 16 flies.",
+                                      rect.y + 50))
+    body = pygame.Rect(rect.x + 16, top, rect.w - 32, rect.bottom - 70 - top)
     key = "lab_benchmark"
     off = int(m.scroll.get(key, 0))
     m.clip = body
@@ -632,21 +901,25 @@ def page_benchmark(m: ui.Menu, surf, rect, mouse) -> None:
         res = benchmark.load_benchmark_results()
         host._benchmark_results = res
 
-    # System card
-    card_h = 94
-    card = pygame.Rect(body.x, y, body.w - 12, card_h)
-    pygame.draw.rect(surf, (24, 28, 38), card, border_radius=8)
-    pygame.draw.rect(surf, (45, 52, 68), card, 1, border_radius=8)
-
+    # System card (3.0 release review: fixed 20 px line steps overlapped at larger text; the "synapses" it showed (10,272,125) are the weight matrix's nonzero
+    # entries, i.e. connections: the pack holds about 39 million synapses in them)
     sys_info = (res or {}).get("system") or benchmark.get_system_info()
     b_name = (res or {}).get("backend") or getattr(getattr(getattr(host, "brain", None), "sim", None), "backend", None)
     b_name = getattr(b_name, "name", str(b_name or "CPU (NumPy)"))
     b_dev = (res or {}).get("device") or getattr(getattr(getattr(host, "brain", None), "sim", None), "backend", None)
     b_dev = getattr(b_dev, "device", str(b_dev or "CPU"))
-    m.text(surf, f"CPU: {sys_info.get('cpu_model')} ({sys_info.get('cpu_count')} threads)", (card.x + 14, card.y + 12), ui.INK, m.f_bold)
-    m.text(surf, f"OS: {sys_info.get('os')}  ·  Python: {sys_info.get('python')}", (card.x + 14, card.y + 32), ui.TEXT, m.f_small)
-    m.text(surf, f"Sim Backend: {b_name}  ·  Device: {b_dev}", (card.x + 14, card.y + 50), (120, 220, 240), m.f_small)
-    m.text(surf, "Connectome: Janelia MaleCNS v1.0 (166,700 neurons, 10,272,125 synapses)", (card.x + 14, card.y + 70), (140, 180, 220), m.f_small)
+    lines = [(f"CPU: {sys_info.get('cpu_model')} ({sys_info.get('cpu_count')} threads)", ui.INK, m.f_bold),
+             (f"OS: {sys_info.get('os')}  ·  Python: {sys_info.get('python')}", ui.TEXT, m.f_small),
+             (f"Sim Backend: {b_name}  ·  Device: {b_dev}", (120, 220, 240), m.f_small),
+             ("Connectome: Janelia MaleCNS v1.0 (166,700 neurons, 10,272,125 connections)", (140, 180, 220), m.f_small)]
+    cw = body.w - 12
+    card_h = 20 + sum(len(ui.Menu.fit_lines(f, t, cw - 28, 3)[0]) * f.get_linesize() + 2 for t, _, f in lines)
+    card = pygame.Rect(body.x, y, cw, card_h)
+    pygame.draw.rect(surf, (24, 28, 38), card, border_radius=8)
+    pygame.draw.rect(surf, (45, 52, 68), card, 1, border_radius=8)
+    yy = card.y + 10
+    for t, col, f in lines:
+        yy = m.wrapped(surf, t, (card.x + 14, yy), cw - 28, col, f, max_lines=3) + 2
     y += card_h + 16
 
     # Results Table
@@ -686,8 +959,8 @@ def page_benchmark(m: ui.Menu, surf, rect, mouse) -> None:
                (body.x + 12, y + 10), ui.LABEL, m.f_small)
         y += 36
     else:
-        m.text(surf, "No benchmark results found. Click 'Run Benchmark' to measure multi-fly simulation throughput.",
-               (body.x + 14, y + 10), ui.TEXT, m.f_text)
+        m.wrapped(surf, "No benchmark results found. Click 'Run Benchmark' to measure multi-fly simulation throughput.",
+                  (body.x + 14, y + 10), body.w - 40, ui.TEXT, m.f_text, max_lines=3)
         y += 40
 
     m.content_h[key] = max(0, y + off - body.bottom + 8)
@@ -736,7 +1009,8 @@ def install(menu: ui.Menu) -> None:
     menu.pages["lab_assumptions"] = page_assumptions
     menu.pages["lab_asymmetry"] = page_asymmetry
     menu.pages["lab_benchmark"] = page_benchmark
-    from kickthefly.lab import labclassroom, labclamp, labcritical, labdiff, lablaser, labpsych, labwiring
+    from kickthefly.lab import labclassroom, labclamp, labcritical, labdiff, lablaser, labpsych, labtoolkit, labwiring
+    menu.pages.update(labtoolkit.PAGES)                 # 3.0 day 2: genetic toolkit, thermogenetics, patch, imaging, pharmacology
     menu.pages["lab_wiring"] = labwiring.page
     menu.pages["lab_critical"] = labcritical.page
     menu.pages["lab_clamp"] = labclamp.page
@@ -744,6 +1018,14 @@ def install(menu: ui.Menu) -> None:
     menu.pages["lab_laser"] = lablaser.page
     menu.pages["lab_psych"] = labpsych.page
     menu.pages["lab_classroom"] = labclassroom.page
+    from kickthefly.lab import labrigs
+    labrigs.install(menu)                                         # 3.0 day 5: Behavior rigs (hub + four scenes)
+    from kickthefly.ui import minipaper_ui
+    minipaper_ui.install(menu)                                    # 3.0 day 5: Mini-papers
+    from kickthefly.lab import labday4
+    menu.pages["lab_netsci"] = labday4.page_netsci                # 3.0 day 4
+    menu.pages["lab_sleepdep"] = labday4.page_sleepdep
+    menu.pages["lab_sensitivity"] = labday4.page_sensitivity
     ui.TAG_COLORS.setdefault("MODEL", (150, 120, 220))
 
 
@@ -751,6 +1033,14 @@ def short(path, n: int = 70) -> str:
     """A long path shortened in the middle so it fits on one line."""
     t = str(path)
     return t if len(t) <= n else t[: n // 2 - 2] + "…" + t[-(n // 2 - 1):]
+
+
+def fit_path(font, prefix: str, path, width: int) -> str:
+    """prefix + path on one line of at most `width` px, the path shortened in the middle (a path has no spaces to wrap at)."""
+    n = len(str(path))
+    while n > 12 and font.size(prefix + short(path, n))[0] > width:
+        n -= 4
+    return prefix + short(path, n)
 
 
 # --- charts ----------------------------------------------------------------------------------------------------------
@@ -848,15 +1138,17 @@ def page_assays(m: ui.Menu, surf, rect, mouse) -> None:
 
     st, host = _state(m), m.host
     m.text(surf, "ASSAYS AND REPEATED TRIALS", (rect.x + 24, rect.y + 16), ui.INK, m.f_head)
-    m.text(surf, "Each fly is a fresh, untrained brain with its own seed. Your saved training memory isn't used or "
-                 "changed.", (rect.x + 24, rect.y + 48), ui.LABEL, m.f_small)
-    x0, y = rect.x + 24, rect.y + 78
+    y = m.subtitle(surf, rect, "Each fly is a fresh, untrained brain with its own seed. Your saved training memory isn't used or changed.")
+    x0 = rect.x + 24
     busy = st.job is not None and st.job.running
     m.text(surf, "Assay", (x0, y + 15), ui.TEXT, m.f_text, "midleft")
-    m.segmented(surf, (x0 + 110, y, 520, 30), [labjobs.ASSAY_LABEL[k] for k in labjobs.ASSAYS],
-                labjobs.ASSAYS.index(st.kind), lambda i: setattr(st, "kind", labjobs.ASSAYS[i]), id="assay_kind",
-                enabled=not busy)
-    y += 40
+    # 3.0 release review: eight assays in one segmented row gave each 101 px, too narrow for most names; they flow over rows now
+    if busy:
+        m.text(surf, labjobs.ASSAY_LABEL[st.kind] + " (running)", (x0 + 110, y + 15), ui.INK, m.f_bold, "midleft")
+        y += 40
+    else:
+        y = m.flow_buttons(surf, x0 + 110, y, rect.right - 24, [(labjobs.ASSAY_LABEL[k], (lambda k=k: setattr(st, "kind", k)), ("assay_kind", k),
+                                                                st.kind == k, None) for k in labjobs.ASSAYS], h=30) + 10
     m.text(surf, "Flies", (x0, y + 15), ui.TEXT, m.f_text, "midleft")
     m.slider(surf, (x0 + 110, y, 300, 30), st.flies, 2, 30, 1, "{:.0f}", lambda v: setattr(st, "flies", int(v)),
              lambda: None, id="assay_flies", enabled=not busy,
@@ -954,6 +1246,35 @@ def draw_assay_result(m: ui.Menu, surf, area: pygame.Rect, res: dict) -> None:
         draw_chart(m, surf, chart, xs, series, "approach speed (m/s)", "escape probability", y_max=1.0)
         rows = [(f"{r['speed']:g} m/s", f"{r['escapes']}/{r['approaches']} escaped, latency {_ci(r['latency_s'])} s",
                  (f"{cr['escapes']}/{cr['approaches']}" if c else "")) for r, cr in zip(t["rows"], c["rows"] if c else t["rows"])]
+    elif kind == "predator_escape":
+        xs = [r["predator"] for r in t["rows"]]
+        ci = [dict(mean=r["escape_probability"], lo=r["ci95"][0], hi=r["ci95"][1]) for r in t["rows"]]
+        draw_chart(m, surf, chart, xs, [("escape probability (Wilson 95% CI)", ui.ACCENT, ci)], "predator",
+                   "escape probability", y_max=1.0, connect=False)
+        rows = [(r["predator"], f"{r['escapes']}/{r['trials']} escaped, 95% CI {r['ci95'][0]:.2f}-{r['ci95'][1]:.2f}",
+                 f"{r['escapes']}/{r['trials']}") for r in t["rows"]]
+        rows.append(("MODEL PREDICTION", "the attack is a game rule; an escape = DNp01 above the game's escape rule before the capture", ""))
+    elif kind == "sleep_deprivation":
+        mm = t["mean"]
+        draw_chart(m, surf, chart, ["deprivation window", "recovery window"],
+                   [("control", (200, 200, 200), [dict(mean=mm["deprivation_sleep_control"], lo=float("nan"), hi=float("nan")),
+                                                  dict(mean=mm["recovery_sleep_control"], lo=float("nan"), hi=float("nan"))]),
+                    ("deprived", ui.ACCENT, [dict(mean=mm["deprivation_sleep_deprived"], lo=float("nan"), hi=float("nan")),
+                                             dict(mean=mm["recovery_sleep_deprived"], lo=float("nan"), hi=float("nan"))])],
+                   "window", "sleep (s)", connect=False)
+        rows = [(f"{cid} {'PASS' if x['passed'] else 'FAIL'}", x["label"] + (f", {labstats.fmt_p(x['p'])}" if "p" in x else ""), "")
+                for cid, x in t["criteria"].items()]
+        rows.append(("GAME RULE", "sleep pressure, disturbances, what counts as sleep", ""))
+        rows.append(("CONNECTOME", "the dFB firing the pressure drives; MODEL PREDICTION: the rebound", ""))
+    elif kind == "thermo_escape":
+        xs = [r["temperature_c"] for r in t["rows"]]
+        mk = lambda key: [dict(mean=r[key], lo=float("nan"), hi=float("nan")) for r in t["rows"]]   # noqa: E731
+        draw_chart(m, surf, chart, xs, [("TrpA1 in DNp01", ui.ACCENT, mk("escape_rate")),
+                                        ("control (no expression)", (200, 200, 200), mk("control_rate"))],
+                   "temperature (C)", "escape rate", y_max=1.0, x_fmt="{:g}")
+        rows = [(f"{r['temperature_c']:g} C", f"{r['escapes']}/{r['flies']} escaped (control {r['control_escapes']}), "
+                 f"DNp01 {_ci(r['dnp01_hz'], '{:.0f}')} Hz", f"{r['escapes']}/{r['flies']}") for r in t["rows"]]
+        rows.append(("MODEL", "the temperature curve is a game rule; escape = the game's DNp01 rule", ""))
     else:
         xs = [r["dose"] for r in t["rows"]]
         series = [(tl, ui.ACCENT, [r["mn9_ratio"] for r in t["rows"]])]
@@ -1132,6 +1453,45 @@ def resolve_group(br, spec: str):
     return simcore.rows_of(br, spec)
 
 
+def make_bundle(host, st) -> tuple[str | None, str]:
+    """Lab > Record and export > Bundle (also on the Protocols page): zip the last protocol run (rerunnable with
+    --rerun-bundle), or else the last live recording (a record, not rerunnable: the stimuli were delivered by hand).
+    Returns (path, message). See kickthefly/lab/bundle.py for what is in it."""
+    import json
+    import time
+    from pathlib import Path
+
+    from kickthefly.lab import bundle, recorder
+
+    out_dir = recorder.exports_dir() / "bundles"
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    try:
+        job = getattr(st, "proto_job", None)
+        folder = job.get("folder") if job else None
+        if folder and (Path(folder) / "protocol.json").exists():
+            z = bundle.create(Path(folder), out_dir / f"{stamp}-{Path(folder).name}.zip")
+            return str(z), "Bundled the last protocol run: it can be rerun with --headless --rerun-bundle."
+        last = getattr(host, "last_export", None)
+        if last and Path(last).is_dir():
+            files = [f for f in sorted(Path(last).iterdir()) if f.is_file()]
+            meta_file = next((f for f in files if f.name.endswith("-metadata.json")), None)
+            meta = json.loads(meta_file.read_text(encoding="utf-8")) if meta_file else {}
+            sim = host.brain.sim
+            extra = dict(seeds=[meta.get("seed", getattr(host.brain, "seed", 0))], arena=meta.get("arena"),
+                         parameters=meta.get("lab_params_modified", {}), surgery=meta.get("surgery", {}),
+                         surgery_by_type=meta.get("surgery_by_type", {}), backend=sim.backend.name,
+                         dtype=str(sim.p.dtype), individuality=str(host.cfg["brain.individuality"]))
+            z = bundle.create_live(files, extra, out_dir / f"{stamp}-{Path(last).name}.zip",
+                                   {"name": "live-recording", "note": "recorded live in the Lab; stimuli by hand"})
+            return str(z), "Bundled the last live recording (a record: it can't be rerun, and says why)."
+        return None, "Nothing to bundle yet: run a protocol or make a recording first."
+    except Exception as e:                        # a bundle is never worth a crash
+        from kickthefly.core.crash import log
+
+        log.exception("bundling failed")
+        return None, f"Couldn't make the bundle: {e}"
+
+
 def page_export(m: ui.Menu, surf, rect, mouse) -> None:
     from kickthefly.lab import recorder
 
@@ -1139,11 +1499,10 @@ def page_export(m: ui.Menu, surf, rect, mouse) -> None:
     if not hasattr(st, "rec_pick"):
         st.rec_pick, st.rec_seconds = {"dnp01", "loom", "reaction_dns"}, 10
     m.text(surf, "RECORD AND EXPORT", (rect.x + 24, rect.y + 16), ui.INK, m.f_head)
-    m.text(surf, "Records spike times from the fly your brain panel shows, live, while you play. Files: spikes and rates "
-                 "as CSV and npz, plus a metadata JSON.", (rect.x + 24, rect.y + 48), ui.LABEL, m.f_small)
+    y = max(rect.y + 84, m.subtitle(surf, rect, "Records spike times from the fly your brain panel shows, live, while you play. Files: spikes and "
+                                                "rates as CSV and npz, plus a metadata JSON."))
     if not hasattr(st, "rec_nwb"):
         st.rec_nwb = True
-    y = rect.y + 84
     options = list(RECORD_GROUPS)
     insp = getattr(host, "inspect", None)
     if insp:
@@ -1174,21 +1533,40 @@ def page_export(m: ui.Menu, surf, rect, mouse) -> None:
                            "plus the full metadata and the MaleCNS v1.0 citation. Opens in pynwb, the NWB inspector "
                            "and NWB Explorer. CSV and npz are always written as the quick option.")
     if why:
-        m.text(surf, why, (rect.x + 24, y + 34), ui.AMBER, m.f_small)
-        y += 20
+        y = m.wrapped(surf, why, (rect.x + 24, y + 34), rect.w - 48, ui.AMBER, m.f_small, max_lines=2) - 30
     y += 44
     rec = getattr(host, "recording", None)
     if rec is None:
-        m.button(surf, (rect.x + 24, y, 260, 44), "Start recording and resume", lambda: host.start_recording(
+        m.button(surf, (rect.x + 24, y, max(260, m.f_bold.size("Start recording and resume")[0] + 32), 44), "Start recording and resume", lambda: host.start_recording(
             [(lbl, s) for lbl, s in options if s in st.rec_pick], st.rec_seconds,
             nwb=bool(st.rec_nwb) and not why), style="primary", id="rec_start",
             enabled=bool(st.rec_pick), tip="Closes the menu; the recording stops by itself after the duration.")
     else:
         m.button(surf, (rect.x + 24, y, 200, 44), "Stop and save", host.stop_recording, style="danger", id="rec_stop")
-    m.text(surf, f"Saved to {short(recorder.exports_dir(), 110)}", (rect.x + 24, y + 56), ui.LABEL, m.f_small)
+    # one line each, the path cut in the middle to fit (a long Windows temp path has no spaces, so it ran into Bundle and Back)
+    ly, lh = y + 56, m.f_small.get_linesize()
+    m.text(surf, fit_path(m.f_small, "Saved to ", recorder.exports_dir(), rect.w - 220), (rect.x + 24, ly), ui.LABEL, m.f_small)
+    ly += lh
     last = getattr(host, "last_export", None)
     if last:
-        m.text(surf, f"Last: {short(last, 110)}", (rect.x + 24, y + 76), ui.GOOD, m.f_small)
+        m.text(surf, fit_path(m.f_small, "Last: ", last, rect.w - 220), (rect.x + 24, ly), ui.GOOD, m.f_small)
+        ly += lh
+    y = max(y, ly + 6 - 98)                                      # Bundle sits at y + 98: below the lines above it
+
+    def bundle_now():
+        path, msg = make_bundle(host, st)
+        st.bundle_msg = (msg, path)
+
+    m.button(surf, (rect.x + 24, y + 98, 200, 40), "Bundle", bundle_now, id="export_bundle",
+             tip="One zip with the protocol YAML, results, raw exports, metadata (version, backend, precision, seeds, brain "
+                 "pack checksum, parameters, surgery, individuality, arena) and an RO-Crate description. Bundles the "
+                 "last protocol run, or else the last recording. A protocol run's bundle can be rerun with "
+                 "--headless --rerun-bundle ZIP --out DIR.")
+    bm = getattr(st, "bundle_msg", None)
+    if bm:
+        m.text(surf, bm[0], (rect.x + 236, y + 103), ui.GOOD if bm[1] else ui.AMBER, m.f_small)
+        if bm[1]:
+            m.text(surf, short(bm[1], 120), (rect.x + 236, y + 121), ui.LABEL, m.f_small)
     m.button(surf, (rect.right - 164, rect.bottom - 58, 140, 42), "Back", m.back, style="primary", id=("export", "back"))
 
 
@@ -1212,6 +1590,23 @@ def protocol_files() -> list:
     return out
 
 
+def protocol_summary(p: dict) -> tuple[str, bool]:
+    """One line describing a checked protocol of any kind, and whether Lab > Protocols can run it (classroom lectures are stepped
+    through in Lab > Classroom instead)."""
+    flies = f"{len(p.get('seeds', []))} fly(s)"
+    if p.get("classroom"):
+        return f"classroom lecture, {len(p.get('steps', []))} steps (Lab > Classroom)", False
+    if "rig" in p:
+        r = p["rig"]
+        return f"behavior rig {r['name']}" + (f", {r['mode']}" if r.get("mode") else "") + f", {flies}", True
+    if "patch" in p:
+        return f"patch clamp of {p['patch'].get('neuron', '?')}, {flies}", True
+    if "assay" in p:
+        return f"assay {p['assay']}, {flies}" + (", with surgery + control" if p.get("surgery") else ""), True
+    return (f"{len(p.get('stimuli', []))} stimuli, {len(p.get('recordings', []))} recordings, {flies}"
+            + (", with surgery + control" if p.get("surgery") else "")), True
+
+
 def page_protocols(m: ui.Menu, surf, rect, mouse) -> None:
     import threading
 
@@ -1221,23 +1616,33 @@ def page_protocols(m: ui.Menu, surf, rect, mouse) -> None:
 
     st = _state(m)
     m.text(surf, "PROTOCOLS", (rect.x + 24, rect.y + 16), ui.INK, m.f_head)
-    m.text(surf, f"YAML experiment files. Put your own in {short(paths.get().data_dir / 'protocols', 60)}. Headless: "
-                 "KickTheFly --headless --protocol FILE", (rect.x + 24, rect.y + 48), ui.LABEL, m.f_small)
+    top = m.wrapped(surf, f"YAML experiment files. Put your own in {short(paths.get().data_dir / 'protocols', 60)}. Headless: "
+                          "KickTheFly --headless --protocol FILE", (rect.x + 24, max(m.under_heading(rect), rect.y + 48)), rect.w - 48, ui.LABEL, m.f_small, max_lines=3) + 10
     job = getattr(st, "proto_job", None)
     busy = job is not None and job["thread"].is_alive()
-    y = rect.y + 84
-    for f in protocol_files()[:12]:
+    # 3.0 release review: the list showed only the first 12 files (the four rig protocols and others could not be run from here), was not
+    # clipped (rows ran under the Back button), and a classroom, patch or rig protocol showed a KeyError ('stimuli') as its summary.
+    body = pygame.Rect(rect.x + 16, top, rect.w - 32, rect.bottom - 110 - top)
+    key = "lab_protocols"
+    off = int(m.scroll.get(key, 0))
+    prev = surf.get_clip()
+    surf.set_clip(body)
+    m.clip = body
+    y = body.y - off
+    rh = max(42, m.f_bold.get_linesize() + m.f_small.get_linesize() + 10)
+    bh = max(30, m.f_small.get_linesize() + 12)
+    for f in protocol_files():
+        runnable = True
         try:
             p = protocol.load(f)
-            desc = (f"assay {p['assay']}, " if "assay" in p else f"{len(p['stimuli'])} stimuli, {len(p['recordings'])} "
-                    f"recordings, ") + f"{len(p['seeds'])} fly(s)" + (", with surgery + control" if p.get("surgery") else "")
+            desc, runnable = protocol_summary(p)
             err = None
         except Exception as e:
-            desc, err, p = str(e), True, None
-        row = pygame.Rect(rect.x + 24, y, rect.w - 48, 42)
+            desc, err, p = f"{type(e).__name__}: {e}", True, None
+        row = pygame.Rect(rect.x + 24, y, rect.w - 48, rh)
         pygame.draw.rect(surf, (26, 30, 40), row, border_radius=8)
         m.text(surf, f.name, (row.x + 12, row.y + 4), ui.INK, m.f_bold)
-        m.text(surf, desc[:120], (row.x + 12, row.y + 23), ui.BAD if err else ui.LABEL, m.f_small)
+        m.wrapped(surf, desc, (row.x + 12, row.y + 4 + m.f_bold.get_linesize()), row.w - 140, ui.BAD if err else ui.LABEL, m.f_small, max_lines=1)
 
         def start(p=p):
             j = dict(done=0, total=1, folder=None, error=None, name=p["name"])
@@ -1253,9 +1658,13 @@ def page_protocols(m: ui.Menu, surf, rect, mouse) -> None:
             j["thread"].start()
             st.proto_job = j
 
-        m.button(surf, (row.right - 110, row.y + 6, 96, 30), "Run", start, id=("proto", f.name),
-                 enabled=not err and not busy, font=m.f_small)
-        y += 50
+        m.button(surf, (row.right - 110, row.centery - bh // 2, 96, bh), "Run", start, id=("proto", f.name),
+                 enabled=not err and not busy and runnable, font=m.f_small,
+                 tip=None if runnable or err else "A classroom lecture: step through it in Lab > Classroom.")
+        y += rh + 8
+    m.content_h[key] = max(0, y + off - body.bottom)
+    surf.set_clip(prev)
+    m.clip = None
     if job is not None:
         if busy:
             frac = job["done"] / max(1, job["total"])
@@ -1267,4 +1676,14 @@ def page_protocols(m: ui.Menu, surf, rect, mouse) -> None:
             m.text(surf, job["error"], (rect.x + 24, rect.bottom - 90), ui.BAD, m.f_small)
         elif job["folder"]:
             m.text(surf, f"Done: {short(job['folder'], 110)}", (rect.x + 24, rect.bottom - 90), ui.GOOD, m.f_small)
+
+            def bundle_run():
+                path, msg = make_bundle(m.host, st)
+                st.bundle_msg = (msg, path)
+
+            m.button(surf, (rect.right - 320, rect.bottom - 58, 140, 42), "Bundle", bundle_run, id=("proto", "bundle"),
+                     tip="Zip this run with its protocol, metadata and an RO-Crate description, so it can be rerun and checked.")
+            bm = getattr(st, "bundle_msg", None)
+            if bm:
+                m.text(surf, bm[0], (rect.x + 24, rect.bottom - 70), ui.GOOD if bm[1] else ui.AMBER, m.f_small)
     m.button(surf, (rect.right - 164, rect.bottom - 58, 140, 42), "Back", m.back, style="primary", id=("proto", "back"))

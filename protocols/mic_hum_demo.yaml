@@ -1,0 +1,7 @@
+# 3.0 day 3, Microphone -> Johnston's organ: the hum demo (labjobs "hum_demo"). A SYNTHETIC hum (no microphone) goes through the
+# same analysis the microphone uses onto the real JO-A/JO-B neurons, and the courtship pathway is read out: does humming reach P1, and
+# the song motor neurons? Seeds 1000-1009; the pass criteria are in kickthefly/lab/audio.py (CRITERIA), written before the run.
+name: mic-hum-demo
+assay: hum_demo
+seed: 1000
+flies: 10

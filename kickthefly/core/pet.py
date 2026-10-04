@@ -45,7 +45,6 @@ from typing import Any
 import numpy as np
 
 from kickthefly.core import paths
-from kickthefly.core.individuality import compute_personality_card
 
 logger = logging.getLogger("kickthefly.pet")
 
@@ -88,7 +87,8 @@ class PetManager:
         self.real_stakes: bool = False  # Immortal by default
         self.is_dead: bool = False
         self.timeline: list[dict[str, Any]] = []
-        self.personality_card: dict[str, Any] = {}
+        self.personality_card: dict[str, Any] = {}       # the pet fly's MEASURED card (core/cards.py), or {} until it is measured
+        self.legacy_personality_card: dict[str, Any] | None = None   # a pre-3.0-day-4 card drawn from the seed: kept, never shown
         self.welcome_message: str = ""
 
     def exists(self) -> bool:
@@ -110,7 +110,7 @@ class PetManager:
         self.timeline = [
             asdict(PetTimelineEvent(timestamp=now, event_type="born", description=f"Adopted {self.brain_type} fly!"))
         ]
-        self.personality_card = compute_personality_card(self.seed, mode="subtle")
+        self.personality_card = {}                       # measured later, for the pet fly's own brain (3.0 day 4 review)
         self.welcome_message = f"Welcome to Pet Mode! Meet your new {self.brain_type}."
         self.save()
 
@@ -165,7 +165,19 @@ class PetManager:
         self.real_stakes = bool(data.get("real_stakes", False))
         self.is_dead = bool(data.get("is_dead", False))
         self.timeline = list(data.get("timeline", []))
-        self.personality_card = data.get("personality_card") or compute_personality_card(self.seed, mode="subtle")
+        # 3.0 day 4 review: a pet file from before carries a card DRAWN from pet.seed (not measured, and not even the seed the pet's
+        # brain is built from). It is kept as legacy_personality_card and never shown as the pet's; a measured card is kept as is.
+        from kickthefly.core import cards
+
+        card = data.get("personality_card")
+        legacy = data.get("legacy_personality_card")
+        self.legacy_personality_card = legacy if isinstance(legacy, dict) else None
+        if cards.check_pet_card(card):
+            self.personality_card = card
+        else:
+            self.personality_card = {}
+            if isinstance(card, dict) and card and self.legacy_personality_card is None:
+                self.legacy_personality_card = card
 
     def _apply_catchup(self) -> None:
         """Deterministic wall-clock catch-up rule on game launch."""
@@ -295,6 +307,7 @@ class PetManager:
             "is_dead": self.is_dead,
             "timeline": self.timeline[-50:],  # keep last 50 events
             "personality_card": self.personality_card,
+            **({"legacy_personality_card": self.legacy_personality_card} if self.legacy_personality_card else {}),
         }
 
         # Backup existing file before overwrite

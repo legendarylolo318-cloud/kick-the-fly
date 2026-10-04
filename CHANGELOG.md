@@ -1,5 +1,190 @@
 # Changelog
 
+## 3.0.0 (2026-10-03)
+
+The whole release in one page, by feature: [docs/changelog.md](docs/changelog.md). This file keeps it day by day, with the reviews; the decisions,
+known limits and what was never verified are in [docs/3.0-review.md](docs/3.0-review.md).
+
+### Release review (Opus, final day)
+Nothing the simulation does changed: `--validate` on the 3.0.0 code against `release/3.0` before day 5 is identical (2,025 values; only
+`created`, `seconds` and the app version differ; 21 tests, 12 PASS / 9 FAIL). The four rig assays were re-run on the held-out seeds and match
+day 5's files exactly. Release gate on fdec1ec (CPU backend, this machine): the 22 validation tests pass; the fast suite (re-run on f014f87 after the CI fixes) 1,284 passed,
+0 failed, 23 skipped (the three larva-pack tests skip without the optional pack); `--selftest` 22 passed, 1 warning (pynwb), 0 failed;
+`--headless --playthrough adult` (re-run after the clock fix below) 342 passed, 0 failed, 4 gated by design, 14 skipped (before the fix
+the PASS/SKIP split moved from run to run: 345 and 12 here, 13-16 skipped on CI); `--smoke 3` in a real window, 3D and 2D, both exit 0;
+`tools/i18n_sync.py --check` clean. Files: `docs/results/3.0-release/`.
+Artifacts made by 2.13.1 itself (config, pet, save state, replay, the 25 bundled protocols) load in 3.0; the replay gives identical spikes.
+Fixed (regression tests in `tests/test_release_3_0.py` and `tests/test_layout_3_0.py`, which fail on the day 5 code):
+- `--rig-assay` ignored `--sim-backend`; the tethered scene's summary read only the first 99 s of a run (up to 600 s allowed); a rig protocol
+  accepted `params`, `nwb` and `assay_options` and silently ran with the defaults (now refused).
+- The tethered scene drew the panorama turning without the loop gain, and the tethered fly turning (it is fixed; its yaw is now a read-out line).
+- A mini-paper hypothesis could be changed after seeing the result and was then reported as matching; it is fixed when the run starts. The
+  quick verdict imports validation's thresholds instead of copies.
+- Citations checked against Europe PMC records and three open full texts: **Shiu et al. 2024 is open access and uses MN9 as its own readout**
+  (the mini-paper said MN9 was this game's choice); **the rig's stripe deviation is a different metric from Colomb et al.'s** (both have chance at
+  45 degrees, so only the direction compares); the Tully & Quinn, Hampel and Colomb numbers quoted are in the papers as stated.
+- The order-dependent test failure (`test_playthrough_extras::test_neurodex_extra_passes`, since day 1): `neurodex.table` cached by brain name,
+  so a background table build for the real pack that finished after a test switched to the synthetic pack was handed to the synthetic brain.
+  Now keyed by the pack file.
+- Text overlap and clipping, found with an offscreen sweep of every menu page at the game's real logical sizes (1280x760, and 900x1820 for a
+  narrow window), both text sizes, three palettes, English and German, then checked by eye: button labels now wrap or are cut with the full
+  label as a tooltip; about 25 pages were given layouts measured from the font (Model assumptions, Asymmetry, Classroom, Pharmacology,
+  Imaging, Laser, Clamp, Diff, Critical path, Assays, Robustness, loadout editor, Share, Benchmark, Challenges, Thermogenetics, Patch,
+  Neurodex, Mini-papers, Settings tabs and rows, the quit dialog, the bug report). A taller menu panel in tall (narrow) windows.
+- Page bugs found on the way: Classroom's lecture tabs were blank (an empty button drawn over each title) and used glyphs the Linux fallback
+  font lacks; Lab > Protocols listed only the first 12 files (the rig protocols could not be run from it), was not clipped, and showed a
+  KeyError for classroom protocols; the laser's quick targets never showed which was chosen; the Asymmetry page called partner counts
+  synapses, DNp01 a "braking" neuron and the 77,507 bilateral pairs "neurons" (it now says its table is recorded from `--audit-asymmetry`);
+  the Benchmark page called the 10,272,125 connections synapses; the patch clamp's mode switch overlapped "Use inspected"; two HUD stars
+  rendered as boxes; the toggle's On/Off and the menu's own strings were never translated (`tools/i18n_sync.py` now scans `ui/menu.py`).
+- Self-test: run from source outside the repository, its child processes could not import the package (a false gl FAIL and OpenGL warning).
+- **The exe and AppImage were missing the package's data files** (the Neurodex facts, the driver-line table, the translations):
+  `--collect-data kickthefly` was skipped by PyInstaller ("not a package"), and the self-test only warned, which the release workflow
+  accepts. Found by building the AppImage locally; both build scripts now add `kickthefly/data` explicitly, and a frozen build missing
+  its own data now FAILs the self-test.
+- CI (the release workflow had not run since 2.13.1): the three larva tests tried to download Data S1 and failed on every machine without
+  the optional pack since the day 3 network guard (they skip now, with the reason); on Windows `socket.socketpair()` goes over 127.0.0.1,
+  so that guard failed seven streamer, live-input and playthrough tests (loopback is allowed now); the new layout test failed with
+  Ubuntu's wider DejaVu Sans, which led to `Menu.bw`/`button_row` and label-sized buttons on every Lab page, the bug report and settings.
+  On Windows at larger text, Segoe UI's taller heading overlapped the description under it on six Lab pages that placed it at a fixed
+  height (Protocols, Model assumptions, Asymmetry, Behavior rigs, Classroom, the toolkit pages); they start under the heading's real line
+  height now (`Menu.under_heading`). The next Windows run showed two more pages the truncated message had hidden: Thermogenetics stepped
+  a fixed 22 px under its bold "Expression" label, and Record and export wrapped the exports path, which has no spaces on Windows, into the
+  Bundle and Back buttons (the path is now cut in the middle to fit one line). The batched gl test failed twice (2 of ~23 runs, same
+  920 < 920): a gl group waits only for a fly seen in the last 50 ms, and on llvmpipe a step takes ~0.5 s, so two flies that drifted
+  apart never batched again; the test now sizes those windows to llvmpipe (the product's defaults and the bit-exact check are unchanged).
+  The fixed clock then made the kitchen check fail on CI every time, and the cause was the check, not the game: each station's calm
+  second put the fly once and left it free, and a fly still fleeing the burner flew into the vinegar's smell, so the vinegar's
+  "calm" was DM1/DM2/DP1m already smelling it (~40 Hz instead of 1-2 Hz) and the vinegar's peak was judged against that. The fly is
+  now held at a spot out of the smell through the calm second (`KITCHEN_CALM`); the criterion is unchanged (vinegar: calm ~3 Hz,
+  peak ~54 Hz, needed 31-34 Hz, 10 of 10 clock origins locally).
+  On the merge PR's checks (2026-10-04 UTC) `test_the_neurodex_hides_everything_about_an_undiscovered_type` failed: the panel's Neuron
+  of the Day line names the day's curated type whether discovered or not (as documented), that day's pick was LPLC2, the type the
+  test hides. The test now leaves the date-picked card out; the Neurodex-related tests all pass with the date pinned to that day.
+  **The playthrough was not reproducible:** the game clock starts at `time.perf_counter()` and the fly's
+  flight bob, wind and wobble read that absolute time, so a run started at another moment drove the fly differently; 2D flypaper bomb and
+  spider failed on one CI run of code that had passed on two. The playthrough's games now start their clock at a fixed 1000.0 (chosen
+  before any result was seen); the same combo now gives identical numbers in separate processes. No pass criterion was changed.
+- 3D: Neurodex toasts are capped at three plus a count (a burst stacked dozens over the screen); the outdoor sky dome kept the day's blue at night
+  and in a storm.
+- `tools/make_screenshots.py`: it forces the offscreen driver (a desktop session's `SDL_VIDEODRIVER=wayland` made it open real windows that a
+  tiling window manager resized, so captures came out at the wrong size; the "448x906 window" earlier reviews met was the same thing); captures
+  skip the first-launch tutorial, the Neuron of the Day card and Neurodex toasts; six 3.0 scenes (Neurodex, kill cam, a rig, a mini-paper,
+  the arcade, What's New). The README screenshots and the demo were remade with the 3.0 build.
+- Version 3.0.0 (`core/version.py`, which the exe's file properties and the AppImage read; `CITATION.cff`; the AppStream release list).
+
+### Day 5 (behavior rigs, mini-papers, release polish)
+Added. Nothing the simulation does changed: `--validate` was diffed against the setup baseline on this machine (identical; `docs/results/day5/`).
+- **Behavior rigs** (Lab > Behavior rigs, `--rig NAME`, `--rig-assay NAME`, `protocols/rig_*.yaml`, `docs/rigs.md`): a tethered flight simulator, a fly on a
+  ball, Buridan's paradigm and a four-field olfactory arena. Yaw is read from DNa01 + DNa02 right minus left, walking from DNp09, wide-field motion goes
+  through the existing optomotor stage, a stripe or bar through the duel's LC10 tracking rule. Pre-registered criteria (committed before any held-out
+  run) and an `--individuality off` control for each. Results on seeds 1000-1009: tethered PASS, ball PASS, Buridan PASS, olfactory arena **FAIL** (PI
+  +0.005, p = 0.69); the control gives the same outcomes. Exports in the Lab's recorder format plus a trace CSV.
+- **Guided mini-papers** (Esc > Mini-papers, Lab > Mini-papers, `--minipaper ID`, `docs/minipapers.md`): von Reyn 2014, Tully & Quinn 1985, Shiu 2024, Hampel
+  2015, Ohyama 2015 and Colomb 2012 (Buridan). Hypothesis, run, plot, then your result next to what the paper states (abstract or full text, said which),
+  with why where the model misses. Built on the lecture protocol system (`classroom.EXTRA_LECTURES`); the experiments are the validation's own tests.
+- **What's New in 3.0**: one skippable screen on the first launch after an upgrade; `[first_run] whatsnew_3_0_seen` is a migrated config key (a missing
+  key means not seen; a fresh install starts with it set); Settings > Help brings it back.
+- Neurodex: curated facts for the sugar and bitter SEL neurons (Yao & Scott 2022). Python API `rig`, `rig_assay`, `minipaper`; selftest `day5`; three
+  playthrough checks; 81 localization strings; two Lab > Model assumptions cards; the main docstring; `docs/changelog.md` (new, consolidated).
+- Fixed: `docs/validation.md` cited Ohyama et al. 2015 with the DOI of an unrelated paper (10.1038/nature14424); the right one is 10.1038/nature14297.
+
+### Day 4 (network science, sensitivity analysis, sleep deprivation, fly tournament, fly racing)
+Added. Nothing the simulation does changed: `--validate` was diffed against `release/3.0` (2,027 values, identical). The only edits near
+validation are optional arguments (`params`, `only`) that default to the old behavior.
+- **Fly tournament** (Esc > Fly arcade, `--tournament N`): brackets of 4, 8 or 16, brain-vs-brain duels (`game/flyduel.py`), measured
+  personality cards, a favorite, match replays, the champion's drivers, and a pre-registered personality-predicts-winning analysis.
+- **Fly racing** (Esc > Fly arcade, `--race`): lures, brain-driven speed, odds from the cards, **points only** (`core/points.py`), replays and a
+  race assay (repeatability, form, odds calibration).
+- **Network science** (Lab, `--netsci`): degrees, reciprocity, motifs vs a degree-preserving null, rich club, communities, regions, cached with
+  a checksum, CSV export, background job with a progress bar. Adult and larva.
+- **Sleep deprivation assay** (Lab, `--sleep-deprivation`, protocol assay kind `sleep_deprivation`): paired deprivation vs control; GAME RULE
+  pressure, CONNECTOME dFB readout, MODEL PREDICTION rebound.
+- **Sensitivity analysis** (Lab, `--sensitivity`): LIF parameters and the synapse threshold across a documented range against every validated
+  behavior with validation's own criteria; heatmap, CSV/JSON/SVG, resumable, worker processes. Analysis only.
+- Python API (`network_science`, `tournament`, `race`, `sleep_deprivation`, `sensitivity`, `fly.card`, `fly.duel`), `--selftest` day4 check,
+  seven playthrough checks, five Lab > Model assumptions cards, the main docstring, 104 localization strings, five docs pages.
+- `tools/run_tests.py`: the test suite in balanced chunks, a few at a time, with a memory guard and a per-file memory report
+  (`KTF_MEM_REPORT`); `tests/.durations.json` holds the timings it balances by.
+
+### Day 4 review (Opus)
+- The game shows only **measured** personality cards (`core/cards.py`; "card not measured" until Esc > Fly arcade > Measure the flies in play);
+  the pet shows its own fly's card; old pet cards are kept as `legacy_personality_card`.
+- Race test **R4** (pre-registered): individuality with the brain state held fixed, `--headless --race-r4`; PASS. Why R1's control was
+  repeatable: the per-seed calm baseline (docs/racing.md). `individuality_seed` (optional) in `new_brain`/`LIFParams`.
+- Network science analysis version 2: the rich club's own undirected null; undefined enrichments shown as such; networkx cross-check tool.
+- Fixes: Lab pages took each other's job results; Cancel waited for queued work; validation recorded default params and silently ignored
+  them for four tests; wallet crashes and negative balances; the test suite's leaked games (`Game.shutdown`, conftest); arcade layout at
+  larger text. T-maze sensitivity grid completed. `--validate` identical to release/3.0.
+
+### Day 3 (predators, weather, kitchen, microphone, Streamer mode) and its review
+Added, with the review's fixes folded in. Validation unchanged (diffed after each step; only three off-by-default Lab-parameter keys were added to the
+recorded metadata).
+- **Predators:** frog, dragonfly and mantis as tools in the room and the 2D game, seen only through the real looming neurons (LPLC2/LC4 -> DNp01);
+  `predator_escape` assay (frog 0/30, mantis 0/30, dragonfly 0/30 after the review fixed a capture-frame off-by-one that had counted 2/30).
+- **Rain, gusts and storms** (`weather.rain`, `weather.gust_hz`, `weather.storm`, off by default): touch, humidity, wind and light neurons.
+- **Kitchen arena** (E, `--arena kitchen`): bowl, vinegar trap, sink, burner and a cook whose swatter is a looming object.
+- **Microphone -> JO-A/B** (opt-in, off at every launch, red MIC ON pill, nothing recorded or sent) and `hum_demo` assay; **Streamer mode** (opt-in, off
+  at every launch and in Lab mode, anonymous read-only Twitch chat, `!tool` on, `!arena` and `!surgery` off by default, every connection shown).
+- Review: a hidden second Twitch connection after toggling; a click pulled a fly out of a frog's mouth; the neuPrint skeleton fetch ignored the network
+  switch (now opt-in: Settings > Brain, one question after the tutorial); the test suite leaked a game per `LiveInputs` (20 GB); the model disagrees with
+  Zhou et al. 2015 on pC1 tuning (stated); frog, mantis and dragonfly redrawn.
+
+### Day 2 decisions and review
+- A calm, untouched fly discovers nothing in the Neurodex (the rule is unchanged; discoveries now need a touch or a drive); the imaging F0 time constant
+  (`brain.imaging_f0_tau_s`) and 5 Hz are settings; GCaMP6 kernels are from Chen et al. 2013 Supplementary Table 3 (GCaMP6f half-decay 142 ms, not 140).
+- Review: Imaging mode never turned on on the real pack (a race); the inspector's PATCH button was off its card; the thermo page showed the idle slider;
+  conftest forces the dummy SDL drivers (a Wayland shell opened real windows).
+
+### Day 1 review
+- A calm fly "discovered" ~190 types a minute: the rule gained a Poisson test whose alpha comes from a stated budget; curated facts matched against the
+  real pack (EPG, JO-C/E prefixes); a share code could write outside the exports folder and could make the protocol checker build a billion seeds;
+  double key bindings around D.
+
+### Day 2 (genetic toolkit, thermogenetics, patch clamp, imaging, pharmacology)
+Added, all in the Lab and all tagged on screen. Existing validation results are unchanged (diffed); the only edits near the simulation
+are inert hooks on `Brain` (named extra currents, a per-step probe) and optional fields on `sim.wiring.Wiring`.
+- **Genetic toolkit:** choose neurons by split-GAL4 line (`line:SS00727`); `kickthefly/data/driver_lines.yaml` (2,667 lines, Meissner
+  et al. 2025, CC BY 4.0) built by `tools/build_driver_lines.py`; off-target note from the source's quality score. No GAL4 (non-split) table.
+- **Thermogenetics:** TrpA1 and shibire-ts by cell type or line; temperature from the thermo arena, a Lab slider or a protocol; assay
+  `thermo_escape` (DNp01 escape rate vs temperature).
+- **Virtual patch clamp** (Lab > Patch clamp, inspector PATCH): potential, spikes, current steps, I-F curve, CSV/NWB. MODEL.
+- **Simulated calcium imaging** (Lab > Calcium imaging): Imaging mode in the brain view, GCaMP6s/6f/8m, ROI traces, CSV/NWB/TIFF. MODEL.
+- **Pharmacology** (Lab > Pharmacology): picrotoxin (moved from Robustness), cholinergic block, glutamate-Cl block, GABA-A agonist,
+  dose slider, synapses affected per confidence level, include/exclude low-confidence predictions. MODEL PREDICTION.
+- Protocols: `thermogenetics:`, `drug:`, `imaging:` blocks and a `patch:` protocol kind; seven example protocols. Python API: `fly.line`,
+  `express`, `temperature`, `patch`, `image`, `drug`, `washout`. Settings > Brain: imaging indicator and frame rate. `--selftest` checks the
+  toolkit. Playthrough: six new checks. Lab > Model assumptions: five new cards. docs/genetics.md, thermogenetics.md, patchclamp.md,
+  imaging.md, pharmacology.md.
+
+Day 1 of the 3.0 build. Nothing the simulation does changed: `kickthefly/lab/validation.py`, `assays.py` and `kickthefly/sim/` are
+untouched, and no rule or threshold was tuned.
+
+### Added
+- **Neurodex** (D, Esc > Neurodex, d-pad up): a collectible encyclopedia of cell types. A type is discovered the first time its
+  neurons fire well above their calm rate while you play (GAME RULE). Entries show the dataset's numbers (CONNECTOME) and, for about
+  30 types, a one-line fact with its checked citation (LITERATURE). Progress per region, saved next to the training memory; the larva
+  has its own list. docs/neurodex.md.
+- **Neuron of the Day:** a launch card with one curated type, its fact and a Try it button (Lab laser or brain surgery). Own setting,
+  default on, own off switch; separate from the real-science cards.
+- **Kill cam** (;, d-pad down): slow-motion replay of the last ~6 s of the brain on death, with the neurons whose firing rose most
+  highlighted; skippable, saved with the existing recorder; Reduced flashing slows it and steadies the highlight. docs/killcam.md.
+- **Experiment bundles:** Lab > Record and export > Bundle, `--bundle ZIP` with `--protocol`, and `--headless --rerun-bundle ZIP --out DIR`
+  (bit-exact on CPU backends, statistical on GPU; an RO-Crate 1.1 description with a SHA-256 for every file). docs/bundles.md.
+- **Share codes:** Esc > Share makes and imports `KTF1-...` codes for surgeries, loadouts, protocols, challenge setups and Lab parameters,
+  with a preview before applying and a file fallback for codes over 1,200 characters. `--share-decode CODE`. docs/share-codes.md.
+- Settings > Brain: Neurodex discoveries, Kill cam offer, Neuron of the day (all default on). Keys: Neurodex (D), Kill cam (;).
+  Gamepad: Neurodex (d-pad up), Kill cam / skip (d-pad down). Ctrl+V pastes into the menu's text boxes.
+- Python API: `fly.collect()`, `fly.neurodex(type)`, `fly.killcam()`, `fly.kill()`, `fly.killcam_replay()`.
+- The self-test checks the Neurodex facts; the playthrough bot checks discovery, the kill cam, share codes and a bundle rerun.
+- Lab > Model assumptions: five new cards tagging each new behavior.
+
+### Changed
+- Per-fly protocol metadata now also records the backend and precision that ran and a SHA-256 of the recorded spikes (extra keys only).
+- The pause menu has Neurodex and Share entries (slightly smaller buttons).
+- D is both walk-right and the Neurodex key in 3D: the Neurodex opens on D only while the mouse is free. Configs that already use D
+  for something else keep it and start with the Neurodex unbound.
+
 ## 2.13.1 (2026-09-30)
 
 2.13.0 was tagged, but its release run stopped before publishing any files, so 2.13.0 ships as 2.13.1. Nothing in the
@@ -112,7 +297,7 @@ fixes, PR #11) ships as 2.12.0.
   they are unreachable while the larva game falls back to the adult.
 - `test_batched_gpu_plastic_weights_with_individuality` uses backend `"torch-gpu"`, which is not a backend name, so
   on a CUDA/ROCm machine it runs NumPy and never tests the GPU.
-- `CHANGES_GEMINI_2.11.md` is kept as Gemini wrote it and contains claims that did not hold (larva validation x1.00 /
+- `CHANGES_GEMINI_2.11.md` (removed at 3.0.0; in git history) was kept as Gemini wrote it and contains claims that did not hold (larva validation x1.00 /
   x1.06, a CC BY-NC-SA license for the larva data, σ 0.30 for strong, torch-cpu bit-exact with individuality, the
   larva benchmark and a <0.4% individuality cost, protocol files the parser rejects).
 

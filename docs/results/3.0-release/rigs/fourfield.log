@@ -1,0 +1,31 @@
+01:31:54 INFO Kick the Fly 2.13.1 on Arch Linux, kernel 7.2.8-zen1-2-zen
+01:31:54 INFO headless run (simulation backend: cpu)
+pygame-ce 2.5.8 (SDL 2.32.10, Python 3.14.7)
+  1/10 fourfield, subtle: fly 1000 done (95 s)
+  2/10 fourfield, subtle: fly 1006 done (95 s)
+  3/10 fourfield, subtle: fly 1001 done (96 s)
+  4/10 fourfield, subtle: fly 1007 done (96 s)
+  5/10 fourfield, subtle: fly 1005 done (96 s)
+  6/10 fourfield, subtle: fly 1004 done (96 s)
+  7/10 fourfield, subtle: fly 1002 done (97 s)
+  8/10 fourfield, subtle: fly 1003 done (97 s)
+  9/10 fourfield, subtle: fly 1008 done (162 s)
+  10/10 fourfield, subtle: fly 1009 done (163 s)
+  1/10 fourfield, off: fly 1003 done (87 s)
+  2/10 fourfield, off: fly 1005 done (87 s)
+  3/10 fourfield, off: fly 1001 done (87 s)
+  4/10 fourfield, off: fly 1007 done (88 s)
+  5/10 fourfield, off: fly 1000 done (88 s)
+  6/10 fourfield, off: fly 1002 done (88 s)
+  7/10 fourfield, off: fly 1006 done (88 s)
+  8/10 fourfield, off: fly 1004 done (88 s)
+  9/10 fourfield, off: fly 1009 done (152 s)
+  10/10 fourfield, off: fly 1008 done (153 s)
+FOUR-FIELD OLFACTORY ARENA ASSAY, 10 flies (seeds 1000-1009)
+  individuality subtle:
+    F1 FAIL: preference index with the odor minus the sham (same arena and start, no odor), positive = prefers the odor quadrants: +0.00487 PI (needs >= 0.15), p = 0.688, n = 10
+    speed_odor_minus_air_m_s: {'mean': -0.00019908785097581816, 'p_greater': 0.5771484375, 'note': 'reported, not a criterion (a kinesis would show here)'}
+  individuality off  (the control):
+    F1 FAIL: preference index with the odor minus the sham (same arena and start, no odor), positive = prefers the odor quadrants: +0.0239 PI (needs >= 0.15), p = 0.356, n = 10
+    speed_odor_minus_air_m_s: {'mean': -0.007717596297040255, 'p_greater': 0.990234375, 'note': 'reported, not a criterion (a kinesis would show here)'}
+results written to /home/lolo/ktf_final/rigs/fourfield (316 s)

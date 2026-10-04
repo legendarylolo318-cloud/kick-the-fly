@@ -54,7 +54,10 @@ The need states, their rates and the coupling strengths are all **GAME RULE** (c
 
 The pet retains all learned behavioral memories and its unique individuality profile:
 - **Mushroom Body Synaptic Weights**: Kenyon cell $\to$ MBON plastic weights persist across sessions. A pet trained to avoid an odor remembers that conditioning across days.
-- **Personality card**: stored with the pet. Note (2.11): the card is generated from the pet's own seed with seeded random draws, not measured from its brain, and that seed is not the brain's seed. See [individuality.md](individuality.md).
+- **Personality card**: the MEASURED card of the pet fly's own brain (built from Settings > Brain > Random seed), stored in the pet file once
+  it has been measured (Esc > Fly arcade > Measure the flies in play); until then the widget says "card not measured". A pet file from before
+  the 3.0 day 4 review carries a card drawn from the pet file's own seed (not measured, and not the brain's seed): it is kept as
+  `legacy_personality_card` and never shown. See [individuality.md](individuality.md).
 - **Life Timeline**: Logs major life events: adoption, meals, sleeps, conditioning sessions, and injuries.
 
 ---

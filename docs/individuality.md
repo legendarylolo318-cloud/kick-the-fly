@@ -101,10 +101,18 @@ setting. JO -> aDN is the test most sensitive to the gains. Individuality stays 
 
 ## 5. Measured Personality Cards
 
-**Known issue (2.11 review): the cards are not measured.** In the game (`FlySlot`) and in Pet mode the card is built by
-`compute_personality_card(seed)` without assay results, and then its metrics are seeded random draws, independent of the
-fly's actual gains and of the individuality setting (flies get cards even with individuality off). Only a caller that
-passes measured metrics gets a measured card. The thresholds the card applies (`core/individuality.py`, shown on the card):
+**Since the 3.0 day 4 review the game shows only measured cards.** Until then the card in the game (`FlySlot`) and in Pet mode was
+`compute_personality_card(seed)` without assay results: numbers drawn from a random generator seeded by the fly's seed, independent of
+its gains and of the individuality setting (and the pet's came from the pet file's seed, which is not the seed its brain is built from).
+Now a card is measured from the fly's own brain by `lab/tournament.measure_card` (three CONNECTOME readouts at rest: looming latency to
+the dodge threshold, sugar -> MN9 ratio, DNa01/02 right/left ratio), cached in `<data>/cache/personality_cards.json` by everything it
+depends on (seed, individuality mode and sigma, the five LIF parameters, the pack's SHA-256, the card version), and shown as
+"Title (measured)". A fly whose card has not been measured shows **"card not measured"** and no trait words. Measure them in
+Esc > Fly arcade > **Measure the flies in play** (about 10 s per fly, in worker processes), or with `Fly(seed).card()`; every
+tournament and race measures its flies and adds them to the cache. A pre-3.0-day-4 pet file's drawn card is kept as
+`legacy_personality_card` and never shown. `compute_personality_card` without readouts still exists (old callers) but marks its card
+`measured: False, source: "drawn from the seed"`. Learning (T-maze) is not part of the measured card: it costs about a minute per
+fly. The thresholds the card applies (`core/individuality.py`, a GAME RULE, not from a paper):
 - **Temperament**:
   - *Bold*: Looming escape latency $\ge 0.30$ s.
   - *Skittish*: Looming escape latency $\le 0.20$ s.
@@ -122,4 +130,4 @@ passes measured metrics gets a measured card. The thresholds the card applies (`
   - *Stubborn*: T-maze Performance Index $\le 0.30$.
   - *Moderate learner*: Typical memory retention.
 
-The personality profile is displayed in the fly focus cycling notification (**F**), in the neuron inspector card header, and in the Pet Mode HUD widget.
+The card (or "card not measured") is displayed in the fly focus cycling notification (**F**), in the neuron inspector card header, and in the Pet Mode HUD widget.

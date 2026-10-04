@@ -27,6 +27,45 @@ indoor arenas), stepped in lockstep from the calling thread, frame by frame. The
 game's tools make. Every tool also gets a brain-level run on both brains, which is the one that is recorded and
 replayed.
 
+Also covered (3.0): the Neurodex (a calm fly discovers nothing, stimulating a curated type discovers it, tagged as
+stimulated, saved under the temporary home), the kill cam (an offer with a full window whose risers include the
+stimulated type, playback that ends and skips), share codes (a surgery and a loadout round trip through the real game,
+a damaged code is refused) and an experiment bundle (a tiny protocol is bundled and rerun: bit-exact on the CPU backends).
+
+Also covered (3.0 day 2, criteria written before the first run): a driver line selects its cell type and silencing through it
+silences (extra:genetics), TrpA1 and shibire-ts respond to temperature and only where expressed (extra:thermogenetics), the patch
+clamp's isolated and embedded I-F curves (extra:patch), imaging a driven type shows a dF/F rise and exports (extra:imaging), a
+cholinergic block lowers and picrotoxin raises whole-brain firing and washout restores the weights exactly (extra:pharmacology),
+and the five Lab screens draw on the real brain (extra:toolkit-pages).
+
+Also covered (3.0 day 3, criteria written before the first run): rain, gusts and lightning fire the documented neuron groups and the
+screen's lightning is one slow swell under reduced flashing (extra:weather); a SYNTHETIC hum fires JO-A and JO-B by frequency and
+raises P1 (extra:mic; the song motor neurons are reported, not judged); each predator's attack ends in a capture and the mantis's creep
+never looms (extra:predators, plus each predator as a tool in the room); each kitchen station drives the neurons it documents, a fly
+flying to the jar is trapped, the cook's swat is seen as looming and hurts a held fly, and E reaches the arena (extra:kitchen); the
+microphone and Streamer mode start off, a chat vote against an in-memory fake server changes the tool and both show a red indicator,
+with no real connection ever made (extra:live-inputs).
+
+Also covered (3.0 day 4, criteria written before the first run): a 4-fly tournament of short real-brain duels (every winner is one of the
+two flies in its match, a match replayed from the same seeds gives the same result, each personality card is measured, the analysis runs,
+and a Fly.duel through the Python API runs) (extra:tournament); a 3-lane race on the real brains (each fly moves, the order is
+consistent with the distances, the odds sum to 1, a points bet settles in a temporary wallet and never goes below the free top-up)
+(extra:race); the network science of the larva pack end to end (cached, the checksum caught a tampered cache) and the adult pack's degree
+and reciprocity counts (extra:netsci); a short paired sleep-deprivation run (the deprivation raises sleep pressure above the control's
+and the disturbed fly sleeps less during the window) (extra:sleepdep); a sensitivity smoke run (one parameter, one behavior, 3 seeds:
+the baseline cell and a changed cell both come back with the validation criteria's fields) (extra:sensitivity); and the arcade and three
+new Lab pages draw on a real game, in every accessibility palette, with their buttons registered for the mouse and the gamepad
+(extra:day4-pages).
+
+Also covered (3.0 day 5, criteria written before the first run): the four behavior rigs on the real brain (the tethered rig's right-minus-left
+steering follows the panorama's direction and the closed loop cancels part of an imposed rotation, both through the validated optomotor path; a ball
+fly with a visible bar ends nearer it than with the bar hidden; a Buridan fly walks nearer the stripe axis with stripes than without and never leaves the
+platform; a four-field fly stays in its arena and its preference index is a share; the same seed twice gives the same trace; a recorded run writes the
+Lab's files) (extra:rigs); a mini-paper run from the validation machinery (looming -> giant fiber on 2 flies reproduces and renders, the larva paper
+falls back to recorded numbers when its pack is missing, the exports write) (extra:minipapers); and the rig pages, the Mini-papers page, the pause
+menu entry and What's New draw on a real game in every accessibility palette and at larger text with their controls registered (extra:day5-pages).
+Who prefers an odor, and where a fly goes, are MODEL PREDICTIONS and are reported, never judged.
+
 Also covered: multi-fly spawn and despawn up to 8, brain surgery on and off, training with 5 pairings, a duel start and
 end, pet mode catch-up over a simulated 3-day gap, individuality off / subtle / strong, and every loadout preset in
 every mode. The 3D renderer runs offscreen where OpenGL is available; with no GL its checks are SKIPPED, never failed.
@@ -59,6 +98,10 @@ PASS, FAIL, SKIP, GATED = "pass", "fail", "skip", "gated"
 DEFAULT_MIN_RATIO = 0.25
 FRAME = 1 / 60
 STEPS_PER_FRAME = 3                     # 15 ms of brain per 16.7 ms frame: the game's own real-time pace, in lockstep
+# The game's clock starts at time.perf_counter(), and the fly's flight bob, the wind and the wobble are functions of that
+# absolute time, so a run started at another moment drove the fly differently (2D flypaper bomb and spider passed or failed
+# from run to run). The rigs start their clock here instead, so a playthrough is the same on every machine and every run.
+CLOCK_ORIGIN = 1000.0
 # "Fired above baseline": the busiest 100 ms after the tool was used is more than 4 standard deviations above the mean of
 # the calm 100 ms windows before it, and at least 15% and 0.5 Hz above that mean. The calm rate and its spread are
 # measured in each run (a group like the PAM neurons sits at ~30 Hz calm, a touch group at ~2 Hz), so this is not a
@@ -69,7 +112,10 @@ Z_SIGMAS, MIN_RISE, MIN_DELTA_HZ, WINDOW = 4.0, 1.15, 0.5, 20
 TOOL_PLAN = {"hand": ("hold", 3.0), "flick": ("click", 15.0), "swatter": ("click", 15.0), "bomb": ("click", 15.0),
              "zapper": ("click", 15.0), "torch": ("hold", 10.0), "freeze": ("hold", 8.0), "cleaner": ("hold", 12.0),
              "alcohol": ("item", 8.0), "cva": ("once", 3.0), "sugar": ("item", 8.0), "fruit": ("item", 8.0),
-             "spider": ("once", 25.0), "decoy": ("item", 4.0), "laser": ("hold", 3.0)}
+             "spider": ("once", 25.0), "decoy": ("item", 4.0), "laser": ("hold", 3.0),
+             # 3.0 day 3: predators. One use each; the mantis needs most of its creep (about 12 s at 10 cm/s) before it strikes
+             "frog": ("once", 20.0), "dragonfly": ("once", 15.0), "mantis": ("once", 30.0)}
+PREDATORS = ("frog", "dragonfly", "mantis")
 SAVE_LOAD_AT_S = 1.0        # seconds after the tool is first used: before anything has died
 QUICK_ARENAS = ("room", "orchard")
 
@@ -347,7 +393,7 @@ class Rig:
     def __init__(self, three_d: bool, backend: str, seed: int = 5, lab: bool = True):
         import pygame
 
-        from kickthefly.core import config
+        from kickthefly.core import config, simclock
         from kickthefly.game import kick_the_fly as k2
 
         pygame.init()
@@ -359,15 +405,20 @@ class Rig:
         self.cfg = config.Config(None)
         self.cfg.set("brain.mode", "lab" if lab else "play")
         self.cfg.set("brain.individuality", "off")
-        if three_d:
-            from kickthefly.game import kick3d
+        real_clock = k2.SimClock
+        k2.SimClock = lambda: simclock.SimClock(start=CLOCK_ORIGIN)   # Game.__init__ builds its clock (see CLOCK_ORIGIN)
+        try:
+            if three_d:
+                from kickthefly.game import kick3d
 
-            self.k3 = kick3d
-            hud = pygame.Surface((k2.W, k2.H), pygame.SRCALPHA)
-            self.game = kick3d.Game3D(hud, state["brain"], state["view"], state["graph"], state["weights"], cfg=self.cfg)
-        else:
-            screen = pygame.Surface((k2.W, k2.H))
-            self.game = k2.Game(screen, state["brain"], state["view"], state["graph"], state["weights"], cfg=self.cfg)
+                self.k3 = kick3d
+                hud = pygame.Surface((k2.W, k2.H), pygame.SRCALPHA)
+                self.game = kick3d.Game3D(hud, state["brain"], state["view"], state["graph"], state["weights"], cfg=self.cfg)
+            else:
+                screen = pygame.Surface((k2.W, k2.H))
+                self.game = k2.Game(screen, state["brain"], state["view"], state["graph"], state["weights"], cfg=self.cfg)
+        finally:
+            k2.SimClock = real_clock
         self.state = state
         self.probe: Probe | None = None
         self.brain_steps = 0
@@ -575,6 +626,7 @@ def game_leg(rig: Rig, arena: str, tool: str, min_ratio: float, tmp: Path, save_
         kind, window = TOOL_PLAN[tool]
         item = rig.last_item(tool)
         grabbed = touched = False
+        pursued = False                                                # the dragonfly took a chase up (it only hunts a fly in the air)
         if kind == "item":
             rig.step_back()
         spent = 0.0                                                    # wall seconds spent saving and loading
@@ -583,6 +635,9 @@ def game_leg(rig: Rig, arena: str, tool: str, min_ratio: float, tmp: Path, save_
             rig.seconds(0.25)
             elapsed += 0.25
             grabbed = grabbed or rig.slot.fly.grabbed is not None
+            pursued = pursued or any(pd.state in ("pursue", "eat") for pd in g.preds.list)
+            if tool == "dragonfly":                                   # it only hunts a fly in the air: keep the fly aloft, as a
+                rig.slot.fly.escape_until = max(rig.slot.fly.escape_until, g.clock.now + 1.0)   # startled one would be
             touched = touched or getattr(rig.slot.fly, "decoy_contact_until", 0.0) > g.clock.now   # lasts 0.35 s > a sample
             if kind in ("hold", "click") and rig.three_d and tool != "hand":
                 rig.face_fly()                                        # a player keeps the tool on the fly as it moves
@@ -607,7 +662,7 @@ def game_leg(rig: Rig, arena: str, tool: str, min_ratio: float, tmp: Path, save_
                 except OSError:
                     pass
                 spent += time.perf_counter() - t1
-                if kind == "hold" or (tool == "spider" and g.spider is None):
+                if kind == "hold" or (tool == "spider" and g.spider is None) or (tool in PREDATORS and not g.preds.list):
                     rig.use(tool)                                      # a load lets go of the tool: pick it up again
                 rig.seconds(0.25)                                      # and it runs on after the load
         rig.release()
@@ -622,6 +677,8 @@ def game_leg(rig: Rig, arena: str, tool: str, min_ratio: float, tmp: Path, save_
             engaged = grabbed
         elif tool == "decoy":                                          # only foreleg contact drives LgLG5-8
             engaged = touched
+        elif tool == "dragonfly":                                      # a fly stuck on paper or floating can't fly: not prey (game rule)
+            engaged = pursued
         judge_probes(r, rig.probe, use_step, tool, engaged, rest)
         rig.probe = None
         fly = rig.slot.fly
@@ -693,7 +750,7 @@ def gate_2d_outdoor(rig2d: Rig) -> list[Result]:
     from kickthefly.game import kick_the_fly as k2
 
     out = []
-    for arena in sorted(k2.OUTDOOR_ARENAS):
+    for arena in sorted(k2.THREE_D_ONLY):
         r = Result(id=f"gate:2d:{arena}:*", group="gate", brain="adult", arena=arena, status=GATED)
 
         def run():
@@ -759,6 +816,486 @@ def extra_surgery(backend: str, r: Result) -> None:
     r.expect(on > 1.5 * max(base["loom"], 0.5), f"stimulating gave {on:.2f} Hz (calm {base['loom']:.2f})")
 
 
+# --- 3.0 day 2: genetic toolkit, thermogenetics, patch clamp, imaging, pharmacology -------------------------------------
+# Pass criteria, fixed before the first run and not adjusted after seeing results (seeds 41-46 are exploration seeds).
+def extra_genetics(backend: str, r: Result) -> None:
+    """A driver line selects exactly its cell type's neurons, and surgery through the line silences them (the source table's
+    claim that SS00727 labels DNp01 is literature; the neurons and what silencing does are the connectome and the model)."""
+    from kickthefly.lab.api import Fly
+
+    fly = Fly(seed=41, backend=backend, warmup_s=1.0, learn=False)
+    d = fly.line("SS00727")
+    r.metrics.update(line=d["line"], matched=d["matched"], neurons=d["neurons"], off_target=d["off_target"])
+    r.expect(d["matched"].get("DNp01", 0) > 0, f"SS00727 matched {d['matched']}, expected DNp01 in this connectome")
+    r.expect(set(fly.neurons("line:SS00727")) == set(fly.neurons("type:DNp01")), "line:SS00727 is not exactly the DNp01 neurons")
+    r.expect(d["off_target"] in ("minimal", "some", "yes", "weak", "unstable", "unknown"), "no off-target statement")
+    rec = fly.record({"gf": "line:SS00727"})
+    fly.step(1.0)
+    base = rec.rates(0.0, 1.0)["gf"]
+    fly.silence("line:SS00727")
+    fly.step(1.0)
+    off = rec.rates(1.2, 2.0)["gf"]
+    fly.restore()
+    r.metrics.update(baseline_hz=base, silenced_hz=off)
+    r.expect(off < 0.2 * max(base, 0.5), f"silencing the line left {off:.2f} Hz (calm {base:.2f})")
+
+
+def extra_thermogenetics(backend: str, r: Result) -> None:
+    """TrpA1 in DNp01 fires it when warm and not when cool; the same temperature does nothing without the channel; shibire-ts
+    silences the looming detectors when warm (steady-state kinetics: this checks the threshold curve, not the time course)."""
+    from kickthefly.lab.api import Fly
+
+    fly = Fly(seed=42, backend=backend, warmup_s=1.0, learn=False)
+    rec = fly.record({"gf": "dnp01", "loom": "loom"})
+    fly.step(1.0)
+    calm = rec.rates(0.0, 1.0)
+    fly.temperature(34.0, kinetics="steady")
+    fly.step(1.0)
+    control = rec.rates(1.2, 2.0)["gf"]                                   # warm, no channel expressed yet
+    fly.express("trpa1", "line:SS00727")
+    fly.step(1.0)
+    hot = rec.rates(2.2, 3.0)["gf"]
+    fly.temperature(20.0)
+    fly.step(1.0)
+    cool = rec.rates(3.2, 4.0)["gf"]
+    fly.unexpress()
+    fly.express("shibire", "type:LPLC2,LC4").temperature(34.0)
+    fly.step(1.0)
+    shi = rec.rates(4.2, 5.0)["loom"]
+    r.metrics.update(calm_hz=calm["gf"], warm_control_hz=control, trpa1_warm_hz=hot, trpa1_cool_hz=cool, loom_calm_hz=calm["loom"],
+                     shibire_warm_loom_hz=shi)
+    r.expect(hot >= 3.0 * max(calm["gf"], 1.0), f"TrpA1 at 34 C gave DNp01 {hot:.1f} Hz (calm {calm['gf']:.1f})")
+    r.expect(cool <= 2.0 * max(calm["gf"], 1.0), f"TrpA1 at 20 C gave DNp01 {cool:.1f} Hz (calm {calm['gf']:.1f})")
+    r.expect(control <= 2.0 * max(calm["gf"], 1.0), f"34 C without the channel gave DNp01 {control:.1f} Hz")
+    r.expect(shi < 0.2 * max(calm["loom"], 0.5), f"shibire-ts at 34 C left the looming detectors at {shi:.2f} Hz (calm {calm['loom']:.2f})")
+    fly.unexpress()
+    r.expect(not fly.brain.injecting, "an effector current was left on the brain")
+
+
+def _window_check(r: Result, rec, name: str, calm_s: tuple, got_s: tuple, what: str) -> None:
+    """The bot's own method for tools (Probe.summarize), on a Recording: the peak firing over 100 ms windows after the stimulus must
+    reach max(calm mean + 4 sd, 1.15 x calm mean, calm mean + 0.5 Hz). The mean rates are recorded too, so a reader can see both."""
+    import numpy as np
+
+    t, rows = rec.spikes()
+    grp = rec.groups[name]
+    mask = np.isin(rows, grp)
+    win = 0.1
+
+    def per_window(lo, hi):
+        edges = np.arange(lo, hi + 1e-9, win)
+        c, _ = np.histogram(t[mask], bins=edges)
+        return c / (win * max(1, len(grp)))
+
+    base, after = per_window(*calm_s), per_window(*got_s)
+    mu, sd = float(base.mean()), float(base.std(ddof=1)) if len(base) > 1 else 0.0
+    need = max(mu + Z_SIGMAS * sd, mu * MIN_RISE, mu + MIN_DELTA_HZ)
+    peak = float(np.convolve(after, np.ones(1), "valid").max())
+    r.metrics[name + "_check"] = dict(calm_mean_hz=round(mu, 3), calm_sd_hz=round(sd, 3), peak_100ms_hz=round(peak, 3),
+                                      needed_hz=round(need, 3), mean_hz_after=round(float(after.mean()), 3),
+                                      mean_ratio=round(float(after.mean()) / max(mu, 0.05), 2))
+    r.expect(peak >= need, f"{what}: peak {peak:.2f} Hz over 100 ms, needed {need:.2f} (calm {mu:.2f} +- {sd:.2f}); mean {after.mean():.2f} Hz")
+
+
+def extra_weather(backend: str, r: Result) -> None:
+    """3.0 day 3 (game rules on real neurons): rain fires the wing, body, head and leg touch groups and the humidity neurons; a gust
+    fires the wind neurons JO-C/E; lightning fires the photoreceptors; with everything off none of them rises. Reduced flashing keeps
+    the screen's flash to one slow swell."""
+    from kickthefly.game import weather
+    from kickthefly.lab.api import Fly
+
+    groups = {"wing": "wing", "body": "body", "head": "head", "legs": "legs", "humid": "humid", "wind": "wind", "light": "light"}
+    fly = Fly(seed=44, backend=backend, warmup_s=1.0, learn=False)
+    rec = fly.record(groups)
+    fly.step(3.0)
+    calm = rec.rates(0.5, 3.0)
+    fly.weather(rain=1.0)
+    fly.step(6.0)
+    for g_ in ("wing", "body", "head", "legs", "humid"):
+        _window_check(r, rec, g_, (0.5, 3.0), (3.5, 9.0), f"rain on '{g_}'")
+    fly.weather()
+    fly.step(3.0)
+    fly.weather(gust_hz=0.5)
+    fly.step(10.0)
+    _window_check(r, rec, "wind", (0.5, 3.0), (12.5, 22.0), "gusts on the wind neurons JO-C/E")
+    fly.weather()
+    fly.step(3.0)
+    t0 = fly.t
+    fly.weather(storm=True)
+    fly.step(24.0)
+    _window_check(r, rec, "light", (0.5, 3.0), (t0 + 0.5, t0 + 24.0), "lightning on the photoreceptors")
+    fly.weather()
+    t1 = fly.t
+    fly.step(4.0)
+    after = rec.rates(t1 + 1.0, t1 + 4.0)
+    r.expect(after["wing"] <= max(1.5 * calm["wing"], calm["wing"] + 0.5), f"after the weather stopped the wing touch group stayed up: {after['wing']:.2f} Hz")
+    w = weather.Weather(9)
+    seq = []
+    for _ in range(40 * 60):
+        w.update(1 / 60, storm=True)
+        seq.append(w.screen_flash(reduced=True))
+    r.expect(max(seq) <= weather.REDUCED_FLASH_PEAK + 1e-9 and max(abs(a - b) for a, b in zip(seq, seq[1:])) < 0.01,
+             "with reduced flashing the screen's lightning is not one slow swell")
+
+
+def extra_mic(backend: str, r: Result) -> None:
+    """3.0 day 3 (a SYNTHETIC hum: this check never opens a microphone): a 200 Hz hum fires JO-A, a 50 Hz hum fires JO-B more than a
+    600 Hz hum does, silence fires neither, the analysis reads the hum's frequency, and the P1 cluster rises. The song motor neurons
+    are reported, not judged (lab/audio.py says what is expected and why)."""
+    from kickthefly.core import mic
+    from kickthefly.lab.api import Fly
+
+    fly = Fly(seed=45, backend=backend, warmup_s=1.0, learn=False)
+    a, b = mic.jo_rows(fly.brain)
+    quiet = fly.hear(hz=200.0, seconds=1.5, amp=0.0)
+    s200 = fly.hear(hz=200.0, seconds=1.5, amp=0.1)
+    fly.step(1.0)
+    s50 = fly.hear(hz=50.0, seconds=1.5, amp=0.1)
+    fly.step(1.0)
+    s600 = fly.hear(hz=600.0, seconds=1.5, amp=0.1)
+    r.metrics.update(jo_a=len(a), jo_b=len(b), quiet=quiet, hum200=s200, hum50=s50, hum600=s600)
+    r.expect(len(a) == 50 and len(b) == 88, f"expected 50 JO-A and 88 JO-B neurons, found {len(a)} and {len(b)}")
+    r.expect(quiet["jo_a_hz"] < 1.0 and quiet["jo_b_hz"] < 1.0, f"silence fired JO-A {quiet['jo_a_hz']:.2f} Hz and JO-B {quiet['jo_b_hz']:.2f} Hz")
+    r.expect(s200["jo_a_hz"] > 10 * max(quiet["jo_a_hz"], 0.5), f"a 200 Hz hum fired JO-A at only {s200['jo_a_hz']:.1f} Hz")
+    r.expect(abs(s200["peak_hz"] - 200.0) < 5.0, f"the analysis read a 200 Hz hum as {s200['peak_hz']:.1f} Hz")
+    r.expect(s50["jo_b_hz"] > 2 * max(s600["jo_b_hz"], 0.5), f"a 50 Hz hum fired JO-B {s50['jo_b_hz']:.1f} Hz, a 600 Hz hum {s600['jo_b_hz']:.1f} Hz")
+    f2 = Fly(seed=45, backend=backend, warmup_s=1.0, learn=False)
+    rec = f2.record({"p1": "p1", "ps1": "ps1"})
+    f2.step(3.0)
+    calm = rec.rates(0.5, 3.0)
+    f2.hear(hz=200.0, seconds=3.0, ipi_ms=35.0)
+    got = rec.rates(3.5, 6.0)
+    r.metrics.update(p1_calm_hz=calm["p1"], p1_pulses_hz=got["p1"], ps1_calm_hz=calm["ps1"], ps1_pulses_hz=got["ps1"])
+    r.expect(got["p1"] >= 1.15 * calm["p1"], f"the 200 Hz / 35 ms pulse train left the P1 cluster at {got['p1']:.2f} Hz (calm {calm['p1']:.2f})")
+    r.note(f"song motor neurons (ps1): {calm['ps1']:.2f} Hz calm -> {got['ps1']:.2f} Hz during the pulse train (reported, not judged)")
+
+
+def extra_predators(backend: str, r: Result) -> None:
+    """3.0 day 3: each predator's attack, as looming on LPLC2/LC4, ends in a capture of a fly that stays; the mantis's creep never
+    looms; its strike does; the frog's tongue and the dragonfly's dive loom fast. Whether DNp01 crossed the escape threshold is
+    reported, not judged (it is a prediction)."""
+    from kickthefly.game import kick_the_fly as k
+    from kickthefly.game import predators as pr
+    from kickthefly.lab.api import Fly
+
+    for kind in pr.KINDS:
+        res = Fly(seed=46, backend=backend, warmup_s=1.0, learn=False).attack(kind)
+        r.metrics[kind] = {k_: res[k_] for k_ in ("escaped", "captured", "latency_s", "lead_s", "peak_level", "max_loom_before_strike",
+                                                  "strike_loom_peak")}
+        r.expect(res["captured"], f"the {kind} never captured a fly that stayed still")
+        r.expect(res["strike_loom_peak"] > k.LOOM_MIN + 2.0, f"the {kind}'s strike expanded at only {res['strike_loom_peak']:.1f} rad/s")
+        if kind == "mantis":
+            r.expect(res["max_loom_before_strike"] < k.LOOM_MIN, f"the mantis's creep reached {res['max_loom_before_strike']:.2f} rad/s")
+            r.expect(not res["noticed_before_strike"], "DNp01 crossed the escape threshold during the mantis's creep")
+    r.note("whether each fly escaped is a MODEL PREDICTION, reported in the metrics: " +
+           ", ".join(f"{kd}={r.metrics[kd]['escaped']}" for kd in pr.KINDS))
+
+
+def _put(rig: "Rig", xyz) -> None:
+    """Stand the fly's whole body at a point, at rest (the kitchen check holds it at each station like a subject in a holder)."""
+    from kickthefly.game import kick3d
+
+    fly = rig.slot.fly
+    fly.p += np.asarray(xyz, float) - fly.p[kick3d.THX]
+    fly.prev = fly.p.copy()
+    fly.hover = fly.p[kick3d.THX].copy()
+
+
+# Where each kitchen station's calm 1.5 s is taken (x, z), the fly held there: out of the vinegar's smell. Before, the fly was put at
+# (0, 0.5) once, 3.36 m from the jar's mouth (inside SCENT_RANGE, 3.4 m), and left free; one still fleeing the burner flew to about
+# 1.5 m from the jar, so the vinegar's "calm" was DM1/DM2/DP1m already smelling it (~40 Hz, 1-2 Hz out of range) and the check
+# passed or failed on the noise (3.0 release, CI run 37155212420).
+KITCHEN_CALM = (-2.5, 2.0)
+
+
+def extra_kitchen(rig: Rig, r: Result) -> None:
+    """3.0 day 3 (3D game): each part of the kitchen drives the neurons it documents, judged the way tools are: the sink the humidity
+    neurons, the burner the heat sensors, the vinegar's smell the fermentation glomeruli DM1/DM2/DP1m, the trap (a fly hovering over
+    the mouth is stuck), the bowl feeds it (taste and reward neurons) and the cook's swat is seen as looming and hurts. The arena is in
+    the E cycle."""
+    from kickthefly.core import loadout as lo
+    from kickthefly.game import kick3d, kick_the_fly as k2, kitchen
+
+    g = rig.game
+    rig.set_arena("kitchen")
+    rig.reset()
+    r.expect(k2.ARENAS[g.arena_i] == "kitchen" and g.kitchen is not None, "the kitchen did not start")
+    br, slot = rig.brain, rig.slot
+    stand = kick3d.STAND3
+    seen = set()
+    for _ in range(len(k2.ARENAS)):
+        g.menu_action("arena")
+        seen.add(k2.ARENAS[g.arena_i])
+    r.expect("kitchen" in seen, "the E key never reached the kitchen")
+    rig.set_arena("kitchen")
+    rig.reset()
+    br, slot = rig.brain, rig.slot
+
+    def station(name, xyz, seconds, probes, engaged=None, hold=True):
+        calm = (KITCHEN_CALM[0], stand, KITCHEN_CALM[1])
+        _put(rig, calm)
+        rig.probe = Probe(br, probes)
+        for _ in range(6):                                             # held there through the calm 1.5 s too: placed once, a fly
+            _put(rig, calm)                                            # still fleeing the burner flew into the vinegar's smell
+            rig.seconds(0.25)
+        use = rig.probe.n
+        t = 0.0
+        while t < seconds:
+            if hold:
+                _put(rig, xyz)
+            rig.seconds(0.25)
+            t += 0.25
+        sub = Result(id=f"kitchen:{name}", group="extra")
+        judge_probes(sub, rig.probe, use, f"kitchen:{name}", engaged)
+        r.metrics[name] = sub.metrics.get("probes")
+        for f in sub.failures:
+            r.expect(False, f"{name}: {f}")
+        for n in sub.notes:
+            r.note(f"{name}: {n}")
+        if sub.status == SKIP and r.status != FAIL:
+            r.status = SKIP
+        rig.probe = None
+
+    station("sink", (3.0, 0.2, 2.3), 3.0, ((("humid", None),),))
+    station("burner", kitchen.BURNER_POS + (0.5, stand, 0.0), 3.0, ((("heat", None),),))
+    station("vinegar", kitchen.TRAP_POS + (1.0, stand, 0.0), 4.0, ((("scent", "alcohol"),),))
+    rig.reset()
+    br, slot = rig.brain, rig.slot
+    _put(rig, kitchen.TRAP_POS + (-1.5, 1.2, 0.0))                 # a fly on its way to the jar, as the vinegar attraction sends it
+    slot.trap_trip = kitchen.mouth() + np.array([0.0, 0.15, 0.0])
+    g._fly_to(slot.fly, g.clock.now, slot.trap_trip, 8.0)
+    slot.fly.perch = "vinegar"                                          # exactly what the attraction does (kick3d._kitchen_tick)
+    t = 0.0
+    while t < 9.0 and id(slot) not in g.kitchen.trapped:
+        rig.seconds(0.25)
+        t += 0.25
+    r.metrics["trapped"] = id(slot) in g.kitchen.trapped
+    r.expect(id(slot) in g.kitchen.trapped, "a fly flying to the vinegar jar's mouth was not trapped")
+    rig.reset()
+    br, slot = rig.brain, rig.slot
+    health0 = slot.fly.health
+    g.kitchen.cook = cook = kitchen.Cook(np.random.default_rng(7))      # a new fly keeps the room (and the cook's timer): start his timer fresh
+    rig.probe = Probe(br, (lo.LOOM,))
+    rig.seconds(1.5)
+    use, t = rig.probe.n, 0.0
+    from kickthefly.game.kick_the_fly import THRESH
+    peak_escape = 0.0
+    while t < 25.0 and cook.swats == 0:
+        _put(rig, (0.0, stand, -1.0))                                  # held where the swat will land (a subject in a holder)
+        rig.seconds(0.05)
+        t += 0.05
+        if cook.state == "swat":
+            peak_escape = max(peak_escape, br.level("escape"))
+    rig.seconds(1.0)
+    r.metrics["cook_peak_escape_level"] = round(peak_escape, 2)
+    r.note(f"the held fly's giant fiber reached {peak_escape:.1f}x calm during the swing (escape threshold {THRESH['escape']}x); held, "
+           f"so the dodge was not allowed: the dodge probability is a MODEL PREDICTION and is not judged here")
+    sub = Result(id="kitchen:cook", group="extra")
+    judge_probes(sub, rig.probe, use, "kitchen:cook", True)
+    rig.probe = None
+    r.metrics["cook_swats"] = cook.swats
+    r.expect(cook.swats > 0, "the cook never swatted in 25 s")
+    r.expect(slot.fly.health < health0, "a fly held where the swatter lands was not hurt")
+    for f in sub.failures:
+        r.expect(False, f"cook: {f}")
+    rig.reset()
+    br, slot = rig.brain, rig.slot
+    ripe0 = g.orchard.counts()["ripe"]
+    r.expect(ripe0 >= 1, "the fruit bowl is empty")
+    _put(rig, (-2.0, stand, 1.0))
+    rig.probe = Probe(br, (lo.TASTE, lo.REWARD))
+    rig.seconds(1.5)
+    use, t = rig.probe.n, 0.0
+    fed = False
+    while t < 45.0 and not fed:
+        rig.seconds(0.5)
+        t += 0.5
+        fed = any(f.feeds_left < f.feeds_max for f in g.orchard.fruit if f.ripe) or any(not f.ripe and f.fell_at is not None for f in g.orchard.fruit)
+    rig.seconds(1.0)
+    sub = Result(id="kitchen:bowl", group="extra")
+    judge_probes(sub, rig.probe, use, "kitchen:bowl", fed)
+    rig.probe = None
+    r.metrics["bowl_fed"] = fed
+    for f in sub.failures:
+        r.expect(False, f"bowl: {f}")
+    if sub.status == SKIP and r.status != FAIL:
+        r.status = SKIP
+    for n in sub.notes:
+        r.note(f"bowl: {n}")
+
+
+def extra_live_inputs(rig: Rig, r: Result) -> None:
+    """3.0 day 3: the microphone's and Streamer mode's switches start off; a chat vote (against an in-memory fake server, never the
+    network) changes the tool; both show a red indicator in a real rendered frame; nothing connects in a headless run; turning them off
+    removes every trace (no current on the brain, no connection listed)."""
+    import socket
+    import threading
+
+    import pygame
+
+    from kickthefly.core import netguard, streamer as st
+    from kickthefly.game import kick_the_fly as k2
+    from kickthefly.game import live_inputs as li
+
+    g = rig.game
+    rig.reset()
+    live = g.live
+    r.expect(not live.mic_on and not live.stream_on and live.indicators() == [], "the microphone or Streamer mode was on at launch")
+    live.channel = "mychannel"
+    mode = g.cfg.get("brain.mode", "play")
+    g.set_setting("brain.mode", "lab", save=False)                    # 3.0 day 3 review: no chat votes in Lab mode
+    def refuse(ch):
+        raise AssertionError("Streamer mode tried to connect in Lab mode")
+
+    live.chat_factory = refuse
+    r.expect(live.set_stream(True) is False and live.stream_error == li.LAB_LOCK and not netguard.connections(),
+             f"Streamer mode started in Lab mode: {live.stream_error}")
+    live.chat_factory = st.TwitchChat
+    g.set_setting("brain.mode", "play", save=False)
+    r.expect(live.set_stream(True) is False and "network is off" in live.stream_error and not netguard.connections(),
+             "Streamer mode connected (or did not say why not) in a headless run")
+    client, server = socket.socketpair()
+
+    def script():
+        server.settimeout(5.0)
+        buf = b""
+        end = time.time() + 5
+        while b"USER" not in buf and time.time() < end:
+            buf += server.recv(4096)
+        server.sendall(b":tmi.twitch.tv 001 justinfan1 :Welcome\r\n")
+        for i in range(4):
+            server.sendall(f":v{i}!v{i}@x.tmi.twitch.tv PRIVMSG #mychannel :!tool swatter\r\n".encode())
+        time.sleep(1.0)
+
+    th = threading.Thread(target=script, daemon=True)
+    th.start()
+    live.chat_factory = lambda ch: st.TwitchChat(ch, sock_factory=lambda: client)
+    g.cfg.set("stream.window_s", 5.0)
+    if "swatter" not in g.loadout.tools:
+        g.loadout.tools.append("swatter")
+    g.select_tool("hand")
+    r.expect(live.set_stream(True), f"Streamer mode did not start with a fake server: {live.stream_error}")
+    ind = live.indicators()
+    surf = pygame.Surface((k2.W, k2.H), pygame.SRCALPHA)
+    live.draw(surf, g.f_small, k2.PLAY_W)
+    px = pygame.transform.average_color(surf, pygame.Rect(k2.PLAY_W // 2 - 150, li.PILL_TOP, 300, 30))
+    r.expect(any("TWITCH CHAT" in s for s in ind) and px[0] > px[1] + 40 and px[3] > 0, f"no red Twitch indicator was drawn: {ind} {tuple(px)}")
+    live.mic_on = True
+    surf.fill((0, 0, 0, 0))
+    live.draw(surf, g.f_small, k2.PLAY_W)
+    r.expect(any("MIC ON" in s for s in live.indicators()), "no MIC ON indicator")
+    live.mic_on = False
+    t0 = time.time()
+    while time.time() - t0 < 9.0 and g.tool_name() != "swatter":
+        rig.seconds(0.25)
+    r.metrics["tool_after_vote"] = g.tool_name()
+    r.expect(g.tool_name() == "swatter", f"the chat vote did not change the tool (it is {g.tool_name()})")
+    live.set_stream(False)
+    th.join(2.0)
+    r.expect(not netguard.connections() and live.indicators() == [], "a connection or an indicator was left after switching off")
+    live.chat_factory = st.TwitchChat
+    g.set_setting("brain.mode", mode, save=False)
+    r.note("no real network was used: the server is an in-memory socket pair; Lab mode refused it first")
+
+
+def extra_patch(backend: str, r: Result) -> None:
+    """The isolated unit never fires below the LIF rheobase and never slower with more current; in the wired brain, current
+    raises the firing of a neuron that is otherwise quiet and the electrode leaves nothing behind. (MODEL, not electrophysiology.)"""
+    from kickthefly.lab.api import Fly
+
+    fly = Fly(seed=43, backend=backend, warmup_s=1.0, learn=False)
+    iso = fly.patch("type:DNp01", [0.0, 0.005, 0.02, 0.1, 0.5], duration_ms=500, repeats=2, mode="isolated")
+    rate = iso["rate_hz"]
+    r.metrics.update(isolated_rates=rate, isolated_rheobase=iso["rheobase"])
+    r.expect(all(b >= a - 1.0 for a, b in zip(rate, rate[1:])), f"the isolated I-F curve is not monotone: {rate}")
+    r.expect(rate[0] < 5.0 and rate[-1] > 40.0, f"isolated unit fired {rate[0]:.1f} Hz at rest and {rate[-1]:.1f} Hz at 0.5")
+    emb = fly.patch("type:DNp01", [0.0, 0.5], duration_ms=500, repeats=2, mode="embedded")
+    r.metrics.update(embedded_rates=emb["rate_hz"])
+    r.expect(emb["rate_hz"][1] > emb["rate_hz"][0] + 10.0, f"embedded: {emb['rate_hz'][0]:.1f} -> {emb['rate_hz'][1]:.1f} Hz with 0.5 injected")
+    r.expect(not fly.brain.injecting, "the patch electrode left a current on the brain")
+
+
+def extra_imaging(backend: str, tmp: Path, r: Result) -> None:
+    """Imaging a driven cell type shows a dF/F rise over its calm baseline; the regions ROI set covers the brain; CSV (and NWB if
+    pynwb is installed) export. (MODEL: a forward model on the spikes.)"""
+    from kickthefly.lab import imaging
+    from kickthefly.lab.api import Fly
+
+    fly = Fly(seed=44, backend=backend, warmup_s=1.0, learn=False)
+    calm = fly.image(2.0, rois=["type:LPLC2"], indicator="gcamp6f", shot_noise=False)
+    fly.drive("type:LPLC2", amp=0.5)
+    driven = fly.image(2.0, rois=["type:LPLC2"], indicator="gcamp6f", shot_noise=False)
+    fly.undrive()
+    up = float(driven.true_dff[-1, 0])
+    r.metrics.update(calm_dff=float(calm.true_dff[-1, 0]), driven_dff=up)
+    r.expect(up > float(calm.true_dff[-1, 0]) + 0.1, f"driving LPLC2 moved dF/F from {calm.true_dff[-1, 0]:.2f} to {up:.2f}")
+    regions = fly.image(1.0, fps=20)
+    r.expect(len(regions.roi_names) >= 5 and np.isfinite(regions.dff).all(), f"regions ROI set: {regions.roi_names}")
+    f = imaging.export_csv(regions, tmp / "imaging" / "roi.csv")
+    r.expect(f.exists() and f.read_text(encoding="utf-8").startswith("# MODEL"), "the CSV export is missing or untagged")
+    from kickthefly.lab import nwbexport
+
+    if nwbexport.available() is None:
+        imaging.export_nwb(regions, tmp / "imaging" / "roi.nwb")
+    else:
+        r.note("NWB export not checked: pynwb is not installed")
+
+
+def extra_pharmacology(backend: str, r: Result) -> None:
+    """Directional checks only, written before the run: a cholinergic block lowers whole-brain firing, picrotoxin raises it, and
+    washout puts every synaptic weight back exactly. (MODEL PREDICTION: a synaptic scale, no receptor model.)"""
+    from kickthefly.lab.api import Fly
+
+    fly = Fly(seed=45, backend=backend, warmup_s=1.0, learn=False)
+    before = fly.brain.sim.W_csr.data.copy()
+
+    def mean_rate(seconds=1.0):
+        n = int(seconds / 0.005)
+        tot = 0
+        for _ in range(n):
+            fly.step(steps=1)
+            tot += int(fly.brain.sim.spikes.sum())
+        return tot / fly.n / seconds
+
+    base = mean_rate()
+    info = fly.drug("cholinergic", 1.0)
+    chol = mean_rate()
+    fly.washout()
+    r.expect(np.array_equal(fly.brain.sim.W_csr.data, before), "washout did not restore the weights exactly")
+    fly.step(1.0)
+    fly.drug("picrotoxin", 1.0)
+    ptx = mean_rate()
+    fly.washout()
+    r.metrics.update(baseline_hz=base, cholinergic_block_hz=chol, picrotoxin_hz=ptx, synapses_changed=info["changed"])
+    r.expect(info["changed"] > 1_000_000, f"the cholinergic block changed only {info['changed']:,} synaptic entries")
+    r.expect(chol < 0.9 * base, f"cholinergic block: {base:.2f} -> {chol:.2f} Hz per neuron")
+    r.expect(ptx > 1.1 * base, f"picrotoxin: {base:.2f} -> {ptx:.2f} Hz per neuron")
+    r.expect(np.array_equal(fly.brain.sim.W_csr.data, before), "the weights were not restored after the last washout")
+
+
+def extra_toolkit_pages(rig: Rig, r: Result) -> None:
+    """The five Lab screens draw on the real brain, and the inspector offers Patch in Lab mode."""
+    import pygame
+
+    from kickthefly.game import kick_the_fly as k2
+
+    g = rig.game
+    rig.reset()
+    surf = pygame.Surface((k2.W, k2.H))
+    for page in ("lab_genetics", "lab_thermo", "lab_patch", "lab_imaging", "lab_pharm"):
+        r.expect(page in g.menu.pages, f"{page} is not registered")
+        g.menu.show(page)
+        g.menu.mouse = (5, 5)
+        g.menu.draw(surf, (5, 5), time.perf_counter())
+    g.menu.close()
+    g.inspect = g._neuron_info(int(np.flatnonzero(g.brain.types == "DNp01")[0]))
+    g.big_view = True
+    g._draw_big_view(surf)
+    r.expect(g.cfg.lab is False or g.patch_button is not None, "the inspector did not offer Patch in Lab mode")
+    g.big_view = False
+    g.inspect = None
+
+
 def extra_training(rig: Rig, r: Result) -> None:
     """Five fear pairings: the mushroom body's memory of the scent must move, and the log holds the pairings."""
     g = rig.game
@@ -789,6 +1326,175 @@ def extra_training(rig: Rig, r: Result) -> None:
         # what fear training lowers: the firing of the approach-promoting MBONs to the smell alone (memory.mbon_response)
         r.expect(hz[-1] < naive, f"the MBON response to the scent did not fall ({naive:.2f} Hz naive -> {hz[-1]:.2f} Hz after 5 pairings)")
         r.expect(mem.weakened_share() > 0, "no KC -> MBON synapse was weakened")
+
+
+def extra_neurodex(rig: Rig, r: Result) -> None:
+    """3.0: a calm, untouched fly discovers nothing (Day 2 decision: the spontaneous bursts of its sensory types on the real
+    pack no longer count; before, they were tagged "at rest" and only reported); driving a curated type at the validation suite's activation
+    current (amp 0.5) discovers it, tagged as stimulated; the progress file is written under this run's temporary home."""
+    g = rig.game
+    rig.reset()
+    x3 = g.x3
+    t_end = time.time() + 120
+    while x3.table_state in ("idle", "building") and time.time() < t_end:
+        rig.frames(1)
+        time.sleep(0.05)
+    r.expect(x3.table_state == "ready", f"the Neurodex table is '{x3.table_state}' {x3.table_error}")
+    if x3.table_state != "ready":
+        return
+    prog = x3.ensure_progress()
+    away = None if rig.three_d else (rig.k2.PLAY_W + 40, 40)
+    # 3.0 day 2 decisions: the window opens only once the game itself calls the fly calm (nothing touched it for 2 s). After
+    # the training check the last tool poke was under 2 s old, and a type the fly smelled then was legitimately discovered
+    # "in play" inside the window and judged as a calm discovery. What is discovered while the fly is still being touched
+    # belongs to play, not to this window. The criterion is unchanged.
+    rig.step_back()
+    rig.seconds(2.5, mouse=away)
+    before = set(prog.types(x3.brain_name))
+    # 3.0 day 2 review: the window was not calm. The bot's hand sat on the fly's head (rig.frames' default mouse), so the fly
+    # smelled the tool every frame (a 'scent' poke, so never calm by the game's rule), and the check judged every type
+    # discovered since the rig started, including the earlier play legs'. Now the hand rests over the brain panel (2D) or
+    # the player steps back (3D), and only what is discovered in this window is judged. The criterion is unchanged.
+    rig.seconds(6.0, mouse=away)                                       # settle: the discovery rule's first 5 s
+    calm = {n: v for n, v in prog.types(x3.brain_name).items() if n not in before}
+    r.metrics.update(types=len(x3.table), calm_discoveries=len(calm), calm_examples=sorted(calm)[:6],
+                     discovered_before=len(before))
+    r.expect(not calm, f"a calm fly discovered {len(calm)} types (3.0 Day 2: it discovers nothing): "
+                       f"{dict((n, v['how']) for n, v in list(calm.items())[:5])}")
+    # 3.0 day 2 review: a type the earlier legs already discovered keeps its first record ("play") and is never discovered
+    # again, so the stimulated part drives a curated type not discovered yet (day 1 review: DNp01, MDN and DNp09 are
+    # discovered within 3 s at amp 0.5).
+    present = [t for t in ("LPLC2", "DNp01", "MDN", "DNp09") if x3.table.index(t) is not None]
+    known = set(prog.types(x3.brain_name))
+    r.metrics["candidates_already_discovered"] = [t for t in present if t in known]
+    r.expect(bool(present), "none of LPLC2, DNp01, MDN, DNp09 is in this brain")
+    target = next((t for t in present if t not in known), None)
+    if present and target is None:
+        r.note("every candidate type was already discovered in earlier legs: the stimulated part was not judged")
+    if target is None:
+        return
+    from kickthefly.core import simcore
+
+    rows = x3.table.rows(target)
+    simcore.drive(rig.brain, rows, 0.5)
+    rig.seconds(3.0)
+    simcore.undrive(rig.brain, rows)
+    rec = prog.types(x3.brain_name).get(target)
+    r.metrics["stimulated_type"] = target
+    r.expect(rec is not None, f"driving {target} for 3 s did not discover it")
+    if rec:
+        r.expect(rec["how"] == "stimulated", f"{target} was tagged '{rec['how']}', not 'stimulated'")
+        r.metrics["peak_x"] = rec["x"]
+    r.expect(nd_path_under(tmp_home(), prog.path), f"the Neurodex was saved outside the temporary home: {prog.path}")
+
+
+def tmp_home() -> Path:
+    from kickthefly.core import paths
+
+    return Path(os.environ.get("KICK_THE_FLY_HOME", paths.get().data_dir)).resolve()
+
+
+def nd_path_under(home: Path, p: Path) -> bool:
+    try:
+        Path(p).resolve().relative_to(home)
+        return True
+    except ValueError:
+        return False
+
+
+def extra_killcam(rig: Rig, r: Result) -> None:
+    """3.0: stimulate, kill the fly, and check the kill cam: an offer with a full window, risers that include what was
+    stimulated, playback that ends at the moment of death, skip, and a second start after a skip."""
+    from kickthefly.core import killcam
+
+    g = rig.game
+    rig.reset()
+    x3 = g.x3
+    x3.offer = None
+    rig.seconds(3.0)
+    target = next((t for t in ("DNp01", "MDN", "DNp09") if t in set(rig.brain.types)), None)
+    r.expect(target is not None, "no stimulable type found")
+    if target is None:
+        return
+    g.type_ops[target] = 1
+    g._apply_surgery()
+    rig.seconds(4.0)
+    g._die(rig.slot, g.clock.now)
+    off = x3.offer
+    r.expect(off is not None, "death did not produce a kill cam offer")
+    if off is None:
+        return
+    rep = off["replay"]
+    r.metrics.update(frames=rep.n_frames, seconds=round(rep.seconds, 2))
+    r.expect(killcam.WINDOW_S - 0.5 <= rep.seconds <= killcam.WINDOW_S, f"the replay is {rep.seconds:.2f} s, not about {killcam.WINDOW_S:g}")
+    types = [x["type"] for x in off["summary"]["risers"]]
+    r.metrics["risers"] = types[:6]
+    r.expect(target in types, f"{target} was stimulated for 4 s before death but is not among the risers {types[:6]}")
+    x3.kc_start()
+    x3.player.speed = 1000.0
+    for _ in range(10):
+        rig.frames(1)
+        time.sleep(0.01)
+    r.expect(not x3.kc_playing(), "the kill cam did not end by itself")
+    x3.kc_start()
+    r.expect(x3.kc_playing(), "it could not be started a second time")
+    x3.kc_stop()
+    r.expect(not x3.kc_playing() and x3.view_rates() is None, "skip did not return the panel to the live brain")
+    g.type_ops.clear()
+    g._apply_surgery()
+    rig.reset()
+
+
+def extra_share(rig: Rig, r: Result) -> None:
+    """3.0: share codes round trip through the real game: surgery, loadout, Lab parameters; damage is refused."""
+    from kickthefly.core import sharecode as sc
+    from kickthefly.ui import share_ui
+
+    g = rig.game
+    rig.reset()
+    g.surgery_modes[9] = -1
+    g.type_ops["DNp01"] = 1
+    g._apply_surgery()
+    want = sc.payload_for_surgery(g)
+    code = sc.encode("surgery", want)
+    g.surgery_modes[9] = 0
+    g.type_ops.clear()
+    g._apply_surgery()
+    got = sc.decode(code)
+    why = sc.validate(got, share_ui.make_context(g))
+    r.expect(why is None, f"a surgery code from this very game was refused: {why}")
+    sc.apply(got, g)
+    r.expect(sc.payload_for_surgery(g) == want, "the imported surgery differs from the exported one")
+    bad = code[:-2] + ("AA" if code[-2:] != "AA" else "BB")
+    try:
+        sc.decode(bad)
+        r.expect(False, "a damaged code was accepted")
+    except sc.ShareError:
+        pass
+    lc = sc.encode("loadout", {"name": "bot", "tools": list(g.loadout.tools)})
+    r.expect(sc.validate(sc.decode(lc), share_ui.make_context(g)) is None, "the current loadout's code was refused")
+    g.surgery_modes[9] = 0
+    g.type_ops.clear()
+    g._apply_surgery()
+
+
+def extra_bundle(backend: str, tmp: Path, r: Result) -> None:
+    """3.0: run a tiny protocol, bundle it, rerun the bundle: bit-exact on the CPU backends, statistical on GPU."""
+    from kickthefly.lab import bundle, protocol
+
+    p = protocol.check({"name": "playthrough-bundle", "seed": 1000, "flies": 2, "warmup_s": 0.2, "duration_s": 1.0,
+                        "stimuli": [{"at_s": 0.2, "for_s": 0.4, "target": "loom", "strength": 0.8}],
+                        "recordings": [{"name": "loom", "neurons": "loom"}, {"name": "gf", "neurons": "dnp01"}]}, "bot")
+    folder = protocol.run(p, tmp / "bundle-run", workers=1)
+    z = bundle.create(folder, tmp / "bot.zip")
+    b = bundle.inspect(z)
+    r.expect(b.verify() == [], f"the bundle failed its own integrity check: {b.verify()[:2]}")
+    b.close()
+    rep = bundle.rerun(z, tmp / "bundle-rerun", workers=1)
+    r.metrics.update(mode=rep["mode"], verdict=rep["verdict"], backend=rep["rerun_backend"])
+    r.expect(rep["match"], f"the rerun did not match: {rep['verdict']}")
+    if backend in bundle.BIT_EXACT_BACKENDS:
+        r.expect(rep["mode"] == "bit-exact", f"{backend} must be judged bit-exact, was {rep['mode']}")
 
 
 def extra_duel(rig: Rig, r: Result) -> None:
@@ -852,6 +1558,317 @@ def extra_pet(tmp: Path, r: Result) -> None:
         r.expect(pm3.is_dead, "with real stakes on, three days of neglect should have starved it")
     finally:
         pet.time = real_time
+
+
+def extra_tournament(backend: str, r: Result) -> None:
+    """3.0 day 4: a bracket of 4 real brains in short duels. Judged: the structure (3 matches, each winner one of its two flies, the
+    champion won every round it played), a rematch from the same seeds is identical (lockstep CPU), the cards are measured, the
+    analysis runs, and Fly.duel works. Who wins is a MODEL PREDICTION and is reported, never judged."""
+    from kickthefly.lab import tournament as tn
+    from kickthefly.lab.api import Fly
+
+    seeds = [61, 62, 63, 64]
+    b = tn.run_bracket(seeds, seconds=3.0, mode="subtle", favorite=62, workers=1, backend=backend)
+    flat = [m for rnd in b["rounds"] for m in rnd]
+    r.expect(len(b["rounds"]) == 2 and len(flat) == 3, f"a bracket of 4 should have 2 rounds and 3 matches, not {len(b['rounds'])} and {len(flat)}")
+    r.expect(all(m["winner"] in (m["a"], m["b"]) for m in flat), "a match was won by a fly that was not in it")
+    r.expect(b["champion"] == b["rounds"][-1][0]["winner"] and b["rounds_won"][b["champion"]] == 2, "the champion did not win both its rounds")
+    r.expect(all(c["measured"] and c["title"] for c in b["cards"].values()) and len(b["cards"]) == 4, "a personality card was not measured")
+    r.expect(b["favorite_won"] in (True, False) and 0 <= b["favorite_rounds_won"] <= 2, "the favorite was not tracked")
+    m0 = b["rounds"][0][0]
+    again = tn._match_task((m0["a"], m0["b"], 0, 0, 3.0, "subtle", backend, False))
+    if m0["attempts"] == 1:                              # the first attempt is the one `again` plays: identical on a lockstep CPU backend
+        r.expect(str(again["winner"]) == str(m0["winner"]) and again["hp"] == m0["hp"],
+                 f"the same match from the same seeds came out differently: {again['hp']} vs {m0['hp']}")
+    an = tn.analyze([b])
+    r.expect(len(an["tests"]) == 3 and all("p_holm" in t for t in an["tests"]), "the analysis did not return its three tests")
+    r.metrics.update(champion=b["champion"], winners=[m["winner"] for m in flat], shots=[m["shots"] for m in flat], hits=[m["hits"] for m in flat],
+                     cards=[b["cards"][s]["title"] for s in seeds])
+    fa, fb = Fly(seed=65, backend=backend, warmup_s=1.0, learn=False), Fly(seed=66, backend=backend, warmup_s=1.0, learn=False)
+    res = fa.duel(fb, seconds=2.0)
+    r.expect(res["winner"] in ("self", "other", None) and res["steps"] > 0, "Fly.duel did not run")
+    r.note("who won is a MODEL PREDICTION: " + ", ".join(f"{m['a']} v {m['b']} -> {m['winner']}" for m in flat))
+
+
+def extra_race(backend: str, tmp: Path, r: Result) -> None:
+    """3.0 day 4: three real flies race for a short time cap. Judged: every fly moved, the order matches the distances, the odds are
+    probabilities, a point bet settles in a temporary wallet. Who is fastest is a MODEL PREDICTION and is reported."""
+    from kickthefly.core import points
+    from kickthefly.lab import racing
+
+    seeds = [71, 72, 73]
+    race = racing.run_race(seeds, mode="subtle", repeats=1, workers=1, cap_s=25.0, backend=backend)
+    lanes = race["runs"]["0"]
+    r.expect(all(l["distance"] > 0.3 for l in lanes.values()), f"a fly barely moved: {[l['distance'] for l in lanes.values()]}")
+    dist = [lanes[str(s)]["distance"] for s in race["orders"][0]]
+    r.expect(all(a >= b - 1e-9 for a, b in zip(dist, dist[1:])), f"the finishing order does not follow the distances: {dist}")
+    p = [race["odds"][str(s)]["p_win"] for s in seeds]
+    r.expect(abs(sum(p) - 1) < 1e-9 and all(race["odds"][str(s)]["decimal_odds"] >= points.MIN_ODDS for s in seeds), f"the odds are not probabilities: {p}")
+    w = points.Wallet(tmp / "arcade_points.json")
+    before = w.points
+    out = racing.settle_bets(race, [dict(fly=seeds[0], stake=10)], w)
+    r.expect(w.points == before + out[0]["delta"] and w.points >= points.TOP_UP_BELOW, "the bet did not settle in points")
+    r.metrics.update(order=race["orders"][0], distance=dist, odds={s: race["odds"][str(s)]["decimal_odds"] for s in seeds}, winner=race["winner"])
+    r.note("the fastest fly is a MODEL PREDICTION; the bet used a temporary wallet of game points (no money)")
+
+
+def extra_netsci(backend: str, tmp: Path, r: Result) -> None:
+    """3.0 day 4: network science end to end on the larva pack (small), then the adult pack's degree and reciprocity counts (the full
+    adult analysis takes minutes and is tested in tests/ and by --netsci). Judged: the counts equal the pack's, the cache round trip
+    works and a tampered cache is recomputed."""
+    import json as _json
+
+    from kickthefly.lab import netsci
+    from kickthefly.sim import brainpack
+
+    if brainpack.find(brain="larva") is not None:
+        res = netsci.compute("larva", nulls=2, wedges=20000)
+        r.expect(res["degrees"]["n"] > 1000 and res["communities"]["modularity"] > 0.2, f"larva: n {res['degrees']['n']}, Q {res['communities']['modularity']:.2f}")
+        r.expect(len(res["motifs"]) == 13 and res["reciprocity"]["enrichment"] > 1.0, "larva: motifs or reciprocity are off")
+        hit = netsci.compute("larva", nulls=2, wedges=20000)
+        r.expect(hit.get("from_cache") is True, "the second compute did not come from the cache")
+        path = netsci.cache_path("larva", res["pack_sha256"], res["settings"])
+        wrapper = _json.loads(path.read_text(encoding="utf-8"))
+        wrapper["result"]["degrees"]["connections"] += 1
+        path.write_text(_json.dumps(wrapper), encoding="utf-8")
+        r.expect(netsci.load_cached("larva", res["settings"]) is None, "a tampered cache was trusted")
+        r.metrics.update(larva_modularity=res["communities"]["modularity"], larva_communities=res["communities"]["communities"])
+    g = netsci.load_edges("adult")
+    from kickthefly.core import simcore
+
+    _, W, _ = simcore.pack("adult")
+    r.expect(g["n"] == 166700 and abs(len(g["src"]) - W.nnz) <= 5000, f"adult: {g['n']} neurons, {len(g['src'])} connections vs W.nnz {W.nnz}")
+    rec = netsci.reciprocity(g["src"], g["dst"], g["syn"], g["n"])
+    r.expect(0.0 < rec["binary"] < 1.0 and rec["reciprocal_pairs"] > 0, f"adult reciprocity {rec}")
+    r.metrics.update(adult_connections=int(len(g["src"])), adult_reciprocity=rec["binary"])
+    r.note("the full adult analysis (motifs, null model, communities) is a background job of minutes: run it with --netsci")
+
+
+def extra_sleepdep(backend: str, r: Result) -> None:
+    """3.0 day 4: a short paired sleep-deprivation run (two flies). Judged: the disturbed fly ends the window with more sleep pressure
+    and sleeps less in it than its own control. The rebound size is reported (it is a MODEL PREDICTION of a game rule)."""
+    from kickthefly.lab import sleepdep
+
+    res = sleepdep.run([81, 82], mode="off", workers=1, deprive_s=20.0, recover_s=25.0)
+    m = res["mean"]
+    r.expect(m["pressure_deprived"] > m["pressure_control"], f"deprivation did not raise sleep pressure: {m['pressure_deprived']:.2f} vs {m['pressure_control']:.2f}")
+    r.expect(m["deprivation_sleep_deprived"] <= m["deprivation_sleep_control"] + 1e-9, "the deprived flies slept more than their controls during the window")
+    r.expect(set(res["criteria"]) == {"S1", "S2", "S3"} and "p_text" in res, "the criteria were not scored")
+    r.metrics.update(mean=m, criteria={k: v["passed"] for k, v in res["criteria"].items()})
+    r.note("rebound sleep, deprived minus control: %.1f s (n = 2; the full assay uses 10 seeds)" % (m["recovery_sleep_deprived"] - m["recovery_sleep_control"]))
+
+
+def extra_sensitivity(backend: str, tmp: Path, r: Result) -> None:
+    """3.0 day 4: a sensitivity smoke run (one parameter at one value, one behavior, 3 seeds): the baseline and the changed cell both
+    come back through validation's own criteria, it resumes without rerunning, and the exports write. Underpowered by design."""
+    from kickthefly.lab import sensitivity
+
+    folder = tmp / "sensitivity"
+    kw = dict(params=["noise_std"], tests=["looming_escape"], seeds=[1000, 1001, 1002], values={"noise_std": [0.075]}, workers=2, folder=folder)
+    res = sensitivity.run(**kw)
+    r.expect(len(res["cells"]) == 2 and res["underpowered"], "expected a baseline and one changed cell, marked underpowered")
+    for c in res["cells"]:
+        b = c["behaviors"].get("looming_escape")
+        r.expect(b is not None and {"passed", "effect", "control", "effect_size_dz", "p_value", "n"} <= set(b), f"cell {c['key']} lacks the criteria's fields")
+    ran = []
+    again = sensitivity.run(**kw, resume=True, progress=lambda d, n, label: ran.append(label))
+    r.expect(ran and all("already done" in x for x in ran) and again["cells"] == res["cells"], "a resumed run did not reuse its finished cells")
+    files = sensitivity.save(res, folder)
+    r.expect(all(f.exists() and f.stat().st_size > 0 for f in files) and "<svg" in (folder / "sensitivity_heatmap.svg").read_text(), "an export is missing")
+    r.metrics.update(effects={c["key"]: c["behaviors"]["looming_escape"]["effect"] for c in res["cells"]})
+    r.note("analysis only: nothing about the defaults was changed")
+
+
+def extra_day4_pages(rig: Rig, r: Result) -> None:
+    """3.0 day 4: the Fly arcade and the three new Lab pages draw on a real game (a bracket and a race drawn from synthetic results, so
+    this is about the pages), in each accessibility palette, and their buttons are registered with the menu (which the mouse and the
+    gamepad both use)."""
+    import pygame
+
+    from kickthefly.game import kick_the_fly as k2
+    from kickthefly.lab import labday4, racing, tournament as tn
+    from kickthefly.ui import arcade_ui
+
+    g = rig.game
+    rig.reset()
+    surf = pygame.Surface((k2.W, k2.H))
+
+    def fake(task):
+        if task[0] == "card":
+            s = task[1]
+            return dict(seed=s, mode="subtle", loom_latency_s=0.1 + 0.01 * (s % 7), loom_crossed=True, sugar_ratio=1.8 + 0.05 * (s % 5), turning_ratio=1.0 + 0.01 * (s % 3),
+                        turning_log_ratio=0.01 * (s % 3), walk_level_calm=1.0 + 0.02 * (s % 4), title="Alert Steady", summary="Alert · Steady", traits=[], measured=True)
+        a, b = task[0], task[1]
+        frames = [[i / 10, -3, 0, 0, 100, 3, 0, 3.14, 90 - i, [[0, 0, 0]]] for i in range(40)]
+        return dict(winner=str(a), hp={str(a): 100.0, str(b): 50.0}, shots={str(a): 3, str(b): 2}, hits={str(a): 3, str(b): 0}, seconds=4.0, knockout=False,
+                    max_levels={str(a): dict(fire=4.0, escape=1.0, run=1.0, walk=1.0), str(b): dict(fire=3.0, escape=1.0, run=1.0, walk=1.0)},
+                    events=[["hit", 1.0, str(a)]], frames=frames, steps=800, attempt=0, match_seed=1)
+
+    bracket = tn.run_bracket([1, 2, 3, 4], seconds=4.0, play=fake, favorite=3, drivers=False)
+    st = arcade_ui.state(g.menu)
+    st.bracket, st.sel_match = bracket, (0, 0)
+    st.field = [fake(("card", s, "subtle")) for s in (11, 12, 13)]
+    st.odds = racing.odds_table(st.field)
+    st.bet_fly = 12
+    lanes = {str(s): dict(finish_s=10.0 + s, distance=8.0, trace=[[0, 0], [10.0 + s, 8.0]], lures_touched=[0], max_walk_level=2.0, seconds=10.0 + s) for s in (11, 12, 13)}
+    st.race = dict(seeds=[11, 12, 13], track_m=8.0, lures=[[2.0, "sugar"], [4.0, "fruit"]], runs={"0": lanes}, orders=[[11, 12, 13]], winner=11,
+                   odds={str(s): dict(p_win=1 / 3, decimal_odds=2.7, form=0.0) for s in (11, 12, 13)})
+    st.bet_result = [dict(fly=12, stake=10, odds=2.7, won=False, delta=-10, points=90)]
+    labday = labday4._st(g.menu)
+    labday.sens = {"seeds": [1000, 1001, 1002], "tests": ["looming_escape"], "underpowered": True, "seconds": 1.0,
+                   "parameters": [dict(id="noise_std", label="Membrane noise", kind="lif", default=0.05, note="", values=[0.075])],
+                   "cells": [dict(key="baseline", parameter="baseline", value=None, behaviors=dict(looming_escape=dict(passed=True, effect=11.0, control=0.8, metric="x", effect_size_dz=3.0, p_value=0.001, n=3))),
+                             dict(key="noise_std=0.075", parameter="noise_std", value=0.075, behaviors=dict(looming_escape=dict(passed=False, effect=1.2, control=0.9, metric="x", effect_size_dz=0.4, p_value=0.3, n=3)))]}
+    pages = [("arcade", "tournament"), ("arcade", "race"), ("lab_netsci", None), ("lab_sleepdep", None), ("lab_sensitivity", None)]
+    for palette in ("default", "blue-yellow", "high-contrast"):
+        g.cfg.set("access.palette", palette)
+        for page, tab in pages:
+            r.expect(page in g.menu.pages, f"{page} is not registered")
+            if tab:
+                st.tab = tab
+            g.menu.show(page)
+            g.menu.mouse = (5, 5)
+            g.menu.draw(surf, (5, 5), time.perf_counter())
+            if tab == "tournament":
+                ids = [h[2].get("id") for h in g.menu.hits if h[1] == "button"]
+                r.expect("arc_run" in ids, "the Run tournament button is not registered with the menu")
+    g.cfg.set("access.palette", "default")
+    g.menu.close()
+    labels = [x[0] for x in g.lab_pages()]
+    r.expect(all(x in labels for x in ("Network science", "Sleep deprivation", "Sensitivity analysis")), f"Lab hub entries missing: {labels}")
+
+
+def extra_rigs(backend: str, tmp: Path, r: Result) -> None:
+    """3.0 day 5: the four behavior rigs on one real brain each. Judged only what validation already stands behind (the optomotor path to the
+    steering neurons) and the rigs' own bookkeeping (the platform keeps the fly in, the PI is a share, a run is deterministic, a recording writes
+    the Lab's files). Where the fly goes in the olfactory arena is a MODEL PREDICTION and is reported."""
+    from kickthefly.core import simcore
+    from kickthefly.game import rigs
+    from kickthefly.lab import rigassay
+
+    def new(seed=61):
+        return simcore.new_brain(seed=seed, backend=backend, individuality="subtle")
+
+    br = new()
+    a = rigs.run_tethered(br, [(1.5, 0.0), (3.0, 3.0), (1.5, 0.0), (3.0, -3.0)], "open")["_full"]
+    col = lambda name: a[:, rigs.COLS.index(name)]
+    ph = col("t")
+    right = col("steer_hz")[(ph > 2.0) & (ph <= 4.5)].mean()
+    left = col("steer_hz")[(ph > 6.5)].mean()
+    r.expect(right - left > 1.0, f"tethered: R - L after a rightward rotation ({right:+.2f} Hz) is not above the leftward one's ({left:+.2f} Hz)")
+    c = rigs.run_tethered(br, [(1.5, 0.0), (8.0, 1.0)], "closed")["_full"]
+    yaw = c[:, rigs.COLS.index("yaw_rate")]
+    t = c[:, 0]
+    r.expect(yaw[t > 5.0].mean() > yaw[t <= 1.5].mean(), "tethered closed loop: the fly did not turn with the imposed rotation")
+    slip = np.abs(c[:, rigs.COLS.index("slip")])[t > 5.0].mean()
+    r.expect(slip < 1.0, f"tethered closed loop: mean |slip| {slip:.2f} is not below the imposed 1 rad/s")
+    vis = rigs.run_ball(br, "bar", "closed", seconds=14.0, bar_offset=math.radians(90), bar_visible=True)["_full"]
+    hid = rigs.run_ball(br, "bar", "closed", seconds=14.0, bar_offset=math.radians(90), bar_visible=False)["_full"]
+    e_vis = float(np.degrees(np.abs(vis[:, rigs.COLS.index("aux")])[vis[:, 0] > 9].mean()))
+    e_hid = float(np.degrees(np.abs(hid[:, rigs.COLS.index("aux")])[hid[:, 0] > 9].mean()))
+    r.expect(e_vis < e_hid and e_vis < 45.0, f"ball: bar error {e_vis:.0f} deg visible vs {e_hid:.0f} hidden")
+    r.metrics.update(tether_R_minus_L_hz=round(float(right - left), 2), ball_bar_error_deg=dict(visible=round(e_vis, 1), hidden=round(e_hid, 1)))
+    s1 = rigs.run_buridan(new(62), 30.0, stripes=True, start_heading=0.5)["_full"]
+    s0 = rigs.run_buridan(new(62), 30.0, stripes=False, start_heading=0.5)["_full"]
+    radius = np.hypot(s1[:, rigs.COLS.index("x")], s1[:, rigs.COLS.index("y")]).max()
+    r.expect(radius <= rigs.PLATFORM_RADIUS + 1e-9 and np.hypot(s0[:, 6], s0[:, 7]).max() <= rigs.PLATFORM_RADIUS + 1e-9, "buridan: the fly left the platform")
+    d1, d0 = rigs.stripe_deviation(s1), rigs.stripe_deviation(s0)
+    r.expect(d1 < d0, f"buridan: stripe deviation {d1:.0f} deg with stripes vs {d0:.0f} without")
+    ff = rigs.run_fourfield(new(63), 30.0, deliver=True)
+    pi = rigs.preference_index(ff["_full"], ff["dt"], settle_s=5.0)
+    r.expect(-1.0 <= pi["pi"] <= 1.0 and abs(pi["seconds_odor"] + pi["seconds_air"] - 25.0) < 0.5, f"fourfield: PI {pi}")
+    r.metrics.update(buridan_deviation_deg=dict(stripes=round(d1, 1), none=round(d0, 1)), buridan_transits=dict(stripes=rigs.transits(s1, 5.0), none=rigs.transits(s0, 5.0)),
+                     fourfield_pi=round(pi["pi"], 3))
+    one = rigassay.scene_run("buridan", 64, "subtle", backend=backend, seconds=6.0)
+    two = rigassay.scene_run("buridan", 64, "subtle", backend=backend, seconds=6.0)
+    r.expect(one["trace"] == two["trace"], "the same seed and settings gave two different rig traces")
+    folder = tmp / "rig-export"
+    rec = rigassay.scene_run("tethered", 65, "off", backend=backend, folder=folder, seconds=9.0)
+    names = sorted(f.name for f in folder.iterdir())
+    r.expect(any(n.endswith("-spikes.csv") for n in names) and any(n.endswith("-group-rates.csv") for n in names) and any(n.endswith("-metadata.json") for n in names)
+             and any(n.endswith("-kinematics.csv") for n in names) and any(n.endswith("-rig_trace.csv") for n in names), f"a rig recording is missing files: {names}")
+    r.note("the olfactory preference index (%.2f here, one fly) is a MODEL PREDICTION and is not judged; its assay is --rig-assay fourfield" % pi["pi"])
+
+
+def extra_minipapers(backend: str, tmp: Path, r: Result) -> None:
+    """3.0 day 5: a mini-paper runs the validation test it is built on (looming -> giant fiber on two flies), compares with what the paper
+    states, renders and writes its files; the larva paper falls back to recorded numbers when the larva pack is missing."""
+    from kickthefly.lab import classroom, minipapers
+    from kickthefly.sim import brainpack
+
+    res = minipapers.run_paper("von_reyn_2014", (0, 1), workers=1)
+    q = res["questions"][0]
+    r.expect(q["verdict"]["reproduced"] and len(q["pairs"]) == 2 and res["source"] == "live" and not res["full"], f"the looming mini-paper: {q['verdict']}")
+    row = minipapers.compare(res, {"looming_escape": "up"})[0]
+    r.expect(row["you_matched_the_paper"] and row["model_reproduces_paper"], f"the comparison row: {row}")
+    text = minipapers.render(res, {"looming_escape": "up"})
+    r.expect("von Reyn" in text and "10.1038/nn.3741" in text and "What this model cannot check" in text, "the rendered mini-paper lacks its citation or its limits")
+    files = minipapers.save(res, tmp / "minipaper", {"looming_escape": "up"})
+    r.expect(all(f.exists() and f.stat().st_size > 0 for f in files) and any(f.suffix == ".svg" for f in files), "a mini-paper export is missing")
+    if brainpack.find(brain="larva") is None:
+        lv = minipapers.run_paper("ohyama_2015")
+        r.expect(lv["source"] == "recorded" and all(not x["verdict"]["reproduced"] for x in lv["questions"]), "the larva paper did not fall back to recorded numbers")
+    r.expect(all(classroom.lecture(f"paper_{p}") is not None for p in minipapers.ORDER), "a mini-paper is not a lecture protocol")
+    r.metrics.update(looming_ratio=round(q["verdict"]["measured"]["drive_ratio_mean"], 2), larva_pack=brainpack.find(brain="larva") is not None)
+
+
+def extra_day5_pages(rig: Rig, r: Result) -> None:
+    """3.0 day 5: the rig pages, the Mini-papers page, the pause menu's entry and What's New draw on a real game, in every palette and at larger
+    text, with their controls registered with the menu (mouse and gamepad share that list)."""
+    import pygame
+
+    from kickthefly.core import simcore
+    from kickthefly.game import kick_the_fly as k2
+    from kickthefly.lab import labrigs, minipapers, rigassay
+    from kickthefly.ui import minipaper_ui
+
+    g = rig.game
+    rig.reset()
+    surf = pygame.Surface((k2.W, k2.H))
+    br = simcore.new_brain(seed=5, backend=rig.state.get("backend"), warmup=100)
+    s = labrigs.st(g.menu)
+    for name in rigassay.SCENES:
+        s.res[name] = rigassay.scene_run(name, 5, "subtle", br=br, seconds=8.0)
+    s.t, s.playing = 4.0, False
+    ms = minipaper_ui.st(g.menu)
+    for pid in minipapers.ORDER:
+        ms.answers[pid] = {q.test: q.expected for q in minipapers.PAPERS[pid].questions}
+    ms.results["ohyama_2015"] = minipapers.run_paper("ohyama_2015")          # the recorded numbers when the larva pack is missing, a live run when it is built
+    ms.results["von_reyn_2014"] = minipapers.run_paper("von_reyn_2014", (0, 1), workers=1)
+    pages = ["lab_rigs", *labrigs.PAGES.values(), "lab_minipapers", "whatsnew"]
+    for larger in (False, True):
+        g.cfg.set("access.larger_text", larger)
+        g.menu.fonts()
+        for palette in ("default", "blue-yellow", "high-contrast"):
+            g.cfg.set("access.palette", palette)
+            for page in pages:
+                r.expect(page in g.menu.pages, f"{page} is not registered")
+                if page == "lab_minipapers":
+                    for pid in ("ohyama_2015", "von_reyn_2014"):
+                        minipaper_ui.open_paper(g.menu, pid)
+                        for i in range(ms.sess.total_steps):
+                            ms.sess.goto_step(i)
+                            g.menu.show(page)
+                            g.menu.mouse = (5, 5)
+                            g.menu.draw(surf, (5, 5), time.perf_counter())
+                    ms.paper = None
+                g.menu.show(page)
+                g.menu.mouse = (5, 5)
+                g.menu.draw(surf, (5, 5), time.perf_counter())
+                ids = [h[2].get("id") for h in g.menu.hits if h[1] == "button"]
+                if page == "lab_rig_buridan":
+                    r.expect(("rig_run", "buridan") in ids, "the rig's Run button is not registered with the menu")
+                if page == "whatsnew":
+                    r.expect(("whatsnew", "ok") in ids, "What's New's Got it is not registered")
+    g.cfg.set("access.palette", "default")
+    g.cfg.set("access.larger_text", False)
+    g.menu.fonts()
+    g.menu.show("pause")
+    g.menu.draw(surf, (5, 5), time.perf_counter())
+    r.expect(("pause", "minipapers") in [h[2].get("id") for h in g.menu.hits], "the pause menu has no Mini-papers entry")
+    g.menu.close()
+    labels = [x[0] for x in g.lab_pages()]
+    r.expect("Behavior rigs" in labels and "Mini-papers" in labels, f"Lab hub entries missing: {labels}")
 
 
 def extra_individuality(backend: str, r: Result) -> None:
@@ -1069,6 +2086,7 @@ def run(brains=("adult", "larva"), out: Path | None = None, quick: bool = False,
                     add(Result(id="extra:duel", group="extra", brain="adult"), extra_duel, rig3)
                     add(Result(id="extra:render", group="extra", brain="adult"), extra_render, rig3)
                     add(Result(id="extra:multi-fly-3d", group="extra", brain="adult"), extra_multi_fly, rig3)
+                    add(Result(id="extra:kitchen", group="extra", brain="adult"), extra_kitchen, rig3)
                 finally:
                     if rig3 is not None:
                         rig3.close()
@@ -1079,15 +2097,38 @@ def run(brains=("adult", "larva"), out: Path | None = None, quick: bool = False,
                     for r in gate_2d_outdoor(rig2):
                         add(r)
                     if not quick:
-                        for arena in (a for a in all_arenas if a not in k2.OUTDOOR_ARENAS):
+                        for arena in (a for a in all_arenas if a not in k2.THREE_D_ONLY):
                             for tool in all_tools:
                                 if lo.available(tool, lab=True, larva=False):
                                     add(game_leg(rig2, arena, tool, min_ratio, tmp, save_load=False, rest=rest.get(tool)))
                     add(Result(id="extra:training", group="extra", brain="adult"), extra_training, rig2)
+                    add(Result(id="extra:neurodex", group="extra", brain="adult"), extra_neurodex, rig2)
+                    add(Result(id="extra:killcam", group="extra", brain="adult"), extra_killcam, rig2)
+                    add(Result(id="extra:share-codes", group="extra", brain="adult"), extra_share, rig2)
+                    add(Result(id="extra:toolkit-pages", group="extra", brain="adult"), extra_toolkit_pages, rig2)
+                    add(Result(id="extra:live-inputs", group="extra", brain="adult"), extra_live_inputs, rig2)
+                    add(Result(id="extra:day4-pages", group="extra", brain="adult"), extra_day4_pages, rig2)
+                    add(Result(id="extra:day5-pages", group="extra", brain="adult"), extra_day5_pages, rig2)
                 finally:
                     if rig2 is not None:
                         rig2.close()
                 add(Result(id="extra:surgery", group="extra", brain="adult"), extra_surgery, backend)
+                add(Result(id="extra:genetics", group="extra", brain="adult"), extra_genetics, backend)
+                add(Result(id="extra:thermogenetics", group="extra", brain="adult"), extra_thermogenetics, backend)
+                add(Result(id="extra:patch", group="extra", brain="adult"), extra_patch, backend)
+                add(Result(id="extra:imaging", group="extra", brain="adult"), extra_imaging, backend, tmp)
+                add(Result(id="extra:pharmacology", group="extra", brain="adult"), extra_pharmacology, backend)
+                add(Result(id="extra:weather", group="extra", brain="adult"), extra_weather, backend)
+                add(Result(id="extra:mic", group="extra", brain="adult"), extra_mic, backend)
+                add(Result(id="extra:predators", group="extra", brain="adult"), extra_predators, backend)
+                add(Result(id="extra:tournament", group="extra", brain="adult"), extra_tournament, backend)
+                add(Result(id="extra:race", group="extra", brain="adult"), extra_race, backend, tmp)
+                add(Result(id="extra:netsci", group="extra", brain="adult"), extra_netsci, backend, tmp)
+                add(Result(id="extra:sleepdep", group="extra", brain="adult"), extra_sleepdep, backend)
+                add(Result(id="extra:sensitivity", group="extra", brain="adult"), extra_sensitivity, backend, tmp)
+                add(Result(id="extra:rigs", group="extra", brain="adult"), extra_rigs, backend, tmp)
+                add(Result(id="extra:minipapers", group="extra", brain="adult"), extra_minipapers, backend, tmp)
+                add(Result(id="extra:bundle-rerun", group="extra", brain="adult"), extra_bundle, backend, tmp)
                 add(Result(id="extra:individuality", group="extra", brain="adult"), extra_individuality, backend)
             add(Result(id="extra:pet-catch-up", group="extra"), extra_pet, tmp)
         finally:

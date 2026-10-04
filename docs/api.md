@@ -95,3 +95,66 @@ fly.use_tool("sugar")                  # drives the tool's documented sensory ne
 
 `fly.use_tool` is the sensory drive only: no body, no room. A tool the mode doesn't allow raises `ValueError`. The presets and the
 tool catalog (`ToolInfo`: category, description, the neurons it drives, CONNECTOME or GAME RULE) are in `kickthefly.core.loadout`.
+
+
+## Neurodex, kill cam (3.0)
+
+```python
+from kickthefly import Fly
+
+fly = Fly(seed=7)
+prog = fly.collect()               # collect Neurodex discoveries while stepping; a throwaway collection, never your own file
+fly.step(6.0)                      # the discovery rule needs the first 5 s to settle
+fly.drive("type:DNp01", amp=0.5)
+fly.step(3.0)
+print(fly.discoveries)             # [(brain time s, "DNp01", "stimulated")]
+print(fly.neurodex("DNp01"))       # dataset facts, the curated fact and citation (if any), discovered or not
+
+fly.killcam()                      # keep the last 6 s of per-neuron firing
+fly.step(3.0)
+fly.kill()
+rep = fly.killcam_replay()         # kickthefly.core.killcam.Replay
+print(rep.summary(fly.brain.types)["risers"][:3])
+```
+
+`collect(progress=path)` writes to that file; pass `kickthefly.core.neurodex.progress_path()` to add to your own Neurodex. The rule
+and its numbers are in `kickthefly/core/neurodex.py` and [docs/neurodex.md](neurodex.md). Share codes are `kickthefly.core.sharecode`
+(`encode`, `decode`, `validate`, `preview`) and bundles are `kickthefly.lab.bundle` (`create`, `inspect`, `rerun`).
+
+
+## 3.0 day 2: toolkit methods
+
+| call | what | tag |
+|---|---|---|
+| `fly.line("SS00727")` | a driver line's cell types, matched types, neuron count and the source's off-target note; `"line:SS00727"` works as a neuron spec everywhere | LITERATURE + CONNECTOME |
+| `fly.express("trpa1" \| "shibire", spec)`, `fly.temperature(c, kinetics=)`, `fly.unexpress()` | thermogenetics; effectors follow the temperature during `step()` | GAME RULE + MODEL |
+| `fly.patch(neuron, amplitudes, duration_ms, repeats, mode="embedded" \| "isolated")` | virtual current clamp, I-F curve and recording | MODEL |
+| `fly.image(seconds, rois=None, indicator="gcamp6s", fps=20)` | simulated GCaMP imaging of the next seconds; returns an `ImagingResult` | MODEL |
+| `fly.drug(name, dose, include_low_confidence=True, cut=0.7)`, `fly.washout()` | synaptic scaling by predicted transmitter | MODEL PREDICTION |
+| `fly.attack(kind, seed=None)` | a frog, dragonfly or mantis attack through the looming pathway; whether DNp01 crossed the escape threshold before the capture (3.0 day 3) | GAME RULE attack, MODEL PREDICTION result |
+| `fly.weather(rain, gust_hz, storm, wind_speed, wind_dir)` | rain on touch neurons, humid air, gusts on JO-C/E, lightning on the eyes (all off clears) | GAME RULE |
+| `fly.hear(hz, seconds, ipi_ms=None, amp=0.1)` | a synthetic hum through the microphone's analysis onto JO-A/B; never a microphone | GAME RULE |
+
+## 3.0 day 4: functions and two Fly methods
+
+| call | what | tag |
+|---|---|---|
+| `network_science(brain="adult", nulls=3, wedges=300000, seed=0, progress=None, force=False, cache=True)` | degrees, reciprocity, 3-node motifs vs a degree-preserving null, rich club, communities, regions of the pack; cached with a checksum ([network-science.md](network-science.md)) | CONNECTOME (analysis choices GAME RULE) |
+| `tournament(seeds, seconds=20, mode="subtle", favorite=None, workers=1)` | a bracket of 4, 8 or 16 flies in brain-vs-brain duels; returns the bracket, the measured cards, the champion's drivers and `["analysis"]` ([tournament.md](tournament.md)) | MODEL PREDICTION |
+| `race(seeds, repeats=1, mode="subtle", workers=1)` | flies race a lure track through their own brains; odds from the measured cards; points only ([racing.md](racing.md)) | MODEL PREDICTION |
+| `sleep_deprivation(seeds=range(1000, 1010), mode="off", workers=1)` | paired deprivation vs control, rebound sleep and the three pre-registered criteria ([sleep-deprivation.md](sleep-deprivation.md)) | GAME RULE pressure, CONNECTOME dFB, MODEL PREDICTION rebound |
+| `sensitivity(params=None, tests=None, seeds=None, values=None, workers=None, folder=None, resume=False)` | vary the LIF parameters and re-run the validated behaviors with validation's criteria ([sensitivity.md](sensitivity.md)); analysis only | MODEL PREDICTION |
+| `fly.card(mode="subtle")` | the personality card measured from this seed's brain (builds its own brain) | CONNECTOME readouts |
+| `fly.duel(other, seconds=20, seed=0)` | a 1v1 duel against another `Fly`; both brains steer, shoot, dodge and run | GAME RULE arena, MODEL PREDICTION winner |
+
+The five functions live in `kickthefly.lab.api` (`from kickthefly.lab.api import tournament`).
+
+## 3.0 day 5: behavior rigs and mini-papers
+
+| call | what | tag |
+|---|---|---|
+| `rig(name, seed=0, individuality="subtle", mode=None, seconds=None, omega=None, gain=None, scene=None, bar_deg=None, folder=None, backend=None)` | one fly in a rig (`"tethered"`, `"ball"`, `"buridan"`, `"fourfield"`): the decimated trace, a summary and the tags; `folder=` also records it in the Lab's format ([rigs.md](rigs.md)) | CONNECTOME steering and walking, GAME RULE rig, MODEL PREDICTION |
+| `rig_assay(name, seeds=range(1000, 1010), modes=("subtle", "off"), workers=1)` | the rig's pre-registered criteria for the default mode and the off control | MODEL PREDICTION |
+| `minipaper(paper, seeds=None, workers=1)` | run a guided mini-paper's experiment (default: the quick run on seeds 0-3; `minipapers.FULL_SEEDS` for the validation seeds); `minipapers.render(result)` and `minipapers.compare(result, answers)` give the text and the rows ([minipapers.md](minipapers.md)) | LITERATURE next to a MODEL PREDICTION |
+
+The three live in `kickthefly.lab.api` too.

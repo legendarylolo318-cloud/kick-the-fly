@@ -1,0 +1,16 @@
+# 3.0 day 2, Simulated calcium imaging (MODEL): GCaMP6f over the looming detectors, the giant fiber and every brain region while a
+# looming stimulus drives LPLC2/LC4. Writes <seed>-imaging.csv (dF/F per ROI) next to the usual spike recordings; nwb: true adds an
+# NWB file (RoiResponseSeries) and imaging.tiff: true a TIFF stack of the rendered brain view (slow: it builds the view).
+name: imaging-looming
+seed: 100
+flies: 2
+warmup_s: 2
+duration_s: 4
+stimuli:
+  - {at_s: 1.0, for_s: 1.0, target: loom, strength: 0.9, recruit: 0.6}
+imaging:
+  indicator: gcamp6f
+  fps: 20
+  rois: ["type:LPLC2", "type:DNp01", "superclass:descending_neuron"]
+recordings:
+  - {name: giant_fiber, neurons: dnp01}

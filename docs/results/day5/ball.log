@@ -1,0 +1,31 @@
+00:22:53 INFO Kick the Fly 2.13.1 on Arch Linux, kernel 7.2.8-zen1-2-zen
+00:22:53 INFO headless run (simulation backend: auto)
+pygame-ce 2.5.8 (SDL 2.32.10, Python 3.14.7)
+  1/10 ball, subtle: fly 1001 done (58 s)
+  2/10 ball, subtle: fly 1008 done (58 s)
+  3/10 ball, subtle: fly 1000 done (58 s)
+  4/10 ball, subtle: fly 1002 done (59 s)
+  5/10 ball, subtle: fly 1005 done (59 s)
+  6/10 ball, subtle: fly 1009 done (59 s)
+  7/10 ball, subtle: fly 1006 done (59 s)
+  8/10 ball, subtle: fly 1003 done (59 s)
+  9/10 ball, subtle: fly 1004 done (65 s)
+  10/10 ball, subtle: fly 1007 done (65 s)
+  1/10 ball, off: fly 1009 done (50 s)
+  2/10 ball, off: fly 1003 done (51 s)
+  3/10 ball, off: fly 1005 done (51 s)
+  4/10 ball, off: fly 1004 done (51 s)
+  5/10 ball, off: fly 1001 done (51 s)
+  6/10 ball, off: fly 1002 done (51 s)
+  7/10 ball, off: fly 1007 done (52 s)
+  8/10 ball, off: fly 1006 done (52 s)
+  9/10 ball, off: fly 1000 done (57 s)
+  10/10 ball, off: fly 1008 done (57 s)
+FLY ON A BALL ASSAY, 10 flies (seeds 1000-1009)
+  individuality subtle:
+    BL1 PASS: closed loop, walking: share of an imposed 1 rad/s drift of the VR panorama the fly cancels: +0.496 fraction (needs >= 0.1), p < 0.001, n = 10
+    BL2 PASS: closed-loop bar: heading error (deg) with the bar hidden minus with it visible, last 5 s of 20 s: +88.8 deg (needs >= 10), p < 0.001, n = 10
+  individuality off  (the control):
+    BL1 PASS: closed loop, walking: share of an imposed 1 rad/s drift of the VR panorama the fly cancels: +0.461 fraction (needs >= 0.1), p < 0.001, n = 10
+    BL2 PASS: closed-loop bar: heading error (deg) with the bar hidden minus with it visible, last 5 s of 20 s: +86.7 deg (needs >= 10), p < 0.001, n = 10
+results written to /home/lolo/ktf_day5_results/ball (123 s)

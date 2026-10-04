@@ -1,0 +1,11 @@
+# 3.0 day 3, Predators: one mantis attack as looming onto LPLC2/LC4 (game/predators.py). The slow creep stays below the looming threshold and
+# the strike does not: compare the loom group before and after the strike. The attack is a game rule; the response is the connectome's.
+name: predator-mantis-creep
+seed: 1000
+flies: 2
+warmup_s: 1
+duration_s: 14
+predator: {kind: mantis, at_s: 0.5}
+recordings:
+  - {name: looming detectors, neurons: "loom"}
+  - {name: giant fiber, neurons: "dnp01"}

@@ -1,0 +1,98 @@
+# What is the connectome and what is a game rule
+
+The canonical map is the docstring at the top of `kickthefly/game/kick_the_fly.py` (the `kick_the_fly.py` shim in the repo root points at it); per
+assay it is in `kickthefly/lab/assays.py`; Lab > Model assumptions lists the simplifications with their documentation. This page is the long form
+of the table in the [README](../README.md#connectome-or-game-rule). The tags used everywhere: **CONNECTOME** (read off the wiring or produced by it),
+**GAME RULE** (written for the game), **MODEL PREDICTION** (what the model then does, judged against criteria fixed beforehand where it is an
+assay), **LITERATURE** (a published finding, cited).
+
+**Connectome**
+- The spiking model (leaky integrate-and-fire over the 10,272,125 signed connections of the brain pack, about 39 million synapses) and all the neuron firing.
+- Which sensory neurons each hit drives.
+- The descending neurons read out for reactions. The jump, run and kick groups are the DN types that responded most to head, body and leg touch when the sim was probed.
+- Take-off and flight speed come from DNg02, the wing-power descending neurons.
+- In the 1v1 duel: aiming comes from the steering neurons DNa02 and DNa01 (right minus left), shooting from DNp35 and DNpe052, and walking toward you from DNp09. The pathways from target-tracking LC10 to DNa02 and from the small-object detectors LC11/18/21/26 to DNp35 are the connectome's own wiring. In testing, driving LC10 on one side took that side's DNa02 from about 1 to about 19 spikes/s. Whether it fights or flees is read from its mushroom body synapses for your smell.
+- Dodging: the looming detectors LPLC2 and LC4 exciting the giant fiber DNp01 is the connectome's own wiring (validated: x11.8 vs x0.8 for a control).
+- The wind, humidity and light neurons each arena fires, and the Kenyon cell patterns each tool's scent produces.
+- The REWARD meter reads the PAM dopaminergic neurons.
+- Drinking alcohol drives the same real pathways sugar does (the sugar-pathway taste neurons and the PAM reward neurons), and the droplet's smell drives the real olfactory neurons of the fermentation glomeruli DM1, DM2 and DP1m.
+- Antennal wind excites the antennal grooming command neurons aDN1/aDN2 (validated); the GROOM reaction reads them.
+- Sugar reaching the proboscis motor neuron MN9 (validated); the PROBOSCIS reaction reads MN9 during an eating bout. Which taste neurons count as sugar-pathway ones is chosen from the connectome's wiring to the annotated sugar and bitter SEL neurons.
+- Everything inside the assays and protocols: how drive spreads, which neurons respond, and what silencing a group does.
+- **Global inhibition block (Picrotoxin):** Scaling down inhibitory synapses unmasks recurrent excitation, driving brain-wide firing rate from 6.7 Hz calm mean up to 33.8 Hz mean (one seed, 1 s) as an emergent property of connectome recurrence.
+- **Hemifield visual lesions:** Unilateral visual silencing (LC10, LPLC2, LC4, LPTC, VS, HS) causes lateralized behavioral failure: intact escapes for contralateral looming (10.9x GF drive) vs complete failure for ipsilateral looming (1.02x drive), biased spontaneous steering (-1.8 Hz vs +0.10 Hz baseline), and loss of 1v1 duel aim when the opponent is in the blind hemifield (turn differential drops to 0.85 Hz, below steering deadzone).
+- **Connectome robustness sweeps:** Dropping connections below 10 synapses (73.6% of connections) preserves all four validated behaviors. Sign flips of low-confidence predictions break sugar -> MN9 in 3 of 3 trials while looming -> GF and JO -> aDN survive. Looming critical path depends primarily on LC4 (-50%) and LPLC2 (-43%).
+- **Outdoor senses:** the open field's wind drives the real JO-C/E wind neurons of each antenna and the sun drives the photoreceptors, as the fan and lamp arenas do. In wind, JO also drives the head-touch escape DNs, so the fly flies off repeatedly; that is the wiring, not a scripted behavior. Take-off still reads from DNg02 and escape from the head-touch DNs outdoors, with no ceiling (tested).
+- **Orchard feeding:** landing on a fruit drives the sugar-pathway taste neurons and the PAM reward neurons exactly as the sugar tool does (fermented fruit as the alcohol tool does). The MN9 response to it is the validated sugar -> MN9 pathway.
+- **Several flies in the orchard** notice each other only through the looming detectors and touch neurons they always had.
+- **Neural clamp:** Isolates structural wiring perturbations by forcing identical reference spike trains onto target neurons across different connectome variants.
+- **Courtship song:** pIP10 driving the ps1 wing motor neurons (validated, through VNC interneurons) and what SONG reads: ps1's firing.
+- **Aggression:** the aggression neurons LUNGE reads (AVLP727m and the pC1 cluster, P1 included), and how flies notice each other (looming and touch only).
+- **Optomotor:** everything after T4/T5: rightward motion excites the right steering neurons DNa01/DNa02 (validated).
+- **Thermo arena and day/night:** which neurons the temperature and the daylight reach (the hot and cold antennal neurons TRN_VP2/TRN_VP3, the photoreceptors, the morning clock neurons l-LNv/s-LNv) and everything downstream, including the dorsal fan-shaped body the SLEEP readout watches. The hot, cold and CO2 sensory-to-projection-neuron steps are validated as activation only; HEAT, COLD and CO2 in the log read those projection neurons.
+- **Search and path tracer:** the paths are the connectome's own synapses, ranked by their weights.
+- **cVA:** the DA1 olfactory receptor neurons the tool drives, and everything after them: the DA1 projection neurons and their lateral horn / aSP targets (LHAV4a4, LHAV4c1, LH008m), validated as activation.
+- **Decoy female:** the foreleg taste neurons contact drives (LgLG5-8, putative ppk23/ppk25) and whatever they reach (P1 only weakly).
+- **Fruit tool:** the sugar-pathway taste neurons and PAM reward neurons its eating drives, exactly as sugar does.
+- **Tool catalog:** the neurons each tool drives, as the loadout editor lists them (`ToolInfo.probes`); the playthrough bot checks they fire.
+- **Extinction and second-order conditioning:** tested on the existing learning rule and the connectome's own dopamine neurons, with no rule added; neither emerges.
+
+**Game rules**
+- Which move each neuron group triggers, and the thresholds (all adjustable in Lab > Parameters).
+- The ragdoll physics and standing back up.
+- Jump direction, stun and damage.
+- The pain index. The adult connectome has no neurons annotated as nociceptors, so pain is an estimate built from real signals, not a measurement of what the fly feels.
+- Death. A sim can't die on its own, so on death its tonic drive is switched off and activity fades out.
+- Brake cleaner dissolving the fly, and the brain slowing as it dissolves. Solvents depress nervous systems, so an inhibitory current grows on every neuron as the fly melts. How strong it is was picked for the game, not measured. The smell and taste neurons it fires are real.
+- Freezing and spider venom damping the brain, and the zapper's shock going into a random 30% of neurons (the sim has no current path to place it).
+- Alcohol inebriation. Drinking raises a scripted inebriation level (0 to 1, decaying over ~45 s) that the game turns into tremors, a stumbling gait, wobbly flight and delayed escape reflexes. Ethanol's real pharmacology is not modelled: the simulated neurons are unaffected, and only the body's movement is degraded. The Lab mode Model Assumptions page lists this too.
+- Sugar switching on the PAM reward neurons directly. In this sim taste input alone doesn't reach them, so sugar drives them the way PAM activation experiments do. The fly walking to the sugar and the proboscis coming out are also game rules (what triggers the proboscis is MN9).
+- How looming reaches the fly. The game measures how fast an object grows in its view and drives LPLC2/LC4 directly. Streaming pixels through the sim's own photoreceptors didn't work: the looming signal stayed inside the brain's random flicker. The same transduction runs in the looming assay, so part of its speed dependence is this rule, not a measurement.
+- Learning. The plasticity happens on the connectome's own synapses: all 41,495 Kenyon cell to MBON connections that dopamine neurons reach. Which dopamine neurons gate which output neurons comes from the connectome's 37,909 dopamine to output neuron synapses: PPL1 punishment dopamine for MBON11-20 and 30-35, and PAM reward dopamine for MBON01-10, 21, 24 and 26-29. That matches the published map. The rule is the one found in real flies: dopamine plus Kenyon cell activity weakens the synapse. Game rules: pain driving PPL1, sugar driving PAM, each tool having a smell, and the learning rate and forgetting speed. In testing, 10 pairings raised fear of the trained smell from 0 to 0.65 while an untrained smell stayed at 0.01, and the trained smell's approach output neurons dropped from 32 to 30 spikes/s.
+- The T-maze (challenge and assay): each odor being a fixed set of 6 glomeruli, the shock driving PPL1 and leg touch neurons, and the choice at the fork. The fly smells each arm and picks the one whose learned drive (liking minus fear, read from its synapses) is higher, plus decision noise. The performance index is computed as in Tully & Quinn 1985.
+- The looming assay's escape rule (DNp01 above its threshold before contact) and the sneak challenge's scoring.
+- The sugar assay's dose (the share of sugar-pathway taste neurons driven) and what counts as a proboscis extension (MN9 at least 1.5x its rate just before).
+- Real-science cards: which reactions get one is decided by the validation results, and only passing tests count.
+- Slow motion: the room's physics still advances in 1/60 s ticks; bodies are drawn in between.
+- Being drawn to the lamp, and the arena physics.
+- The outdoor worlds: the ground, sky, rocks, grass, trees and fruit; the open field's size and where a fly counts as lost; the wind's push on the body; escapes lasting 2.5x longer outdoors; recall (J).
+- How wind and sun reach the neurons: each antenna's share of the wind drive is the cosine of where the wind comes from relative to the heading, and the sun's drive is its elevation split between the eyes by azimuth. Real antennae sense wind by being deflected and real eyes see an image; neither is modelled.
+- The orchard: each fruit's feeds (default 4), regrowth (default 75 s, +-25%, with slots above the per-tree cap waiting until the tree loses a fruit), the cap (default 4), the share of fermented fruit, the fly flying to the nearest ripe fruit, landing, one fly per fruit, and the feeding bout length (1.5 s). The fly does not forage through its own circuitry; a real escape or take-off abandons the trip.
+- Alcohol's scent overlaps another tool's. Alcohol and fermented fruit smell through the real fermentation glomeruli DM1, DM2 and DP1m; every other tool's scent is 5 randomly chosen glomeruli (game rule), and DM2 and DP1m are two of the zapper's. So mushroom-body training on alcohol partly generalises to the zapper and back. That follows from using the real glomeruli, and anyone running feeding or training experiments in the orchard needs to know it.
+- In the 1v1 duel:
+  - that it has a blaster at all;
+  - where you appear in its view, which the game computes;
+  - the gun's automatic up/down aim toward your chest;
+  - hits firing its reward dopamine neurons, and getting hurt near you firing its punishment ones;
+  - how learned fear switches its attention off you;
+  - reversal learning: new opposite dopamine restores that smell's weakened synapses in the other compartment, so fear can overturn liking.
+
+  The overall fly-brain firing of those output neurons was too noisy in this sim to read a decision from, so the choice is read from the learned synapses themselves.
+- The flight path.
+- Everything about the 3D room: the fly's 3D body, physics, walking and flight, and your tools. They use the 2D game's tuned physics scaled to meters, so the brain gets the same kinds of hits as before. What triggers take-off is from the neurons, but where it flies is not.
+- Fiber shapes in the brain view. Cell-body positions are real, but almost every neuron's shape is estimated: it's drawn from its cell body toward the center of its synaptic partners. Color is the fiber's direction: red left-right, green up-down, blue front-back. Ten neurons (two each of DNp01, DNa02, MBON01, MBON14 and KCg) are drawn instead from 21 points sampled along their real EM skeletons from neuPrint; that's real data, but how few are drawn, and how coarsely, is a display choice. Either way the simulation treats every neuron as a single point.
+- Bilateral symmetry and mirror-averaging. In the raw connectome, bilateral asymmetries arise from both true biology and uneven EM reconstruction/proofreading depth between hemispheres, producing a small spontaneous turning bias in quiet walking (~+0.10 Hz DNa steering bias). The headless audit command (`--audit-asymmetry`) and the Lab Asymmetry page measure left and right partner counts and calm firing rates for key cell types (DNa01, DNa02, LC10, LPLC2, LC4, DNp01). An optional setting (`brain.mirror_weights` or `--mirror-weights`) averages synaptic weights across the 77,507 bilateral left/right pairs (155,014 neurons) ($W_{sym} = 0.5(W + P W P^T)$). Because this modifies the raw connectome dataset, it is tagged strictly as a Game Rule.
+- Brain stethoscope (spike sonification). Synthetic audio clicks triggered when neurons spike in a user-probed neuropil region (mushroom body, antennal lobe, central complex, optic lobes, motor neurons) or inspected neuron group. Hotkey K or button in the big brain view. Tagged strictly as a Game Rule: this is synthetic audio sonification for intuitive listening, not a biophysical local field potential (LFP) or extracellular microelectrode recording.
+- Dynamic neural clamp override. Forcing recorded reference spike trains overrides target neurons' natural membrane potentials and severs closed-loop sensorimotor feedback (proprioception and visual flow are open-loop).
+- Picrotoxin convulsion animation and severity levels. Scaling inhibitory synapses produces emergent runaway excitation in the connectome; the 0-100% severity slider, convulsion twitching, and clinical seizure labels are game-level rules.
+- Hemifield lesion surgery presets. Grouping unilateral cell types into one-click surgical options is a user interface preset; all resulting behavioral consequences are connectome wiring outcomes.
+- The courtship song's sound (a synthesized pulse-song buzz) and the SONG threshold; ps1 is read over about a second.
+- The aggression lunge: with two or more flies, the aggression neurons above a threshold throw the fly at the nearest one.
+- The optomotor EMD stage: how a wide-field rotation becomes current on the T4/T5 subtypes that prefer it. It stands in for the lamina and medulla motion computation, and is used by validation and protocols, not fed the fly's view.
+- The thermo arena's temperature gradient (15 to 35 °C), how it maps to the antennal neurons' drive, and the damage at the extremes. The fly doesn't seek comfort through its own circuitry.
+- The day/night cycle, daylight driving the LNv clock neurons directly (real ones see light through the H-B eyelet and CRY), the scene darkening, and the SLEEP threshold on the dorsal fan-shaped body. The sim has no molecular clock or sleep pressure.
+- The HEAT, COLD and CO2 log thresholds (they log, the fly doesn't act on them).
+- Gamepad controls, and the brain view's search box and path drawing (display only).
+- The cVA puff's visible cloud, reach (250 px in 2D, 2.5 m in 3D), and strength.
+- The decoy female: its body, the contact distance, and the COURTSHIP tag contact triggers (no neuron is read for it).
+- Tool loadouts: the hotbar, the presets, the pages, the wheel and the editor are interface; no neuron reads them. The fruit item, and the fly walking to it and eating it, are game rules (the same ones sugar has).
+- The plume tracking assay, all of it: the plume and the surge/cast navigation (headless, Python API only).
+- Day-2 toolkit: the line -> cell type table and its quality score are **LITERATURE** (Meissner et al. 2025); a name counts only on an exact spelling match (**GAME RULE**). TrpA1 and shibire-ts: the onsets are cited, the full-on ends, kinetics and current sizes are **GAME RULE**, only expressing neurons respond (**MODEL**). The patch clamp, calcium imaging and drug panels are **MODEL** / **MODEL PREDICTION**: a point-neuron LIF unit in model units; a spike-to-fluorescence forward model; a synaptic scale by predicted transmitter. See the docs/ page of each.
+- Neurodex: which types count as *discovered* (over 150 ms, the type's mean firing at least 6 spikes/s and 3x its own calm rate, and a Poisson count test against its calm rate; a calm, untouched fly discovers nothing, and entries tagged *at rest* by earlier builds are kept: see docs/neurodex.md), the collection and its progress, and the Neuron of the Day pick and its Try it. The numbers inside an entry are the dataset's (**CONNECTOME**); the one-line fact and citation are **LITERATURE**, hand-written and checked against the paper, and only for the curated types.
+- Kill cam: the offer, the 6 s window, the slow motion, which neurons are highlighted. The firing it replays is each neuron's real simulated rate (**CONNECTOME**); death, and so the moment the replay ends, is a game rule.
+- Share codes and experiment bundles: containers for settings and results the game already has. A bundle rerun is judged bit-exact on the CPU backends and, on a GPU backend, by a statistical rule whose three numbers were fixed beforehand.
+- Behavior rigs: yaw from DNa01 + DNa02 right minus left and walking from DNp09 are **CONNECTOME** readouts; the yaw gain, the dead zone, the EMD stage in front of T4/T5, LC10 tracking of a stripe or bar (the duel's rule), the platform and its edge, the ball and VR, the olfactory arena, its odor quadrants and the preference index are **GAME RULE**; what the fly does is a **MODEL PREDICTION**, judged by criteria written before the held-out run, with a control. [rigs.md](rigs.md)
+- Mini-papers: the experiment is a validation test (or a rig) and so is the model's; what a paper found is **LITERATURE**, quoted from the paper with its citation and how much of it was read; your result is a **MODEL PREDICTION**. [minipapers.md](minipapers.md)
+- What's New: interface; no neuron reads it.
+
+The full mapping is in the docstring at the top of `kickthefly/game/kick_the_fly.py` (the `kick_the_fly.py` shim in the repo root points at it), and per assay in `kickthefly/lab/assays.py`.

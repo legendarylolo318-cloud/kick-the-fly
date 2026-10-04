@@ -1,7 +1,8 @@
 """Headless runs: no window, no sound, no display needed (SSH, CI, a Windows console).
 
     KickTheFly --headless --validate [--out results.json] [--workers N] [--seeds 1000-1009]
-    KickTheFly --headless --protocol experiment.yaml [--out folder]
+    KickTheFly --headless --protocol experiment.yaml [--out folder] [--bundle experiment.zip]
+    KickTheFly --headless --rerun-bundle experiment.zip --out folder
 
 The exe and the AppImage accept the same flags. On Windows the exe borrows the console it was started from for its
 output; from cmd use `start /wait KickTheFly.exe --headless ...` (or check the files written to --out).
@@ -136,6 +137,44 @@ def run_critical_path(args) -> int:
     return 0
 
 
+def run_sensitivity(args) -> int:
+    """--sensitivity: vary each LIF parameter across its documented range and re-run the validated behaviors (analysis only)."""
+    from kickthefly.lab import recorder, sensitivity, validation
+
+    seeds = parse_seeds(args.seeds, validation.SEEDS)
+    values = {}
+    for item in getattr(args, "sens_values", None) or ():
+        name, _, text = item.partition("=")
+        try:
+            values[name] = [float(x) for x in text.split(",") if x]
+        except ValueError:
+            print(f"error: --sens-values {item!r}: use PARAM=V1,V2", file=sys.stderr)
+            return 2
+    folder = Path(args.out) if args.out else recorder.exports_dir() / f"{time.strftime('%Y%m%d-%H%M%S')}-sensitivity"
+    if (folder / sensitivity.PROGRESS_NAME).exists() and not getattr(args, "resume", False):
+        print(f"note: {folder} holds an earlier run; pass --resume to continue it, or --out elsewhere (this run starts over)",
+              file=sys.stderr)
+    t0 = time.time()
+    last = [0.0]
+
+    def progress(done, total, label):
+        if time.time() - last[0] > 5 or label.endswith("done") or "already" in label:
+            last[0] = time.time()
+            print(f"  {done}/{total} cells  {label} ({time.time() - t0:.0f}s)", flush=True)
+
+    try:
+        res = sensitivity.run(params=getattr(args, "sens_params", None), tests=getattr(args, "sens_tests", None), seeds=seeds,
+                              values=values or None, workers=args.workers, folder=folder,
+                              resume=bool(getattr(args, "resume", False)), progress=progress)
+    except sensitivity.SensitivityError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 2
+    sensitivity.save(res, folder)
+    print(sensitivity.summary(res))
+    print(f"results written to {folder}")
+    return 0
+
+
 def audit_asymmetry(seconds: float = 5.0, seed: int = 0, mirror: bool = False) -> dict:
     """Audit bilateral asymmetry between left and right hemibrains:
     - Measures baseline turning bias with no input over a calm run
@@ -205,7 +244,7 @@ def format_asymmetry_report(res: dict) -> str:
     lines = [
         f"LEFT/RIGHT ASYMMETRY AUDIT ({res['seconds']:.1f} s calm run, seed={res['seed']}, mirror={res['mirror']})",
         "-" * 88,
-        f"{'Cell Type':<9} {'Count L/R':<11} {'In-Syn L/R':<15} {'Out-Syn L/R':<15} {'Firing Rate L/R':<18} {'Diff (R-L)':<10}",
+        f"{'Cell Type':<9} {'Count L/R':<11} {'In-partners':<15} {'Out-partners':<15} {'Firing Rate L/R':<18} {'Diff (R-L)':<10}",
         "-" * 88,
     ]
     for r in res["records"]:
@@ -304,6 +343,9 @@ def run_headless_replay(args) -> int:
 
 def main(args) -> int:
     prepare()
+    from kickthefly.core import netguard
+    netguard.disable("a headless run")                  # 3.0 day 3: no network feature (Streamer mode) in --validate, protocols or assays
+    os.environ["KTF_NO_NETWORK"] = "1"                  # and none in the worker processes they start
     from kickthefly.sim.connectome import backends
     choice = getattr(args, "sim_backend", None) or getattr(args, "backend", None)
     if choice in backends.BACKEND_NAMES:                # inherited by the validation/assay worker processes
@@ -314,6 +356,12 @@ def main(args) -> int:
     try:
         if getattr(args, "replay", None):
             return run_headless_replay(args)
+        if getattr(args, "share_decode", None):
+            from kickthefly.core import sharecode
+            return sharecode.main_decode(args.share_decode)
+        if getattr(args, "rerun_bundle", None):
+            from kickthefly.lab import bundle
+            return bundle.main(args)
         if getattr(args, "record_replay", None):
             if not args.protocol:
                 print("error: --record-replay records a --protocol run", file=sys.stderr)
@@ -334,18 +382,43 @@ def main(args) -> int:
             return run_signflip(args)
         if getattr(args, "critical_path", None):
             return run_critical_path(args)
+        if getattr(args, "sensitivity", False):
+            return run_sensitivity(args)
+        if getattr(args, "tournament", None):
+            from kickthefly.lab import tournament
+            return tournament.main(args)
+        if getattr(args, "race_r4", False):
+            from kickthefly.lab import racing
+            return racing.main_r4(args)
+        if getattr(args, "race", False):
+            from kickthefly.lab import racing
+            return racing.main(args)
+        if getattr(args, "rig", None) or getattr(args, "rig_assay", None):
+            from kickthefly.lab import rigassay
+            return rigassay.main(args)
+        if getattr(args, "minipaper", None):
+            from kickthefly.lab import minipapers
+            return minipapers.main(args)
+        if getattr(args, "netsci", None):
+            from kickthefly.lab import netsci
+            return netsci.main(args)
+        if getattr(args, "sleep_deprivation", False):
+            from kickthefly.lab import sleepdep
+            return sleepdep.main(args)
         if args.validate:
             return run_validate(args)
         if args.protocol:
             from kickthefly.lab import protocol
 
             return protocol.run_file(Path(args.protocol), Path(args.out) if args.out else None, workers=args.workers,
-                                     nwb=bool(getattr(args, "nwb", False)))
+                                     nwb=bool(getattr(args, "nwb", False)),
+                                     bundle_to=Path(args.bundle) if getattr(args, "bundle", None) else None)
     except FileNotFoundError as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
     print("nothing to do: use --validate, --protocol FILE, --playthrough, --replay FILE, --audit-asymmetry, --benchmark, "
-          "--threshold-sweep, --signflip-test or --critical-path TARGET", file=sys.stderr)
+          "--threshold-sweep, --signflip-test, --critical-path TARGET, --sensitivity, --tournament N, --race, --netsci, "
+          "--sleep-deprivation, --rig NAME, --rig-assay NAME, --minipaper ID, --rerun-bundle ZIP or --share-decode CODE", file=sys.stderr)
     return 2
 
 

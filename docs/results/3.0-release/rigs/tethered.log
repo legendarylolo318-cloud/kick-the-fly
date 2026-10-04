@@ -1,0 +1,31 @@
+01:22:49 INFO Kick the Fly 2.13.1 on Arch Linux, kernel 7.2.8-zen1-2-zen
+01:22:49 INFO headless run (simulation backend: cpu)
+pygame-ce 2.5.8 (SDL 2.32.10, Python 3.14.7)
+  1/10 tethered, subtle: fly 1000 done (22 s)
+  2/10 tethered, subtle: fly 1007 done (22 s)
+  3/10 tethered, subtle: fly 1004 done (22 s)
+  4/10 tethered, subtle: fly 1001 done (22 s)
+  5/10 tethered, subtle: fly 1006 done (22 s)
+  6/10 tethered, subtle: fly 1003 done (23 s)
+  7/10 tethered, subtle: fly 1005 done (23 s)
+  8/10 tethered, subtle: fly 1002 done (23 s)
+  9/10 tethered, subtle: fly 1008 done (37 s)
+  10/10 tethered, subtle: fly 1009 done (37 s)
+  1/10 tethered, off: fly 1003 done (20 s)
+  2/10 tethered, off: fly 1006 done (20 s)
+  3/10 tethered, off: fly 1001 done (20 s)
+  4/10 tethered, off: fly 1005 done (20 s)
+  5/10 tethered, off: fly 1000 done (20 s)
+  6/10 tethered, off: fly 1002 done (20 s)
+  7/10 tethered, off: fly 1007 done (20 s)
+  8/10 tethered, off: fly 1004 done (20 s)
+  9/10 tethered, off: fly 1009 done (34 s)
+  10/10 tethered, off: fly 1008 done (34 s)
+TETHERED FLIGHT SIMULATOR ASSAY, 10 flies (seeds 1000-1009)
+  individuality subtle:
+    T1 PASS: open loop: right-minus-left steering after a rightward minus a leftward panorama rotation (3 rad/s), Hz: +8.58 Hz (needs >= 3), p < 0.001, n = 10
+    T2 PASS: closed loop: share of an imposed 1 rad/s rotation the fly cancels (yaw rate / rotation, calm baseline removed): +0.426 fraction (needs >= 0.1), p < 0.001, n = 10
+  individuality off  (the control):
+    T1 PASS: open loop: right-minus-left steering after a rightward minus a leftward panorama rotation (3 rad/s), Hz: +8.62 Hz (needs >= 3), p < 0.001, n = 10
+    T2 PASS: closed loop: share of an imposed 1 rad/s rotation the fly cancels (yaw rate / rotation, calm baseline removed): +0.388 fraction (needs >= 0.1), p < 0.001, n = 10
+results written to /home/lolo/ktf_final/rigs/tethered (71 s)

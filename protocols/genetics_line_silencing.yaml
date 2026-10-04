@@ -1,0 +1,15 @@
+# 3.0 day 2, Genetic toolkit: silence the neurons of a split-GAL4 driver line and look at the looming escape.
+# SS00727 is listed for DNp01 (the giant fiber's descending neurons) in the split-GAL4 resource (Meissner et al. 2025, eLife,
+# CC BY 4.0; Namiki et al. 2018 built the line). The table is LITERATURE; which neurons that selects here, and what silencing does,
+# is the connectome and the model. Each seed also runs unperturbed as its control.
+name: genetics-line-silencing
+seed: 100
+flies: 5
+warmup_s: 2
+duration_s: 3
+surgery: {"line:SS00727": -1}
+stimuli:
+  - {at_s: 1.0, for_s: 1.0, target: loom, strength: 0.9, recruit: 0.6}
+recordings:
+  - {name: giant_fiber, neurons: "line:SS00727"}
+  - {name: looming_detectors, neurons: loom}

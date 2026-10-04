@@ -202,6 +202,16 @@ def run_backend(name: str, steps: int = BACKEND_STEPS, seed: int = 42) -> dict:
                 blocks=blocks.tolist(), steps=steps, seconds=round(dt, 3), steps_per_s=round(steps / max(dt, 1e-9), 1))
 
 
+def _child_env(**extra: str) -> dict:
+    """The child's environment. From source, the package's folder goes on PYTHONPATH (3.0 release review: run from any other directory,
+    `python -m kickthefly` in the child could not import the package, so the gl backend FAILED and the OpenGL check warned for no reason)."""
+    env = dict(os.environ, **extra)
+    if not getattr(sys, "frozen", False):
+        root = str(Path(__file__).resolve().parents[2])
+        env["PYTHONPATH"] = root + (os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
+    return env
+
+
 def _child_command(*args: str) -> list[str]:
     if getattr(sys, "frozen", False):
         return [sys.executable, *args]
@@ -211,7 +221,7 @@ def _child_command(*args: str) -> list[str]:
 def _in_child(name: str, steps: int) -> dict:
     """Run one backend in a child process with a time limit. Used for GPU backends: a hung or crashed driver ends the
     child, not the self-test."""
-    env = dict(os.environ, SDL_VIDEODRIVER="dummy", SDL_AUDIODRIVER="dummy")
+    env = _child_env(SDL_VIDEODRIVER="dummy", SDL_AUDIODRIVER="dummy")
     try:
         p = subprocess.run(_child_command("--selftest-child", name, str(steps)), capture_output=True, text=True,
                            timeout=CHILD_TIMEOUT_S, env=env)
@@ -307,7 +317,7 @@ def gl_info_child() -> dict:
 
 @_timed
 def check_graphics() -> list[Check]:
-    env = dict(os.environ, SDL_AUDIODRIVER="dummy")
+    env = _child_env(SDL_AUDIODRIVER="dummy")
     try:
         p = subprocess.run(_child_command("--selftest-child", "gl-info", "0"), capture_output=True, text=True, timeout=60,
                            env=env)
@@ -363,6 +373,185 @@ def check_ffmpeg() -> Check:
     return Check("ffmpeg", "ffmpeg on PATH", WARN, "ffmpeg was not found",
                  "Video recording (Shift+R) falls back to a short GIF. For MP4, install ffmpeg with your package manager "
                  "yourself; the game never installs anything.")
+
+
+@_timed
+def check_neurodex() -> Check:
+    """3.0: the Neurodex's curated facts load and are valid (PyYAML and the data file), and the progress file, if there is
+    one, is readable. The game runs without either; only the curated facts and your collection would be missing."""
+    from kickthefly.core import neurodex as nd
+
+    try:
+        facts = nd.load_facts()
+    except ImportError as e:
+        return Check("neurodex", "Neurodex facts", WARN, f"PyYAML is missing ({e})",
+                     "The Neurodex still works but shows data only. Install the requirements into the game's own venv: "
+                     "pip install -r requirements.txt (the game never installs anything itself).")
+    except (nd.FactsError, OSError) as e:
+        return Check("neurodex", "Neurodex facts", _bundled_data_level(), f"the curated facts can't be used: {e}",
+                     "Entries show data only until kickthefly/data/neurodex_facts.yaml is restored (reinstall the game).")
+    prog = nd.Progress()
+    note = f"; {prog.warnings[0]}" if prog.warnings else ""
+    return Check("neurodex", "Neurodex facts", WARN if prog.warnings else PASS,
+                 f"{len(facts)} curated facts, all with a citation{note}",
+                 "The unreadable progress file was kept aside as neurodex.json.bad; the Neurodex starts empty."
+                 if prog.warnings else "")
+
+
+def _bundled_data_level() -> str:
+    """3.0 release review: a frozen build (exe, AppImage) ships its own data files, so a missing one is a broken build, a FAIL; from source it
+    stays a WARN (a checkout the user changed). The 3.0 AppImage and exe builds silently dropped kickthefly/data, and the release workflow
+    accepts a self-test with warnings, so the WARN let it through."""
+    return FAIL if getattr(sys, "frozen", False) else WARN
+
+
+@_timed
+def check_toolkit() -> Check:
+    """3.0 day 2: the Lab toolkit's data and optional dependencies. The driver-line table must load (PyYAML and the data file); pynwb
+    is optional (NWB export of patch clamp and imaging; CSV and TIFF need nothing extra); the pharmacology and imaging tables must be
+    internally consistent. The game runs without any of it; only those Lab screens would be missing."""
+    try:
+        from kickthefly.lab import genetics, imaging, pharmacology, thermogenetics
+    except ImportError as e:
+        return Check("toolkit", "Lab toolkit", WARN, f"a toolkit module can't be imported ({e})",
+                     "Install the requirements into the game's own venv: pip install -r requirements.txt.")
+    try:
+        n = len(genetics.table())
+        src = genetics.source()
+        if n < 1000 or src.get("license") != "CC BY 4.0":
+            raise genetics.GeneticsError(f"the driver-line table looks wrong ({n} lines, license {src.get('license')!r})")
+        for ind in imaging.INDICATORS.values():
+            imaging.time_constants(ind)
+        assert set(pharmacology.DRUGS) and set(thermogenetics.EFFECTORS)
+    except Exception as e:
+        return Check("toolkit", "Lab toolkit", _bundled_data_level(), f"the toolkit's data can't be used: {type(e).__name__}: {e}",
+                     "Lab > Genetic toolkit and the other day-2 screens may not work until kickthefly/data/driver_lines.yaml is "
+                     "restored (reinstall the game).")
+    from kickthefly.lab import nwbexport
+
+    nwb = nwbexport.available()
+    return Check("toolkit", "Lab toolkit", PASS if nwb is None else WARN,
+                 f"{n:,} driver lines ({src.get('license')}), {len(pharmacology.DRUGS)} drugs, {len(thermogenetics.EFFECTORS)} "
+                 f"effectors, {len(imaging.INDICATORS)} indicators" + ("" if nwb is None else "; NWB export is off (pynwb missing)"),
+                 "" if nwb is None else "Patch clamp and imaging still export CSV (and imaging TIFF). For NWB: pip install pynwb.")
+
+
+def check_day3() -> Check:
+    """3.0 day 3: the predators, weather, kitchen, microphone and streamer modules load and their tables are consistent. None of them
+    needs anything outside the game's own requirements; this check opens no device and no connection."""
+    try:
+        from kickthefly.core import mic, streamer
+        from kickthefly.game import kitchen, predators, weather
+        from kickthefly.lab import audio, predators as lab_predators
+
+        assert set(predators.SPECS) == set(predators.KINDS) == set(lab_predators.pr.KINDS)
+        assert all(0 <= v <= 1 for _, v in [(n, w) for n, w in weather.PART_WEIGHTS]) and abs(sum(w for _, w in weather.PART_WEIGHTS) - 1) < 1e-9
+        assert kitchen.colliders() and len(kitchen.bowl_orchard(0).fruit) == 6
+        mic.Analyzer().push(mic.hum(200.0, 0.1))
+        assert set(audio.CONDITIONS) and streamer.clean_channel("selftest") == "selftest"
+    except Exception as e:
+        return Check("day3", "Predators, weather, kitchen, mic, streamer", WARN, f"a 3.0 day 3 module can't be used: {type(e).__name__}: {e}",
+                     "Reinstall the game; those features may not work until its files are restored.")
+    return Check("day3", "Predators, weather, kitchen, mic, streamer", PASS,
+                 f"{len(predators.KINDS)} predators, rain/gusts/storm, the kitchen, the microphone analysis and the vote counter all load")
+
+
+def check_day4() -> Check:
+    """3.0 day 4: network science, tournament, racing, sleep deprivation and sensitivity analysis load, and their small pure parts run
+    (a planted-community graph through the community finder, the 13 motif classes, the odds, the points rule, the grids against the
+    Lab parameter ranges). SciPy's exact tests are their one dependency. No brain is built, no network used, nothing written."""
+    try:
+        import numpy as np
+        from scipy import stats
+
+        from kickthefly.core import points
+        from kickthefly.game import flyduel, flyrace
+        from kickthefly.lab import lab, netsci, racing, sensitivity, sleepdep, tournament
+
+        assert stats.binomtest(8, 10, 0.5).pvalue > 0 and stats.wilcoxon([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], alternative="greater").pvalue < 0.01
+        assert sorted(set(netsci._TABLE[netsci._TABLE >= 0].tolist())) == list(range(13)) and len(netsci.MOTIFS) == 13
+        rng = np.random.default_rng(0)
+        n, k = 120, 4                                          # a planted partition: dense inside, sparse between
+        lab_true = np.repeat(np.arange(k), n // k)
+        src, dst = np.where((rng.random((n, n)) < np.where(lab_true[:, None] == lab_true[None, :], 0.30, 0.01)) & ~np.eye(n, dtype=bool))
+        labels, q = netsci.louvain(src, dst, np.ones(len(src)), n, np.random.default_rng(1))
+        assert q > 0.4 and netsci.nmi(labels, lab_true) > 0.8
+        cards = [dict(sugar_ratio=1.5 + 0.2 * i, walk_level_calm=1.0 + 0.1 * i) for i in range(5)]
+        p = racing.win_probabilities(cards)
+        assert abs(p.sum() - 1) < 1e-9 and np.all(np.diff(p) > 0) and points.decimal_odds(0.5) >= points.MIN_ODDS
+        assert flyrace.speed_of(99.0, 3.0) == flyrace.V_MAX and tournament.SIZES == (4, 8, 16) and flyduel.TICK_STEPS == 4
+        for prm in sensitivity.PARAMETERS:
+            if prm["kind"] == "lif":
+                spec = lab.BY_NAME[prm["id"]]
+                assert all(spec[4] <= v <= spec[5] for v in prm["values"]) and abs(spec[3] - prm["default"]) < 1e-12, prm["id"]
+        assert sleepdep.DFB_CURRENT_AT_FULL > 0 and len(sensitivity.validated_behaviors()) == 12
+    except Exception as e:
+        return Check("day4", "Network science, tournament, racing, sleep, sensitivity", WARN,
+                     f"a 3.0 day 4 module can't be used: {type(e).__name__}: {e}",
+                     "Reinstall the game (and SciPy, which its statistics need); those features may not work until then.")
+    return Check("day4", "Network science, tournament, racing, sleep, sensitivity", PASS,
+                 "the community finder, the 13 motif classes, the odds, the points rule and the parameter grids all check out")
+
+
+def check_day5() -> Check:
+    """3.0 day 5: the behavior rigs and the mini-papers load and their small pure parts run (the steering rule's dead zone and cap, the platform's
+    specular reflection, the preference index, the stripe deviation, six mini-papers each with a citation and a DOI, the What's New flag). No brain is
+    built, no network used, nothing written."""
+    try:
+        import math
+
+        import numpy as np
+
+        from kickthefly.core import config
+        from kickthefly.game import rigs
+        from kickthefly.lab import classroom, minipapers, rigassay
+
+        class B:
+            dt = 0.005
+
+            def hz(self, name):
+                return {"turn_r": 9.0, "turn_l": 3.0}.get(name, 4.0)
+
+        st = rigs.Steerer()
+        for _ in range(40):
+            y = st.update(B())
+        assert abs(y - (6.0 - rigs.YAW_DEADZONE_HZ) * rigs.YAW_GAIN) < 1e-6 and rigs.YAW_MAX > y > 0
+        _, psi, hit = rigs._reflect_circle(np.array([0.6, 0.0]), math.radians(90), rigs.PLATFORM_RADIUS)
+        assert hit and abs(rigs.wrap(psi - math.radians(270))) < 1e-6 and set(rigassay.SCENES) == set(rigs.RIGS)
+        a = np.zeros((100, len(rigs.COLS)))
+        a[:, 0] = np.arange(1, 101) * 0.2
+        assert rigs.preference_index(a, 0.02, settle_s=0.0)["pi"] == 1.0
+        assert len(minipapers.ORDER) == 6 and all(minipapers.PAPERS[p].citation and minipapers.PAPERS[p].doi.startswith("10.") for p in minipapers.ORDER)
+        assert all(classroom.lecture(f"paper_{p}") is not None for p in minipapers.ORDER) and len(classroom.CURATED_LECTURES) == 5
+        assert config.FIRST_RUN_DEFAULTS["whatsnew_3_0_seen"] is False
+    except Exception as e:
+        return Check("day5", "Behavior rigs and mini-papers", WARN, f"a 3.0 day 5 module can't be used: {type(e).__name__}: {e}",
+                     "Reinstall the game; the Lab's Behavior rigs and Mini-papers may not work until then.")
+    return Check("day5", "Behavior rigs and mini-papers", PASS,
+                 "the steering rule, the platform's reflection, the preference index and the six mini-papers' citations all check out")
+
+
+def check_microphone() -> Check:
+    """Optional. Looks for a capture device WITHOUT opening it: the self-test never listens. The microphone feature is off at every
+    launch and is turned on by the player (Esc > Mic and streamer); a machine without a microphone just can't use it."""
+    from kickthefly.core import mic
+
+    ok, why = mic.availability()
+    return Check("microphone", "Microphone (optional)", PASS,
+                 (f"{why}; the self-test did not open it, and the feature is off until you turn it on" if ok else
+                  f"not available: {why} (optional: only the microphone feature needs it)"), data=dict(available=ok))
+
+
+def check_network() -> Check:
+    """Optional. Reports whether the network features (Streamer mode: read-only Twitch chat; the brain view's one-time neuPrint
+    skeleton download) are allowed here. The self-test never connects to anything, and there is no telemetry."""
+    from kickthefly.core import netguard
+
+    ok, why = netguard.allowed()
+    return Check("network", "Network features (optional)", PASS,
+                 ("Streamer mode could connect to irc.chat.twitch.tv (port 6697) if you turn it on; it is off at every launch and the "
+                  "self-test did not connect" if ok else f"off here: {why}") + "; the only other network use is the brain view's one-time "
+                 "download of ten neuron skeletons from neuPrint (KICK_THE_FLY_OFFLINE=1 turns it off); no telemetry", data=dict(allowed=ok))
 
 
 def _writable(d: Path) -> str | None:
@@ -492,7 +681,8 @@ def run(*, backends_only: list[str] | None = None, smoke: bool = True, graphics:
     steps = [check_build, check_brainpack_adult, check_brainpack_larva, lambda: check_backends(backends_only)]
     if graphics:
         steps.append(check_graphics)
-    steps += [check_audio, check_ffmpeg, check_folders, check_resources, check_display]
+    steps += [check_audio, check_ffmpeg, check_folders, check_neurodex, check_toolkit, check_day3, check_day4, check_day5, check_microphone, check_network,
+              check_resources, check_display]
     if smoke:
         steps.append(check_smoke)
     checks: list[Check] = []

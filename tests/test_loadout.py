@@ -31,7 +31,8 @@ def test_catalog_covers_exactly_the_games_tools():
 def test_presets_are_the_documented_ones():
     p = lo.PRESETS
     assert p["base"] == ("hand", "swatter", "torch", "freeze", "sugar")
-    assert set(p["chaos"]) == {"hand", "bomb", "torch", "cleaner", "zapper", "spider", "alcohol"}
+    assert set(p["chaos"]) == {"hand", "bomb", "torch", "cleaner", "zapper", "spider", "alcohol", "frog", "mantis"}
+    assert p["chaos"][:7] == ("hand", "bomb", "torch", "cleaner", "zapper", "spider", "alcohol"), "keys 1-7 unchanged"
     assert set(p["chemist"]) == {"hand", "cleaner", "alcohol", "cva", "sugar", "freeze"}
     assert p["lab"] == p["all"] == lo.TOOL_NAMES and "laser" in p["lab"]
     assert set(p["pet"]) == set(p["base"]) | {"fruit"}
@@ -86,9 +87,9 @@ def test_pages_only_turn_when_the_loadout_is_longer_than_ten():
     short = lo.Loadout(lo.PRESETS["base"])
     assert short.n_pages == 1 and not short.turn_page(1) and short.page == 0
     long = lo.Loadout(lo.TOOL_NAMES, lab=True)                                     # 15 tools
-    assert long.n_pages == 2 and len(long.page_tools(0)) == 10 and len(long.page_tools(1)) == 5
+    assert long.n_pages == 2 and len(long.page_tools(0)) == 10 and len(long.page_tools(1)) == len(lo.TOOL_NAMES) - 10
     assert long.slot_tool(0) == "hand" and long.slot_tool(9) == long.tools[9]
-    assert long.turn_page(1) and long.slot_tool(0) == long.tools[10] and long.slot_tool(5) is None
+    assert long.turn_page(1) and long.slot_tool(0) == long.tools[10] and long.slot_tool(len(lo.TOOL_NAMES) - 10) is None
     assert long.turn_page(1) and long.page == 0, "the pages wrap"
     long.show("fruit")
     assert long.page == 1 and long.slot_of("fruit") == long.tools.index("fruit") - 10
@@ -210,7 +211,8 @@ def test_an_old_config_that_already_chose_a_preset_keeps_it(tmp_path):
 def test_a_fresh_install_gets_base_and_the_tutorial(tmp_path):
     c = config.Config.load(tmp_path / "nope" / "config.toml")
     assert c["controls.loadout_preset"] == "auto" and lo.resolve(c).tools == list(lo.PRESETS["base"])
-    assert c.first_run == {"tutorial_done": False, "loadout_notice": False} and c.migrated_from is None
+    assert c.first_run == {"tutorial_done": False, "loadout_notice": False, "neuron_shapes_asked": False,
+                           "whatsnew_3_0_seen": True} and c.migrated_from is None          # 3.0 day 5: a fresh install has nothing "new" to read
 
 
 # --- replays and the Python API -----------------------------------------------------------------------------------------------
@@ -320,7 +322,7 @@ def test_number_keys_pick_hotbar_slots_and_unused_keys_do_nothing(three_d):
 @needs_pack
 def test_a_long_loadout_pages_with_minus_and_equals_and_the_number_row_follows_the_page():
     g = _game(True, "lab")
-    assert len(g.loadout) == 15 and g.loadout.n_pages == 2
+    assert len(g.loadout) == len(lo.TOOL_NAMES) and g.loadout.n_pages == 2
     press(g, pygame.K_0)
     assert g.tool_name() == g.loadout.tools[9]
     press(g, pygame.K_EQUALS)
@@ -328,7 +330,7 @@ def test_a_long_loadout_pages_with_minus_and_equals_and_the_number_row_follows_t
     press(g, pygame.K_1)
     assert g.tool_name() == g.loadout.tools[10]
     press(g, pygame.K_0)
-    assert g.tool_name() == g.loadout.tools[10], "page 2 has only five tools: slot 10 is empty"
+    assert g.tool_name() == g.loadout.tools[10], "page 2 has fewer than ten tools: the last slot is empty"
     press(g, pygame.K_MINUS)
     assert g.loadout.page == 0
 
@@ -473,9 +475,12 @@ def test_the_editor_page_handles_a_drag_from_the_hotbar_to_the_grid_and_back():
     assert "sugar" not in g.loadout, "dragging a slot off the hotbar removes it"
     m.draw(screen, (0, 0), 1.0)
     card, clip = next((r, d["clip"]) for r, kind, d in m.hits if kind == "dragsrc" and d["id"] == ("lo-card", "sugar"))
-    m.scroll["loadout"] = m.content_h["loadout"]                    # the Reward cards are down the page: scroll to them
-    m.draw(screen, (0, 0), 1.0)
-    card = next(r for r, kind, d in m.hits if kind == "dragsrc" and d["id"] == ("lo-card", "sugar"))
+    for off in range(0, int(m.content_h["loadout"]) + 60, 60):      # the Reward cards are down the page: scroll until visible
+        m.scroll["loadout"] = off
+        m.draw(screen, (0, 0), 1.0)
+        card = next(r for r, kind, d in m.hits if kind == "dragsrc" and d["id"] == ("lo-card", "sugar"))
+        if clip.contains(card):
+            break
     assert clip.contains(card), "the card is visible after scrolling"
     slot = next(r for r, kind, d in m.hits if kind == "drop" and d["id"] == ("lo-drop", 1))
     m.handle(pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=card.center), card.center)
@@ -512,7 +517,7 @@ def test_the_hotbar_draws_pages_and_clicks(three_d):
     (r_next, d) = g.page_rects[1]
     assert g.hotbar_click(r_next.center) and g.loadout.page == 1
     g._draw_toolbar(surf)
-    assert len(g.tool_rects) == 5
+    assert len(g.tool_rects) == len(lo.TOOL_NAMES) - 10
     assert g.hotbar_click(g.tool_rects[2].center) and g.tool_name() == g.loadout.tools[12]
 
 

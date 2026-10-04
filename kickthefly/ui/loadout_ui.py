@@ -249,14 +249,15 @@ def page_editor(menu, surf, rect, mouse) -> None:
 
     # the hotbar
     y += 42
-    menu.text(surf, tr("HOTBAR"), (rect.x + 24, y), mu.LABEL, menu.f_small)
-    menu.text(surf, tr("Drag to reorder, drag off to remove, drop a card here to add. The hand always stays in slot 1."),
-              (rect.x + 96, y), mu.DIM, menu.f_small)
-    y += 22
+    hb = menu.text(surf, tr("HOTBAR"), (rect.x + 24, y), mu.LABEL, menu.f_small)
+    y = max(y + 22, menu.wrapped(surf, tr("Drag to reorder, drag off to remove, drop a card here to add. The hand always stays in slot 1."),
+                                 (hb.right + 16, y), rect.right - 24 - hb.right - 16, mu.DIM, menu.f_small, max_lines=2) + 4)
     k2 = _k2()
     tools = lop.tools
     rows = max(1, lop.n_pages)
-    slot_w, slot_h = 84, 58
+    # 3.0 release review: ten 84 px slots plus the page labels were wider than the 860 px menu a narrow window (brain panel hidden) gets
+    page_w = (max(menu.f_small.size(tr("page {n}", n=r + 1))[0] for r in range(rows)) + 12) if rows > 1 else 0
+    slot_w, slot_h = min(84, (rect.w - 48 - page_w) // lo.PAGE_SIZE), 58
     x0 = rect.x + 24
     strip = pygame.Rect(x0, y, 10 * slot_w, rows * (slot_h + 6))
     menu._register(strip, "drop", id=("lo-strip",), drop=lambda p, pos: drop_on_slot(menu, p, len(tools)),
@@ -272,7 +273,8 @@ def page_editor(menu, surf, rect, mouse) -> None:
             pygame.draw.rect(surf, fill, r, border_radius=8)
             pygame.draw.rect(surf, pal["select"] if on else mu.BORDER, r, 2 if on else 1, border_radius=8)
             k2.draw_icon(surf, name, (r.centerx, r.y + 24), pal["select"] if on else mu.TEXT)
-            menu.text(surf, k2.TOOLS[k2.TOOL_NAMES.index(name)][1], (r.centerx, r.y + 40), mu.TEXT, menu.f_small, "midtop")
+            short_name = mu.Menu.fit_lines(menu.f_small, k2.TOOLS[k2.TOOL_NAMES.index(name)][1], r.w - 6, 1)[0][0]   # never onto the next slot
+            menu.text(surf, short_name, (r.centerx, r.y + 40), mu.TEXT, menu.f_small, "midtop")
             menu.text(surf, key, (r.x + 5, r.y + 3), mu.LABEL, menu.f_small)
             menu._register(r, "drop", id=("lo-drop", i), drop=lambda p, pos, ix=i: drop_on_slot(menu, p, ix),
                            accept=lambda p: True)
@@ -300,7 +302,17 @@ def page_editor(menu, surf, rect, mouse) -> None:
     surf.set_clip(body)
     yy = body.y - off
     colw = (body.w - 24) // 2
-    ch = 82
+    fsm, fbo = menu.f_small, menu.f_bold
+    lh_s = fsm.get_linesize()
+
+    def card_h(t) -> int:
+        # 3.0 release review: cards were a fixed 82 px with fixed rows, so at larger text the description and "Drives:" lines overlapped
+        # and a long description ran past the card. Measured from the font now; both cards of a row share the taller height.
+        tw = colw - 80
+        n_desc = len(mu.Menu.fit_lines(fsm, tr(t.desc), tw, 3)[0])
+        n_drv = len(mu.Menu.fit_lines(fsm, tr("Drives: {neurons}", neurons=tr(t.neurons)), tw, 3)[0])
+        return max(82, 6 + fbo.get_linesize() + 4 + (n_desc + n_drv) * lh_s + 10)
+
     for cat in lo.CATEGORIES:
         members = [t for t in lo.CATALOG if t.category == cat]
         if not members:
@@ -308,10 +320,11 @@ def page_editor(menu, surf, rect, mouse) -> None:
         menu.text(surf, tr(cat).upper(), (body.x + 8, yy + 4), mu.ACCENT, menu.f_small)
         pygame.draw.line(surf, mu.BORDER, (body.x + 8 + 90, yy + 12), (body.right - 12, yy + 12))
         yy += 24
+        row_h = [max(card_h(t) for t in members[j:j + 2]) for j in range(0, len(members), 2)]
         for i, t in enumerate(members):
             cx = body.x + 8 + (i % 2) * (colw + 8)
-            cy = yy + (i // 2) * (ch + 6)
-            card = pygame.Rect(cx, cy, colw, ch)
+            cy = yy + sum(h + 6 for h in row_h[:i // 2])
+            card = pygame.Rect(cx, cy, colw, row_h[i // 2])
             why = _why_unavailable(host, t)
             equipped = t.name in lop
             hover = card.collidepoint(mouse) and body.collidepoint(mouse)
@@ -325,9 +338,10 @@ def page_editor(menu, surf, rect, mouse) -> None:
             badge = why or (tr("slot {n}", n=(lop.tools.index(t.name) % lo.PAGE_SIZE) + 1) if equipped else tr("click to equip"))
             menu.text(surf, badge, (card.right - 10, card.y + 8), mu.DIM if (why or not equipped) else pal["ok"],
                       menu.f_small, "topright")
-            menu.text(surf, tr(t.desc), (tx, card.y + 30), mu.TEXT if not why else mu.DIM, menu.f_small)
-            menu.wrapped(surf, tr("Drives: {neurons}", neurons=tr(t.neurons)), (tx, card.y + 48), card.w - 80,
-                         mu.LABEL, menu.f_small, max_lines=2)
+            ty = menu.wrapped(surf, tr(t.desc), (tx, card.y + 6 + fbo.get_linesize() + 4), card.w - 80, mu.TEXT if not why else mu.DIM, fsm,
+                              max_lines=3)
+            menu.wrapped(surf, tr("Drives: {neurons}", neurons=tr(t.neurons)), (tx, ty), card.w - 80,
+                         mu.LABEL, fsm, max_lines=3)
             tip = f"{tr(t.label)}: {tr(t.desc)} " + tr("Drives: {neurons}", neurons=tr(t.neurons)) + f" [{tr(t.tag)}]"
             if why:
                 tip = why + ". " + tip
@@ -335,7 +349,7 @@ def page_editor(menu, surf, rect, mouse) -> None:
             else:
                 menu._register(card, "dragsrc", id=("lo-card", t.name), payload=("tool", t.name, None),
                                click=(lambda nm=t.name: toggle(menu, nm)), tip=tip)
-        yy += ((len(members) + 1) // 2) * (ch + 6) + 6
+        yy += sum(h + 6 for h in row_h) + 6
     menu.content_h[key] = max(0, yy + off - body.bottom + 8)
     surf.set_clip(prev_clip)
     menu.clip = None

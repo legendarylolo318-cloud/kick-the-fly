@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="314" height="782" font-family="sans-serif" font-size="11" role="img" aria-label="Sensitivity heatmap: parameter value by validated behavior, pass or fail with effect size">
+<rect width="314" height="782" fill="#ffffff"/>
+<text x="8" y="18" font-size="14" font-weight="bold">Sensitivity: parameter value x validated behavior</text>
+<text x="8" y="36">each cell: PASS/FAIL (validation's own criteria) and the effect (drive ratio, or the T-maze PI); seeds 1000-1009, n = 10</text>
+<text x="8" y="52">MODEL PREDICTION. Analysis only: the defaults are not changed by this.</text>
+<text transform="translate(257.0,144) rotate(-50)" text-anchor="start">mb_conditioning</text>
+<text x="8" y="165">baseline (defaults)</text>
+<rect x="220" y="150" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="165" text-anchor="middle" fill="#ffffff">PASS 1.00</text>
+<text x="8" y="187">Membrane noise = 0.025</text>
+<rect x="220" y="172" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="187" text-anchor="middle" fill="#ffffff">PASS 0.99</text>
+<text x="8" y="209">Membrane noise = 0.0375</text>
+<rect x="220" y="194" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="209" text-anchor="middle" fill="#ffffff">PASS 1.00</text>
+<text x="8" y="231">Membrane noise = 0.075</text>
+<rect x="220" y="216" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="231" text-anchor="middle" fill="#ffffff">PASS 0.53</text>
+<text x="8" y="253">Membrane noise = 0.1</text>
+<rect x="220" y="238" width="72" height="20" fill="#b71c1c" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="253" text-anchor="middle" fill="#ffffff">FAIL -0.04</text>
+<text x="8" y="275">Tonic drive = 0.15</text>
+<rect x="220" y="260" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="275" text-anchor="middle" fill="#ffffff">PASS 0.66</text>
+<text x="8" y="297">Tonic drive = 0.175</text>
+<rect x="220" y="282" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="297" text-anchor="middle" fill="#ffffff">PASS 1.00</text>
+<text x="8" y="319">Tonic drive = 0.225</text>
+<rect x="220" y="304" width="72" height="20" fill="#b71c1c" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="319" text-anchor="middle" fill="#ffffff">FAIL 0.29</text>
+<text x="8" y="341">Tonic drive = 0.25</text>
+<rect x="220" y="326" width="72" height="20" fill="#b71c1c" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="341" text-anchor="middle" fill="#ffffff">FAIL 0.19</text>
+<text x="8" y="363">Target rate (Hz) = 2.5</text>
+<rect x="220" y="348" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="363" text-anchor="middle" fill="#ffffff">PASS 0.97</text>
+<text x="8" y="385">Target rate (Hz) = 3.5</text>
+<rect x="220" y="370" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="385" text-anchor="middle" fill="#ffffff">PASS 1.00</text>
+<text x="8" y="407">Target rate (Hz) = 7.5</text>
+<rect x="220" y="392" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="407" text-anchor="middle" fill="#ffffff">PASS 1.00</text>
+<text x="8" y="429">Target rate (Hz) = 10</text>
+<rect x="220" y="414" width="72" height="20" fill="#b71c1c" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="429" text-anchor="middle" fill="#ffffff">FAIL -0.04</text>
+<text x="8" y="451">Sensory input gain = 2</text>
+<rect x="220" y="436" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="451" text-anchor="middle" fill="#ffffff">PASS 1.00</text>
+<text x="8" y="473">Sensory input gain = 3</text>
+<rect x="220" y="458" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="473" text-anchor="middle" fill="#ffffff">PASS 1.00</text>
+<text x="8" y="495">Sensory input gain = 5</text>
+<rect x="220" y="480" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="495" text-anchor="middle" fill="#ffffff">PASS 1.00</text>
+<text x="8" y="517">Sensory input gain = 6</text>
+<rect x="220" y="502" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="517" text-anchor="middle" fill="#ffffff">PASS 1.00</text>
+<text x="8" y="539">Gain adaptation rate = 0</text>
+<rect x="220" y="524" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="539" text-anchor="middle" fill="#ffffff">PASS 0.99</text>
+<text x="8" y="561">Gain adaptation rate = 0.001</text>
+<rect x="220" y="546" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="561" text-anchor="middle" fill="#ffffff">PASS 1.00</text>
+<text x="8" y="583">Gain adaptation rate = 0.004</text>
+<rect x="220" y="568" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="583" text-anchor="middle" fill="#ffffff">PASS 1.00</text>
+<text x="8" y="605">Gain adaptation rate = 0.008</text>
+<rect x="220" y="590" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="605" text-anchor="middle" fill="#ffffff">PASS 1.00</text>
+<text x="8" y="627">Synapse threshold = 4</text>
+<rect x="220" y="612" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="627" text-anchor="middle" fill="#ffffff">PASS 1.00</text>
+<text x="8" y="649">Synapse threshold = 5</text>
+<rect x="220" y="634" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="649" text-anchor="middle" fill="#ffffff">PASS 1.00</text>
+<text x="8" y="671">Synapse threshold = 6</text>
+<rect x="220" y="656" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="671" text-anchor="middle" fill="#ffffff">PASS 1.00</text>
+<text x="8" y="693">Synapse threshold = 8</text>
+<rect x="220" y="678" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="693" text-anchor="middle" fill="#ffffff">PASS 1.00</text>
+<text x="8" y="715">Synapse threshold = 10</text>
+<rect x="220" y="700" width="72" height="20" fill="#2e7d32" stroke="#222" stroke-width="0.5"/>
+<text x="256.0" y="715" text-anchor="middle" fill="#ffffff">PASS 1.00</text>
+</svg>

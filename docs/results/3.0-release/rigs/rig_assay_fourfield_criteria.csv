@@ -1,0 +1,3 @@
+individuality,id,label,n,mean_effect,unit,min_effect,p,passed
+subtle,F1,"preference index with the odor minus the sham (same arena and start, no odor), positive = prefers the odor quadrants",10,0.00487272727272727,PI,0.15,0.6875,0
+off,F1,"preference index with the odor minus the sham (same arena and start, no odor), positive = prefers the odor quadrants",10,0.023890909090909088,PI,0.15,0.3564453125,0

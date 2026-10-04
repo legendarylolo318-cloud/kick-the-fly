@@ -77,8 +77,11 @@ def segment(a, b, radius: float) -> np.ndarray:
     """Model matrix taking the unit cylinder (y from 0 to 1, radius 1) onto the segment a->b."""
     a, b = np.asarray(a, float), np.asarray(b, float)
     d = b - a
-    L = float(np.linalg.norm(d)) or 1e-6
-    y = d / L
+    L = float(np.linalg.norm(d))
+    if L < 1e-9:                    # 3.0 day 3 review: a zero-length segment (a tongue on its first strike frame) gave a NaN matrix
+        L, y = 1e-6, np.array([0.0, 1.0, 0.0])
+    else:
+        y = d / L
     helper = np.array([1.0, 0, 0]) if abs(y[0]) < 0.9 else np.array([0, 0, 1.0])
     x = np.cross(helper, y)
     x /= np.linalg.norm(x)

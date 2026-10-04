@@ -36,7 +36,10 @@ VSVersionInfo(
 )
 "@ | Set-Content -Encoding utf8 build\version_info.txt
 
-$data = @("--add-data", "data\kick_brain.npz;.", "--add-data", "protocols;protocols")
+# 3.0 release review: kickthefly/data added explicitly (--collect-data kickthefly can skip it as "not a package"; see build_appimage.sh)
+$data = @("--add-data", "data\kick_brain.npz;.", "--add-data", "protocols;protocols",
+          "--add-data", "kickthefly\data\neurodex_facts.yaml;kickthefly\data", "--add-data", "kickthefly\data\driver_lines.yaml;kickthefly\data",
+          "--add-data", "kickthefly\data\locales;kickthefly\data\locales")
 if (Test-Path data\validation_results.json) { $data += @("--add-data", "data\validation_results.json;.") }
 else { Write-Warning "data\validation_results.json not found; the build won't show real-science popups" }
 
@@ -46,7 +49,7 @@ else { Write-Warning "data\validation_results.json not found; the build won't sh
     --exclude-module tkinter --exclude-module matplotlib --exclude-module pynwb --exclude-module h5py `
     --exclude-module pandas `
     --hidden-import glcontext.wgl --hidden-import glcontext.empty `
-    --hidden-import yaml --collect-submodules kickthefly `
+    --hidden-import yaml --collect-submodules kickthefly --collect-data kickthefly `
     kick_the_fly.py
 if ($LASTEXITCODE -ne 0) { throw "pyinstaller failed" }
 

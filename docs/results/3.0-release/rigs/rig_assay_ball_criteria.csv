@@ -1,0 +1,5 @@
+individuality,id,label,n,mean_effect,unit,min_effect,p,passed
+subtle,BL1,"closed loop, walking: share of an imposed 1 rad/s drift of the VR panorama the fly cancels",10,0.4961991175355288,fraction,0.1,0.0009765625,1
+subtle,BL2,"closed-loop bar: heading error (deg) with the bar hidden minus with it visible, last 5 s of 20 s",10,88.82190681232291,deg,10.0,0.0009765625,1
+off,BL1,"closed loop, walking: share of an imposed 1 rad/s drift of the VR panorama the fly cancels",10,0.46086545906590787,fraction,0.1,0.0009765625,1
+off,BL2,"closed-loop bar: heading error (deg) with the bar hidden minus with it visible, last 5 s of 20 s",10,86.71866344521086,deg,10.0,0.0009765625,1

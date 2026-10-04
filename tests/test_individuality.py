@@ -8,6 +8,8 @@ from kickthefly.lab import validation
 from kickthefly.sim.connectome.sim import LIFParams, LIFSim
 from kickthefly.sim.connectome import backends, larva_loader
 
+from conftest import needs_larva
+
 
 def test_individuality_determinism():
     """Verify that per-fly gains are strictly deterministic from the fly's seed."""
@@ -100,7 +102,23 @@ def test_individuality_forced_off_in_validation(monkeypatch):
 
     monkeypatch.setattr(simcore, "new_brain", spy)
     validation.run(brain="adult", seeds=(1000,), workers=1, include={"looming_escape"})
-    larva_loader.ensure_larva_brain_pack()      # CI builds only the adult pack, and test_larva.py runs after this file
+    assert built and all(d is None for d in built)
+
+
+@needs_larva
+def test_individuality_forced_off_in_larva_validation(monkeypatch):
+    """The same for the larva brain (3.0 release review: split out so the adult half runs where the optional larva pack isn't built)."""
+    monkeypatch.setenv("KICK_THE_FLY_INDIVIDUALITY", "strong")
+    built = []
+    real = simcore.new_brain
+
+    def spy(*a, **kw):
+        br = real(*a, **kw)
+        built.append(br.sim.d_pre)
+        return br
+
+    monkeypatch.setattr(simcore, "new_brain", spy)
+    larva_loader.ensure_larva_brain_pack()
     validation.run(brain="larva", seeds=(1000,), workers=1)
     assert built and all(d is None for d in built)
 

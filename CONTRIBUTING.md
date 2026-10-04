@@ -16,13 +16,17 @@ kick_the_fly.py            launcher shim: keeps `python kick_the_fly.py ...` wor
 kickthefly/
   __main__.py              entry point (`python -m kickthefly`)
   core/                    simclock, simcore, memory, savestate, paths, platform_env, version, config, crash, loadout (the tool
-                           catalog and presets), selftest, bugreport
+                           catalog and presets), selftest, bugreport,
+                           neurodex, killcam, neuron_of_day, sharecode, clipboard (3.0; all pure logic, no pygame)
   sim/                     brainpack, connectome/ (loader + LIF simulator), neuron and synapse state
-  game/                    kick_the_fly (2D game + Brain + brain panel), kick3d, render3d, outdoors (open field,
+  game/                    kick_the_fly (2D game + Brain + brain panel), kick3d, render3d, extras3 (Neurodex / kill cam / Neuron of the Day in the running game), rigs (3.0 day 5), outdoors (open field,
                            orchard, day/night), gamepad: physics, tools, arenas, input
-  ui/                      menu framework and the settings screens; the loadout editor and tool wheel (loadout_ui), the first-launch tutorial, Settings > Help (help_ui) and the crash screen
-  lab/                     lab, labjobs, labstats, validation, playthrough (the bot), assays, challenges, protocol, recorder, nwbexport,
-                           headless, benchmark, api (`from kickthefly import Fly`), neurosearch (brain view search and
+  ui/                      menu framework and the settings screens; What's New (whatsnew_ui, 3.0 day 5), the mini-papers page (minipaper_ui); the loadout editor and tool wheel (loadout_ui), the first-launch tutorial, Settings > Help (help_ui), the crash screen,
+                           the Neurodex panel (neurodex_ui) and Esc > Share (share_ui)
+  lab/                     lab, labjobs, labstats, validation, playthrough (the bot), assays, challenges, protocol, recorder, bundle (3.0), nwbexport,
+                           rigassay, labrigs (the behavior rigs, 3.0 day 5; their physics are game/rigs.py), minipapers (guided mini-papers; their page is ui/minipaper_ui.py),
+                           headless, benchmark, api (`from kickthefly import Fly`), genetics, thermogenetics, patchclamp, imaging,
+                           pharmacology (3.0 day 2, logic) with labtoolkit (their five Lab screens) and livelab (their in-game state), neurosearch (brain view search and
                            path tracer), and the Lab-only manipulations (threshold, signflip, criticalpath, clamp,
                            diffmode, lesions)
   data/                    non-code assets bundled inside the package
@@ -55,7 +59,7 @@ Don't add new modules to the repo root.
   clear message, never an import error at startup.
 - User-facing file names, config keys, save-state formats and data paths are a compatibility surface. Existing saves
   and training memory must keep loading; `tests/test_compat.py` guards that.
-- Tests: `python -m pytest -m "not validation"` for the fast suite, `python -m pytest` for everything. New Lab
+- Tests: `python -m pytest -m "not validation"` for the fast suite, `python -m pytest` for everything. `tests/synthetic_pack.py` is a tiny random-wiring stand-in for the brain pack (real type names, no biology) for plumbing tests that need a Brain without `data/`; never use it for a result. New Lab
   features need at least a headless round-trip test.
 - Real vs rule tags: if you add a reaction, tag it in `REACTION_SOURCE` and say which it is in the README table and
   in the `kickthefly/game/kick_the_fly.py` docstring. Both are part of the change, not follow-up work.
@@ -76,7 +80,7 @@ same way after a UI change:
 
 ```bash
 python kick_the_fly.py --headless --validate --out data/validation_results.json   # the Validation page shows these
-python tools/make_screenshots.py              # every screenshot into docs/ (about 5 minutes)
+python tools/make_screenshots.py              # every screenshot into docs/ (about 8 minutes, one process per scene)
 python tools/make_screenshots.py lamp duel    # just some of them; --list shows them all
 python tools/make_screenshots.py demo         # docs/demo.gif, recorded with the in-game video recorder
 python tools/make_screenshots.py portrait --out /tmp    # a close-up of the fly model, for checking it after a change
@@ -84,11 +88,13 @@ python tools/make_screenshots.py portrait --out /tmp    # a close-up of the fly 
 
 Each scene is a short script (seed 7, a fixed arena, camera and inputs) that runs inside the real game loop through
 `kick3d.run(script=...)` and captures the whole window at 1280x760, with the brain panel set to solid (the see-through
-scene excepted). It renders offscreen on your GPU (SDL's offscreen driver: no window opens) with a throwaway
+scene excepted). It renders offscreen on your GPU (SDL's offscreen driver, forced even when your desktop session sets `SDL_VIDEODRIVER`,
+so no window opens and a tiling window manager can't resize the capture; `KTF_SHOTS_DRIVER` picks another driver) with a throwaway
 `KICK_THE_FLY_HOME`, so your settings, memory and saves are untouched, and it uses cached neuPrint skeletons without
 fetching. Game states that are awkward to reach by hand (trained memory, a wrapped fly, an autopsy, five flies feeding
 in the orchard) are reached by the script driving the game's own actions, never by drawing anything special. Add a
-scene with `scene(...)` in that file and reference its PNG from the README. Keep new images at the same size and
+scene with `scene(...)` in that file and reference its PNG from the README or `docs/gallery.md`. Captures skip the first-launch tutorial,
+the Neuron of the Day card and Neurodex toasts; a scene can set other settings with `settings={...}`. Keep new images at the same size and
 quantized (the script does it); `docs/` isn't bundled into the exe or AppImage.
 
 ## Before you open a PR
@@ -100,7 +106,13 @@ python kick_the_fly.py --smoke 3         # the 3D room actually opens
 python kick_the_fly.py --selftest        # exit 0, or 3 when only warnings (no sound card, no GPU...)
 python kick_the_fly.py --headless --playthrough adult --playthrough-quick --out /tmp/pt
 python tools/i18n_sync.py --check        # every new UI string is in the localization catalog
+python tools/run_tests.py --fast         # the same fast suite in balanced chunks, two at a time, with a memory guard (about 3x faster)
 ```
+
+`tools/run_tests.py` (3.0 day 4) deals the test files into chunks by their recorded durations (`tests/.durations.json`, refreshed by each
+run), runs `--parallel` of them at once once the machine has `--min-free-gb` free, and prints each chunk's peak memory. `--mem-report`
+adds the resident-size growth per test file (a number that grows and never comes back is a leak; the day 3 `LiveInputs` leak looked like
+that). `--only-validation` runs just the validation suite; arguments after `--` go to pytest.
 
 A change to what the simulation does needs `--headless --validate --out before.json` on `main` and `after.json` on your branch, and the
 two must be identical unless the PR says why not. New tools, arenas or reactions also get a `ToolInfo` (with its `probes`) in

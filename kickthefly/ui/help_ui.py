@@ -38,6 +38,9 @@ def help_tab(menu, surf, body, y: int) -> int:
         (tr("Tool loadout editor"), tr("Open"),
          tr("Choose which tools are on the hotbar (keys 1-9, 0), reorder them and save your own loadouts. Also on the Q key."),
          lambda: (menu.close(), host.open_loadout_editor())),
+        (tr("What's new in 3.0"), tr("Open"),
+         tr("The one-time What's New screen again. Opening it here does not change whether it shows at launch."),
+         lambda: menu.show("whatsnew")),
         (tr("Self-test"), tr("Run"),
          tr("Checks this install: brain packs, every compute backend, OpenGL, audio, ffmpeg, folders, disk, memory and a 10-second run. Says how to fix what it finds. Changes nothing."),
          lambda: menu.show("selftest")),
@@ -207,21 +210,22 @@ def page_bugreport(menu, surf, rect, mouse) -> None:
         menu.text(surf, tr("left out"), (view.right - 10, view.y + 6), mu.AMBER, menu.f_small, "topright")
     # actions
     fy = rect.bottom - 116
-    menu.text(surf, tr("Report text: {n:,} characters. Opening the issue puts about {u:,} characters in the link; long items go to a file you attach.",
-                       n=len(full), u=len(url)), (rect.x + 24, fy - 4), mu.LABEL, menu.f_small)
+    menu.wrapped(surf, tr("Report text: {n:,} characters. Opening the issue puts about {u:,} characters in the link; long items go to a file you attach.",
+                          n=len(full), u=len(url)), (rect.x + 24, fy - 4 - (menu.f_small.get_linesize() if menu.f_small.size("x" * 150)[0] > rect.w - 48 else 0)),
+                 rect.w - 48, mu.LABEL, menu.f_small, max_lines=2)
     if br.get("saved"):
         menu.text(surf, tr("Saved to {path}: attach this file to the issue.", path=br["saved"]), (rect.x + 24, fy + 16),
                   mu.GOOD, menu.f_small)
     elif br.get("msg"):
         menu.text(surf, br["msg"], (rect.x + 24, fy + 16), mu.GOOD, menu.f_small)
     by = rect.bottom - 62
-    menu.button(surf, (rect.x + 24, by, 210, 42), tr("Copy to clipboard"), lambda: _copy(menu, br, full),
-                id=("br", "copy"), tip=tr("Copy everything that is switched on. You paste it wherever you like."))
-    menu.button(surf, (rect.x + 246, by, 250, 42), tr("Open GitHub issue"), lambda: _open(menu, br, attach, url),
-                style="primary", id=("br", "open"),
-                tip=tr("Opens your browser on a prefilled new-issue page. If items are long, they are saved to a file to attach by hand. Nothing is sent by this program."))
-    menu.button(surf, (rect.x + 508, by, 180, 42), tr("Save to file"), lambda: _save(menu, br, full), id=("br", "save"),
-                tip=tr("Save everything that is switched on as a text file."))
+    menu.button_row(surf, rect.x + 24, by, 42, [
+        dict(label=tr("Copy to clipboard"), click=lambda: _copy(menu, br, full), id=("br", "copy"), w=210,
+             tip=tr("Copy everything that is switched on. You paste it wherever you like.")),
+        dict(label=tr("Open GitHub issue"), click=lambda: _open(menu, br, attach, url), style="primary", id=("br", "open"), w=250,
+             tip=tr("Opens your browser on a prefilled new-issue page. If items are long, they are saved to a file to attach by hand. Nothing is sent by this program.")),
+        dict(label=tr("Save to file"), click=lambda: _save(menu, br, full), id=("br", "save"), w=180,
+             tip=tr("Save everything that is switched on as a text file."))], gap=12)
     menu.button(surf, (rect.right - 164, by, 140, 42), tr("Back"), lambda: (br.clear(), menu.back()), id=("br", "back"))
 
 

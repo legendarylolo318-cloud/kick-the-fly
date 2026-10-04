@@ -215,6 +215,43 @@ and SLEEP: dorsal fan-shaped body FB6/FB7 above THRESH["sleep"] stops spontaneou
 CONNECTOME: the photoreceptors, the LNvs and everything downstream. A full simulated day never took dFB past 1.46x,
 so the fly doesn't sleep on its own; stimulate FB6/FB7 in surgery.
 
+Fly tournament and fly racing (3.0 day 4; Esc > Fly arcade). CONNECTOME: in a duel both sides are brains: turning is DNa01/02 right minus
+left, shooting DNp35/DNpe052 above THRESH["fire"], the dodge DNp01 above THRESH["escape"], the run the body-touch group; in a race the
+speed is DNp09's firing against one fixed reference rate (speed rule version 2; version 1 used each fly's own warm-up baseline). A fly's individuality (per-neuron gains from its seed) and its personality card, MEASURED from
+its brain (looming latency to its dodge threshold, sugar -> MN9 ratio, DNa01/02 right/left ratio), are its own. GAME RULE: the arena, the
+blaster, the pairing, the tie-break, the track, the lures, the odds (softmax of a form score) and the points (in-game points only: no
+money, nothing to buy). MODEL PREDICTION: who wins or finishes first, which neurons fired before a winner's landed shots, whether
+personality or individuality predicts the result (headless --tournament N, --race; the criteria are written in lab/tournament.py and
+lab/racing.py before any run).
+
+Network science (Lab; --netsci). CONNECTOME only: degrees, reciprocity, 3-node motifs against a degree-preserving null, rich club,
+communities and per-region summaries computed from the pack's synapse counts, cached with a checksum; the analysis choices are GAME RULE.
+
+Sleep deprivation assay (Lab; --sleep-deprivation). GAME RULE: sleep pressure (rises awake, falls asleep), the disturbances, what counts as
+sleep and the current pressure becomes on FB6/FB7. CONNECTOME: the dFB firing that current produces (the SLEEP readout), daylight on the
+photoreceptors and clock neurons. MODEL PREDICTION: the rebound sleep, which the pressure rule makes expected.
+
+Sensitivity analysis (Lab; --sensitivity). Each LIF parameter and the synapse threshold varied across a documented range, every validated
+behavior re-run with validation's own criteria: a heatmap. Analysis only: no default changes. Every cell is a MODEL PREDICTION.
+
+Behavior rigs (3.0 day 5; Lab > Behavior rigs, --rig, --rig-assay, protocols/rig_*.yaml; game/rigs.py, lab/rigassay.py). CONNECTOME: yaw is read
+from DNa01 + DNa02 right minus left and walking from DNp09 (against the race's fixed reference rate); wide-field rotation reaches the steering neurons
+through T4/T5 (validated: optomotor_turning). GAME RULE: how steering Hz becomes a yaw rate (the duel's: 1.5 Hz dead zone, 0.24 rad/s per Hz, at most
+2.1 rad/s), the EMD stage in front of T4/T5, LC10 tracking of a stripe or bar on the side it is on (the duel's rule; one stripe at a time in Buridan's
+arena), the platform and its reflecting edge, the ball and the VR, the four-field arena, its sharp odor quadrants and the preference index. MODEL
+PREDICTION: what the fly does. Criteria were committed before any held-out run (seeds 1000-1009, with an --individuality off control): the tethered
+rig, the ball (the optomotor response, closed-loop bar fixation) and Buridan's paradigm (stripe deviation about 3 degrees against 42 without stripes,
+far tighter than real flies', docs/rigs.md) PASS; the four-field arena FAILS (no preference for the odor: nothing connects an odor to steering or
+walking in this model).
+
+Guided mini-papers (3.0 day 5; Esc > Mini-papers, Lab > Mini-papers, --minipaper; lab/minipapers.py). Lecture protocols (lab/classroom.py) whose
+experiments are validation tests (or the Buridan rig): you state a hypothesis, run it, see the plot, and read your result (MODEL PREDICTION) next to what
+the paper itself states (LITERATURE: direction and any numbers the paper gives, cited, with how much of it was read: abstract or full text). Where the
+model fails a paper (the aDN to leg motor neurons, the larva rolling pair) the page says so and why.
+
+What's New in 3.0 (3.0 day 5; ui/whatsnew_ui.py). One screen, once, after an upgrade: [first_run] whatsnew_3_0_seen in config.toml (missing = not seen; a
+fresh install starts seen). No simulation behavior.
+
 Validation (validation.py): which published results this sim reproduces, on held-out seeds with pass criteria fixed
 beforehand. Pass: looming -> giant fiber, sugar -> MN9, antennal touch -> aDN, T-maze conditioning, pIP10 -> ps1,
 bitter GRNs -> DNg28, CO2 ORNs -> V PNs, TRN_VP2 -> VP2 PNs, TRN_VP3 -> VP3 PNs, optomotor (T4/T5 -> DNa_R),
@@ -327,6 +364,89 @@ report never sends anything: it hands a URL to the player's own browser when ask
 Playthrough bot (2.13; lab/playthrough.py). Drives the real games headless; asserts, per tool, that the neurons the tool
 documents fire above their own calm baseline. It changes no rule and tunes nothing.
 
+Neurodex (3.0; core/neurodex.py, ui/neurodex_ui.py, data/neurodex_facts.yaml, docs/neurodex.md). A collectible encyclopedia of cell
+types. CONNECTOME: every number in an entry, read from the dataset through the brain pack: neuron count, superclass, regions (the
+game's coarse regions, derived from class and soma neuromere), the predicted transmitter and the dataset's own confidence, and the
+strongest input and output partner types by synapse count. GAME RULE: "discovered" (over 150 ms windows, 3 checks in a row, the type's mean
+firing is at least 6 spikes/s and 3x its own calm rate, and its spike count is a one-sided Poisson event below alpha ~1.2e-11 at the
+calm rate; after 5 s of settling), the collection, its progress per region, and the "by stimulation" / "at rest" / "in play" tags.
+On the real pack a calm fly would still discover 25-35 sensory types a minute through correlated spontaneous bursts; since 3.0 Day 2
+a calm, untouched fly discovers nothing (a design decision, docs/neurodex.md), and "at rest" survives only on old saved entries. LITERATURE: the one-line fact and its citation, for about 30 curated types only; each was checked
+against the paper it cites. Saved per player next to the training memory; the larva has its own list. Never runs in --validate,
+assays, protocols or tests.
+Neuron of the Day (3.0; core/neuron_of_day.py). GAME RULE: a launch card that picks one curated Neurodex type by date and offers Try it
+(the Lab laser or brain surgery on that type). Its own setting (default on), separate from the real-science popups. The fact on it is
+LITERATURE.
+Kill cam (3.0; core/killcam.py). CONNECTOME: the replay is each neuron's own simulated firing rate for the last 6 s of the brain's
+life, and the highlighted neurons are the ones whose rate rose most. GAME RULE: the offer, the window, the slow motion, the count, and
+death itself (so the moment the replay ends). Nothing feeds back into the simulation.
+Share codes and experiment bundles (3.0; core/sharecode.py, ui/share_ui.py, lab/bundle.py). GAME RULE, both: containers for settings
+and results the game already has; they add nothing to the simulation. A bundle rerun is judged bit-exact on the CPU backends and,
+on a GPU backend, statistically by a rule fixed before any rerun (lab/bundle.py).
+
+Genetic toolkit (3.0 day 2; lab/genetics.py, data/driver_lines.yaml, docs/genetics.md). LITERATURE: which cell types a split-GAL4
+line labels, and its expression-quality score, copied from Meissner et al. 2025 (eLife, CC BY 4.0; 2,667 adult lines). CONNECTOME: how
+many neurons carry those types. GAME RULE: a cell-type name is matched to a MaleCNS type only when spelled identically (no fuzzy
+matching); `line:SS00727` is a neuron spec that surgery, the laser, recordings, protocols and thermogenetics accept. The off-target
+note is only the paper's own score. No GAL4 (non-split) mapping was found that could be redistributed, so none is offered.
+
+Thermogenetics (3.0 day 2; lab/thermogenetics.py, docs/thermogenetics.md). LITERATURE: TrpA1 turns on near 25 C (Pulver et al. 2009);
+shibire-ts blocks synaptic transmission, paralysing within 2 min at 30 C and recovering in about 1 min (Kitamoto 2001). GAME RULE: the
+full-on ends of the curves (29 C, 30 C, a 28 C start for shibire-ts), the kinetics (TrpA1 1 s; shibire-ts 40 s on, 20 s off), the current
+sizes (the validation drive 0.5; surgery's silencing -0.6), the thermo arena's 15-35 C map, the Lab temperature slider. MODEL: only the
+expressing neurons respond (no Q10 anywhere), and shibire-ts silences the neuron rather than blocking its terminal. Assay thermo_escape:
+thermogenetic activation of DNp01, escape rate vs temperature, against a no-expression control (criteria in the module, fixed first).
+
+Virtual patch clamp (3.0 day 2; lab/patchclamp.py, docs/patchclamp.md). MODEL: a point-neuron LIF unit, NOT electrophysiology. The
+potential is in model units (threshold 1.0, reset 0.0) and never millivolts; every neuron is the same unit, so the isolated I-F curve is
+the same for all of them. CONNECTOME: embedded mode keeps the real synaptic input around the neuron. GAME RULE: the step protocol,
+hold current and I-F amplitudes. Exports CSV and NWB (in model units, not a volts series). Lab > Patch clamp, or PATCH in the inspector.
+
+Simulated calcium imaging (3.0 day 2; lab/imaging.py, docs/imaging.md). MODEL: spikes convolved with a two-exponential GCaMP kernel,
+averaged over an ROI, with Poisson shot noise; dF/F against a running mean (30 s by default, a setting) of the neuron's own fluorescence. LITERATURE: kernel
+speeds from Chen et al. 2013 (GCaMP6s/6f: Supplementary Table 3, mouse V1 in vivo, 1 action potential) and Zhang et al. 2023
+(jGCaMP8m), each checked in the paper (3.0 day 2 review); the UI gives the source of each. GAME RULE: dF/F per spike, photon
+budget, ROI sets, colors (Settings > Accessibility palettes; Reduced flashing smooths the view). The brain view's Imaging mode
+colors neurons by dF/F (its firing counters and legend give way to an IMAGING (MODEL) label). Exports CSV, NWB (RoiResponseSeries, ImageSeries) and TIFF stacks.
+
+Pharmacology (3.0 day 2; lab/pharmacology.py, docs/pharmacology.md). MODEL PREDICTION: a drug multiplies the weight of every synapse whose
+presynaptic neuron is predicted to release a transmitter (picrotoxin: GABA and glutamate down; cholinergic block; glutamate-Cl block;
+GABA-A agonist, GABA up to x2). CONNECTOME: the transmitter predictions and their confidence (measured, or predicted with a confidence);
+the panel counts the synapses affected at each level and can leave out low-confidence predictions. GAME RULE: the dose mapping and the
+confidence cut. Octopamine and dopamine are left out: those synapses are not in the simulated matrix. The simulator's slow global gain
+works against any drug that changes overall synaptic strength, so effects are read soon after a drug goes on.
+
+Predators (3.0 day 3; game/predators.py, game/predator_play.py, lab/predators.py, docs/predators.md). Tools in the Creatures category,
+next to the spider: FROG (a very fast tongue), DRAGONFLY (a chase from above that takes only a fly in the air), MANTIS (a 10 cm/s creep, then
+a strike). GAME RULE: all of the predators' behaviour: when they hop, creep, chase, aim and strike, how fast, how far, how many strikes
+(no real animal is measured and no published value is used). CONNECTOME: detection goes only through the existing looming transduction
+(LPLC2/LC4 -> DNp01 -> DODGE), so "sneak up slowly and it won't notice" is a consequence of the looming threshold (a game rule), and a capture
+fires the real touch neurons by body part (head BM_*/JO-*, body SNta*, legs SNpp*, wings WG*). Assay predator_escape: escape probability by
+predator over seeds with a Wilson 95% CI (MODEL PREDICTION; the fly does not move, so "escape" is DNp01 above the game's escape threshold
+before the capture). 2D and 3D.
+
+Rain, gusts and storms (3.0 day 3; game/weather.py, docs/weather.md; open field and orchard, 3D). CONNECTOME: what is driven: raindrop hits fire
+the touch neurons by body part, wet air the humidity neurons (HRN), a gust the wind neurons JO-C/E through the existing wind
+transduction, lightning the photoreceptors. GAME RULE: everything else (the hit rate, strength and part table, when wings count as wet, the
+gusts, the lightning's timing, the storm preset, the darkening). Lab parameters weather.rain, weather.gust_hz, weather.storm (all off by
+default, so every existing outdoor result is unchanged). Reduced flashing: the screen's lightning is one slow swell, never a flash.
+
+Kitchen arena (3.0 day 3; game/kitchen.py, docs/kitchen.md; 3D only, E cycles to it; the counter is the floor). CONNECTOME: the fruit bowl
+is the orchard's feeding (taste + PAM reward neurons), the vinegar trap's scent is the fermentation glomeruli DM1/DM2/DP1m (and the fly flies to
+the jar only if its own DM1/DM2/DP1m firing is far above its calm rate), the sink is the pool's water (humidity neurons), the burner is the
+lamp's heat (heat sensors), the cook's swat is seen as looming. GAME RULE: the layout, the trap physics (hover over the mouth, fall in, stuck,
+drowning), the basin, the burner, the cook (10-20 s between swats, a 0.9 s steady swing at where a fly was) and every number.
+
+Microphone to Johnston's organ (3.0 day 3; core/mic.py, lab/audio.py, docs/microphone.md). OPT-IN, off at every launch, a red MIC ON pill on screen
+while on, nothing recorded or sent. CONNECTOME: JO-A (50) and JO-B (88) neurons. LITERATURE: A and B are the sound-sensitive groups (Kamikouchi
+2009); B prefers below ~100 Hz and A higher (Ishikawa et al. 2019, citing Matsuo 2014, Patella & Wilson 2018). GAME RULE: the whole transduction (band-passes, loudness mapping, gate, equal
+current per neuron). MODEL PREDICTION: the hum demo (a synthetic 200 Hz hum, steady and in 35 ms pulses): it drives P1, not the song motor neurons, and not
+selectively at 35 ms, unlike real pC1 neurons (Zhou et al. 2015 measured 35-65 ms band-pass tuning): a disagreement with a measurement.
+
+Streamer mode (3.0 day 3; core/streamer.py, core/netguard.py, docs/streamer.md). OPT-IN, off at every launch, never during tests, --validate or
+any headless run. GAME RULE: all of it: viewers of a Twitch channel (read-only, anonymous, no token, no names kept) vote !tool, !arena, !surgery;
+the streamer picks which commands count; a winner runs the game's own action. Every connection is shown on screen. No telemetry, ever.
+
 Fly individuality (2.11; Kain et al. 2012, Linneweber et al. 2020).
 - GAME RULE: Per-fly variation, deterministic from each fly's seed, implemented as per-neuron scaling
   so the shared weight matrix is unchanged: W_fly = D_post · W · D_pre, where D_pre and D_post are
@@ -335,9 +455,11 @@ Fly individuality (2.11; Kain et al. 2012, Linneweber et al. 2020).
   Plastic KC->MBON weights learn normally on top. Shared weight matrix structure preserves streaming
   SpMM on batched torch backends. NumPy and Numba stay bit-exact; torch-cpu only with it off. Settings > Brain > Individuality
   (off / subtle / strong, default subtle in Play). Forced OFF for --validate.
-- Personality cards: short profiles per fly (temperament, steering bias, feeding drive, learning) with their
-  thresholds shown. Known issue: without assay metrics (the game's case) the metrics are seeded draws, not measured. Displayed in fly picker (F), pet mode, and
-  neuron inspector header.
+- Personality cards: short profiles per fly (temperament, steering bias, feeding drive) with their thresholds shown. CONNECTOME: the
+  numbers, MEASURED from the fly's own brain (lab/tournament.measure_card). GAME RULE: the words and cut-offs. Since the 3.0 day 4
+  review the game shows only measured cards (core/cards.py): a fly in play or the pet says "card not measured" until Esc > Fly arcade >
+  Measure the flies in play reads it (cached by seed, individuality mode and sigma, LIF parameters and pack). Before, these were
+  numbers drawn from the seed, not measured. Displayed in the focus note (F), pet mode and the neuron inspector header.
 
 Pet mode (2.11; core/pet.py).
 - New mode in Esc > Mode alongside Play and Lab. One fly (adult or larva) persists across real days,
@@ -367,6 +489,7 @@ import os
 import random
 import sys
 import threading
+import weakref
 import time
 from collections import deque
 from pathlib import Path
@@ -467,7 +590,7 @@ PAIN_LEVELS = (  # name, share of a region's neurons a light touch recruits, how
     ("normal", 0.3, 0.0), ("more", 0.6, 0.5), ("max", 1.0, 1.0),
 )
 SURGERY_CURRENT = {-1: -0.6, 0: 0.0, 1: 0.12}   # x ext_gain 4: silenced -2.4 per step (beats any touch), stimulated +0.48
-TOOL_NAMES = ("hand", "flick", "swatter", "bomb", "torch", "cleaner", "zapper", "freeze", "spider", "sugar", "alcohol", "laser", "cva", "decoy", "fruit")
+TOOL_NAMES = ("hand", "flick", "swatter", "bomb", "torch", "cleaner", "zapper", "freeze", "spider", "sugar", "alcohol", "laser", "cva", "decoy", "fruit", "frog", "dragonfly", "mantis")
 STIM_AMP = 0.5              # x ext_gain 4 = 2.0 per step: a driven neuron fires every refractory cycle
 HIST = 1500                  # history samples, one per 20 ms = 30 s
 CALM_STEPS = 400             # 2 s without a touch before the baseline learns again
@@ -682,6 +805,12 @@ class Brain:
         # replacing it: a neuron you silenced does not start firing because the experiment drives its type.
         self.drive_cur = np.zeros(g.n, np.float32)
         self.driving = False
+        # 3.0 day 2: named extra currents (thermogenetics, the patch electrode): each feature owns one entry, the sum is
+        # added to the drive. Nothing is added while none is set, so every existing run is bit-identical.
+        self.currents: dict[str, np.ndarray] = {}
+        self.probe = None               # 3.0 day 2: optional callable(brain) run after every step (the patch electrode)
+        self.inject = np.zeros(g.n, np.float32)
+        self.injecting = False
         self.sense[("all", None)] = np.arange(g.n)   # the zapper's shock
         self.n_det = len(self.names)
         for k, (name, classes) in enumerate(POPS):
@@ -775,6 +904,30 @@ class Brain:
         self.override[rows] = SURGERY_CURRENT[mode]
         self.surgery = bool(np.any(self.override))
 
+    def set_current(self, name: str, rows, values) -> None:
+        """Give the named source `values` (a scalar or one per row) on `rows`, replacing what that source had. The
+        sources add up; one source never overwrites another (unlike drive_cur, which assays own). Safe from any thread:
+        the Lab tick calls it on the game thread while the brain thread steps (3.0 day 2 review)."""
+        arr = np.zeros(len(self.inject), np.float32)
+        arr[np.asarray(rows, np.int64)] = values
+        with self._lock:
+            self.currents[name] = arr
+            self._sum_currents()
+
+    def clear_current(self, name: str) -> None:
+        with self._lock:
+            if self.currents.pop(name, None) is not None:
+                self._sum_currents()
+
+    def _sum_currents(self) -> None:
+        # Build the sum in a new array and swap it in: a step on the brain thread may be reading the old one, and zeroing it
+        # in place let that step see a half-built sum (3.0 day 2 review). The array is set before the flag.
+        total = np.zeros(len(self.inject), np.float32)
+        for arr in self.currents.values():
+            total += arr
+        self.inject = total
+        self.injecting = bool(np.any(total))
+
     def clear_overrides(self) -> None:
         self.override[:] = 0
         self.surgery = False
@@ -822,12 +975,21 @@ class Brain:
                 drive = drive + self.override
             if self.driving:
                 drive = drive + self.drive_cur
-            spikes = self.sim.step(drive if (active or self.sedation > 0 or self.surgery or self.driving) else None)
+            if self.injecting:
+                drive = drive + self.inject
+            spikes = self.sim.step(drive if (active or self.sedation > 0 or self.surgery or self.driving
+                                             or self.injecting) else None)
         for _, (rows, _) in active:
             self._cur[rows] = 0
 
         if self.recorder is not None:
             self.recorder.push(self.steps, spikes)
+        if self.probe is not None:
+            try:
+                self.probe(self)
+            except Exception:                            # 3.0 day 2 review: on the brain thread an exception ends the loop
+                log.exception("brain probe failed; removed")
+                self.probe = None
         if self.stethoscope_indices is not None and len(self.stethoscope_indices) > 0:
             self.stethoscope_spikes += int(np.count_nonzero(spikes[self.stethoscope_indices]))
         on = np.flatnonzero(spikes)
@@ -849,7 +1011,7 @@ class Brain:
             p1_inst = (p1_cnt / len(self.p1_indices)) / self.dt
             self.p1_fast += (p1_inst - self.p1_fast) * self.k_fast
         if (self.death_step is None and self.sedation == 0 and not self.surgery and not self.driving
-                and self.steps - self.last_poke > CALM_STEPS):
+                and not self.injecting and self.steps - self.last_poke > CALM_STEPS):
             self.base += (self.fast - self.base) * self.k_base
             self.lglg_base += (self.lglg_fast - self.lglg_base) * self.k_base
             self.p1_base += (self.p1_fast - self.p1_base) * self.k_base
@@ -858,7 +1020,7 @@ class Brain:
             self.hist[self.hist_n % HIST] = self.fast
             self.hist_n += 1
         if self.memory is not None and self.steps % MEMORY_STEPS == 0 and self.death_step is None:
-            calm = (self.sedation == 0 and not self.surgery and not self.driving
+            calm = (self.sedation == 0 and not self.surgery and not self.driving and not self.injecting
                     and self.steps - self.last_poke > CALM_STEPS)
             self.memory.step(self.sim.activity.rates(), calm, self.steps)
 
@@ -1282,8 +1444,9 @@ for wtip in WING:
 LINK_LEN = [float(np.hypot(*(REST[a] - REST[b]))) for a, b, _, _ in LINKS]
 MAX_HEALTH = 100.0
 # New arenas are only ever appended: a save state from before 2.7 names its arena by index alone (savestate.py).
-ARENAS = ("room", "fan", "flypaper", "pool", "lamp", "escaperoom", "field", "orchard", "thermo")
+ARENAS = ("room", "fan", "flypaper", "pool", "lamp", "escaperoom", "field", "orchard", "thermo", "kitchen")
 OUTDOOR_ARENAS = ("field", "orchard")            # 3D only: large open worlds (kickthefly/game/outdoors.py)
+THREE_D_ONLY = OUTDOOR_ARENAS + ("kitchen",)     # 3.0 day 3: the kitchen (kickthefly/game/kitchen.py) is 3D only too
 # Thermo arena (GAME RULE): the temperature runs linearly from 15 C at the left wall to 35 C at the right, and the
 # fly's cold (TRN_VP3) or hot (TRN_VP2) antennal neurons are driven by how far it is from the comfortable middle.
 THERMO_MID_X, THERMO_HALF_X = 445.0, 365.0     # 2D pixels; the 3D room uses its own width (kick3d.py)
@@ -1570,6 +1733,27 @@ class Fly:
         return hits
 
 
+def pet_card(pet, slot) -> dict | None:
+    """The pet's personality card: the MEASURED card of the pet fly (the original fly, built from Settings > Brain > Random seed), never
+    the pet file's own seed (3.0 day 4 review: the card was drawn from pet.seed, a different number from the seed the pet's brain is
+    built from). A measured card the pet file carries for that same fly and settings is put back into the card cache; the slot's
+    measured card is written into the pet file, so the pet keeps it."""
+    from kickthefly.core import cards
+
+    if slot is None:
+        return None
+    card = slot.personality if (slot.personality or {}).get("measured") is True else None
+    stored = cards.check_pet_card(getattr(pet, "personality_card", None)) if pet is not None else None
+    if card is None and stored is not None:
+        mode, sigma, params = slot.card_settings()
+        if stored.get("card_key") == cards.key(slot.seed, mode, sigma, params):
+            cards.store(stored)
+            slot.personality = card = stored
+    if pet is not None and card is not None and getattr(pet, "personality_card", None) is not card:
+        pet.personality_card = card
+    return card
+
+
 class FlySlot:
     """One spawned fly: its ragdoll body, its own independent Brain/LIFSim thread, and the episode-scoped bookkeeping
     (hits, pain, reward, loom state...) that used to live directly on Game when there was only ever one fly."""
@@ -1578,9 +1762,29 @@ class FlySlot:
         self.fly, self.brain, self.seed, self.primary = fly, brain, seed, primary
         self.persist_memory = primary          # only the original fly's learning is saved to disk (see README)
         self.hue = (seed * 0.6180339887) % 1.0  # golden-ratio spread so several flies look visually distinct
-        from kickthefly.core.individuality import compute_personality_card
-        self.personality = compute_personality_card(seed)
+        self.refresh_card()
         self.reset_episode()
+
+    def card_settings(self) -> tuple[str, float | None, dict]:
+        """(individuality mode, sigma, LIF parameters) this fly's brain really runs with: what its measured card must match. A brain
+        that asked for individuality but has no gains (the gl backend) runs the shared connectome, so its card is the 'off' one."""
+        sim = getattr(self.brain, "sim", None)
+        if sim is None:
+            return "off", None, {}
+        mode = str(getattr(sim, "individuality", "off") or "off")
+        if getattr(sim, "d_pre", None) is None and getattr(sim, "d_post", None) is None:
+            mode = "off"
+        p = getattr(sim, "p", None)
+        params = {k: float(getattr(p, k)) for k in ("noise_std", "bias", "target_rate_hz", "ext_gain", "gain_adapt") if hasattr(p, k)}
+        return mode, getattr(sim, "individuality_sigma", None), params
+
+    def refresh_card(self) -> None:
+        """This fly's MEASURED personality card from the card cache, or 'card not measured' (3.0 day 4 review, decision A: the card
+        used to be numbers drawn from the seed, shown as if they described this fly; core/cards.py)."""
+        from kickthefly.core import cards
+
+        mode, sigma, params = self.card_settings()
+        self.personality = cards.for_fly(self.seed, mode, sigma, params)
 
     def reset_episode(self) -> None:
         self.hits = 0
@@ -1872,6 +2076,21 @@ def draw_icon(surf, name: str, c, col) -> None:
                 thick_line(surf, (x, y), (x + sgn * 13 * math.cos(a), y + 9 * math.sin(a) - 3 + k), 1.6, col)
         aacircle(surf, (x, y + 1), 6, col)
         aacircle(surf, (x, y - 6), 4, col)
+    elif name == "frog":
+        aacircle(surf, (x, y + 2), 8, (70, 140, 58))
+        aacircle(surf, (x - 4, y - 5), 3, (240, 220, 80))
+        aacircle(surf, (x + 4, y - 5), 3, (240, 220, 80))
+        thick_line(surf, (x + 6, y + 4), (x + 14, y + 9), 3, (230, 90, 100))
+    elif name == "dragonfly":
+        thick_line(surf, (x - 12, y), (x + 8, y), 3, (38, 116, 190))
+        aacircle(surf, (x + 10, y), 4, (30, 150, 90))
+        gfxdraw.filled_ellipse(surf, int(x - 2), int(y - 7), 9, 3, (200, 215, 235, 190))
+        gfxdraw.filled_ellipse(surf, int(x - 2), int(y + 7), 9, 3, (200, 215, 235, 190))
+    elif name == "mantis":
+        thick_line(surf, (x - 8, y + 6), (x, y - 2), 4, (116, 158, 56))
+        thick_line(surf, (x, y - 2), (x + 3, y - 12), 3, (116, 158, 56))
+        aacircle(surf, (x + 4, y - 14), 3, (78, 116, 38))
+        thick_line(surf, (x + 3, y - 10), (x + 11, y - 6), 2, (78, 116, 38))
     elif name == "sugar":
         aapoly(surf, [(x - 8, y - 4), (x + 2, y - 9), (x + 11, y - 4), (x + 1, y + 1)], (250, 250, 255))
         aapoly(surf, [(x - 8, y - 4), (x + 1, y + 1), (x + 1, y + 12), (x - 8, y + 7)], (215, 215, 225))
@@ -1922,7 +2141,10 @@ TOOLS = (("hand", "HAND", "drag the fly and throw it"), ("flick", "FLICK", "clic
          ("laser", "LASER", "targeted laser: hold/click to stimulate or silence cell types in real time"),
          ("cva", "CVA", "puffs cVA pheromone: activates Or67d/DA1 glomerulus"),
          ("decoy", "DECOY", "spawns a decoy female target to evoke courtship"),
-         ("fruit", "FRUIT", "click: drop ripe fruit, eaten like sugar (as in the orchard)"))
+         ("fruit", "FRUIT", "click: drop ripe fruit, eaten like sugar (as in the orchard)"),
+         ("frog", "FROG", "click: put down a frog; its tongue is very fast"),
+         ("dragonfly", "DRAGONFLY", "click: a dragonfly chases flying flies from above"),
+         ("mantis", "MANTIS", "click: a mantis creeps up slowly, then strikes"))
 assert tuple(t[0] for t in TOOLS) == TOOL_NAMES
 # Real vs rule (the on-screen tags, Settings > Brain): which reactions are triggered by the connectome sim's own neurons
 # and which by a rule the game adds. REAL means live descending-neuron firing crossed a threshold; how the body then
@@ -1938,13 +2160,18 @@ REACTION_SOURCE = {
     "PHOTO MODE": "rule", "ALCOHOL": "rule", "INEBRIATED": "rule", "STUMBLE": "rule", "SIP": "rule", "DRINKING": "rule",
     "TO FRUIT": "rule", "LOST": "rule", "RECALL": "rule", "LUNGE": "rule", "FIGHT": "rule", "SLEEP": "rule",
     "cVA PUFF": "rule", "DECOY FEMALE": "rule", "COURTSHIP": "rule",
+    # 3.0 day 3: predators, the kitchen, the microphone and Streamer mode are all game rules on the connectome's own neurons
+    "CAUGHT": "rule", "TRAPPED": "rule", "TO VINEGAR": "rule", "MIC": "rule", "STREAM": "rule", "CHAT VOTED": "rule",
 }
 POPUP_SOURCE = {"DODGE!": "real", "YIKES!": "real", "ROLL!": "rule", "NOPE!": "rule", "RUN AWAY!": "rule", "YUM!": "rule",
                 "SWEET!": "rule", "NOM NOM": "rule", "K.O.!": "rule", "BROKE FREE!": "rule", "FLY WINS!": "rule",
                 "GOTCHA!": "rule", "PEW PEW!": "rule", "TAKE THAT!": "rule", "AUTOPILOT": "rule", "SPECTATOR": "rule",
                 "PHOTO MODE": "rule", "*HIC*": "rule", "SIP...": "rule", "GLUG!": "rule", "STUMBLE!": "rule",
                 "ALL GONE": "rule", "♪ BUZZ ♪": "rule", "LUNGE!": "rule", "ZZZ": "rule",
-                "COURTSHIP": "rule", "cVA PUFF": "rule", "DECOY FEMALE": "rule"}
+                "COURTSHIP": "rule", "cVA PUFF": "rule", "DECOY FEMALE": "rule",
+                "A FROG!": "rule", "A DRAGONFLY!": "rule", "A MANTIS!": "rule", "SNAP!": "rule", "ZAP!": "rule", "GULP!": "rule",
+                "GRABBED!": "rule", "SNATCH!": "rule", "STRIKE!": "rule", "SWAT!": "rule", "STUCK IN THE TRAP!": "rule",
+                "THE COOK RAISES A SWATTER": "rule"}
 SOURCE_TIP = {"real": "REAL: triggered by the connectome sim's own neurons firing above a threshold.",
               "rule": "RULE: a game rule, not something the connectome sim produced."}
 
@@ -1978,7 +2205,7 @@ TOOL_KEYS = (pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5, pygame.
 TOOL_KEY_LABELS = ("1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=", "", "")      # what the toolbar shows for each
 TORCH_KEYS = (("head", None), ("body", None), ("legs", "L"), ("legs", "R"), ("wing", "L"), ("wing", "R"), ("heat", None))
 OUCH = ("BONK!", "OOF!", "SPLAT!", "THWACK!", "BZZT!", "OW!")
-CURSOR_SIZE = {"flick": 12, "swatter": 38, "bomb": 16, "torch": 18, "cleaner": 22, "zapper": 16, "freeze": 22, "spider": 20, "laser": 14}
+CURSOR_SIZE = {"flick": 12, "swatter": 38, "bomb": 16, "torch": 18, "cleaner": 22, "zapper": 16, "freeze": 22, "spider": 20, "laser": 14, "frog": 20, "dragonfly": 20, "mantis": 20}
 LOOM_MIN, LOOM_FULL = 1.5, 8.0        # rad/s of angular expansion: below LOOM_MIN nothing, LOOM_MIN + LOOM_FULL = full drive
 SCENT_RANGE = 330.0                   # px: how close a tool must be for the fly to smell it
 FEAR_ACT, LIKE_ACT = 0.35, 0.35       # learned memory (memory.py) that changes behavior
@@ -2270,6 +2497,8 @@ HELP = (
     ("R", "reset to a single fresh fly"),
     ("F11", "fullscreen (or Alt+Enter); drag the window edge to resize"),
     ("T", "training: teach it to fear or like a smell (saved between sessions)"),
+    ("D", "the Neurodex: cell types you have discovered (in 3D only with the mouse free, Tab)"),
+    (";", "kill cam: slow-motion replay of the fly's last seconds, after it dies"),
     ("Z [ ] .", "pause time, slower, faster, single step"),
     ("H", "this help"),
     ("Esc", "close a panel, or open the menu (settings, save, quit)"),
@@ -2287,9 +2516,11 @@ class Game:
         from kickthefly.lab import lab
         lab.install(self.menu)
         self.menu.pages["load_state"] = page_load_state
-        from kickthefly.ui import help_ui, loadout_ui
+        from kickthefly.ui import help_ui, loadout_ui, neurodex_ui, share_ui
         loadout_ui.install(self.menu)
         help_ui.install(self.menu)
+        neurodex_ui.install(self.menu)                # 3.0: the Neurodex panel and Esc > Share
+        share_ui.install(self.menu)
         from kickthefly.lab import challenges
         from kickthefly.lab import validation
         self.menu.pages["challenges"] = challenges.page_challenges
@@ -2354,6 +2585,13 @@ class Game:
         self.last_save = time.perf_counter()
         self.surgery_modes = [0] * len(SURGERY)
         self.type_ops: dict[str, int] = {}
+        from kickthefly.lab import livelab
+        self.thermo_live = livelab.ThermoLive()       # 3.0 day 2: Lab > Thermogenetics (off until an expression is added)
+        self.imaging_live = livelab.ImagingLive()     # 3.0 day 2: Lab > Imaging (off until turned on)
+        self.imaging_live.indicator = str(self.cfg["brain.imaging_indicator"])
+        self.imaging_live.fps = float(self.cfg["brain.imaging_fps"])
+        self.imaging_live.baseline_tau_s = float(self.cfg["brain.imaging_f0_tau_s"])
+        self.patch_row: int | None = None             # 3.0 day 2: the neuron the inspector's Patch button chose
         self.surgery_buttons: list = []
         self.inspect: dict | None = None
         from kickthefly.lab.laser import LaserState
@@ -2380,7 +2618,41 @@ class Game:
         for s in config.SETTINGS:                   # settings from config.toml take effect before the first frame
             if s.key != "graphics.fullscreen":
                 self.apply_setting(s.key)
+        from kickthefly.game import extras3
+        self.x3 = extras3.Extras(self)               # 3.0: Neurodex tracking, kill cam, Neuron of the Day
+        from kickthefly.game import live_inputs
+        self.live = live_inputs.LiveInputs(self)     # 3.0 day 3: microphone and streamer mode (both off at every launch)
+        self.menu.pages["live_inputs"] = live_inputs.page
+        from kickthefly.ui import arcade_ui
+
+        self.menu.pages["arcade"] = arcade_ui.page             # 3.0 day 4: fly tournament and fly racing
+        from kickthefly.ui import whatsnew_ui
+
+        whatsnew_ui.install(self.menu)                          # 3.0 day 5: What's New in 3.0 (once, then Settings > Help)
+        Game.LIVE.add(self)
         threading.Thread(target=self._view_loop, name="brain-view", daemon=True).start()
+
+    # every Game that has been built and not shut down (3.0 day 4 review: the brain-view thread holds its game, and through it every
+    # brain, until view_stop; test files that never set it kept 1-1.8 GB each. tests/conftest.py shuts these down after each test)
+    LIVE: "weakref.WeakSet[Game]" = weakref.WeakSet()
+
+    def shutdown(self, join: float = 2.0) -> None:
+        """Stop this game's background threads (the brain-view renderer and every fly's brain thread) so it and its brains can be
+        freed. The game is not usable afterwards. Safe to call twice."""
+        self.view_stop = True
+        for slot in list(getattr(self, "flies", []) or []):
+            try:
+                slot.brain.stop()
+            except Exception:
+                pass
+        new = getattr(self, "_new_slot", None)
+        if new is not None:
+            new.brain.stop()
+        Game.LIVE.discard(self)
+        if join:
+            for th in threading.enumerate():
+                if th.name == "brain-view" and getattr(getattr(th, "_target", None), "__self__", None) is self:
+                    th.join(timeout=join)
 
     # --- settings, menu and time ----------------------------------------------------------------------------------
     def make_fonts(self) -> None:
@@ -2423,10 +2695,10 @@ class Game:
                     if hasattr(self, "menu"):
                         self.menu.flash(reason, menu_ui.AMBER)
                     return
-            if not self.three_d and name in OUTDOOR_ARENAS:
+            if not self.three_d and name in THREE_D_ONLY:
                 self.note(f"ARENA    {name} needs the 3D game; staying in the room")
                 if hasattr(self, "menu"):
-                    self.menu.flash("Open field and Orchard need the 3D game (OpenGL 3.3). The 2D game stays "
+                    self.menu.flash("Open field, Orchard and Kitchen need the 3D game (OpenGL 3.3). The 2D game stays "
                                     "indoors.", menu_ui.AMBER)
                 name = "room"
             i = ARENAS.index(name) if name in ARENAS else 0
@@ -2458,6 +2730,9 @@ class Game:
                 from kickthefly.core.pet import PetManager
                 self.pet = PetManager()
                 self.pet.load_or_create(brain_type=self.brain_type)
+        elif key == "brain.neuron_shapes":
+            from kickthefly.sim import morphology
+            morphology.set_opt_in(bool(c[key]))
         elif key == "brain.pet_real_stakes":
             if getattr(self, "pet", None):
                 self.pet.real_stakes = bool(c[key])
@@ -2674,6 +2949,22 @@ class Game:
             self.open_menu("loadout_notice")
         elif not fr.get("tutorial_done"):
             self.start_tutorial()
+        elif not fr.get("whatsnew_3_0_seen"):               # 3.0 day 5: once, then never again (a migrated [first_run] key)
+            fr["whatsnew_3_0_seen"] = True
+            self.cfg.dirty = True
+            self.cfg.save()
+            self.open_whatsnew()
+        elif not fr.get("neuron_shapes_asked") and not self.cfg["brain.neuron_shapes"]:
+            fr["neuron_shapes_asked"] = True             # asked once; Settings > Brain changes it later
+            self.cfg.dirty = True
+            self.cfg.save()
+            self.menu.pages["neuron_shapes_ask"] = page_neuron_shapes
+            self.open_menu("neuron_shapes_ask")
+        else:
+            self.x3.maybe_show_notd()                 # 3.0: the Neuron of the Day card (its own setting, default on)
+
+    def open_whatsnew(self) -> None:
+        self.open_menu("whatsnew")
 
     def start_tutorial(self, replay: bool = False) -> None:
         from kickthefly.ui import tutorial
@@ -2691,11 +2982,22 @@ class Game:
         elif name == "quit":
             self.menu.show("confirm_quit")
         elif name == "quit_now":
+            self.live.stop_all()
             self.want_quit = True
         elif name == "lab":
             self.menu.show("lab")
         elif name == "challenges":
             self.menu.show("challenges")
+        elif name == "neurodex":
+            self.x3.open_neurodex()
+        elif name == "share":
+            self.menu.show("share")
+        elif name == "live_inputs":
+            self.menu.show("live_inputs")
+        elif name == "arcade":
+            self.menu.show("arcade")
+        elif name == "minipapers":
+            self.menu.show("lab_minipapers")           # 3.0 day 5: the same page as Lab > Mini-papers
         elif name == "save_state":
             self.save_state()
         elif name == "load_state":
@@ -2758,6 +3060,11 @@ class Game:
         return pygame.Rect(PLAY_W // 2 - 300, H - 250, 600, 104)
 
     def draw_science_card(self, surf, now: float) -> None:
+        """Both games call this last: the 3.0 overlays (Neurodex toasts, the kill cam, the launch card) draw with it."""
+        self.x3.draw(surf, now)
+        self._draw_science_card(surf, now)
+
+    def _draw_science_card(self, surf, now: float) -> None:
         if self.science_card is None:
             return
         test, t0 = self.science_card
@@ -2805,7 +3112,27 @@ class Game:
                 ("Optogenetics laser", "lab_laser", "Aimable in-world laser to activate or silence cell types live."),
                 ("Psychometric curves", "lab_psych", "Sweep parameters across trials and export publication-ready SVG/PDF."),
                 ("Classroom mode", "lab_classroom", "Sequential step-by-step lecture walkthroughs of connectome circuits with citations."),
-                ("Protocols", "lab_protocols", "Load and run YAML protocol files.")]
+                ("Protocols", "lab_protocols", "Load and run YAML protocol files."),
+                ("Genetic toolkit", "lab_genetics", "Pick neurons by split-GAL4 driver line: line, cell types, neuron count, and what the "
+                 "source says about off-target expression."),
+                ("Thermogenetics", "lab_thermo", "TrpA1 (activates) and shibire-ts (silences) above a threshold temperature, by cell type "
+                 "or driver line."),
+                ("Patch clamp", "lab_patch", "Virtual current clamp of one simulated neuron: potential, spikes, current steps, I-F curve "
+                 "(a point-neuron model, not electrophysiology)."),
+                ("Calcium imaging", "lab_imaging", "GCaMP dF/F simulated from spikes (MODEL): brain view Imaging mode, ROI traces, "
+                 "CSV / NWB / TIFF export."),
+                ("Pharmacology", "lab_pharm", "Picrotoxin, cholinergic block, glutamate-Cl block and a GABA-A agonist as synaptic "
+                 "scaling by predicted transmitter, with the confidence of each prediction shown."),
+                ("Network science", "lab_netsci", "Degree distributions, reciprocity, 3-node motifs against a degree-preserving null, rich club, "
+                 "communities and per-region summaries of the brain pack (adult or larva), cached and exportable to CSV."),
+                ("Sleep deprivation", "lab_sleepdep", "Keep a fly awake through the night with timed disturbances, then measure rebound sleep "
+                 "against an undisturbed control (paired). Sleep pressure is a game rule; the dFB readout is the connectome's."),
+                ("Behavior rigs", "lab_rigs", "Four classic rigs, each its own scene: a tethered flight simulator, a fly on a ball, Buridan's paradigm and a "
+                 "four-field olfactory arena. Steering and walking are read from real descending neurons; each has a pre-registered assay."),
+                ("Mini-papers", "lab_minipapers", "Short guided experiments that reproduce a classic paper: state a hypothesis, run it, plot it, and see your "
+                 "result next to what the paper found (and why the model misses where it does)."),
+                ("Sensitivity analysis", "lab_sensitivity", "Vary each LIF parameter across a documented range and re-run the validated behaviors "
+                 "with validation's own criteria: a parameter x behavior heatmap. Analysis only; defaults never change.")]
 
     def start_recording(self, groups: list[tuple[str, str]], seconds: float, nwb: bool = False) -> None:
         from kickthefly.lab import lab
@@ -3082,6 +3409,8 @@ class Game:
         self.shards: list[list] = []
         self.bolts: list[list] = []
         self.spider: dict | None = None
+        from kickthefly.game.predator_play import PredatorPlay
+        self.preds = PredatorPlay(self, False, FLOOR, CEIL, PLAY_W)       # 3.0 day 3: frog, dragonfly, mantis
         self.zap_ready = 0.0
         self.streaks: list[list] = []
 
@@ -3310,9 +3639,9 @@ class Game:
             self.focus = (self.focus + step) % len(self.flies)
             self._manual_focus_until = time.perf_counter() + 5.0
             slot = self.flies[self.focus]
-            pers = getattr(slot, "personality", None)
-            pers_str = f" [{pers['title']}]" if pers else ""
-            self.note(f"FOCUS    fly #{self.focus + 1}/{len(self.flies)}{pers_str}")
+            from kickthefly.core import cards
+
+            self.note(f"FOCUS    fly #{self.focus + 1}/{len(self.flies)} [{cards.label(getattr(slot, 'personality', None))}]")
 
     def _update_focus(self) -> None:
         """The brain panel (and whichever fly training/surgery act on) always follows the fly nearest to you,
@@ -3336,7 +3665,23 @@ class Game:
             calm = not br.dead and br.sedation == 0 and br.steps - br.last_poke > CALM_STEPS
             raster = br.sim.activity.raster()
             spiked = raster[-1] if raster else np.zeros(0, np.int64)
-            self.view_surf[key] = self.view.render(key, br.sim.activity.rates(), spiked, t0 - self.born_view, learn=calm)
+            replay = self.x3.view_rates()            # 3.0: while the kill cam plays, the recorded frame, not the live brain
+            img = self.imaging_live
+            if replay is not None:
+                self.view_surf[key] = self.view.render(key, replay[0], replay[1], t0 - self.born_view, learn=False)
+            elif img.on:                             # 3.0 day 2: Imaging mode, the view shows simulated dF/F (MODEL)
+                try:
+                    img.feed(br)
+                    rates = img.view_rates(self.view, bool(self.cfg["access.reduced_flashing"]))
+                    if rates is None:
+                        raise RuntimeError("no imaging session")
+                    surf = self.view.render(key, rates, np.zeros(0, np.int64), t0 - self.born_view, learn=False)
+                    self.view_surf[key] = img.recolor(self.view, surf, self.cfg["access.palette"],
+                                                      bool(self.cfg["access.reduced_flashing"]))
+                except Exception as e:
+                    img.on, img.error = False, f"imaging stopped: {e}"
+            else:
+                self.view_surf[key] = self.view.render(key, br.sim.activity.rates(), spiked, t0 - self.born_view, learn=calm)
             time.sleep(max(0.005, 0.05 - (time.perf_counter() - t0)))
 
     def _view_surface(self, key: str) -> pygame.Surface:
@@ -3367,8 +3712,12 @@ class Game:
             pygame.draw.line(surf, ACCENT, (cx, cy), (cx + sx * L, cy), 2)
             pygame.draw.line(surf, ACCENT, (cx, cy), (cx, cy + sy * L), 2)
         v = self.view
-        if small:
-            self._text(surf, f"{v.firing:,} firing", (rect.x + 6, rect.y + 4), (150, 215, 240), self.f_small)
+        if self.imaging_live.on:
+            ind = self.imaging_live.session.ind.name if self.imaging_live.session else ""
+            self._text(surf, f"IMAGING (MODEL)  {ind.split(' (')[0]}  dF/F" if not small else "IMAGING (MODEL)",
+                       (rect.x + 6, rect.bottom - 18), (170, 255, 190), self.f_small)
+        if small and not self.imaging_live.on:     # 3.0 day 2 review: in Imaging mode the view is fed dF/F, so these would
+            self._text(surf, f"{v.firing:,} firing", (rect.x + 6, rect.y + 4), (150, 215, 240), self.f_small)  # count pixels
             self._text(surf, f"{v.hot_firing:,} pain", (rect.right - 6, rect.y + 4), (255, 150, 70), self.f_small, "topright")
 
     def _draw_big_view(self, surf) -> None:
@@ -3381,6 +3730,7 @@ class Game:
         self.big_rect = rect
         surf.blit(self._view_surface("big"), rect)
         self._hud_overlay(surf, rect, now, small=False)
+        self.x3.draw_killcam_rings(surf, rect, "big", now)
         self._clean_frame = surf.copy()
         if getattr(self, "photo_mode", False):
             b_txt = self.f_small.render("PHOTO MODE  |  S / F12: Clean Snap  |  F10: Exit", True, (240, 240, 240))
@@ -3403,8 +3753,11 @@ class Game:
         pulse = 1.0 if self.calm_fx else 0.5 + 0.5 * math.sin(now * 6)
         # Header: title and the recording/stethoscope/mode controls on the first row, the live counts and the camera
         # presets on the second; status and help lines go under the brain so nothing overlaps.
-        r = self._text(surf, f"{v.firing:,} firing", (24, 38), (150, 215, 240), self.f_bold)
-        self._text(surf, f"{v.hot_firing:,} pain", (r.right + 18, 38), tuple(int(c * (0.7 + 0.3 * pulse)) for c in (255, 150, 70)), self.f_bold)
+        if self.imaging_live.on:                     # 3.0 day 2 review: not firing counts while the view shows dF/F
+            r = self._text(surf, "dF/F (MODEL)", (24, 38), (170, 255, 190), self.f_bold)
+        else:
+            r = self._text(surf, f"{v.firing:,} firing", (24, 38), (150, 215, 240), self.f_bold)
+            self._text(surf, f"{v.hot_firing:,} pain", (r.right + 18, 38), tuple(int(c * (0.7 + 0.3 * pulse)) for c in (255, 150, 70)), self.f_bold)
 
         # Time-lapse recording button:
         tl_btn = pygame.Rect(232, 13, 105, 22)
@@ -3501,6 +3854,10 @@ class Game:
                        (30, ly), TEXT, self.f_small)
             self._text(surf, "Neurons without region annotations in MaleCNS v1.0 are kept in an explicit 'unassigned' bucket.",
                        (30, ly + 18), DIM, self.f_small)
+        elif self.imaging_live.on:                   # 3.0 day 2 review: the firing legend's colors are not what Imaging shows
+            self._text(surf, "IMAGING (MODEL): brightness = simulated GCaMP dF/F of the ROI neurons; the rest stay dark",
+                       (30, ly), TEXT, self.f_small)
+            self._text(surf, "a forward model on the simulation's spikes, not a measurement", (30, ly + 18), DIM, self.f_small)
         else:
             hot_c, cool_c = self.view.legend
             aacircle(surf, (30, ly + 7), 5, hot_c)
@@ -3590,7 +3947,7 @@ class Game:
         ch = getattr(self, "challenge", None)
         if ch is not None and ch.overlay:
             return True
-        return self.report is not None or self.big_view or self.surgery_open or self.help_open
+        return self.report is not None or self.big_view or self.surgery_open or self.help_open or self.x3.kc_playing()
 
     def _threats(self, slot: "FlySlot", now: float, mouse) -> list:
         out = []
@@ -3607,6 +3964,7 @@ class Game:
                 out.append((("swat", id(sw)), pivot + np.array([math.cos(ang), math.sin(ang)]) * float(np.hypot(*d)), 80.0))
         if self.spider is not None and self.spider["state"] in ("drop", "hunt"):     # as in the 3D game
             out.append(("spider", self.spider["p"].copy(), 22.0))
+        out.extend(self.preds.threats())                                   # 3.0 day 3: the same looming measure
         for b in self.bombs:
             out.append((("bomb", id(b)), b["p"].copy(), 16.0))
         for other in self.flies:                      # other flies loom too: a real, symmetric dodge reaction
@@ -4152,7 +4510,7 @@ class Game:
             sparkle = 0.8 + 0.2 * math.sin(now * 6)
             pygame.draw.circle(surf, (255, 245, 220), (int(gx), int(gy)), 14)
             pygame.draw.circle(surf, (255, 255, 255), (int(gx), int(gy)), int(10 * sparkle))
-            self._text(surf, "★ SUGAR GOAL ★", (int(gx), FLOOR + 10), (255, 220, 100), self.f_small, "midtop")
+            self._text(surf, "SUGAR GOAL", (int(gx), FLOOR + 10), (255, 220, 100), self.f_small, "midtop")
         elif arena == "thermo":
             bar_y = FLOOR - 6
             bar_h = 10
@@ -4222,11 +4580,33 @@ class Game:
             self.popup(slot.fly.p[HEAD] + up, "ZZZ", (170, 190, 255))
         slot.asleep_until = now + 2.0
 
+    def _lab_tick(self) -> None:
+        """3.0 day 2: the Lab's live thermogenetics (every few frames). Does nothing until an expression is added. Also takes
+        the patch electrode off once its page is closed."""
+        if getattr(self.menu, "toolkit", None) is not None:
+            from kickthefly.lab import labtoolkit
+            labtoolkit.leave_patch(self.menu)
+        tl = self.thermo_live
+        if (tl.active or tl.per_brain) and self.frame % 3 == 0:
+            try:
+                tl.tick(self.flies, ARENAS[self.arena_i] == "thermo")
+            except Exception as e:                       # a target this brain can't resolve: that expression is dropped
+                if not isinstance(e, ValueError):        # (ThermoLive did it); anything else stops them all
+                    tl.clear([s.brain for s in self.flies])
+                self.menu.flash(f"thermogenetics: {e}", menu_ui.BAD)
+
+    def patch_neuron(self, row: int) -> None:
+        """The inspector's Patch button: open Lab > Patch on this neuron."""
+        self.patch_row = int(row)
+        self.menu.show("lab_patch")
+
     def _thermo_tick(self, slot: "FlySlot", t: float, on_floor: bool) -> None:
         """The thermo arena, shared by the 2D and 3D games. t is where the fly is between the cold wall (-1) and the
         hot wall (+1). GAME RULE: the gradient and the damage at the extremes. CONNECTOME: what the drive reaches."""
         fly, br = slot.fly, slot.brain
         cold, hot = thermo_gradient(t)
+        from kickthefly.lab.thermogenetics import arena_temperature
+        slot.arena_temp_c = arena_temperature(t)           # 3.0 day 2: what TrpA1 / shibire-ts expressed in this fly sense
         if not fly.dead and self.frame % 3 == 0:
             if cold > THERMO_DEADBAND:
                 br.poke("cold", None, cold)
@@ -4416,7 +4796,9 @@ class Game:
         slot = self.flies[self.focus] if self.focus < len(self.flies) else None
         pers = getattr(slot, "personality", None)
         if pers:
-            self._text(surf, f"Fly #{self.focus + 1} · {pers['title']}", (x, y), ACCENT, self.f_small)
+            from kickthefly.core import cards
+
+            self._text(surf, f"Fly #{self.focus + 1} · {cards.label(pers)}", (x, y), ACCENT, self.f_small)
             self._text(surf, info["type"], (x, y + 16), INK, self.f_head)
             inst_label = f"   {info['instance']}" if info.get("instance") else ""
             self._text(surf, f"{info['pop']}{inst_label}", (x, y + 38), LABEL, self.f_small)
@@ -4474,6 +4856,13 @@ class Game:
                        "center")
             self.inspect_flip_button = (r, i)
             self._text(surf, "Lab: sign flip", (card.right - 12, card.bottom - 26), DIM, self.f_small, "topright")
+        self.patch_button = None
+        if self.cfg.lab:                             # 3.0 day 2: virtual patch clamp on this neuron (Lab > Patch)
+            # a row of its own under PATH FROM/TO (3.0 day 2 review: at card.x + 312 it fell off the card and the view's clip)
+            r = pygame.Rect(card.x, card.bottom + 36, 306, 24)
+            pygame.draw.rect(surf, (90, 70, 140), r, border_radius=6)
+            self._text(surf, "PATCH CLAMP THIS NEURON (MODEL)", r.center, INK, self.f_small, "center")
+            self.patch_button = (r, i)
         self.path_buttons = []                       # path tracer: this neuron as the start or the end
         for k, (label, what) in enumerate((("PATH FROM HERE", "from"), ("PATH TO HERE", "to"))):
             r = pygame.Rect(card.x + k * 156, card.bottom + 6, 150, 24)
@@ -4926,12 +5315,14 @@ class Game:
         self.sound.play("shutter")
 
     def _draw_help(self, surf) -> None:
-        panel = pygame.Rect(165, 110, 560, 64 + 30 * len(HELP))
+        step = min(30, (H - 40 - 64) // len(HELP))                # 3.0: two more rows; squeeze the spacing, never run off-screen
+        height = 64 + step * len(HELP)
+        panel = pygame.Rect(165, max(12, min(110, (H - height) // 2)), 560, height)
         pygame.draw.rect(surf, (18, 21, 28), panel, border_radius=16)
         pygame.draw.rect(surf, BORDER, panel, 1, border_radius=16)
         self._text(surf, "CONTROLS", (panel.x + 24, panel.y + 16), INK, self.f_head)
         for k, (key, what) in enumerate(HELP):
-            y = panel.y + 54 + k * 30
+            y = panel.y + 54 + k * step
             self._text(surf, key, (panel.x + 30, y), AMBER, self.f_bold)
             self._text(surf, what, (panel.x + 120, y), TEXT, self.f_text)
 
@@ -5111,6 +5502,9 @@ class Game:
             self.spider = {"p": np.array([pos[0], CEIL + 4.0]), "state": "drop", "bite_at": 0.0, "bites": 0, "t": now}
             self.sound.play("drop")
             self.popup((pos[0], CEIL + 70), "A SPIDER!", (200, 200, 210))
+        elif name in ("frog", "dragonfly", "mantis"):
+            if self.preds.spawn(name, pos):
+                self.sound.play("drop")
         elif name in ("sugar", "fruit") and len(self.sugars) < 3:
             # fruit is eaten exactly as sugar is (same neurons, same rules): only the item and its look differ
             self.sugars.append({"p": np.array(pos, float), "v": 0.0, "left": 1.0, "fruit": name == "fruit"})
@@ -5232,6 +5626,7 @@ class Game:
         for slot in self.flies:
             self._effects_one(slot, now)
         self._spider(now)
+        self.preds.step(now)
         self._sugar(now)
         self._alcohol(now)
         self._decoy(now)
@@ -5562,12 +5957,16 @@ class Game:
         self.frame += 1
         self.mouse = mouse
         self._poll_spawn()
+        self._lab_tick()
         self._environment(now, mouse)
         for slot in list(self.flies):
             fly = slot.fly
             pin = np.array(mouse, float)
             if fly.wrapped and self.spider is not None and self.spider.get("target") is slot:
                 pin = self.spider["p"] + (0, 26)
+            held = self.preds.pin_for(slot)
+            if held is not None:
+                pin = held
             for i, sp in fly.step(now, pin):
                 s = float(np.clip((sp - 9) / 35, 0.05, 1))
                 self.hit(slot, i, s)
@@ -5746,6 +6145,7 @@ class Game:
         self._update_focus()
         self._training_tick(now)
         self._sound_update(now)
+        self.x3.tick(now)
 
     def _fly_collisions(self, now: float) -> None:
         """Two flies that bump: a soft push-apart always, and if the impact is hard enough, a real touch-neuron poke
@@ -5786,6 +6186,7 @@ class Game:
         fly.dead_at = now
         fly.grabbed = None
         self.kills += 1
+        self.x3.on_die(slot)                         # 3.0: keep the last seconds for the kill cam (before the drive is cut)
         slot.brain.kill()
         self.sound.play("death")
         self.note("DIED     brain drive cut, activity fading")
@@ -5904,6 +6305,9 @@ class Game:
                 pygame.draw.lines(arena, col[:3], False, [tuple(p) for p in pts], w_)
         if self.spider is not None:
             self._draw_spider(arena, now)
+        if self.preds.list:
+            from kickthefly.game import predator_play
+            predator_play.draw2d(self.preds, arena, now)
         for s in self.sugars:
             k_ = max(0.35, s["left"])
             x, y = s["p"]
@@ -6010,8 +6414,8 @@ class Game:
         if self.kwheel_open and not self.menu.open:
             from kickthefly.ui import loadout_ui
             loadout_ui.draw_wheel(self, scr)
-        if self.tutorial is not None and self.tutorial.active and not self.menu.open:
-            self.tutorial.draw(scr)
+        if self.tutorial is not None and self.tutorial.active and not self.menu.open and not self.x3.kc_playing():
+            self.tutorial.draw(scr)                   # review: it drew over the kill cam
         if self.menu.open:
             self.menu.draw(scr, pygame.mouse.get_pos(), now)
 
@@ -6158,6 +6562,7 @@ class Game:
         return rect
 
     def _draw_hud(self, surf, now: float) -> None:
+        self.live.draw(surf, self.f_bold, PLAY_W)             # 3.0 day 3: the red MIC ON / TWITCH CHAT pills, the vote tally (Larger text applies)
         if self.cfg["brain.autopilot"] and self.cfg["brain.autopilot_hide_hud"]:
             badge = self.f_small.render("AUTOPILOT / SPECTATOR   (Y: exit)", True, (130, 160, 190))
             box = badge.get_rect(midtop=(PLAY_W // 2, 14)).inflate(16, 6)
@@ -6257,9 +6662,10 @@ class Game:
         pygame.draw.rect(card, (10, 12, 18, 180), card.get_rect(), border_radius=10)
         surf.blit(card, (x, y))
 
-        card_p = pet.personality_card or {}
-        title = card_p.get("title", "Pet Fly")
-        self._text(surf, f"PET: {title}", (x + 12, y + 8), ACCENT, self.f_small)
+        from kickthefly.core import cards
+
+        slot = self.flies[0] if getattr(self, "flies", None) else None
+        self._text(surf, f"PET: {cards.label(pet_card(pet, slot))}", (x + 12, y + 8), ACCENT, self.f_small)
 
         bx, bw = x + 12, w - 24
         self._text(surf, f"hunger {int(pet.hunger * 100)}%", (bx, y + 26), TEXT, self.f_small)
@@ -6287,7 +6693,7 @@ class Game:
         elapsed = (self.escaperoom_finish_t if self.escaperoom_completed else now) - self.escaperoom_start_t
         elapsed = max(0.0, elapsed)
 
-        status_txt = "★ GOAL REACHED! ★" if self.escaperoom_completed else "ESCAPE ROOM: SPEEDRUN"
+        status_txt = "GOAL REACHED!" if self.escaperoom_completed else "ESCAPE ROOM: SPEEDRUN"
         col = (255, 220, 100) if self.escaperoom_completed else (120, 210, 255)
         self._text(surf, status_txt, (cx + 14, cy + 8), col, self.f_small)
 
@@ -6425,13 +6831,15 @@ class Game:
         else:
             scr.blit(self._panel_image(self._view_surface("panel")), (x, 54))
             self._hud_overlay(scr, self.view_rect, now, small=True)
+            self.x3.draw_killcam_rings(scr, self.view_rect, "panel", now)
             self._text(scr, "B: big view", (x + nw - 6, 54 + nh - 16), LABEL, self.f_small, "topright")
         y = 54 + nh + 12
 
         bw = W - x - 12
         y = self._card(scr, x, y, bw, "TOUCH NEURONS", "spikes/s per neuron", 4)
+        fast, base = self.x3.panel_fast(br)          # the recorded group rates while the kill cam plays
         for region, label in (("head", "head BM/JO"), ("body", "body SNta"), ("legs", "legs SNpp"), ("wing", "wing WG")):
-            hz = br.hz(region)
+            hz = float(fast[br.col[region]])
             self._text(scr, label, (x + 8, y - 3), TEXT, self.f_small)
             self._bar(scr, x + 104, y, bw - 150, hz / 60.0, (90, 200, 120))
             self._text(scr, f"{hz:4.0f}", (x + bw - 8, y - 3), TEXT, self.f_small, "topright")
@@ -6439,7 +6847,7 @@ class Game:
         y += 10
         y = self._card(scr, x, y, bw, "DESCENDING NEURONS", "x calm baseline", len(MOTOR))
         for name, _, _, label in MOTOR:
-            lvl = br.level(name)
+            lvl = float(fast[br.col[name]] / max(base[br.col[name]], 2.0))
             th = THRESH.get(name)
             over = th is not None and lvl > th
             self._text(scr, label, (x + 8, y - 3), AMBER if over else TEXT, self.f_small)
@@ -6511,6 +6919,11 @@ class Game:
         self._text(surf, "NEW FLY  (R)", r_btn.center, (30, 20, 8), self.f_bold, "center")
         self.new_fly_rect = r_btn
         self.save_rects = []
+        if self.x3.kc_available():                   # 3.0: the kill cam, offered on the autopsy card
+            r = pygame.Rect(card.right - 196, card.y + 102, 198, 26)
+            pygame.draw.rect(surf, (40, 110, 150), r, border_radius=7)
+            self._text(surf, "KILL CAM (slow motion)", r.center, INK, self.f_small, "center")
+            self.save_rects.append((r, "killcam"))
         for k, (label, what) in enumerate((("SAVE IMAGE", "png"), ("SAVE DEATH GIF", "gif"))):
             r = pygame.Rect(card.right - 196 + k * 88 - (0 if k == 0 else 4), card.y + 70, 84 if k == 0 else 110, 26)
             pygame.draw.rect(surf, (44, 50, 64), r, border_radius=7)
@@ -6647,7 +7060,7 @@ class Game:
             self.surgery_open = not self.surgery_open
         elif action == "arena":
             i = (self.arena_i + 1) % len(ARENAS)
-            while not self.three_d and ARENAS[i] in OUTDOOR_ARENAS:     # the 2D game has no outdoor worlds
+            while not self.three_d and ARENAS[i] in THREE_D_ONLY:     # the 2D game has no outdoor worlds or kitchen
                 i = (i + 1) % len(ARENAS)
             self.set_setting("brain.arena", ARENAS[i])
         elif action == "spawn":
@@ -6698,7 +7111,11 @@ class Game:
             return True
         if self.menu_first(ev, pygame.mouse.get_pos()):
             return not self.want_quit
+        if self.x3.kc_playing() and self.x3.handle_event(ev):   # review: the kill cam's keys first, before the tutorial's
+            return True
         if self.tutorial_event(ev) or self.wheel_event(ev):
+            return True
+        if self.x3.handle_event(ev):                 # 3.0: kill cam keys and clicks, the launch card, the Neurodex key
             return True
         if ev.type == pygame.KEYDOWN:
             # 1/2/3/0 pick the big view's camera, unless the player bound that key to the big view itself (2.13: digits
@@ -6771,7 +7188,10 @@ class Game:
                     self.new_fly()
                 for r, what in getattr(self, "save_rects", []):
                     if r.collidepoint(ev.pos):
-                        self.save_png() if what == "png" else self.save_gif(self.death_frames)
+                        if what == "killcam":
+                            self.x3.kc_start()
+                        else:
+                            self.save_png() if what == "png" else self.save_gif(self.death_frames)
                 return True
             if self.view_rect.collidepoint(ev.pos):
                 self.big_view = not self.big_view
@@ -6864,6 +7284,10 @@ class Game:
                         if flip is not None and flip[0].collidepoint(ev.pos):
                             self.flip_neuron(flip[1])
                             return True
+                        pb = getattr(self, "patch_button", None)
+                        if pb is not None and pb[0].collidepoint(ev.pos):
+                            self.patch_neuron(pb[1])
+                            return True
                         for r, mode in getattr(self, "inspect_buttons", []):
                             if r.collidepoint(ev.pos):
                                 self.type_ops[self.inspect["type"]] = mode
@@ -6949,6 +7373,27 @@ def playable_brain(cfg) -> str:
         log.warning("the larva brain is headless-only in this build (the windowed larva game is not finished); "
                     "starting with the adult brain. Use --headless --validate --brain larva for the larva connectome.")
     return "adult"
+
+
+def page_neuron_shapes(menu, surf, rect, mouse) -> None:
+    """The one-time question (3.0 day 3 review): may the brain view download ten real neuron shapes from neuPrint?"""
+    cx = rect.centerx
+    menu.text(surf, tr("Download real neuron shapes?"), (cx, rect.y + 40), menu_ui.INK, menu.f_head, "midtop")
+    menu.wrapped(surf, tr("The brain view can draw ten neurons (the giant fiber DNp01, DNa02, MBON01, MBON14 and a Kenyon cell type) "
+                          "from their real electron-microscopy skeletons, downloaded once from Janelia's neuPrint and kept in a "
+                          "cache. Without them it draws estimated fibers. Nothing about the simulation changes either way: every "
+                          "neuron is simulated as a point. This is the game's only network use besides Streamer mode, so it is "
+                          "off unless you say yes. Settings > Brain changes it later; it applies on the next launch."),
+                 (rect.x + 60, rect.y + 96), rect.w - 120, menu_ui.TEXT, menu.f_text, max_lines=9)
+
+    def answer(yes: bool) -> None:
+        menu.host.set_setting("brain.neuron_shapes", yes)
+        menu.back()
+
+    bw = max(menu.bw(tr("Yes, download them"), 240), menu.bw(tr("No thanks"), 240))
+    menu.button(surf, (cx - 10 - bw, rect.bottom - 90, bw, 50), tr("Yes, download them"), lambda: answer(True), id=("ns", "yes"))
+    menu.button(surf, (cx + 10, rect.bottom - 90, bw, 50), tr("No thanks"), lambda: answer(False), style="primary",
+                id=("ns", "no"))
 
 
 def load_brain(out: dict) -> None:
@@ -7044,6 +7489,41 @@ def parse_args(argv: list[str] | None = None):
     ap.add_argument("--top", type=int, help="how many candidate cell types --critical-path tries (default 25)")
     ap.add_argument("--types", nargs="+", help="test exactly these cell types instead of the shortlist")
     ap.add_argument("--resume", action="store_true", help="continue an interrupted --critical-path run in --out")
+    ap.add_argument("--sensitivity", action="store_true",
+                    help="3.0 day 4: vary each LIF parameter and re-run the validated behaviors with validation's own criteria "
+                         "(headless; resumable with --resume; writes a heatmap, CSV and JSON into --out)")
+    ap.add_argument("--sens-params", dest="sens_params", nargs="+", metavar="PARAM",
+                    help="with --sensitivity: only these parameters (noise_std bias target_rate_hz ext_gain gain_adapt min_synapses)")
+    ap.add_argument("--sens-tests", dest="sens_tests", nargs="+", metavar="TEST",
+                    help="with --sensitivity: only these validated behaviors (default: every one validation reproduces)")
+    ap.add_argument("--sens-values", dest="sens_values", nargs="+", metavar="PARAM=V1,V2",
+                    help="with --sensitivity: replace a parameter's documented range, e.g. noise_std=0.03,0.07")
+    ap.add_argument("--tournament", type=int, metavar="N",
+                    help="3.0 day 4, headless: a single-elimination bracket of N (4, 8 or 16) flies per --seeds group of N "
+                         "individuality seeds; reports whether personality predicts winning")
+    ap.add_argument("--match-seconds", dest="match_seconds", type=float,
+                    help="with --tournament: the length of a duel in game seconds (default 20)")
+    ap.add_argument("--race-r4", action="store_true",
+                    help="3.0 day 4 review, headless: the pre-registered race test R4 (individuality with the brain state held fixed: "
+                         "8 races of 6, seeds 1000-1047, subtle and the off control; lab/racing.py)")
+    ap.add_argument("--race", action="store_true",
+                    help="3.0 day 4, headless: the race assay (flies race through their own brains; does individuality "
+                         "predict the finishing order?)")
+    ap.add_argument("--races", type=int, metavar="K", help="with --race: how many races (each --seeds group of --lanes flies)")
+    ap.add_argument("--lanes", type=int, metavar="N", help="with --race: flies per race (default 6)")
+    ap.add_argument("--rig", choices=("tethered", "ball", "buridan", "fourfield"),
+                    help="3.0 day 5, headless: one fly (the first of --seeds) in a classic behavior rig, recorded in the Lab's format into --out "
+                         "(tethered flight simulator, fly on a ball, Buridan's paradigm, four-field olfactory arena)")
+    ap.add_argument("--rig-assay", dest="rig_assay", choices=("tethered", "ball", "buridan", "fourfield"),
+                    help="3.0 day 5, headless: the rig's pre-registered assay over --seeds (default 1000-1009), default individuality and the "
+                         "off control; JSON and CSV into --out")
+    ap.add_argument("--minipaper", metavar="ID", help="3.0 day 5, headless: run a guided mini-paper (--seeds sets the flies; the default is "
+                    "its quick run) and print your result next to what the paper found; ID 'list' lists them")
+    ap.add_argument("--netsci", nargs="?", const="adult", choices=("adult", "larva", "both"), metavar="BRAIN",
+                    help="3.0 day 4, headless: network science of the brain pack (degrees, reciprocity, motifs, rich club, "
+                         "communities, regions); cached; CSV into --out")
+    ap.add_argument("--sleep-deprivation", dest="sleep_deprivation", action="store_true",
+                    help="3.0 day 4, headless: the sleep-deprivation assay (rebound sleep vs undisturbed controls, paired)")
     ap.add_argument("--flies", type=int, nargs="+", help="flies count list for benchmark (default: 1 8 16)")
     ap.add_argument("--seconds", type=float, help="duration per benchmark condition in seconds")
     ap.add_argument("--strict", action="store_true", help="exit 1 if validation differs from the expected results")
@@ -7064,6 +7544,15 @@ def parse_args(argv: list[str] | None = None):
                          "nothing is ever sent")
     ap.add_argument("--record-replay", dest="record_replay", metavar="FILE",
                     help="with --protocol: record the protocol's first fly as a .ktfreplay")
+    ap.add_argument("--bundle", metavar="ZIP",
+                    help="with --protocol: also write the run as an experiment bundle (protocol, results, raw files, "
+                         "metadata, RO-Crate) that --rerun-bundle can check")
+    ap.add_argument("--rerun-bundle", dest="rerun_bundle", metavar="ZIP",
+                    help="with --headless --out DIR: run a bundle's protocol again and report whether the results "
+                         "match (bit-exact on CPU backends, statistical on GPU backends)")
+    ap.add_argument("--share-decode", dest="share_decode", metavar="CODE",
+                    help="print what a share code (or a .ktfshare file) contains and whether this version accepts it; "
+                         "changes nothing")
     args, unknown = ap.parse_known_args(argv)
     if unknown:
         log.warning("ignoring unknown arguments: %s", " ".join(unknown))
@@ -7096,7 +7585,11 @@ def main(argv: list[str] | None = None) -> int:
     if (args.headless or args.validate or args.protocol or getattr(args, "audit_asymmetry", False)
             or getattr(args, "benchmark", False) or getattr(args, "threshold_sweep", False)
             or getattr(args, "signflip_test", False) or getattr(args, "critical_path", None)
-            or getattr(args, "replay", None) or getattr(args, "record_replay", None)):
+            or getattr(args, "sensitivity", False) or getattr(args, "tournament", None) or getattr(args, "race", False)
+            or getattr(args, "netsci", None) or getattr(args, "sleep_deprivation", False)
+            or getattr(args, "rig", None) or getattr(args, "rig_assay", None) or getattr(args, "minipaper", None)
+            or getattr(args, "replay", None) or getattr(args, "record_replay", None)
+            or getattr(args, "rerun_bundle", None) or getattr(args, "share_decode", None)):
         if getattr(args, "replay", None) and not args.headless:
             print("--replay runs headless (--headless --replay FILE): the windowed game doesn't play replays yet",
                   file=sys.stderr)
@@ -7105,6 +7598,8 @@ def main(argv: list[str] | None = None) -> int:
 
         return headless.main(args)
     cfg = config.Config.load(p.config_file)
+    from kickthefly.sim import morphology
+    morphology.set_opt_in(bool(cfg["brain.neuron_shapes"]))   # 3.0 day 3 review: the neuPrint download is opt-in
     from kickthefly.core import i18n
     i18n.set_language(cfg["access.language"])
     # Disambiguate --backend: if it matches a sim backend, apply to brain.backend; if display backend, use for video
@@ -7270,6 +7765,8 @@ def shutdown(game) -> None:
             slot.brain.memory.save()
     if getattr(game, "pet", None) is not None:      # live hunger/sleep/mood since the last meal
         game.pet.save()
+    if getattr(game, "x3", None) is not None and game.x3.progress is not None and game.x3.progress.dirty:
+        game.x3.progress.save()                     # 3.0: the Neurodex is saved at each discovery; this is the backstop
     if game.cfg.dirty:
         game.cfg.save()
     pygame.quit()

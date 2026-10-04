@@ -194,8 +194,8 @@ Python 3.11.15, NumPy 2.4.6, Numba 0.67.0), single process, 5 s of wall-clock ti
 than the RX 9070 XT / Core Ultra 7 machine above (its adult NumPy brain runs 275 steps/s here vs 829 there), so compare
 rows with each other, not with the tables above. Each brain is a full game `Brain` built by `simcore.new_brain`
 (50-step warm-up), stepped uncapped; "larvae in turn" steps N larval brains one after another in one thread and gives
-steps/s per brain. The adult is 166,700 neurons (10,272,125 synapse pairs); the larva is 2,952 neurons (110,677 synapse
-pairs, 352,611 synapses).
+steps/s per brain. The adult is 166,700 neurons (10,272,125 connections, the nonzero entries of the weight matrix); the larva is 2,952 neurons (110,677
+connections, 352,611 synapses).
 
 | brain | backend | individuality | steps/s per brain | x real time |
 |---|---|---|---|---|

@@ -16,9 +16,11 @@ import numpy as np
 
 from kickthefly.lab import labstats
 
-ASSAYS = ("tmaze", "looming", "sugar", "orchard")
+ASSAYS = ("tmaze", "looming", "sugar", "orchard", "thermo_escape", "predator_escape", "hum_demo", "sleep_deprivation")
 ASSAY_LABEL = {"tmaze": "T-maze conditioning", "looming": "Looming escape", "sugar": "Sugar response",
-               "orchard": "Orchard feeding"}
+               "orchard": "Orchard feeding", "thermo_escape": "Thermogenetic escape",
+               "predator_escape": "Predator escape", "hum_demo": "Hum demo (JO-A/B)",
+               "sleep_deprivation": "Sleep deprivation"}
 
 
 def default_workers() -> int:
@@ -43,11 +45,33 @@ def assay_task(kind: str, seed: int, options: dict, surgery: dict | None, params
         return assays.sugar_fly(seed, surgery=surgery, params=params, **opts)
     if kind == "orchard":
         return assays.orchard_fly(seed, surgery=surgery, params=params, **opts)
+    if kind == "thermo_escape":
+        from kickthefly.lab import thermogenetics
+
+        return thermogenetics.escape_fly(seed, surgery=surgery, params=params, **opts)
+    if kind == "predator_escape":
+        from kickthefly.lab import predators
+
+        return predators.escape_fly(seed, surgery=surgery, params=params, **opts)
+    if kind == "hum_demo":
+        from kickthefly.lab import audio
+
+        return audio.demo_fly(seed, params=params, **opts)
+    if kind == "sleep_deprivation":
+        from kickthefly.lab import sleepdep
+
+        if surgery:
+            raise ValueError("the sleep deprivation assay is its own paired design: it takes no surgery")
+        return sleepdep.fly_pair(seed, params=params, **opts)
     raise ValueError(kind)
 
 
 HEADLINE_LABEL = {"tmaze": "performance index", "looming": "escape probability (all speeds)",
-                  "sugar": "MN9 ratio (all doses)", "orchard": "MN9 ratio, feeding vs travelling"}
+                  "sugar": "MN9 ratio (all doses)", "orchard": "MN9 ratio, feeding vs travelling",
+                  "thermo_escape": "escape probability (all temperatures, expressing flies)",
+                  "predator_escape": "escape probability (all predators)",
+                  "hum_demo": "P1 firing ratio, 200 Hz pulse train",
+                  "sleep_deprivation": "rebound sleep, deprived minus control (s)"}
 
 
 def headline(kind: str, fly: dict) -> float:
@@ -60,6 +84,16 @@ def headline(kind: str, fly: dict) -> float:
         return float(np.mean([np.mean([o["ratio"] for o in offs]) for offs in fly["offers"].values()]))
     if kind == "orchard":
         return float(fly["mn9_ratio"])
+    if kind == "thermo_escape":
+        return float(np.mean([t["expressing"]["escaped"] for t in fly["trials"].values()]))
+    if kind == "predator_escape":
+        return float(np.mean([np.mean([t["escaped"] for t in tr]) for tr in fly["trials"].values()]))
+    if kind == "hum_demo":
+        from kickthefly.lab import audio
+
+        return audio.headline(fly)
+    if kind == "sleep_deprivation":
+        return float(fly["deprived"]["sleep_s"]["recovery"] - fly["control"]["sleep_s"]["recovery"])
     raise ValueError(kind)
 
 
@@ -87,6 +121,22 @@ def summarize(kind: str, flies: list[dict]) -> dict:
         return dict(metric="escape probability and latency vs approach speed", rows=rows,
                     per_fly=[float(np.mean([np.mean([t["escaped"] for t in tr]) for tr in f["trials"].values()]))
                              for f in flies])
+    if kind == "thermo_escape":
+        from kickthefly.lab import thermogenetics
+
+        return thermogenetics.summarize(flies)
+    if kind == "predator_escape":
+        from kickthefly.lab import predators
+
+        return predators.summarize(flies)
+    if kind == "hum_demo":
+        from kickthefly.lab import audio
+
+        return audio.summarize(flies)
+    if kind == "sleep_deprivation":
+        from kickthefly.lab import sleepdep
+
+        return sleepdep.summarize(flies)
     if kind == "orchard":
         return dict(metric="orchard feeding: MN9 and PAM feeding vs travelling, and the orchard's depletion",
                     mn9_ratio=labstats.mean_ci([f["mn9_ratio"] for f in flies]),

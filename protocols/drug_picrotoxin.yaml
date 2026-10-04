@@ -1,0 +1,15 @@
+# 3.0 day 2, Pharmacology (MODEL PREDICTION): a 50% picrotoxin dose scales GABA and glutamate synapses to x0.5, leaving out
+# low-confidence transmitter predictions (below 0.7). The effect is what the recurrent network does with less inhibition; the
+# simulator's slow global gain pushes back, so read it soon after the drug goes on. A second file could use `cholinergic`.
+name: drug-picrotoxin
+seed: 100
+flies: 3
+warmup_s: 1
+duration_s: 2
+drug:
+  doses: {picrotoxin: 0.5}
+  include_low_confidence: false
+  cut: 0.7
+recordings:
+  - {name: whole_brain, neurons: "whole brain"}
+  - {name: descending, neurons: "superclass:descending_neuron"}

@@ -326,6 +326,13 @@ def load_game(game, path: Path) -> dict:
         restore_object(slot.fly, fm["fly"], z, now)
         restore_object(slot, fm["slot"], z, now)
         slot.pending_hits, slot.loom_prev = {}, {}
+        # 3.0 day 3 review: what holds a fly (your hand, a predator, the vinegar trap) is not saved, but the fly's own `grabbed`
+        # part was, so a loaded fly stayed pinned to the hand point by nothing; the trap's perch and trip went the same way
+        if not getattr(slot.fly, "wrapped", False):
+            slot.fly.grabbed = None
+        if getattr(slot.fly, "perch", None) == "vinegar":
+            slot.fly.perch = None
+        slot.trap_trip = None
         slot.seed = int(fm["seed"])
     game.tool = min(max(int(meta["tool"]), 0), len(k2.TOOLS) - 1)      # by index: the tool list only ever grows
     if hasattr(game, "refresh_loadout"):

@@ -1,0 +1,7 @@
+# 3.0 day 2, Thermogenetics: the DNp01 escape-vs-temperature assay (labjobs "thermo_escape"). Expressing flies and a no-expression
+# control of the same seed are tested at 8 temperatures; an escape is the game's own rule (DNp01 above 4x its calm rate).
+# Validation seeds 1000-1009; pass criteria are in kickthefly/lab/thermogenetics.py (ASSAY_CRITERIA), written before the run.
+name: thermogenetic-escape-assay
+assay: thermo_escape
+seed: 1000
+flies: 10

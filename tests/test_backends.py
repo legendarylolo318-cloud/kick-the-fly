@@ -347,6 +347,12 @@ def test_gl_batched_multi_fly_plastic_weights_bit_exact(monkeypatch):
 
     def run(batched: bool):
         monkeypatch.setattr(backends.GLBackend, "BATCH", batched)
+        # 3.0 release: a group waits only for a fly seen in the last LIVE_S (50 ms) and at most GATHER_S (2 ms), sized for a real GPU.
+        # On llvmpipe a step takes ~0.5 s, so two flies that drifted apart never counted as live to each other again and the run
+        # sometimes stepped them alone throughout (920 dispatches for 920 fly-steps, twice on CI). Windows sized to llvmpipe's step
+        # make the batching this test checks happen; the bit-exact comparison is unchanged.
+        monkeypatch.setattr(backends._GLGroup, "LIVE_S", 2.0)
+        monkeypatch.setattr(backends._GLGroup, "GATHER_S", 0.5)
         brains = [simcore.new_brain(seed=21 + k, backend="gl", warmup=0) for k in range(2)]
         rasters = [[], []]
         threads = [threading.Thread(target=condition, args=(br, odors[k], rasters[k])) for k, br in enumerate(brains)]

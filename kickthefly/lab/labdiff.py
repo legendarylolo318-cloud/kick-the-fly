@@ -45,31 +45,14 @@ def _st(m):
 def page(m: ui.Menu, surf, rect, mouse) -> None:
     st, host = _st(m), m.host
     m.text(surf, "CONNECTOME DIFF MODE", (rect.x + 24, rect.y + 16), ui.INK, m.f_head)
-    m.text(surf, "Run two flies with different configurations from the exact same seed and inputs, and diff their activity "
-                 "region by region live.", (rect.x + 24, rect.y + 48), ui.LABEL, m.f_small)
-
-    y = rect.y + 78
-    m.text(surf, "Shared Stimulus:", (rect.x + 24, y + 6), ui.TEXT, m.f_text)
-    x = rect.x + 160
-    for key, label in SCENARIOS:
-        r = pygame.Rect(x, y, 150, 28)
-        m.button(surf, r, label, (lambda k=key: setattr(st, "diff_scenario", k)), id=("d_scen", key),
-                 active=st.diff_scenario == key)
-        x += 160
-
-    y += 36
-    m.text(surf, "Fly B Configuration:", (rect.x + 24, y + 6), ui.TEXT, m.f_text)
-    x = rect.x + 190
-    for key, label in DIFF_MODS:
-        w_btn = 200 if "hemifield" in label or "Threshold" in label or "Picrotoxin" in label else 180
-        r = pygame.Rect(x, y, w_btn, 28)
-        if r.right > rect.right - 24:
-            x, y = rect.x + 190, y + 32
-            r = pygame.Rect(x, y, w_btn, 28)
-        m.button(surf, r, label, (lambda k=key: setattr(st, "diff_mod", k)), id=("d_mod", key),
-                 active=st.diff_mod == key)
-        x += w_btn + 6
-
+    y = m.subtitle(surf, rect, "Run two flies with different configurations from the exact same seed and inputs, and diff their activity "
+                               "region by region live.")
+    # 3.0 release review: fixed button widths cut most labels and the second row overlapped its own label; the rows now flow from the font
+    right = rect.right - 24
+    y = m.flow_buttons(surf, rect.x + 24, y, right, [(label, (lambda k=key: setattr(st, "diff_scenario", k)), ("d_scen", key),
+                                                      st.diff_scenario == key, None) for key, label in SCENARIOS], label="Shared Stimulus:") + 8
+    y = m.flow_buttons(surf, rect.x + 24, y, right, [(label, (lambda k=key: setattr(st, "diff_mod", k)), ("d_mod", key),
+                                                      st.diff_mod == key, None) for key, label in DIFF_MODS], label="Fly B Configuration:") - 28
     y += 40
     job = st.diff_job
     if job is not None and not job["thread"].is_alive():
@@ -100,7 +83,7 @@ def page(m: ui.Menu, surf, rect, mouse) -> None:
                (body.x, body.y + 12), ui.LABEL, m.f_small)
 
     if res:
-        m.button(surf, (rect.x + 24, rect.bottom - 58, 200, 42), "Export CSV + JSON",
+        m.button(surf, (rect.x + 24, rect.bottom - 58, m.bw("Export CSV + JSON", 200), 42), "Export CSV + JSON",
                  lambda: _export(m, res), id="diff_export")
     m.button(surf, (rect.right - 164, rect.bottom - 58, 140, 42), "Back", m.back, style="primary", id=("diff", "back"))
 

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="560" height="180" font-family="sans-serif" font-size="11">
+<text x="10" y="22">looming_escape</text>
+<line x1="150" y1="130.0" x2="540" y2="130.0" stroke="#888"/>
+<line x1="260" y1="124.7" x2="440" y2="51.9" stroke="#999"/>
+<circle cx="260" cy="124.7" r="4" fill="#6b7a8f"/><circle cx="440" cy="51.9" r="4" fill="#d9822b"/>
+<line x1="260" y1="125.1" x2="440" y2="48.2" stroke="#999"/>
+<circle cx="260" cy="125.1" r="4" fill="#6b7a8f"/><circle cx="440" cy="48.2" r="4" fill="#d9822b"/>
+<line x1="260" y1="124.4" x2="440" y2="55.3" stroke="#999"/>
+<circle cx="260" cy="124.4" r="4" fill="#6b7a8f"/><circle cx="440" cy="55.3" r="4" fill="#d9822b"/>
+<line x1="260" y1="126.1" x2="440" y2="61.3" stroke="#999"/>
+<circle cx="260" cy="126.1" r="4" fill="#6b7a8f"/><circle cx="440" cy="61.3" r="4" fill="#d9822b"/>
+<text x="240" y="150">control</text><text x="426" y="150">drive</text>
+</svg>

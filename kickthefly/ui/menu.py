@@ -43,7 +43,8 @@ GOOD = (90, 200, 120)
 BAD = (230, 90, 80)
 TAG_COLORS = {config.CONNECTOME: (60, 170, 220), config.GAME_RULE: (220, 150, 50), "CONNECTOME": (60, 170, 220),
               "GAME RULE": (220, 150, 50), "RESTART": (110, 118, 136),
-              "3D ONLY": (110, 118, 136), "REAL": (60, 170, 220), "RULE": (220, 150, 50)}
+              "3D ONLY": (110, 118, 136), "REAL": (60, 170, 220), "RULE": (220, 150, 50),
+              "LITERATURE": (110, 190, 130), "REFUSED": (200, 70, 60)}
 
 
 class Menu:
@@ -146,7 +147,8 @@ class Menu:
                 self._drag_to(pos[0])
             elif kind == "edit":
                 self.edit = dict(id=data["id"], text=data["text"], commit=data["commit"], fresh=True,
-                                 alpha=bool(data.get("alpha")), limit=int(data.get("limit", 12)))
+                                 alpha=bool(data.get("alpha")), limit=int(data.get("limit", 12)),
+                                 compact=bool(data.get("compact")))
             elif kind == "dragsrc":
                 self.item_drag = dict(data, start=tuple(pos), pos=tuple(pos), moved=False)
                 self.pressed = data["id"]
@@ -234,6 +236,14 @@ class Menu:
                 self.edit = None
             elif ev.key == pygame.K_BACKSPACE:
                 self.edit["text"] = "" if self.edit.pop("fresh", False) else self.edit["text"][:-1]
+            elif ev.key == pygame.K_v and (ev.mod & (pygame.KMOD_CTRL | pygame.KMOD_META)) and self.edit.get("alpha"):
+                from kickthefly.core import clipboard
+
+                pasted = clipboard.get_text()                 # only when the player presses Ctrl+V in a text box
+                if pasted:
+                    text = "".join(pasted.split()) if self.edit.get("compact") else " ".join(pasted.split())
+                    self.edit["text"] = ("" if self.edit.pop("fresh", False) else self.edit["text"]) + text
+                    self.edit["text"] = self.edit["text"][:self.edit.get("limit", 12)]
             elif ev.unicode and (ev.unicode.isprintable() if self.edit.get("alpha") else ev.unicode in "0123456789.-") \
                     and len(self.edit["text"]) < self.edit.get("limit", 12):
                 if self.edit.pop("fresh", False):        # typing replaces the old value
@@ -304,10 +314,105 @@ class Menu:
             y += font.get_linesize()
         return y
 
+    @staticmethod
+    def fit_lines(font, s: str, width: int, max_lines: int) -> tuple[list[str], bool]:
+        """A label in at most max_lines lines of at most `width` px: word-wrapped, and the last line cut with an ellipsis when it still
+        does not fit (never a smaller font). Returns (lines, cut)."""
+        s = str(s)
+        if font.size(s)[0] <= width or not s.strip():
+            return [s], False
+        lines, line = [], ""
+        for word in s.split():
+            trial = (line + " " + word).strip()
+            if font.size(trial)[0] > width and line:
+                lines.append(line)
+                line = word
+            else:
+                line = trial
+        lines.append(line)
+        cut = len(lines) > max_lines
+        lines = lines[:max(1, max_lines)]
+        if cut or font.size(lines[-1])[0] > width:
+            last = lines[-1]
+            while last and font.size(last + "…")[0] > width:
+                last = last[:-1]
+            lines[-1] = last.rstrip() + "…"
+            cut = True
+        return lines, cut
+
+    def _label(self, surf, rect: pygame.Rect, label, color, font) -> bool:
+        """A button's label centred in its rect, fitted by fit_lines (3.0 release review: labels used to run past their buttons, onto
+        the next one, at larger text, in German and in a narrow window). Returns True when it had to be cut."""
+        lh = font.get_linesize()
+        lines, cut = self.fit_lines(font, label, rect.w - 12, max(1, (rect.h - 4) // lh))
+        y = rect.centery - lh * len(lines) / 2
+        for ln in lines:
+            self.text(surf, ln, (rect.centerx, int(y + lh / 2)), color, font, "center")
+            y += lh
+        return cut
+
+    def label_fits(self, label, width: int, height: int, font=None) -> bool:
+        font = font or self.f_bold
+        return not self.fit_lines(font, label, width - 12, max(1, (height - 4) // font.get_linesize()))[1]
+
+    def subtitle(self, surf, rect, text: str, y: int | None = None, max_lines: int = 3) -> int:
+        """A page's description line under its heading, wrapped to the panel (3.0 release review: most pages drew it as one line, which ran
+        off a 860 px menu and at larger text). Returns the y below it, with a gap."""
+        return self.wrapped(surf, text, (rect.x + 24, max(self.under_heading(rect), rect.y + 48 if y is None else y)), rect.w - 48, LABEL,
+                            self.f_small, max_lines) + 8
+
+    def under_heading(self, rect) -> int:
+        """The first y below a page heading drawn at rect.y + 16, at any font (Segoe UI's heading is taller than DejaVu's)."""
+        return rect.y + 16 + self.f_head.get_linesize() + 2
+
+    def flow_buttons(self, surf, x: int, y: int, right: int, items, *, h: int | None = None, font=None, gap: int = 8,
+                     label: str | None = None) -> int:
+        """A row of choice buttons, each as wide as its label, wrapping onto more rows before `right`. items: (text, click, id, active,
+        tip). With `label`, the label comes first and the buttons follow it on the same line when they fit there. Returns the bottom y."""
+        font = font or self.f_small
+        h = h or max(28, font.get_linesize() + 10)
+        x0 = x
+        if label:
+            r = self.text(surf, label, (x, y + h // 2), TEXT, self.f_text, "midleft")
+            widest = max((font.size(str(it[0]))[0] + 24 for it in items), default=0)
+            if r.right + 12 + widest <= right:
+                x0 = x = r.right + 12
+            else:
+                y += h + 4
+        for text, click, ident, active, tip in items:
+            w = min(font.size(str(text))[0] + 24, right - x0)
+            if x + w > right and x > x0:
+                x, y = x0, y + h + 6
+            self.button(surf, (x, y, w, h), text, click, id=ident, active=active, tip=tip, font=font)
+            x += w + gap
+        return y + h
+
+    def bw(self, label, min_w: int = 0, font=None, pad: int = 28) -> int:
+        """A button width that fits its label on one line in the current font (3.0 release review: fixed widths cut labels at larger
+        text with wider fonts, e.g. DejaVu Sans on Ubuntu)."""
+        return max(int(min_w), (font or self.f_bold).size(str(label))[0] + pad)
+
+    def button_row(self, surf, x: int, y: int, h: int, items, *, gap: int = 10, right: int | None = None) -> tuple[int, int]:
+        """Buttons side by side, each at least its `w` and never narrower than its label; wraps before `right`. items: dicts with label,
+        click and the button() keywords (id, style, enabled, tip, font, active) plus an optional minimum width `w`. Returns (x after the last,
+        y below the last row)."""
+        x0 = x
+        for it in items:
+            it = dict(it)
+            label, click, w = it.pop("label"), it.pop("click"), it.pop("w", 0)
+            bw = self.bw(label, w, it.get("font"))
+            if right is not None and x + bw > right and x > x0:
+                x, y = x0, y + h + 8
+            self.button(surf, (x, y, bw, h), label, click, **it)
+            x += bw + gap
+        return x, y + h
+
     def button(self, surf, rect, label, click, *, id=None, style="normal", enabled=True, tip=None, active=False,
                font=None) -> bool:
         rect = pygame.Rect(rect)
         id = id or ("btn", label, rect.topleft)
+        if tip is None and not self.label_fits(label, rect.w, rect.h, font):
+            tip = str(label)                         # a cut label can still be read in full
         over = self._register(rect, "button", id=id, click=click, enabled=enabled, tip=tip)
         down = over and self.pressed == id
         base, hover = {"primary": (BTN_PRIMARY, BTN_PRIMARY_HOVER), "danger": (BTN_DANGER, BTN_DANGER_HOVER)}.get(
@@ -318,7 +423,7 @@ class Menu:
         pygame.draw.rect(surf, fill, rect, border_radius=8)
         if (over and enabled) or active:
             pygame.draw.rect(surf, ACCENT if active else (120, 132, 156), rect, 1, border_radius=8)
-        self.text(surf, label, rect.center, INK if enabled else DIM, font or self.f_bold, "center")
+        self._label(surf, rect, label, INK if enabled else DIM, font or self.f_bold)
         return over
 
     def toggle(self, surf, rect, value: bool, change, *, id, enabled=True, tip=None) -> None:
@@ -329,7 +434,7 @@ class Menu:
         pygame.draw.rect(surf, on_col if value else ((70, 76, 90) if over else (50, 56, 68)), track, border_radius=11)
         knob = (track.right - 11 if value else track.x + 11, track.centery)
         pygame.draw.circle(surf, INK if enabled else DIM, knob, 8)
-        self.text(surf, "On" if value else "Off", (track.right + 10, track.centery), TEXT if enabled else DIM,
+        self.text(surf, tr("On") if value else tr("Off"), (track.right + 10, track.centery), TEXT if enabled else DIM,
                   self.f_small, "midleft")
 
     def segmented(self, surf, rect, labels, current: int, select, *, id, enabled=True, tip=None) -> None:
@@ -338,7 +443,8 @@ class Menu:
         w = rect.w // n
         for i, lab in enumerate(labels):
             r = pygame.Rect(rect.x + i * w, rect.y, w - 4, rect.h)
-            over = self._register(r, "button", id=(id, i), click=(lambda i=i: select(i)), enabled=enabled, tip=tip)
+            t = tip if tip is not None or self.label_fits(lab, r.w, r.h, self.f_small) else str(lab)
+            over = self._register(r, "button", id=(id, i), click=(lambda i=i: select(i)), enabled=enabled, tip=t)
             on = i == current
             fill = (BTN_PRIMARY_HOVER if over else BTN_PRIMARY) if on else (BTN_HOVER if over and enabled else BTN)
             if not enabled:
@@ -346,7 +452,7 @@ class Menu:
             pygame.draw.rect(surf, fill, r, border_radius=6)
             if on:
                 pygame.draw.rect(surf, ACCENT if enabled else DIM, r, 1, border_radius=6)
-            self.text(surf, lab, r.center, INK if enabled else DIM, self.f_small, "center")
+            self._label(surf, r, lab, INK if enabled else DIM, self.f_small)
 
     def slider(self, surf, rect, value: float, lo: float, hi: float, step: float, fmt: str, change, release, *, id,
                enabled=True, tip=None) -> None:
@@ -389,11 +495,12 @@ class Menu:
         shown = self.edit["text"] + ("|" if int(time.perf_counter() * 2) % 2 else "") if editing else str(value)
         self.text(surf, shown, (rect.x + 10, rect.centery), INK, self.f_small, "midleft")
 
-    def text_field(self, surf, rect, value: str, commit, *, id, tip=None, limit: int = 24) -> None:
-        """A one-line text box (names). Click, type, Enter commits, Esc cancels."""
+    def text_field(self, surf, rect, value: str, commit, *, id, tip=None, limit: int = 24, compact: bool = False) -> None:
+        """A one-line text box (names). Click, type, Enter commits, Esc cancels. Ctrl+V pastes (compact: drops all
+        whitespace, for share codes that arrive wrapped over several lines)."""
         rect = pygame.Rect(rect)
         editing = self.edit is not None and self.edit["id"] == id
-        self._register(rect, "edit", id=id, text=value, commit=commit, tip=tip, alpha=True, limit=limit)
+        self._register(rect, "edit", id=id, text=value, commit=commit, tip=tip, alpha=True, limit=limit, compact=compact)
         pygame.draw.rect(surf, (10, 12, 18) if editing else (30, 34, 44), rect, border_radius=6)
         pygame.draw.rect(surf, ACCENT if editing else BORDER, rect, 1, border_radius=6)
         shown = self.edit["text"] + ("|" if int(time.perf_counter() * 2) % 2 else "") if editing else value
@@ -422,7 +529,8 @@ class Menu:
         if page is None:
             self.screen = "pause"
             page = self._page_pause
-        pw, ph = (440, 560) if self.screen in ("pause", "confirm_quit") else (min(980, W - 40), min(680, H - 30))
+        # 3.0 release review: a narrow window gives a tall HUD (1280x2588 or 900x1820 logical); pages that do not scroll may use more of that height
+        pw, ph = (440, min(650, H - 20)) if self.screen in ("pause", "confirm_quit") else (min(980, W - 40), min(680 if H < 1100 else 860, H - 30))
         if self.screen == "confirm_quit":
             ph = 250
         rect = pygame.Rect((W - pw) // 2, (H - ph) // 2, pw, ph)
@@ -482,7 +590,20 @@ class Menu:
                  ("Challenges" if not lab else "Lab tools", "challenges" if not lab else "lab", "normal", True,
                   "Games with a goal and a score." if not lab else
                   "Validation results, assays, repeated trials, data export and protocol files."),
+                 ("Neurodex", "neurodex", "normal", True,
+                  "The cell types you have discovered, with what the dataset says about each. Default key D."),
                  ("Settings", "settings", "normal", True, "Graphics, audio, brain, controls and accessibility."),
+                 ("Mic and streamer", "live_inputs", "normal", True,
+                  "Opt-in: sound from your microphone drives the fly's Johnston's organ, and Twitch viewers vote on what happens. "
+                  "Both are off every time the game starts and show a red indicator while on."),
+                 ("Fly arcade", "arcade", "normal", True,
+                  "A tournament of flies (each brain steers and shoots in 1v1 duels) and fly racing with in-game points. Points are not money."),
+                 ("Mini-papers", "minipapers", "normal", True,
+                  "Short guided experiments that reproduce a classic fly paper: state a hypothesis, run it on the model and see your result next to what "
+                  "the paper found."),
+                 ("Share", "share", "normal", True,
+                  "Make a short code for your surgery, loadout, protocol, challenge setup or Lab parameters, or import one "
+                  "and see what it would change first."),
                  ("Save State", "save_state", "normal", True,
                   "Save the whole simulation: every neuron's voltage, the learned synapses, surgery, the room and the "
                   "flies."),
@@ -490,8 +611,9 @@ class Menu:
                  (f"Mode: {mode_title}", "toggle_mode", "normal", True,
                   "Switch between Play (the game), Lab (research tools), and Pet (one persistent fly). Saved in your settings."),
                  ("Quit", "quit", "danger", True, "Asks first. Training memory is saved.")]
-        bw, bh, gap = 300, 50, 12
-        y = rect.y + 116
+        lh = self.f_text.get_linesize() if hasattr(self, "f_text") else 22                    # (fonts are made on the first draw)
+        bw, bh, gap = 300, max(34, min(40, lh + 10)), 5                                          # 12 buttons since 3.0 day 5 (Mini-papers)
+        y = rect.y + 108
         for label, action, style, enabled, tip in items:
             self.button(surf, (rect.centerx - bw // 2, y, bw, bh), tr(label),
                         (lambda a=action: self.host.menu_action(a)), style=style, enabled=enabled, tip=tr(tip),
@@ -500,8 +622,10 @@ class Menu:
 
     def _page_confirm_quit(self, surf, rect) -> None:
         self.text(surf, tr("Quit Kick the Fly?"), (rect.centerx, rect.y + 30), INK, self.f_head, "midtop")
-        self.text(surf, tr("The fly's training memory and your settings are saved."), (rect.centerx, rect.y + 76),
-                  LABEL, self.f_small, "midtop")
+        msg = tr("The fly's training memory and your settings are saved.")         # wrapped: the German line is wider than the dialog
+        lines = Menu.fit_lines(self.f_small, msg, rect.w - 48, 3)[0]
+        for i, ln in enumerate(lines):
+            self.text(surf, ln, (rect.centerx, rect.y + 76 + i * self.f_small.get_linesize()), LABEL, self.f_small, "midtop")
         self.button(surf, (rect.centerx - 170, rect.bottom - 90, 160, 50), tr("Quit"),
                     lambda: self.host.menu_action("quit_now"), style="danger", id=("cq", "quit"))
         self.button(surf, (rect.centerx + 10, rect.bottom - 90, 160, 50), tr("Cancel"), self.back, id=("cq", "cancel"))
@@ -509,10 +633,15 @@ class Menu:
     def _page_settings(self, surf, rect) -> None:
         cfg, host = self.host.cfg, self.host
         self.text(surf, "SETTINGS", (rect.x + 24, rect.y + 16), INK, self.f_head)
-        tw = (rect.w - 48) // len(TABS)
-        for i, tab in enumerate(TABS):
-            self.button(surf, (rect.x + 24 + i * tw, rect.y + 54, tw - 8, 38), tr(tab),
+        # 3.0 release review: equal-width tabs cut "Accessibility" (and "Barrierefreiheit") at larger text in a 860 px menu; each tab is now
+        # as wide as its label needs, with the spare room shared out
+        need = [self.f_bold.size(tr(t))[0] + 24 for t in TABS]
+        spare = max(0, (rect.w - 48) - sum(need) - 8 * len(TABS)) // len(TABS)
+        tx = rect.x + 24
+        for tab, w in zip(TABS, need):
+            self.button(surf, (tx, rect.y + 54, w + spare, 38), tr(tab),
                         (lambda t=tab: setattr(self, "tab", t)), active=tab == self.tab, id=("tab", tab))
+            tx += w + spare + 8
         body = pygame.Rect(rect.x + 16, rect.y + 104, rect.w - 32, rect.h - 104 - 70)
         key = self._scroll_key()
         off = int(self.scroll.get(key, 0))
@@ -527,16 +656,31 @@ class Menu:
             if s.tab != self.tab or not config.visible(s, host.three_d):
                 continue
             on = config.enabled(s, host.three_d)
-            row = pygame.Rect(body.x, y, body.w, 44)
+            # a choice whose labels do not fit their segments on one line gets a taller row, so they wrap instead of being cut
+            extra, own_line = 0, False
+            chips = ([s.tag] if s.tag else []) + (["RESTART"] if s.restart else []) + ([] if on else ["3D ONLY"])
+            chips_end = max(body.x + 12 + self.f_text.size(tr(s.label))[0] + 10, body.x + label_w) + \
+                sum(self.f_small.size(c.upper())[0] + 18 for c in chips)
+            cx0 = max(ctl_x, chips_end + 8)              # 3.0 release review: two chips (RESTART, 3D ONLY) ran into the control
+            if s.kind == "choice" and len(s.labels or s.options) <= 4:
+                labs = s.labels or tuple(map(str, s.options))
+                seg = (ctl_x + ctl_w - cx0) // len(labs) - 4
+                if any(self.f_small.size(str(lb))[0] > seg - 12 for lb in labs):
+                    extra = self.f_small.get_linesize()
+                    if any(Menu.fit_lines(self.f_small, str(lb), seg - 12, 2)[1] for lb in labs):
+                        own_line = True                 # not even two lines fit: the choice gets the row's full width, under its label
+                        extra = 38 + self.f_small.get_linesize()
+            row = pygame.Rect(body.x, y, body.w, 44 + extra)
             if row.collidepoint(self.mouse) and body.collidepoint(self.mouse):
                 pygame.draw.rect(surf, ROW_HOVER, row, border_radius=8)
             tip = tr(s.tip) + ("" if on else "  (3D game only.)")
-            lr = self.text(surf, tr(s.label), (row.x + 12, row.centery), TEXT if on else DIM, self.f_text, "midleft")
+            ly = row.y + 22 if own_line else row.centery
+            lr = self.text(surf, tr(s.label), (row.x + 12, ly), TEXT if on else DIM, self.f_text, "midleft")
             self._register(pygame.Rect(row.x, row.y, label_w + 150, row.h), "label", id=("label", s.key), tip=tip)
             cx = max(lr.right + 10, row.x + label_w)
             for chip in ([s.tag] if s.tag else []) + (["RESTART"] if s.restart else []) + ([] if on else ["3D ONLY"]):
-                cx = self.chip(surf, (cx, row.centery - 10), chip).right + 6
-            ctl = pygame.Rect(ctl_x, row.y + 7, ctl_w, 30)
+                cx = self.chip(surf, (cx, ly - 10), chip).right + 6
+            ctl = pygame.Rect(body.x + 24, row.y + 44, body.w - 40, 30 + self.f_small.get_linesize()) if own_line else pygame.Rect(cx0, row.y + 7, ctl_x + ctl_w - cx0, 30 + extra)
             v = cfg[s.key]
             if s.kind == "bool":
                 self.toggle(surf, ctl, bool(v), lambda nv, k=s.key: host.set_setting(k, nv), id=s.key, enabled=on,
@@ -549,11 +693,12 @@ class Menu:
                                    tip=tip)
                 else:
                     i = s.options.index(v)
+                    mid = max(152, max(self.f_bold.size(str(lb))[0] for lb in labels) + 16)   # the widest label fits between the arrows
                     self.button(surf, (ctl.x, ctl.y, 44, ctl.h), "<",
                                 lambda k=s.key, o=s.options, i=i: host.set_setting(k, o[(i - 1) % len(o)]),
                                 id=(s.key, "<"), enabled=on, tip=tip)
-                    self.text(surf, labels[i], (ctl.x + 120, ctl.centery), INK, self.f_bold, "center")
-                    self.button(surf, (ctl.x + 196, ctl.y, 44, ctl.h), ">",
+                    self.text(surf, labels[i], (ctl.x + 44 + mid // 2, ctl.centery), INK, self.f_bold, "center")
+                    self.button(surf, (ctl.x + 44 + mid, ctl.y, 44, ctl.h), ">",
                                 lambda k=s.key, o=s.options, i=i: host.set_setting(k, o[(i + 1) % len(o)]),
                                 id=(s.key, ">"), enabled=on, tip=tip)
             elif s.kind == "float":
@@ -566,7 +711,7 @@ class Menu:
                 self.button(surf, (ctl.x + 192, ctl.y, 110, ctl.h), "Random",
                             lambda k=s.key: host.set_setting(k, random.randrange(1, 2**31 - 1)), id=(s.key, "rand"),
                             tip="Pick a new random seed.", font=self.f_small)
-            y += 48
+            y += 48 + extra
         if self.tab == "Controls":
             y = self._keybinds(surf, body, y + 8)
         if self.tab == "Help":
@@ -583,11 +728,14 @@ class Menu:
             pygame.draw.rect(surf, (60, 66, 80), (body.right - 6, by, 4, bar_h), border_radius=2)
         fy = rect.bottom - 58
         if self.tab != "Help":
-            self.button(surf, (rect.x + 24, fy, 200, 42), "Reset to defaults", lambda: self._reset_tab(),
+            self.button(surf, (rect.x + 24, fy, self.bw("Reset to defaults", 200), 42), "Reset to defaults", lambda: self._reset_tab(),
                         id=("reset", self.tab), tip=f"Put every {self.tab} setting back to how the game ships.")
         self.button(surf, (rect.right - 164, fy, 140, 42), tr("Back"), self.back, style="primary", id=("settings", "back"))
-        self.text(surf, "Changes apply right away and are saved.", (rect.centerx, fy + 21), LABEL, self.f_small,
-                  "center")
+        note = "Changes apply right away and are saved."
+        left = rect.x + 24 + (self.bw("Reset to defaults", 200) + 16 if self.tab != "Help" else 0)       # clear of the Reset button
+        nx = max(rect.centerx, left + self.f_small.size(note)[0] // 2)
+        if nx + self.f_small.size(note)[0] // 2 < rect.right - 176:
+            self.text(surf, note, (nx, fy + 21), LABEL, self.f_small, "center")
 
     def _reset_tab(self) -> None:
         changed = self.host.cfg.reset_tab(self.tab)
@@ -598,15 +746,18 @@ class Menu:
 
     def _keybinds(self, surf, body, y) -> int:
         cfg = self.host.cfg
-        self.text(surf, "KEYS", (body.x + 12, y), LABEL, self.f_small)
-        self.text(surf, "Click a key, then press the new one (Esc cancels). A key that's taken swaps with that action.",
-                  (body.x + 70, y), DIM, self.f_small)
-        y += 26
-        col_w = (body.w - 24) // 2
+        k = self.text(surf, "KEYS", (body.x + 12, y), LABEL, self.f_small)
+        y = max(y + 26, self.wrapped(surf, "Click a key, then press the new one (Esc cancels). A key that's taken swaps with that action.",
+                                     (k.right + 16, y), body.right - 16 - k.right - 16, DIM, self.f_small, 2) + 8)
+        # 3.0 release review: two columns only when the longest label and its key button fit in half the width (they overlapped at larger
+        # text with wider fonts); otherwise one action per row
+        need = max(self.f_small.size(label)[0] for _, label, _ in list(ACTIONS) + list(config.PAD_ACTIONS)) + 200
+        ncol = 2 if need <= (body.w - 24) // 2 else 1
+        col_w = (body.w - 24) // ncol
         conflicts = {a for acts in cfg.conflicts().values() for a in acts}
         for i, (action, label, _) in enumerate(ACTIONS):
-            cx = body.x + 12 + (i % 2) * col_w
-            ry = y + (i // 2) * 38
+            cx = body.x + 12 + (i % ncol) * col_w
+            ry = y + (i // ncol) * 38
             active = self.capture == action
             dim = action in config.MOVEMENT_3D_ONLY and not self.host.three_d
             self.text(surf, label, (cx, ry + 16), DIM if dim else TEXT, self.f_small, "midleft")
@@ -614,19 +765,17 @@ class Menu:
             self.button(surf, (cx + col_w - 190, ry + 2, 170, 30), name, (lambda a=action: setattr(self, "capture", a)),
                         id=("key", action), active=active, style="danger" if action in conflicts else "normal",
                         font=self.f_small, tip=f"{label}: click, then press a key.")
-        y += ((len(ACTIONS) + 1) // 2) * 38 + 10
+        y += ((len(ACTIONS) + ncol - 1) // ncol) * 38 + 10
         if not self.host.three_d:
             return y
         pad = getattr(self.host, "pad", None)
         status = f"connected: {pad.name()[:32]}" if pad is not None and pad.pads else "none connected"
         self.text(surf, f"GAMEPAD ({status})", (body.x + 12, y), LABEL, self.f_small)
-        self.text(surf, "Click a binding, then press the button or push the stick. Backspace unbinds.",
-                  (body.x + 12, y + 18), DIM, self.f_small)
-        y += 18
-        y += 26
+        y = self.wrapped(surf, "Click a binding, then press the button or push the stick. Backspace unbinds.",
+                         (body.x + 12, y + 18), body.w - 24, DIM, self.f_small, 2) + 8
         for i, (action, label, _) in enumerate(config.PAD_ACTIONS):
-            cx = body.x + 12 + (i % 2) * col_w
-            ry = y + (i // 2) * 38
+            cx = body.x + 12 + (i % ncol) * col_w
+            ry = y + (i // ncol) * 38
             active = self.capture == "pad:" + action
             self.text(surf, label, (cx, ry + 16), TEXT, self.f_small, "midleft")
             from kickthefly.game import gamepad
@@ -635,7 +784,7 @@ class Menu:
             self.button(surf, (cx + col_w - 190, ry + 2, 170, 30), name,
                         (lambda a=action: setattr(self, "capture", "pad:" + a)), id=("pad", action), active=active,
                         font=self.f_small, tip=f"{label}: click, then press a gamepad button or push a stick.")
-        return y + ((len(config.PAD_ACTIONS) + 1) // 2) * 38
+        return y + ((len(config.PAD_ACTIONS) + ncol - 1) // ncol) * 38
 
 
 def draw_check(surf, center, size: int, color) -> None:
