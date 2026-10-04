@@ -18,6 +18,18 @@ python kick_the_fly.py --headless --benchmark --backend NAME --flies 1 8 16 32 -
 
 Lab > Simulation benchmark runs the same thing in the game and reports the backend that actually ran.
 
+## Where the simulation runs (3.1.0)
+
+Each fly's brain steps on a thread of its own at a fixed 200 steps per second of brain time (times the game speed: slow motion scales it, pause stops
+it, single-step runs one), paced by the wall clock, while the game's frame loop draws and moves the fly at 60 Hz and only reads the brain's latest group
+rates. On the gl backend the GPU work runs on a further thread per group of flies. That was already so in 3.0; 3.1.0 checks it and fixes one way it
+failed: CPython gives a waiting thread the GIL only every 5 ms while another thread is running Python, so a busy frame left the brain **27 of its 200
+steps/s** (measured with a main thread that never yields; 0.001 s: 78, 0.0005 s: 163, 0.0002 s: 200). The brain thread now lowers the interpreter's switch
+interval to 0.2 ms when it starts. The spikes are unchanged: the same seed gives the same spikes whether a thread or a caller steps the brain
+(`tests/test_brain_thread.py`). Rendering does not interpolate brain state: nothing the player sees moves with the brain's 5 ms steps (the fly's body
+moves at the game's 60 Hz tick from the rates read that frame), and the brain panel reads its own 20 Hz view. A separate *process* would avoid the GIL
+altogether and was not built: it would copy every hit and every rate across a process boundary for no change in what the game does.
+
 ## 2.10
 
 Same machine as 2.9: AMD Radeon RX 9070 XT (radeonsi, Mesa, OpenGL 4.6) / Intel Core Ultra 7 270K Plus (24 cores),

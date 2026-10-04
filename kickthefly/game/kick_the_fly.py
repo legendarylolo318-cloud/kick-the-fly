@@ -1045,7 +1045,15 @@ class Brain:
             self._step()
         self.k_base = k
 
+    SWITCH_S = 0.0002        # 3.1.0 task 3, see start()
+
     def start(self) -> None:
+        # The brain runs on a thread of its own so a slow frame cannot slow it, but CPython hands the GIL to a waiting thread only every
+        # sys.getswitchinterval() (5 ms by default) while another thread runs Python code. A render thread that is busy for a frame then
+        # starved the brain: measured with a main thread that never yields, 27 steps/s of the 200 (0.001 s gave 78, 0.0005 s 163, 0.0002 s
+        # 200). Waiting costs nothing; the brain's own numeric work releases the GIL. Spike for spike the output is unchanged.
+        if sys.getswitchinterval() > self.SWITCH_S:
+            sys.setswitchinterval(self.SWITCH_S)
         threading.Thread(target=self._loop, name="brain", daemon=True).start()
 
     def stop(self) -> None:
