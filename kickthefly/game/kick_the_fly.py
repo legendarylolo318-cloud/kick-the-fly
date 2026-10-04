@@ -1383,6 +1383,23 @@ class BrainView:
         self.tint = np.where(self.hot_mask[:, None], self.hot * 2.2, cool).astype(np.float32)
         self.legend = (tuple(int(255 * c) for c in hot), tuple(int(min(255, 255 * c * 1.1)) for c in cool_base))
 
+    # --- the two pieces of render() that a GPU view replaces (kickthefly/game/gpu_brainview.py) ----------------------------------
+    def _accumulate(self, key: str, amp: np.ndarray, mode: str, sparks: np.ndarray | None = None) -> np.ndarray:
+        """The light of every neuron on the (h*w, 3) image: sum over a neuron's fiber and arbor samples of weight * depth * amp * color,
+        times the view's gain, plus a sparkle at the cell body of each neuron in `sparks`. `mode` picks the color: the neuron tints, or
+        the region colors."""
+        color = self.tint if mode == "neuron" else self.col_region * 1.8
+        light = (self.M[key] @ (amp[:, None] * color)) * self.gain[key]
+        if sparks is not None and len(sparks):
+            pix = self.spark_pix[key][sparks]
+            s, pix = sparks[pix >= 0], pix[pix >= 0]
+            np.add.at(light, pix, np.where(self.hot_mask[s, None], self.hot * 3.0, np.float32(0.7)))
+        return light
+
+    def _region_base(self, key: str) -> np.ndarray:
+        """The dim, depth-shaded structure of the brain in region colors."""
+        return self.M[key] @ (self.col_region * 0.45)
+
     def render(self, key: str, rates: np.ndarray, spiked: np.ndarray, t: float, learn: bool) -> pygame.Surface:
         if key == "big" and getattr(self, "_dirty_big", False):
             self._recompute_big()
@@ -1400,8 +1417,8 @@ class BrainView:
         if self.view_mode == "region":
             reg_heat = self.region_rates[self.region_id]
             heat_act = np.clip((reg_heat - 2.0) / 4.0, 0.0, 3.0).astype(np.float32) * 1.5 + 0.4 * act
-            light = (self.M[key] @ (heat_act[:, None] * self.col_region * 1.8)) * self.gain[key]
-            base_col = (self.M[key] @ (self.col_region * 0.45))
+            light = self._accumulate(key, heat_act, "region")
+            base_col = self._region_base(key)
             img = (255 * (1 - np.exp(-(base_col + light)))).astype(np.uint8)
             surf = pygame.image.frombuffer(img.tobytes(), (w, h), "RGB").copy()
             hot = (255 * (1 - np.exp(-0.7 * light))).astype(np.uint8)
@@ -1410,12 +1427,10 @@ class BrainView:
             surf.blit(glow, (0, 0), special_flags=pygame.BLEND_RGB_ADD)
             return surf
 
-        light = (self.M[key] @ (act[:, None] * self.tint)) * self.gain[key]
+        sparks = None
         if len(spiked) and self.sparkle:              # sparkles: firing neurons that spiked on the latest step
-            s = spiked[act[spiked] > 2.0]
-            pix = self.spark_pix[key][s]
-            s, pix = s[pix >= 0], pix[pix >= 0]
-            np.add.at(light, pix, np.where(self.hot_mask[s, None], self.hot * 3.0, np.float32(0.7)))
+            sparks = spiked[act[spiked] > 2.0]
+        light = self._accumulate(key, act, "neuron", sparks)
         img = (255 * (1 - np.exp(-(self.base[key] + light)))).astype(np.uint8)
         surf = pygame.image.frombuffer(img.tobytes(), (w, h), "RGB").copy()
         hot = (255 * (1 - np.exp(-0.7 * light))).astype(np.uint8)          # bloom from the firing only
@@ -2573,6 +2588,8 @@ class Game:
         self.bg = make_background()
         self.shadow = make_shadow()
         self.view = view
+        if hasattr(view, "pref"):
+            view.pref = str(self.cfg.get("graphics.brain_view", "auto"))
         self.view_surf: dict[str, pygame.Surface] = {}
         self.view_rect = pygame.Rect(0, 0, 0, 0)
         self.big_view = False
@@ -2755,6 +2772,8 @@ class Game:
             self.clock.scale = c[key]
         elif key == "graphics.fps_cap":
             self.clock.fixed_per_frame = c[key] == 60
+        elif key == "graphics.brain_view" and hasattr(self.view, "pref"):
+            self.view.pref = str(c[key])
         elif key == "graphics.fullscreen":
             if bool(c[key]) != self.is_fullscreen():
                 pygame.display.toggle_fullscreen()
@@ -7431,7 +7450,8 @@ def load_brain(out: dict) -> None:
         else:
             pain_groups = [brain.col[n] for n in (*TOUCH, "heat", "cold", "smell", "taste", "body_extra")]
             pain_mask = np.isin(brain.det_id, pain_groups) | (brain.pop_id == [n for n, _ in POPS].index("ascending"))
-        out["view"] = BrainView(soma, weights, pain_mask, regions=getattr(g, "region", None), graph=g)
+        from kickthefly.game.gpu_brainview import make_view          # 3.1.0 task 4: the GPU view, or this file's CPU one
+        out["view"] = make_view(soma, weights, pain_mask, regions=getattr(g, "region", None), graph=g)
         if getattr(g, "dan_mbon", None) is not None:
             from kickthefly.core import memory
             out["stage"] = "loading the fly's memory"

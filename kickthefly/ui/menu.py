@@ -754,6 +754,9 @@ class Menu:
                     lines.append(f"You chose {asked}, but it is not available here or failed; {be.name} runs instead.")
             else:
                 lines.append("Engine in use: none yet (a fly has not been created)")
+            vw = getattr(host, "view", None)
+            if vw is not None and hasattr(vw, "engine_note"):
+                lines.append(f"Brain view: {vw.engine_note}")
             chain = backends.auto_chain()
             lines.append(f"Auto tries: {' > '.join(chain)}   ({backends.auto_policy()} policy; pick an engine above to override)")
         except Exception as e:                       # the panel is information only: never let it break Settings

@@ -57,6 +57,10 @@ SETTINGS: tuple[Setting, ...] = (
       "Linux only. Auto uses native Wayland when available and falls back to X11 (XWayland). Try X11 if the window "
       "or mouse misbehaves. Applies on restart.", options=("auto", "wayland", "x11"), labels=("Auto", "Wayland", "X11"),
       restart=True, only="linux"),
+    S("graphics.brain_view", "Graphics", "Brain view drawn by", "choice", "auto",
+      "Who draws the live brain image (panel and big view). Auto uses the GPU (every neuron as an instanced point, one number per neuron "
+      "uploaded a frame) when there is a real GPU, else the CPU. Same picture either way; the GPU makes turning the big view smooth.",
+      options=("auto", "gpu", "cpu"), labels=("Auto", "GPU", "CPU")),
     S("graphics.panel_mode", "Graphics", "Brain panel", "choice", "solid",
       "How the live brain panel on the right is drawn: solid, see-through, faint, or hidden to give the room the "
       "whole screen. Hotkey V.", options=("solid", "see-through", "faint", "hidden"),
