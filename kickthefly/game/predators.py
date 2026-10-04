@@ -37,7 +37,10 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+from kickthefly.game.predator_anim import ease
+
 DT = 1.0 / 60.0
+UP_Y = np.array([0.0, 1.0, 0.0])
 THORAX_Y = 0.38              # how high the game's standing fly's thorax is (kick3d.STAND3), m
 KINDS = ("frog", "dragonfly", "mantis")
 
@@ -158,6 +161,8 @@ class Predator:
         self.vel = np.zeros(3)
         self._launch = self.p.copy()             # the frog's takeoff point, landing point and the leap's velocity
         self._tgt = None
+        self._reach = 0.0                        # the dragonfly's legs: how far thrown forward (0..1), and its bank (rad)
+        self._bank = 0.0
         self.leaving = False
         self._leave_age = 0.0
         self._land_at: np.ndarray | None = None
@@ -400,13 +405,15 @@ class Predator:
         self._set("leap")
 
     def pose(self) -> dict:
+        """The body pose for the drawing, by kind (see _frog_pose, _mantis_pose, _dragonfly_pose). A pure function of state and time."""
+        return getattr(self, "_" + self.kind + "_pose")()
+
+    def _frog_pose(self) -> dict:
         """The frog's body pose for the drawing, all 0..1 except pitch (rad, nose up). A pure function of state and time, so the
         drawing never decides anything. squash: body low and wide; stretch: long along the velocity; hind: hind legs extended
         (0 folded); tuck: legs pulled in under the body; reach: the front legs reaching ahead for the ground."""
         st, f = self.state, self.t
         rest = dict(squash=0.0, stretch=0.0, hind=0.0, tuck=0.0, reach=0.0, pitch=0.42)
-        if self.kind != "frog":
-            return rest
         e = lambda x: max(0.0, min(1.0, x))                      # noqa: E731
         if st in ("idle", "track", "aim", "regroup"):
             return rest
@@ -430,6 +437,32 @@ class Predator:
         if st in ("strike", "retract", "eat"):
             return dict(rest, pitch=0.55)
         return rest
+
+    def _mantis_pose(self) -> dict:
+        """The mantis (3.1.0 task 1). sway: the rocking of a stalking mantis (0 while it freezes); rear: the wind-up, the body rearing back with
+        the forelegs cocked; cock: forelegs cocked; walking: the legs may step. Strike and retract are the tip's job."""
+        st, f = self.state, self.t
+        k = lambda x: ease(x)                                   # noqa: E731
+        if st == "aim":
+            w = k(f / max(self.spec.aim_s, 1e-6))
+            return dict(sway=0.0, rear=w, cock=w, walking=False)
+        if st in ("strike", "retract"):
+            return dict(sway=0.0, rear=1.0 if st == "strike" else 1.0 - k(f / max(self.spec.retract_s, 1e-6)), cock=0.0, walking=False)
+        if st == "recover":
+            return dict(sway=0.0, rear=0.5 * (1.0 - k(f / max(self.spec.recover_s, 1e-6))), cock=0.0, walking=False)
+        if st in ("eat",):
+            return dict(sway=0.0, rear=0.0, cock=0.0, walking=False)
+        frozen = self._freeze_left > 0.0
+        return dict(sway=0.0 if frozen else math.sin(self.age * 3.1), rear=0.0, cock=0.0, walking=not frozen)
+
+    def _dragonfly_pose(self) -> dict:
+        """The dragonfly: pitch along the velocity, bank into a turn, and the legs, tucked in patrol and thrown forward into a basket as it
+        closes on a fly (`reach`), pulled in once it holds one."""
+        speed = float(np.linalg.norm(self.vel))
+        pitch = math.asin(max(-1.0, min(1.0, float(self.vel[1]) / speed))) if speed > 1e-6 else 0.0
+        reach = self._reach if self.state == "pursue" else 0.0
+        bank = self._bank if self.state == "pursue" else 0.0
+        return dict(pitch=pitch, bank=bank, reach=reach, tuck=1.0 if self.state in ("eat", "leave") else 1.0 - reach)
 
     def _mantis(self, dt: float, live, ev) -> None:
         sp = self.spec
@@ -514,6 +547,9 @@ class Predator:
         ang = math.acos(cosang)
         k = 1.0 if ang < 1e-6 else min(1.0, DRAGONFLY_TURN * dt / ang)
         dirn = _unit(cur * (1 - k) + want * k)
+        turn = float(np.dot(np.cross(cur, dirn), UP_Y)) / max(dt, 1e-9)                # rad/s, signed
+        self._bank += (float(np.clip(turn * 0.12, -0.7, 0.7)) - self._bank) * min(1.0, 8.0 * dt)
+        self._reach = float(np.clip(1.0 - float(np.linalg.norm(tp - self.p)) / (4.0 * sp.capture_r), 0.0, 1.0))
         self.vel = dirn * sp.speed
         self.p = self.p + self.vel * dt
         if float(np.linalg.norm(tp - self.p)) <= sp.capture_r:

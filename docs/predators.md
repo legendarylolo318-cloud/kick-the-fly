@@ -40,3 +40,13 @@ r = Fly(seed=1000).attack("mantis")     # {'escaped': ..., 'captured': True, 'ma
 ```
 
 Protocol block `predator: {kind: mantis, at_s: 0.5}` plays one attack as looming onto LPLC2/LC4 (`protocols/predator_mantis_creep.yaml`); `protocols/predator_escape_assay.yaml` is the assay. The playthrough bot uses each tool in both games (`extra:predators` checks that each attack ends in a capture, that the mantis's creep never looms and its strike does). Tests: `tests/test_predators.py`.
+
+
+## Animation (3.1.0)
+
+The frog hops; the other predators move like animals too. Everything here is drawing and timing (**GAME RULE**): the fly still sees a predator only as something that grows in its view, and a bite still fires the touch neurons it fired before.
+
+- **Spider** (a tool, not an engine predator): eight two-bone IK legs in an alternating-tetrapod gait. A foot stays where it was planted until the body has walked away from it, then it steps in an arc, so the feet never slide. In reach it winds up for 0.28 s (rearing, front legs raised, nothing else moves), lunges for 0.08 s and bites at the end of the lunge if the fly is still within 1.45 reaches of it, else it misses; then it recovers for 0.4 s. A bite is a cycle a fly can dodge.
+- **Mantis**: rocks side to side while it stalks (still while it freezes), rears back and cocks its forelegs through the aim pause, strikes and relaxes; four IK walking legs with planted feet.
+- **Dragonfly**: pitch along its velocity, bank into turns, legs tucked on patrol and thrown forward into a basket as it closes on prey, pulled in once it has caught one.
+- `kickthefly/game/predator_anim.py` holds the shared pieces; every engine predator has a `pose()` the games draw from.

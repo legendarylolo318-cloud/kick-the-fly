@@ -31,6 +31,7 @@ from kickthefly.core import crash
 from kickthefly.game import kick_the_fly as k2
 from kickthefly.game import gamepad, outdoors
 from kickthefly.game import kitchen
+from kickthefly.game.predator_anim import SpiderCycle
 from kickthefly.game import weather as weather_rules
 from kickthefly.game.kick_the_fly import (ABD, FOOT, HEAD, KNEE, LINKS, MAX_HEALTH, N_P, PULL, RADIUS, REST, THRESH, THX, TOOLS,
                           TORCH_KEYS, TRIPOD, WING, drop_item)
@@ -2090,11 +2091,15 @@ class Game3D(k2.Game):
             fly = slot.fly
             d = fly.p[THX] + (0, 0.1, 0) - sp["p"]
             dist = float(np.linalg.norm(d))
-            if dist > 0.2:
+            cyc = sp.setdefault("cycle", SpiderCycle())      # 3.1.0 task 1: walk -> windup -> strike -> recover (GAME RULE)
+            if dist > 1e-6 and cyc.state in ("walk", "windup"):
+                sp["face"] = np.array([d[0], 0.0, d[2]]) / max(float(np.hypot(d[0], d[2])), 1e-6)
+            evs = cyc.step(1.0 / 60.0, dist, 0.2)
+            if cyc.walking and dist > 0.2:
                 sp["p"] += d / dist * min(3.4 * S, dist)
                 sp["p"][1] = max(0.12, sp["p"][1])
                 sp["anchor"] = sp["p"].copy()
-            elif now - sp["bite_at"] > 0.7:
+            if "bite" in evs:
                 sp["bite_at"] = now
                 sp["bites"] += 1
                 fly.venom = min(1.0, fly.venom + 0.3)
@@ -3143,19 +3148,8 @@ class Game3D(k2.Game):
             x, y, z = sp["p"]
             rd.add("cylinder", segment((x, y + 0.05, z), (x, min(RY, SPIDER_TOP), z), 0.002), (0.9, 0.9, 0.92, 0.7))
             body = np.array([x, y, z])
-            black = (0.12, 0.11, 0.13)
-            rd.add("sphere", trs(body, None, (0.075, 0.06, 0.09)), black)
-            rd.add("sphere", trs(body + (0, 0.01, 0.09), None, (0.045, 0.04, 0.045)), black)
-            for sgn in (-1, 1):
-                for kk in range(4):
-                    a = (kk - 1.5) * 0.45
-                    wig = 0.015 * math.sin(now * 14 + kk * 1.7 + sgn)
-                    knee = body + (sgn * 0.12 * math.cos(a), 0.06 + wig, 0.12 * math.sin(a))
-                    foot = body + (sgn * 0.2 * math.cos(a), -0.1 - wig, 0.2 * math.sin(a))
-                    rd.add("cylinder", segment(body, knee, 0.008), black)
-                    rd.add("cylinder", segment(knee, foot, 0.006), black)
-            for dx in (-0.015, 0.015):
-                rd.add("sphere", trs(body + (dx, 0.03, 0.13), None, (0.008,) * 3), (1.0, 0.25, 0.25), P_NONE, 1.0)
+            from kickthefly.game import predator_play
+            predator_play.draw_spider3d(sp, rd, now)
             self._shadow(rd, body, 0.15)
         if self.preds.list:
             from kickthefly.game import predator_play

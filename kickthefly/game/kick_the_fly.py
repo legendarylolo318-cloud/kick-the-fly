@@ -504,6 +504,7 @@ from kickthefly.core import crash
 from kickthefly.core import loadout as loadout_mod
 from kickthefly.ui import menu as menu_ui
 from kickthefly.core import paths
+from kickthefly.game.predator_anim import SpiderCycle
 from kickthefly.core import platform_env
 from kickthefly.core.simclock import SimClock
 from kickthefly.core.crash import log
@@ -5685,9 +5686,13 @@ class Game:
             fly = slot.fly
             d = fly.p[THX] + (0, -18) - sp["p"]
             dist = float(np.hypot(*d))
-            if dist > 26:
+            cyc = sp.setdefault("cycle", SpiderCycle())      # 3.1.0 task 1: walk -> windup -> strike -> recover (GAME RULE)
+            if cyc.state in ("walk", "windup") and abs(d[0]) > 1.0:
+                sp["face_x"] = 1.0 if d[0] > 0 else -1.0
+            evs = cyc.step(1.0 / 60.0, dist, 26.0)
+            if cyc.walking and dist > 26:
                 sp["p"] += d / dist * min(3.4, dist)
-            elif now - sp["bite_at"] > 0.7:
+            if "bite" in evs:
                 sp["bite_at"] = now
                 sp["bites"] += 1
                 fly.venom = min(1.0, fly.venom + 0.3)
@@ -6432,20 +6437,8 @@ class Game:
         sp = self.spider
         x, y = sp["p"]
         pygame.draw.aaline(surf, (220, 220, 225), (x, CEIL), (x, y - 8))
-        for sgn in (-1, 1):
-            for k in range(4):
-                a = (k - 1.5) * 0.5
-                wig = 3 * math.sin(now * 14 + k * 1.7 + sgn)
-                knee = (x + sgn * 20 * math.cos(a), y - 12 + 10 * math.sin(a) + wig)
-                foot = (x + sgn * 30 * math.cos(a), y + 6 + 12 * math.sin(a) - wig)
-                thick_line(surf, (x, y), knee, 2.5, (30, 28, 32))
-                thick_line(surf, knee, foot, 2, (30, 28, 32))
-        aacircle(surf, (x, y + 4), 13, (38, 34, 40))
-        aapoly(surf, [(x - 3, y), (x + 3, y), (x, y + 6)], (200, 40, 40))
-        aapoly(surf, [(x - 3, y + 12), (x + 3, y + 12), (x, y + 6)], (200, 40, 40))
-        aacircle(surf, (x, y - 10), 8, (30, 28, 32))
-        for dx in (-3, 3):
-            aacircle(surf, (x + dx, y - 12), 1.6, (230, 60, 60))
+        from kickthefly.game import predator_play
+        predator_play.draw_spider2d(sp, surf, now)
 
     def _draw_decoy_female_2d(self, surf: pygame.Surface, x: float, y: float, now: float) -> None:
         """Draw 2D decoy as a female fly: larger, rounder abdomen with the female band pattern across all

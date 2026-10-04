@@ -293,11 +293,21 @@ def draw3d(play: PredatorPlay, rd, now: float) -> None:
                 rd.add("sphere", trs(p.tip, None, (p.spec.tip_r,) * 3), (0.95, 0.45, 0.5), P_NONE)
         elif p.kind == "mantis":
             col, dark, wing = (0.46, 0.64, 0.22), (0.30, 0.46, 0.14), (0.55, 0.72, 0.30)
-            mid = at(-0.01, 0.075)                                         # the thorax the walking legs hang from
+            ps = p.pose()                                                  # 3.1.0 task 1: sway, rear (the wind-up) and cock
+            rear, cock, sway = ps["rear"], ps["cock"], ps["sway"]
+            if getattr(p, "_rig", None) is None:                           # four walking legs on IK, feet planted until it has walked on
+                from kickthefly.game.predator_anim import LegRig
+                p._rig = LegRig([(f_ * sc, 0.075 * sc, 0.018 * sg_ * sc) for sg_ in (-1, 1) for f_ in (0.0, -0.035)],
+                                [(f_ * sc, 0.0, 0.09 * sg_ * sc) for sg_ in (-1, 1) for f_ in (0.03, -0.06)],
+                                0.07 * sc, 0.08 * sc, [0, 1, 1, 0], step_len=0.035 * sc, step_s=0.30, lift=0.02 * sc)
+            mid = at(-0.01 + 0.0, 0.075 - 0.02 * rear) + side * 0.004 * sway * sc       # the thorax the walking legs hang from
+            for hip_, knee_, foot_ in p._rig.update(base, face, 1.0 / 60.0, moving=ps["walking"], ground=float(y)):
+                limb(hip_, knee_, 0.006, dark)
+                limb(knee_, foot_, 0.005, dark)
             ell(at(-0.11, 0.085), _norm(-face * 0.2 + face + up * 0.12), (0.10, 0.026, 0.03), col)      # abdomen
             ell(at(-0.09, 0.105), face + up * 0.08, (0.11, 0.008, 0.032), wing)                       # folded wings
             ell(mid, face, (0.03, 0.022, 0.022), col)
-            neck = at(0.06, 0.17)
+            neck = at(0.06 - 0.05 * rear, 0.17 + 0.025 * rear) + side * 0.006 * sway * sc
             limb(mid + up * 0.01 * sc, neck, 0.011, col)                    # the long prothorax, raised
             headc = neck + up * 0.022 * sc + face * 0.012 * sc
             ell(headc, face, (0.016, 0.02, 0.03), col)                      # a wide, triangular-ish head
@@ -307,12 +317,6 @@ def draw3d(play: PredatorPlay, rd, now: float) -> None:
                        (0.70, 0.78, 0.40))                                  # big compound eyes on the corners
                 ant = headc + up * 0.012 * sc + side * 0.008 * sg * sc
                 rd.add("cylinder", segment(ant, ant + (face * 0.05 + up * 0.06 + side * 0.03 * sg) * sc, 0.0018 * sc), dark)
-                for off in (0.0, -0.035):                                   # four walking legs
-                    hip = mid + face * off * sc + side * 0.018 * sg * sc
-                    knee = hip + (side * 0.06 * sg + up * 0.045 + face * (0.03 if off == 0 else -0.04)) * sc
-                    foot = np.array([knee[0], 0.004 * sc, knee[2]]) + (side * 0.03 * sg) * sc
-                    limb(hip, knee, 0.006, dark)
-                    limb(knee, foot, 0.005, dark)
                 sh = neck - up * 0.02 * sc + side * 0.015 * sg * sc         # the raptorial forelegs
                 if p.tip is not None and p.state in ("strike", "retract", "eat"):
                     elbow = (sh + p.tip) / 2 + up * 0.03 * sc + side * 0.01 * sg * sc
@@ -320,9 +324,9 @@ def draw3d(play: PredatorPlay, rd, now: float) -> None:
                     limb(elbow, p.tip, 0.008, dark)
                     rd.add("sphere", trs(p.tip, None, (p.spec.tip_r,) * 3), dark, P_NONE)
                 else:                                                       # folded, "praying"
-                    knee = sh + (face * 0.035 - up * 0.04 + side * 0.006 * sg) * sc
+                    knee = sh + (face * (0.035 - 0.02 * cock) - up * (0.04 - 0.07 * cock) + side * 0.006 * sg) * sc   # cocked: raised, back
                     limb(sh, knee, 0.011, col)                              # the spiny femur, down and forward
-                    claw = knee + (up * 0.05 - face * 0.005) * sc
+                    claw = knee + (up * 0.05 * (1 - cock) + face * 0.045 * cock - face * 0.005) * sc
                     limb(knee, claw, 0.007, dark)                           # the tibia folded back up against it
                     for k in range(3):                                      # spines along the femur
                         spn = sh + (knee - sh) * (0.3 + 0.25 * k)
@@ -331,6 +335,9 @@ def draw3d(play: PredatorPlay, rd, now: float) -> None:
             dirn = _norm(p.vel) if float(np.linalg.norm(p.vel)) > 1e-3 else face
             flat = _norm(np.array([dirn[0], 0.0, dirn[2]])) if float(np.hypot(dirn[0], dirn[2])) > 1e-6 else face
             sd = np.array([-flat[2], 0.0, flat[0]])
+            ps = p.pose()                                                   # 3.1.0 task 1: bank into turns, legs thrown forward to grab
+            bank = ps["bank"] if p.state == "pursue" else 0.0
+            sd_b = _norm(sd * math.cos(bank) + up * math.sin(bank))      # the wing span, banked
             body = base
             thorax_c = body
             ell(thorax_c, dirn, (0.03, 0.022, 0.02), (0.20, 0.42, 0.30))
@@ -344,7 +351,7 @@ def draw3d(play: PredatorPlay, rd, now: float) -> None:
             flap = 0.18 * math.sin(now * 55)
             for sg in (-1, 1):
                 for off, ln, wd in ((0.008, 0.10, 0.017), (-0.012, 0.095, 0.021)):      # fore- and hindwings
-                    span = _norm(sd * sg + up * (flap if off > 0 else -flap * 0.6))
+                    span = _norm(sd_b * sg + up * (flap if off > 0 else -flap * 0.6))
                     c = body + dirn * off * sc + span * ln * sc
                     m = trs(c, np.stack([span, _norm(np.cross(dirn, span)) * sg, dirn], 1), (ln * sc, 0.0015 * sc, wd * sc))
                     rd.add("sphere", m, (0.85, 0.92, 0.98, 0.45), P_NONE)
@@ -352,7 +359,9 @@ def draw3d(play: PredatorPlay, rd, now: float) -> None:
                            (0.25, 0.30, 0.35), P_NONE)                     # the leading-edge vein
                 for k in range(3):                                          # legs tucked under, as when it carries prey
                     hip = body - up * 0.012 * sc + dirn * (0.01 - 0.01 * k) * sc
-                    limb(hip, hip + (dirn * 0.02 - up * 0.02 + sd * 0.01 * sg) * sc, 0.0025, (0.1, 0.1, 0.1))
+                    out_ = ps["reach"]                                       # tucked under, or thrown forward into a basket for the catch
+                    limb(hip, hip + (dirn * (0.02 + 0.05 * out_) - up * (0.02 + 0.01 * out_) + sd * (0.01 + 0.012 * out_) * sg) * sc,
+                         0.0025, (0.1, 0.1, 0.1))
         hf = min(1.0, max(0.0, y / pr.LEAP_APEX)) if p.kind == "frog" else 0.0     # a blob shadow that shrinks and fades as it rises
         rd.add("sphere", trs(np.array([x, 0.005, z]), None, (0.14 * sc * (1 - 0.45 * hf), 0.004, 0.14 * sc * (1 - 0.45 * hf))),
                (0.0, 0.0, 0.0, 0.25 * (1 - 0.6 * hf)), P_NONE)
@@ -400,19 +409,28 @@ def draw2d(play: PredatorPlay, surf, now: float) -> None:
                 k2.aacircle(surf, (tx, ty), max(7, p.spec.tip_r / 0.006), (245, 120, 130))
         elif p.kind == "mantis":
             col, dark = (116, 158, 56), (78, 116, 38)
-            k2.thick_line(surf, P(-30, -16), P(0, -22), 7 * sc, col)
-            k2.thick_line(surf, P(0, -22), P(8, -52), 5 * sc, col)
-            k2.aacircle(surf, P(11, -58), 7 * sc, dark)
-            k2.aacircle(surf, P(15, -61), 2 * sc, (20, 20, 16))
-            for k in (-1, 1):
-                k2.thick_line(surf, P(-12, -20), P(-12 + k * 7, 0), 2.5 * sc, dark)
+            ps = p.pose()
+            rear, cock, sway = ps["rear"], ps["cock"], ps["sway"]
+            lean = -8 * rear + 1.5 * sway                                        # rears back for the strike, rocks while it stalks
+            k2.thick_line(surf, P(-30, -16), P(0, -22 + 3 * rear), 7 * sc, col)
+            k2.thick_line(surf, P(0, -22 + 3 * rear), P(8 + lean, -52 + 3 * rear), 5 * sc, col)
+            k2.aacircle(surf, P(11 + lean, -58 + 3 * rear), 7 * sc, dark)
+            k2.aacircle(surf, P(15 + lean, -61 + 3 * rear), 2 * sc, (20, 20, 16))
+            if getattr(p, "_rig2", None) is None:                                 # walking legs on IK, feet planted until it has walked on
+                from kickthefly.game.predator_anim import LegRig
+                p._rig2 = LegRig([(f_ * sc, 20 * sc, 0.0) for f_ in (-4, -16, -4, -16)], [(f_ * sc, 0.0, 0.0) for f_ in (6, -10, -2, -22)],
+                                 16 * sc, 16 * sc, [0, 1, 1, 0], step_len=9 * sc, step_s=0.30, lift=5 * sc)
+            for hip_, knee_, foot_ in p._rig2.update(np.array([gx, k2.FLOOR - gy, 0.0]), np.array([float(d), 0.0, 0.0]), 1.0 / 60.0,
+                                                     moving=ps["walking"], ground=0.0):
+                k2.thick_line(surf, (hip_[0], k2.FLOOR - hip_[1]), (knee_[0], k2.FLOOR - knee_[1]), 2.5 * sc, dark)
+                k2.thick_line(surf, (knee_[0], k2.FLOOR - knee_[1]), (foot_[0], k2.FLOOR - foot_[1]), 2 * sc, dark)
             if p.tip is not None and p.state in ("strike", "retract", "eat"):
                 tx, ty = play.to_game(p.tip)
-                k2.thick_line(surf, P(8, -50), (tx, ty), 5, col)
+                k2.thick_line(surf, P(8 + lean, -50 + 3 * rear), (tx, ty), 5, col)
                 k2.aacircle(surf, (tx, ty), max(5, p.spec.tip_r / 0.006), dark)
             else:
-                k2.thick_line(surf, P(8, -50), P(22, -44), 4 * sc, col)
-                k2.thick_line(surf, P(22, -44), P(26, -28), 3 * sc, dark)
+                k2.thick_line(surf, P(8 + lean, -50 + 3 * rear), P(22 + lean - 10 * cock, -44 - 12 * cock), 4 * sc, col)
+                k2.thick_line(surf, P(22 + lean - 10 * cock, -44 - 12 * cock), P(26 + lean + 6 * cock, -28 - 26 * cock), 3 * sc, dark)
         else:
             dd = 1 if (p.vel[0] >= 0 if float(np.linalg.norm(p.vel)) > 1e-3 else p.face[0] >= 0) else -1
             k2.thick_line(surf, (gx - dd * 34 * sc, gy), (gx + dd * 8 * sc, gy), 4 * sc, (38, 116, 190))
@@ -423,3 +441,92 @@ def draw2d(play: PredatorPlay, surf, now: float) -> None:
                 gfxdraw.filled_ellipse(surf, int(gx - dd * off * sc), int(gy + flap * 0.3), int(22 * sc), int(3 * sc), (200, 215, 235, 110))
         hf = min(1.0, max(0.0, float(p.p[1]) / pr.LEAP_APEX)) if p.kind == "frog" else 0.0      # shrinks and fades as the frog rises
         gfxdraw.filled_ellipse(surf, int(gx), int(k2.FLOOR + 1), int(26 * sc * (1 - 0.45 * hf)), 4, (0, 0, 0, int(70 * (1 - 0.6 * hf))))
+
+
+SPIDER_BLACK = (0.12, 0.11, 0.13)
+
+
+def _spider_state(sp: dict, u: float):
+    """The spider's pose and legs for this frame, from its cycle and its leg rig (both made on first use). Returns (cycle pose, legs, body
+    centre, facing). Units follow `u`: 1 metre or about 150 pixels."""
+    from kickthefly.game import predator_anim as pa
+
+    cyc = sp.get("cycle")
+    pose = cyc.pose() if cyc is not None else dict(crouch=0.0, raise_=0.0, lunge=0.0)
+    rig = sp.get("rig")
+    if rig is None:
+        rig = sp["rig"] = pa.spider_rig(u)
+    return pose, rig
+
+
+def draw_spider3d(sp: dict, rd, now: float) -> None:
+    """The 3D spider (3.1.0 task 1): eight IK legs with planted feet, a rearing wind-up with the front legs raised, a lunge and a
+    recovery. Drawing only; the bite itself is in kick3d._spider3d."""
+    import math
+
+    from kickthefly.game.render3d import P_NONE, segment, trs
+
+    pose, rig = _spider_state(sp, 1.0)
+    up = np.array([0.0, 1.0, 0.0])
+    face = sp.get("face")
+    face = np.array([0.0, 0.0, 1.0]) if face is None or float(np.linalg.norm(face)) < 1e-6 else _norm(np.asarray(face, float))
+    side = np.array([-face[2], 0.0, face[0]])
+    cr, ra, lu = pose["crouch"], pose["raise_"], pose["lunge"]
+    hang = sp["state"] == "drop" or sp["p"][1] > 0.13 and sp["state"] in ("leave", "carry")
+    ground = None if hang else 0.0
+    body = np.asarray(sp["p"], float) + face * 0.12 * lu - up * 0.035 * cr
+    over = {}
+    if ra > 0.0:                                                    # the front pair raised and thrown forward in the wind-up
+        for i in (0, 4):
+            sg = -1.0 if i == 0 else 1.0
+            over[i] = body + face * (0.20 + 0.08 * ra) + up * (0.05 + 0.20 * ra) + side * 0.10 * sg
+    legs = rig.update(body, face, 1.0 / 60.0, moving=sp["state"] == "hunt" and pose["lunge"] == 0.0 and sp.get("cycle") is not None
+                      and sp["cycle"].walking, ground=ground, overrides=over, hang=0.1)
+    for hip, knee, foot in legs:
+        rd.add("cylinder", segment(hip, knee, 0.008), SPIDER_BLACK)
+        rd.add("cylinder", segment(knee, foot, 0.006), SPIDER_BLACK)
+    tilt = _norm(face * math.cos(0.5 * ra) + up * math.sin(0.5 * ra))
+    rd.add("sphere", trs(body - face * 0.02, _basis(tilt), (0.09, 0.06, 0.075)), SPIDER_BLACK)           # abdomen
+    head = body + face * 0.09 * 1.0 + up * 0.01 * (1 + ra)
+    rd.add("sphere", trs(head, _basis(tilt), (0.05, 0.04, 0.045)), SPIDER_BLACK)
+    for dx in (-0.015, 0.015):
+        rd.add("sphere", trs(head + face * 0.04 + up * 0.02 + side * dx, None, (0.008,) * 3), (1.0, 0.25, 0.25), P_NONE, 1.0)
+    for sg in (-1, 1):                                              # the fangs, down and open in the strike
+        fang = head + face * 0.04 - up * (0.02 + 0.02 * lu) + side * 0.012 * sg * (1 + lu)
+        rd.add("cylinder", segment(fang, fang + face * 0.02 - up * 0.03, 0.004), (0.85, 0.8, 0.7))
+
+
+def draw_spider2d(sp: dict, surf, now: float) -> None:
+    """The 2D spider: the same legs and cycle, side-on."""
+    from kickthefly.game import kick_the_fly as k2
+
+    U = 150.0
+    pose, rig = _spider_state(sp, U)
+    cr, ra, lu = pose["crouch"], pose["raise_"], pose["lunge"]
+    x, y = float(sp["p"][0]), float(sp["p"][1])
+    d = 1.0 if sp.get("face_x", 1.0) >= 0 else -1.0
+    hanging = sp["state"] == "drop" or (sp["state"] in ("leave", "carry"))
+    face = np.array([d, 0.0, 0.0])
+    # the rig works in metres-up space: pixels with y up, so flip y around the floor
+    floor = float(k2.FLOOR)
+    body = np.array([x + d * 18 * lu, floor - y - 4 * cr, 0.0])
+    over = {}
+    if ra > 0.0:
+        for i in (0, 4):
+            over[i] = body + np.array([d * (30 + 12 * ra), 8 + 34 * ra, 0.0])
+    legs = rig.update(body, face, 1.0 / 60.0, moving=sp["state"] == "hunt" and lu == 0.0 and sp["cycle"].walking if sp.get("cycle") else False,
+                      ground=None if hanging else 0.0, overrides=over, hang=15.0)
+
+    def P(v):
+        return (float(v[0]), floor - float(v[1]))
+
+    for hip, knee, foot in legs:
+        k2.thick_line(surf, P(hip), P(knee), 2.5, (30, 28, 32))
+        k2.thick_line(surf, P(knee), P(foot), 2, (30, 28, 32))
+    bx, by = P(body)
+    k2.aacircle(surf, (bx, by + 4), 13, (38, 34, 40))
+    k2.aapoly(surf, [(bx - 3, by), (bx + 3, by), (bx, by + 6)], (200, 40, 40))
+    k2.aapoly(surf, [(bx - 3, by + 12), (bx + 3, by + 12), (bx, by + 6)], (200, 40, 40))
+    hx, hy = bx + d * (10 + 4 * ra), by - 6 - 4 * ra
+    k2.aacircle(surf, (hx, hy), 8, (30, 28, 32))
+    k2.aacircle(surf, (hx + d * 3, hy - 2), 1.6, (230, 60, 60))
