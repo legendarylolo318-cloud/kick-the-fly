@@ -61,6 +61,9 @@ def run_validate(args) -> int:
     validation.save_results(res, out)
     print(validation.summary(res))
     print(f"results written to {out}")
+    if getattr(args, "autopsy", False) and brain == "adult":          # 3.1.0 task 8: read-only, after the results are saved
+        print("\nautopsy of every failure (read-only):")
+        run_failure_autopsy(args, results=res, folder=out.parent / "failure-autopsy")
     if args.strict:
         wrong = [t["id"] for t in res["tests"] if t["passed"] != validation.EXPECTED.get(t["id"])]
         if wrong:
@@ -134,6 +137,26 @@ def run_critical_path(args) -> int:
     criticalpath.save(res, folder)
     print(criticalpath.summary(res))
     print(f"results written to {folder}")
+    return 0
+
+
+def run_failure_autopsy(args, results: dict | None = None, folder: Path | None = None) -> int:
+    """--failure-autopsy [TEST ...] (3.1.0 task 8): a read-only page per failing validation test."""
+    from kickthefly.lab import failure_autopsy as fa, recorder
+
+    folder = folder or (Path(args.out) if args.out else recorder.exports_dir() / "failure-autopsy")
+    only = getattr(args, "failure_autopsy", None) or None
+    t0 = time.time()
+    try:
+        out = fa.run_all(folder, results=results, only=only, progress=lambda d, n, label: print(f"  {d}/{n} {label} ({time.time() - t0:.0f}s)", flush=True))
+    except fa.AutopsyError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 2
+    for a in out:
+        print(f"- {a['test']['name']}")
+        for s in a.get("sections", []):
+            print(f"    {s.get('verdict', {}).get('text', s.get('error', ''))}")
+    print(f"autopsies written to {folder} (read-only: nothing was changed; MODEL PREDICTION)")
     return 0
 
 
@@ -416,6 +439,8 @@ def main(args) -> int:
             return run_signflip(args)
         if getattr(args, "critical_path", None):
             return run_critical_path(args)
+        if getattr(args, "failure_autopsy", None) is not None:
+            return run_failure_autopsy(args)
         if getattr(args, "activation_screen", False):
             return run_screen(args, "activation")
         if getattr(args, "knockout_screen", None) is not None:
@@ -455,7 +480,7 @@ def main(args) -> int:
         print(f"error: {e}", file=sys.stderr)
         return 2
     print("nothing to do: use --validate, --protocol FILE, --playthrough, --replay FILE, --audit-asymmetry, --benchmark, "
-          "--threshold-sweep, --signflip-test, --critical-path TARGET, --activation-screen, --knockout-screen, --sensitivity, --tournament N, --race, --netsci, "
+          "--threshold-sweep, --signflip-test, --critical-path TARGET, --failure-autopsy, --activation-screen, --knockout-screen, --sensitivity, --tournament N, --race, --netsci, "
           "--sleep-deprivation, --rig NAME, --rig-assay NAME, --minipaper ID, --rerun-bundle ZIP or --share-decode CODE", file=sys.stderr)
     return 2
 

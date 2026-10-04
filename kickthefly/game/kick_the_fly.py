@@ -3136,6 +3136,8 @@ class Game:
                  "controls: which descending neurons respond, and which behavior readout moves. Searchable, sortable, resumable."),
                 ("Knockout screen", "lab_knockout", "MODEL PREDICTION. Silence candidate cell types for each validated behavior and rank them by how "
                  "much the response drops against matched random lesions. Resumable."),
+                ("Failure autopsy", "lab_autopsy", "MODEL PREDICTION, read-only. For each failing validation test: the paths from its input to its "
+                 "target, how much of the target's input they can supply, excitation versus inhibition, and what each stage did in the run."),
                 ("Simulation benchmark", "lab_benchmark", "Measure simulation throughput (neurons/s, synapses/s, sim vs real time) for 1, 8, 16 flies."),
                 ("Parameters", "lab_params", "Model parameters and game-rule thresholds, live."),
                 ("Record and export", "lab_export", "Record spike times and firing rates live to CSV and npz, with "
@@ -7567,6 +7569,10 @@ def parse_args(argv: list[str] | None = None):
     ap.add_argument("--knockout-screen", dest="knockout_screen", nargs="*", metavar="BEHAVIOR",
                     help="3.1.0, headless, MODEL PREDICTION: for each validated pathway behavior (or those named) silence ranked candidate cell types "
                          "and rank them by how much the response drops, with matched controls; resumable")
+    ap.add_argument("--failure-autopsy", dest="failure_autopsy", nargs="*", metavar="TEST",
+                    help="3.1.0, headless, MODEL PREDICTION, read-only: for each failing test of the latest validation result (or those named) trace the "
+                         "paths from its input to its target and report where the driven signal fades; a page per failure (Markdown and JSON) into --out")
+    ap.add_argument("--autopsy", action="store_true", help="with --validate: then autopsy every failure into --out/failure-autopsy")
     ap.add_argument("--screen-controls", dest="screen_controls", type=int, help="matched controls per condition and seed for a screen (default 2)")
     ap.add_argument("--min-neurons", dest="min_neurons", type=int, help="with --activation-screen: only cell types with at least this many neurons")
     ap.add_argument("--max-types", dest="max_types", type=int, help="with --activation-screen: only the first N cell types in name order")
@@ -7639,6 +7645,7 @@ def main(argv: list[str] | None = None) -> int:
             or getattr(args, "sensitivity", False) or getattr(args, "tournament", None) or getattr(args, "race", False)
             or getattr(args, "netsci", None) or getattr(args, "sleep_deprivation", False)
             or getattr(args, "rig", None) or getattr(args, "rig_assay", None) or getattr(args, "minipaper", None)
+            or getattr(args, "failure_autopsy", None) is not None
             or getattr(args, "activation_screen", False) or getattr(args, "knockout_screen", None) is not None
             or getattr(args, "replay", None) or getattr(args, "record_replay", None)
             or getattr(args, "rerun_bundle", None) or getattr(args, "share_decode", None)):
