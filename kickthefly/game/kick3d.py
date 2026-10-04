@@ -28,6 +28,8 @@ import numpy as np
 import pygame
 
 from kickthefly.core import crash
+from kickthefly.core import profiler as _profiler
+from kickthefly.core.profiler import PROF
 from kickthefly.game import kick_the_fly as k2
 from kickthefly.game import gamepad, outdoors
 from kickthefly.game import kitchen
@@ -181,6 +183,7 @@ HELP3D = (
     ("F", "cycle focused fly (in photo mode: autofocus)"),
     ("R", "reset to a single fresh fly"),
     ("Z  [  ]  .", "pause time, slower, faster, single step"),
+    ("F3", "profiler overlay: sim, physics, render and UI milliseconds, FPS, engine (off at every launch)"),
     ("Esc", "close a panel, or open the menu (settings, save, quit)"),
 )
 
@@ -3795,6 +3798,8 @@ class App:
 
     def render(self, game: Game3D, now: float, target=None, size=None):
         ctx, rd = self.ctx, self.rd
+        _sec = PROF.section("render")                      # 3.1.0 profiler: the world, then (below) the HUD
+        _sec.__enter__()
         Wn, Hn, s, hud_w, hud_h, play_w, view_w = self.layout(game, size)
         k2.W, k2.H, k2.PLAY_W, k2.FLOOR = hud_w, hud_h, play_w, hud_h - 120   # the shared HUD code reads these
         game.view_w, game.hud_h = view_w, hud_h
@@ -3853,6 +3858,9 @@ class App:
                 return None
             return ((ndc[0] + 1) / 2 * view_w, (1 - ndc[1]) / 2 * hud_h)
 
+        _sec.__exit__()
+        _sec = PROF.section("ui")
+        _sec.__enter__()
         game.draw_hud3d(now, project)
         tex = self.hud_texture(hud_w, hud_h, s)
         tex.write(pygame.image.tobytes(game.screen, "RGBA", False))
@@ -3870,6 +3878,7 @@ class App:
         if not (getattr(game, "photo_mode", False) and getattr(game, "photo_hide_ui", False)):
             rd.blit_texture(tex, (0, 0, hud_w * s, hud_h * s), (Wn, Hn), flip=True, blend=True)
         self.view_frac = view_w / hud_w
+        _sec.__exit__()
         return (Wn, Hn, s, hud_w, hud_h, play_w, view_w)
 
     def capture(self, game: Game3D) -> None:
@@ -4064,6 +4073,8 @@ def run(smoke: float = 0.0, shot: str | None = None, fullscreen: bool = False, s
         s = app.layout(game, (Wn, Hn))[2]
         return (int(pos[0] / s), int(pos[1] / s))
 
+    _profiler.bench_start()
+    warm_done = False
     while running:
         real = time.perf_counter()
         dt = min(0.05, real - last)
@@ -4090,10 +4101,11 @@ def run(smoke: float = 0.0, shot: str | None = None, fullscreen: bool = False, s
             game.spawn_fly()
             to_spawn -= 1
         game.sync_time()
-        game.update_player(dt, keys, rel)
-        for tick_dt in ticks:
-            game.clock.now += tick_dt
-            game.update3d(game.clock.now, tick_dt, keys, rel)
+        with PROF.section("physics"):
+            game.update_player(dt, keys, rel)
+            for tick_dt in ticks:
+                game.clock.now += tick_dt
+                game.update3d(game.clock.now, tick_dt, keys, rel)
         now = game.clock.now
         if script is not None and script(game, app, real - t_game, lay) is False:
             running = False
@@ -4110,8 +4122,15 @@ def run(smoke: float = 0.0, shot: str | None = None, fullscreen: bool = False, s
             app.ctx.screen.use()
             app.screenshot(path, lay, game=game, now=now)
             game.saved_note(path)
-        pygame.display.flip()
+        with PROF.section("present"):
+            pygame.display.flip()
+        if PROF.on:
+            PROF.sim_busy(sum(sl.brain.sim.busy_s for sl in game.flies))
+            PROF.end_frame()
         if smoke and real - t_game > smoke / 2 and not to_spawn:
+            if not warm_done:
+                warm_done = True
+                _profiler.bench_warm_done()                # the profiler's numbers cover the second half only
             fps_log.append(clock.get_fps())                # the second half of the run: after spawning and warm-up
         if smoke and real - t_game > smoke:
             try:
@@ -4125,6 +4144,7 @@ def run(smoke: float = 0.0, shot: str | None = None, fullscreen: bool = False, s
                       f"sound {game.sound.ok}, {gif}, arena {k2.ARENAS[game.arena_i]}, {len(game.flies)} flies, "
                       f"sim/real {min(rates) / 200:.2f}x (slowest fly) {np.mean(rates) / 200:.2f}x (mean)")
             print(status)
+            _profiler.bench_finish(game, status)
             if shot:
                 app.ctx.screen.use()
                 app.screenshot(Path(shot), lay)

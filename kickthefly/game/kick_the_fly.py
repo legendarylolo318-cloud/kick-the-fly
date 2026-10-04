@@ -504,6 +504,8 @@ from kickthefly.core import crash
 from kickthefly.core import loadout as loadout_mod
 from kickthefly.ui import menu as menu_ui
 from kickthefly.core import paths
+from kickthefly.core import profiler as _profiler
+from kickthefly.core.profiler import PROF
 from kickthefly.game.predator_anim import SpiderCycle
 from kickthefly.core import platform_env
 from kickthefly.core.simclock import SimClock
@@ -2524,6 +2526,7 @@ HELP = (
     ("D", "the Neurodex: cell types you have discovered (in 3D only with the mouse free, Tab)"),
     (";", "kill cam: slow-motion replay of the fly's last seconds, after it dies"),
     ("Z [ ] .", "pause time, slower, faster, single step"),
+    ("F3", "profiler overlay: sim, physics, render and UI milliseconds, FPS, engine (off at every launch)"),
     ("H", "this help"),
     ("Esc", "close a panel, or open the menu (settings, save, quit)"),
 )
@@ -6266,6 +6269,10 @@ class Game:
 
     # --- render ---
     def draw(self, now: float, mouse) -> None:
+        with PROF.section("render"):
+            self._draw(now, mouse)
+
+    def _draw(self, now: float, mouse) -> None:
         scr = self.screen
         scr.fill(BG)
         arena = self.bg.copy()
@@ -6405,6 +6412,8 @@ class Game:
             arena.blit(txt, (x, y))
             if pu[5] and self.cfg.tags_on():
                 draw_source_chip(arena, (pu[0], y + txt.get_height()), pu[5], self.f_small, alpha=a)
+        _ui = PROF.section("ui")                       # the HUD, the brain panel and the menus (3.1.0 profiler)
+        _ui.__enter__()
         if getattr(self, "photo_mode", False):
             b_txt = self.f_small.render("PHOTO MODE  |  S / F12: Clean Snap  |  F10: Exit", True, (240, 240, 240))
             box = b_txt.get_rect(midbottom=(PLAY_W // 2, FLOOR + 30)).inflate(24, 8)
@@ -6450,6 +6459,7 @@ class Game:
             self.tutorial.draw(scr)                   # review: it drew over the kill cam
         if self.menu.open:
             self.menu.draw(scr, pygame.mouse.get_pos(), now)
+        _ui.__exit__()
 
     def draw_time_indicator(self, surf, cx: int, y: int) -> None:
         label = self.clock.label()
@@ -7493,7 +7503,9 @@ def parse_args(argv: list[str] | None = None):
     ap.add_argument("--autopilot", "--spectator", dest="autopilot", action="store_true", help="spectator mode: hands-off simulation with auto-orbiting brain view")
     ap.add_argument("--audit-asymmetry", dest="audit_asymmetry", action="store_true", help="run bilateral asymmetry audit and exit")
     ap.add_argument("--mirror-weights", dest="mirror_weights", action="store_true", help="mirror-average synaptic weights (game rule: data modification)")
-    ap.add_argument("--benchmark", action="store_true", help="run simulation throughput benchmark (1, 8, 16 flies) and exit")
+    ap.add_argument("--benchmark", action="store_true", help="run simulation throughput benchmark (1, 8, 16 flies), then a frame profile "
+                    "of fixed rendered scenes (sim, physics, render, UI milliseconds, FPS, engine), and exit")
+    ap.add_argument("--no-render-bench", dest="no_render_bench", action="store_true", help="with --benchmark: skip the rendered scenes")
     ap.add_argument("--threshold-sweep", dest="threshold_sweep", action="store_true",
                     help="re-run the validated behaviors at a range of minimum-synapse thresholds and exit")
     ap.add_argument("--thresholds", type=int, nargs="+", help="minimum-synapse thresholds for --threshold-sweep")
@@ -7732,8 +7744,13 @@ def main(argv: list[str] | None = None) -> int:
         game.toggle_video_recording(None if args.record_video == "default" else args.record_video)
     running = True
     t_game = time.perf_counter()
+    _profiler.bench_start()
+    warm_done = False
     while running:
         real = time.perf_counter()
+        if smoke and not warm_done and real - t_game > smoke / 2:
+            warm_done = True
+            _profiler.bench_warm_done()
         if smoke and real - t_game > smoke:
             try:
                 from PIL import Image  # noqa: F401  (GIF saving works in this build)
@@ -7742,6 +7759,7 @@ def main(argv: list[str] | None = None) -> int:
                 gif = "no gif"
             status = f"smoke ok: {brain.n:,} neurons, {brain.steps_per_s:.0f} steps/s, sound {game.sound.ok}, {gif}"
             print(status)
+            _profiler.bench_finish(game, status)
             if shot:                                      # optional screenshot path; the exe has no console
                 save_image(screen, shot)
                 with open(shot + ".txt", "w") as f:
@@ -7757,9 +7775,10 @@ def main(argv: list[str] | None = None) -> int:
                 continue
             running = game.handle(ev, game.clock.now) and running
         game.sync_time()
-        for dt in ticks:
-            game.clock.now += dt
-            game.update(game.clock.now, (min(mouse[0], PLAY_W - 5), mouse[1]))
+        with PROF.section("physics"):
+            for dt in ticks:
+                game.clock.now += dt
+                game.update(game.clock.now, (min(mouse[0], PLAY_W - 5), mouse[1]))
         game.draw(game.clock.now, mouse)
         if ticks and game.frame % 4 == 0:            # rolling footage for G / the death GIF
             game.capture()
@@ -7767,7 +7786,11 @@ def main(argv: list[str] | None = None) -> int:
             game.capture_timelapse_frame()
         if ticks and getattr(game, "video_recorder", None) and game.video_recorder.is_recording:
             game.capture_video_frame()
-        pygame.display.flip()
+        with PROF.section("present"):
+            pygame.display.flip()
+        if PROF.on:
+            PROF.sim_busy(sum(sl.brain.sim.busy_s for sl in game.flies))
+            PROF.end_frame()
         clock.tick(cfg["graphics.fps_cap"])
     shutdown(game)
     return 0

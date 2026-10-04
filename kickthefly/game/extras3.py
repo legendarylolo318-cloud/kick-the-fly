@@ -314,6 +314,10 @@ class Extras:
                     self.player.speed = self.kc_speed
                 return True
             acts = g.cfg.actions_for(name)
+            if "profiler" in acts:                       # 3.1.0 task 5: off at every launch
+                from kickthefly.core.profiler import PROF
+                g.note("PROFILER  on (F3 again to hide)" if PROF.toggle() else "PROFILER  off")
+                return True
             if "killcam" in acts and self.kc_available():
                 self.kc_start()
                 return True
@@ -363,9 +367,42 @@ class Extras:
         return False
 
     # --- drawing -----------------------------------------------------------------------------------------------------------------------
+    def draw_profiler(self, surf) -> None:
+        """The frame profiler (core/profiler.py): FPS, the sections' milliseconds, a frame-time strip, the engine and the brain view."""
+        from kickthefly.core.profiler import PROF
+        g = self.g
+        try:
+            be = g.flies[0].brain.sim.backend
+            backend = f"{be.name} ({be.device})"
+        except Exception:
+            backend = ""
+        view = getattr(getattr(g, "view", None), "engine_note", "") or ("CPU (sparse matrices)" if getattr(g, "view", None) is not None else "")
+        lines = PROF.lines(backend, view.split(" (")[0]) + ["GAME RULE: timings only; no neuron reads this"]
+        f = g.f_small
+        w = 440
+        h = 12 + 20 * len(lines) + 54
+        card = pygame.Surface((w, h), pygame.SRCALPHA)
+        pygame.draw.rect(card, (8, 10, 16, 215), card.get_rect(), border_radius=8)
+        pygame.draw.rect(card, (70, 80, 100, 180), card.get_rect(), 1, border_radius=8)
+        for i, ln in enumerate(lines):
+            card.blit(f.render(ln, True, (200, 235, 210) if i == 0 else (222, 228, 238)), (10, 8 + 20 * i))
+        y0 = 12 + 20 * len(lines)                         # the last frames, one column each; the lines mark 16.7 ms and 33 ms
+        fr = list(PROF.frames)[-(w - 20):]
+        top = 40.0
+        for ms, col in ((1000 / 60, (60, 140, 90)), (1000 / 30, (150, 120, 60))):
+            yy = y0 + 44 - int(44 * min(ms, top) / top)
+            pygame.draw.line(card, col, (10, yy), (w - 10, yy))
+        for k, ms in enumerate(fr):
+            hh = int(44 * min(ms, top) / top)
+            pygame.draw.line(card, (110, 190, 255) if ms < 1000 / 30 else (255, 150, 90), (10 + k, y0 + 44), (10 + k, y0 + 44 - hh))
+        surf.blit(card, (8, 8))
+
     def draw(self, surf, now: float) -> None:
         g = self.g
         wall = time.perf_counter()
+        from kickthefly.core.profiler import PROF
+        if PROF.on:
+            self.draw_profiler(surf)
         if self.player is not None:
             self.draw_killcam(surf, wall)
             return

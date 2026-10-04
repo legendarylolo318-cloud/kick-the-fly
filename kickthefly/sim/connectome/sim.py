@@ -138,6 +138,7 @@ class LIFSim:
         self.target_p = self.p.target_rate_hz * self.p.dt_ms / 1000.0
         self.activity = ActivityBuffer(self.n)
         self.last_step_ms = 0.0
+        self.busy_s = 0.0
         self.path_counts = {"columns": 0, "full": 0}
         self.spike_total = 0
         self.individuality = getattr(self.p, "individuality", "off")
@@ -190,6 +191,7 @@ class LIFSim:
 
         self.activity.push(spikes)
         self.last_step_ms = (time.perf_counter() - t0) * 1000
+        self.busy_s += self.last_step_ms / 1000.0       # the profiler's `sim` row (core/profiler.py)
         return spikes
 
 

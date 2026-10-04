@@ -60,7 +60,7 @@ SETTINGS: tuple[Setting, ...] = (
     S("graphics.brain_view", "Graphics", "Brain view drawn by", "choice", "auto",
       "Who draws the live brain image (panel and big view). Auto uses the GPU (every neuron as an instanced point, one number per neuron "
       "uploaded a frame) when there is a real GPU, else the CPU. Same picture either way; the GPU makes turning the big view smooth.",
-      options=("auto", "gpu", "cpu"), labels=("Auto", "GPU", "CPU")),
+      options=("auto", "gpu", "cpu"), labels=("Auto", "GPU", "CPU"), tag=GAME_RULE),
     S("graphics.panel_mode", "Graphics", "Brain panel", "choice", "solid",
       "How the live brain panel on the right is drawn: solid, see-through, faint, or hidden to give the room the "
       "whole screen. Hotkey V.", options=("solid", "see-through", "faint", "hidden"),
@@ -287,6 +287,7 @@ ACTIONS: tuple[tuple[str, str, str], ...] = (
     ("autopilot", "Autopilot / spectator", "y"),
     ("photo_mode", "Photo mode / free camera", "f10"),
     ("stethoscope", "Brain stethoscope", "k"),
+    ("profiler", "Profiler overlay", "f3"),
     ("timelapse", "Time-lapse record", "l"),
     ("recall", "Recall a lost fly (outdoors)", "j"),
     ("cycle_fly", "Cycle focused fly", "f"),

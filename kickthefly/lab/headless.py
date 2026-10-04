@@ -290,6 +290,16 @@ def run_benchmark(args) -> int:
     print(benchmark.format_benchmark_report(res))
     out_p = benchmark.save_benchmark_results(res, getattr(args, "out", None))
     print(f"Results written to {out_p}")
+    if not getattr(args, "no_render_bench", False):             # 3.1.0 task 5: where a frame's milliseconds go
+        from kickthefly.lab import framebench
+        print("\nFrame profile, fixed rendered scenes (offscreen; --no-render-bench skips this):")
+        rows = framebench.run_scenes(backend=None if backend == "auto" else backend)
+        print(framebench.format_table(rows))
+        try:
+            import json
+            Path(str(out_p)).with_name(Path(str(out_p)).stem + "-frames.json").write_text(json.dumps(rows, indent=1), encoding="utf-8")
+        except Exception:
+            pass
     return 0
 
 

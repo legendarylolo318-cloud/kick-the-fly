@@ -12,7 +12,7 @@ The 3.0 features (Neurodex, kill cam, Lab toolkit, predators, weather, the kitch
 - **Self-test, bug report and tutorial:** `--selftest` (also Settings > Help) checks your install and says how to fix what it finds; Report a bug shows exactly what a report would contain and never sends anything; a one-minute tutorial runs on the first launch. See [selftest-and-bugreport.md](selftest-and-bugreport.md).
 - **Playthrough bot and CI:** `--headless --playthrough` uses every tool in every arena on both brains and checks the documented neurons fired; it runs nightly with the full validation and its history is published. See [playthrough.md](playthrough.md) and [ci.md](ci.md).
 - **Larval brain (headless):** the *Drosophila* larva brain connectome (2,952 neurons, 352,611 synapses; Winding et al. 2023) for `--headless --validate --brain larva` and Python use. It is built on your machine from the paper's Data S1 on first use. The windowed larva game is not finished: with `--brain larva` the game still runs the adult. Neither larva validation test passes. See [larva.md](larva.md).
-- **Fly individuality:** per-fly variation as per-neuron scaling $W_{\text{fly}} = D_{\text{post}} \cdot W \cdot D_{\text{pre}}$ with the shared matrix unchanged (Settings > Brain > Individuality: off / subtle / strong). NumPy and Numba stay bit-exact; torch-cpu only with it off; not implemented on gl. Forced off for validation. Personality cards are measured from each fly's own brain (Esc > Fly arcade > Measure the flies in play); an unmeasured fly says "card not measured". See [individuality.md](individuality.md).
+- **Fly individuality:** per-fly variation as per-neuron scaling $W_{\text{fly}} = D_{\text{post}} \cdot W \cdot D_{\text{pre}}$ with the shared matrix unchanged (Settings > Brain > Individuality: off / subtle / strong). NumPy and Numba stay bit-exact; torch-cpu only with it off; gl applies it too since 3.1.0 (to float32 summation order). Forced off for validation. Personality cards are measured from each fly's own brain (Esc > Fly arcade > Measure the flies in play); an unmeasured fly says "card not measured". See [individuality.md](individuality.md).
 - **Pet mode:** one persistent fly across real days in `Esc > Mode`. No background process, service, autostart or timer: time is caught up deterministically at launch, clamped to 0-7 days. Hunger and sleep pressure (GAME RULE, in Lab > Parameters) scale real taste, PAM reward and dFB sleep neurons. Death is off by default. See [pet.md](pet.md).
 - **Hits fire real sensory neurons:**
   - head: head bristles and Johnston's organ
@@ -78,6 +78,7 @@ Every key below can be rebound in Settings > Controls (a key that's already take
 
 | key | what it does |
 |---|---|
+| F3 | the profiler overlay: FPS, frame time and the sim, physics, render and UI milliseconds, the engine and the brain view (off at every launch; GAME RULE: timings only). [performance.md](performance.md) |
 | Esc | close a panel, or open the pause menu: Resume, Challenges (Play) or Lab tools (Lab), Neurodex, Settings, Share, Save State, Load State, Mode, Quit |
 | WASD | walk (Shift sprint, Ctrl or C crouch); walk into the fly to kick it |
 | Mouse | look around; left click uses the tool in your hand |

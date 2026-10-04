@@ -18,6 +18,32 @@ python kick_the_fly.py --headless --benchmark --backend NAME --flies 1 8 16 32 -
 
 Lab > Simulation benchmark runs the same thing in the game and reports the backend that actually ran.
 
+## The profiler and the frame profile (3.1.0)
+
+**F3** (rebindable in Settings > Controls; off at every launch) puts a card over the game: FPS, the frame time with its 95th percentile and worst, a
+strip of the last frames (green and amber lines at 60 and 30 fps), the milliseconds of each part of a frame, the compute engine and the brain view's
+renderer. Tag: **GAME RULE** (it reads clocks and counters; nothing the simulation does). The rows are milliseconds of the game's own thread, per frame,
+over the last 180 frames:
+
+| row | what it is |
+|---|---|
+| `sim` | the brains' own step time summed over the steps they took this frame. The brains run on threads of their own, so this is compute used while the frame ran, **not** time the frame waited (flies batched on one GPU overlap, so it can exceed the frame) |
+| `physics` | the fly's physics, the tools, predators, the rest of the game update, and the player's movement |
+| `render` | 3D: building and submitting the scene; 2D: drawing the arena |
+| `ui` | the HUD, the brain panel, menus and the science card |
+| `present` | swapping buffers: where vsync, the frame cap and a busy GPU show |
+
+`render`, `ui` and `physics` are CPU time. Sections nest and the inner time is taken out of the outer, so the rows add up to the frame. With the profiler off
+each section costs one method call returning a shared no-op context (under 2 microseconds).
+
+`python kick_the_fly.py --benchmark` runs the simulation table above and then the **frame profile**: the game's own smoke run, seed 1, the room, 4 flies in
+3D and one in 2D, offscreen (EGL; no display needed, and the monitor cannot cap it), ten seconds of which the first five are warm-up, one row each for
+3D at the 60 fps cap (what a player gets), 3D uncapped (how fast the frame can go; flat out it competes with a GPU brain for the GPU, so its steps/s drop),
+3D with the brain view on the CPU, and 2D. `--no-render-bench` skips it. Each child's numbers also land in `benchmark_results-frames.json` next to the
+simulation results. On this machine (an RX 9070 XT; every number is in `HANDOFF.md`) the GPU brain view takes `ui` from 6.6 to 4.8 ms and
+`physics` from 3.5 to 2.5 ms in the capped 3D scene, and the brains keep 198 steps/s against 174 with the CPU view (the CPU view's sparse products compete
+with the brains for the interpreter).
+
 ## Where the simulation runs (3.1.0)
 
 Each fly's brain steps on a thread of its own at a fixed 200 steps per second of brain time (times the game speed: slow motion scales it, pause stops
