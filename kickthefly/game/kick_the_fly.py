@@ -2591,6 +2591,9 @@ class Game:
         self.bg = make_background()
         self.shadow = make_shadow()
         self.view = view
+        from kickthefly.sim import realshapes
+        self.shapes = realshapes.ShapeLoader()           # 3.1.0 task 9: real neuron shapes, asked for when a neuron is inspected
+        self._shape_cache: dict = {}
         if hasattr(view, "pref"):
             view.pref = str(self.cfg.get("graphics.brain_view", "auto"))
         self.view_surf: dict[str, pygame.Surface] = {}
@@ -2762,6 +2765,8 @@ class Game:
         elif key == "brain.neuron_shapes":
             from kickthefly.sim import morphology
             morphology.set_opt_in(bool(c[key]))
+            if hasattr(self, "shapes"):
+                self.shapes.reset_offline()                  # ask again for the shapes that were refused while it was off
         elif key == "brain.pet_real_stakes":
             if getattr(self, "pet", None):
                 self.pet.real_stakes = bool(c[key])
@@ -4812,6 +4817,7 @@ class Game:
             return None if q < 0 else (rect.x + q % w, rect.y + q // w)
 
         me = at(info["i"])
+        shape = self._real_shape(info["i"], rect, surf)
         for lst, col in ((info["ins"], (110, 200, 255)), (info["outs"], (255, 160, 80))):
             for j, _ in lst:
                 q = at(j)
@@ -4863,7 +4869,9 @@ class Game:
             self._text(surf, f"{how}, {conf_txt}" + ("   SIGN FLIPPED IN LAB" if flipped else ""), (x, yy + 14),
                        (255, 140, 140) if flipped else LABEL, self.f_small)
             yy += 34
-        yy += 4
+        yy += 2
+        self._text(surf, shape, (x, yy), (255, 236, 140) if shape.startswith("real shape:") else DIM, self.f_small)
+        yy += 14
         for title, lst, col in (("strongest inputs (% of its input)", info["ins"], (110, 200, 255)),
                                 ("strongest outputs (% of target's input)", info["outs"], (255, 160, 80))):
             self._text(surf, title, (x, yy), col, self.f_small)
@@ -4907,6 +4915,50 @@ class Game:
             pygame.draw.rect(surf, (40, 120, 90) if on else (40, 46, 58), r, border_radius=6)
             self._text(surf, label, r.center, INK, self.f_small, "center")
             self.path_buttons.append((r, what, i))
+
+    def _real_shape(self, i: int, rect: pygame.Rect, surf) -> str:
+        """3.1.0 task 9: ask for the inspected neuron's real shape (a cached one at once; a download only if the player opted in), draw it over
+        the big view and as an inset with its credit, and return the line the card shows. Drawing only."""
+        from kickthefly.game import shape_draw
+        from kickthefly.sim import realshapes
+
+        br = self.brain
+        bid = int(br.body_id[i]) if getattr(br, "body_id", None) is not None and i < len(br.body_id) else None
+        if not bid or bid <= 0:
+            return "estimated fiber (no body id)"
+        self.shapes.request(bid)
+        state, msg = self.shapes.status(bid)
+        skel = self.shapes.skeleton(bid)
+        if skel is None:
+            if state == "loading":
+                return "estimated fiber (downloading the real shape...)"
+            if state == "off":
+                return "estimated fiber (real shapes are off: Settings > Brain)" if not realshapes.opted_in() else f"estimated fiber ({msg[:44]})"
+            return f"estimated fiber ({msg[:44]})" if msg else "estimated fiber"
+        v = self.view
+        sig = (bid, round(v.yaw, 2), round(v.pitch, 2), round(v.pan_x, 1), round(v.pan_y, 1), round(v.zoom, 3), getattr(v, "on_gpu", False))
+        c = self._shape_cache
+        if c.get("sig") != sig:
+            try:
+                c["sig"], c["overlay"] = sig, shape_draw.overlay(v, skel)
+            except Exception:
+                log.exception("drawing a real neuron shape failed")
+                c["sig"], c["overlay"] = sig, None
+        if c.get("overlay") is not None:
+            surf.blit(c["overlay"], rect.topleft)
+        if c.get("thumb_for") != bid:
+            try:
+                c["thumb_for"], c["thumb"] = bid, shape_draw.thumbnail(v, skel, (236, 118))
+            except Exception:
+                c["thumb_for"], c["thumb"] = bid, None
+        box = pygame.Rect(rect.x + 10, rect.bottom - 150, 244, 140)
+        bg = pygame.Surface(box.size, pygame.SRCALPHA)
+        pygame.draw.rect(bg, (8, 10, 16, 215), bg.get_rect(), border_radius=8)
+        surf.blit(bg, box)
+        if c.get("thumb") is not None:
+            surf.blit(c["thumb"], (box.x + 4, box.y + 4))
+        self._text(surf, realshapes.CREDIT_SHORT, (box.x + 6, box.bottom - 16), DIM, self.f_small)
+        return f"real shape: {skel.n:,} nodes, {skel.cable_length_um():,.0f} um of cable"
 
     # --- big view: neuron search and path tracer (kickthefly/lab/neurosearch.py) ---------------------------------
     def search_box_rect(self) -> pygame.Rect:

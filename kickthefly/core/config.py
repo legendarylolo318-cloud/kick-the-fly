@@ -151,10 +151,12 @@ SETTINGS: tuple[Setting, ...] = (
       "here) and a Try it button that sets up a one-click experiment. Separate from the real-science popups. Which type, "
       "the card and Try it are game rules.", tag=GAME_RULE),
     S("brain.neuron_shapes", "Brain", "Download real neuron shapes", "bool", False,
-      "Lets the brain view download the EM skeletons of ten neurons (two each of DNp01, DNa02, MBON01, MBON14 and KCg) from "
-      "Janelia's neuPrint, once, into a cache. Off by default: it is the game's only network use outside Streamer mode. "
+      "Lets the game download real neuron shapes (EM skeletons) from Janelia's public MaleCNS v1.0 release (CC BY 4.0, credited on screen): "
+      "the ten shown in the brain view, and any neuron you inspect, one at a time (10-100 kB each, only when you click it), checksummed "
+      "and cached in your data folder, never bundled. Off by default: it is the game's only network use outside Streamer mode. "
       "Shapes are drawing only: the simulation treats every neuron as a point either way, so no result depends on this. "
-      "Shapes already in the cache load without the network. Never used in headless runs or tests.", restart=True),
+      "Shapes already in the cache load without the network. Never used in headless runs or tests. Anything that goes wrong "
+      "falls back to the estimated fiber.", restart=True),
     S("brain.mic_sensitivity", "Brain", "Microphone sensitivity", "float", 1.0,
       "Esc > Mic and streamer: how loud a band must be to drive the Johnston's organ JO-A/JO-B neurons fully (the sound is band-passed "
       "into JO-B, below ~100 Hz, and JO-A, higher; neurons from the dataset, the transduction and every number a GAME RULE). Only the "

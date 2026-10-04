@@ -78,6 +78,34 @@ void main() { f_col = vec4(v_col, 1.0); }
 """
 
 
+_LINE_VS = """
+#version 430
+in vec3 in_vert;
+uniform mat3 R;
+uniform vec3 center;
+uniform float zoom;
+uniform vec2 pan;
+uniform vec2 span;
+uniform float shade;                    // 1: shade by depth as the brain view does; 0: flat
+out float v_depth;
+void main() {
+    vec3 rot = R * (in_vert - center);
+    float rx = rot.x * zoom + pan.x + span.x * 0.5;
+    float ry = rot.y * zoom + pan.y + span.y * 0.5;
+    float rz = rot.z * zoom + center.z;
+    v_depth = shade > 0.5 ? clamp(1.2 - (rz - 5000.0) / 50000.0, 0.35, 1.0) : 1.0;
+    gl_Position = vec4(rx / span.x * 2.0 - 1.0, ry / span.y * 2.0 - 1.0, 0.0, 1.0);
+}
+"""
+_LINE_FS = """
+#version 430
+in float v_depth;
+uniform vec3 color;
+out vec4 f_col;
+void main() { f_col = vec4(color * v_depth, 1.0) * 0.92; }
+"""
+
+
 class _Worker:
     """A thread that owns one offscreen GL context; callers hand it functions and wait (the _GLGroup pattern, in miniature)."""
 
@@ -270,6 +298,46 @@ class GPUBrainView(k2.BrainView):
         ctx.memory_barrier(mgl.BUFFER_UPDATE_BARRIER_BIT)
         raw = np.frombuffer(fbo.read(components=4, dtype="f4"), np.float32).reshape(wh[1], wh[0], 4)
         return raw[..., :3].reshape(-1, 3).copy()
+
+    # --- lines (a real neuron shape: the neuron inspector and the big view) --------------------------------------------------------
+    def _draw_lines(self, segs: np.ndarray, cam: dict, wh: tuple[int, int], color, shade: bool) -> np.ndarray:
+        ctx, mgl, st = self._gpu.ctx, self._gpu.moderngl, self._gpu_state
+        if "lprog" not in st:
+            st["lprog"] = ctx.program(vertex_shader=_LINE_VS, fragment_shader=_LINE_FS)
+        prog = st["lprog"]
+        verts = np.ascontiguousarray(segs.reshape(-1, 3), np.float32)
+        vbo = ctx.buffer(verts.tobytes())
+        vao = ctx.vertex_array(prog, [(vbo, "3f", "in_vert")])
+        tex, fbo = self._target(wh)
+        fbo.use()
+        ctx.viewport = (0, 0, wh[0], wh[1])
+        ctx.clear(0.0, 0.0, 0.0, 0.0)
+        ctx.enable(mgl.BLEND)
+        ctx.blend_func = mgl.ONE, mgl.ONE_MINUS_SRC_ALPHA
+        span = cam.get("span") or (k2.VIEW_X[1] - k2.VIEW_X[0], k2.VIEW_Y[1] - k2.VIEW_Y[0])
+        prog["R"].write(np.ascontiguousarray(cam["R"].T, dtype=np.float32).tobytes())
+        prog["center"] = tuple(float(v) for v in cam["center"])
+        prog["zoom"] = float(cam["zoom"])
+        prog["pan"] = (float(cam["pan"][0]), float(cam["pan"][1]))
+        prog["span"] = (float(span[0]), float(span[1]))
+        prog["shade"] = 1.0 if shade else 0.0
+        prog["color"] = tuple(float(c) for c in color)
+        vao.render(mgl.LINES, vertices=len(verts))
+        raw = np.frombuffer(fbo.read(components=4, dtype="f4"), np.float32).reshape(wh[1], wh[0], 4).copy()
+        vao.release()
+        vbo.release()
+        return raw
+
+    def render_segments(self, segs: np.ndarray, cam: dict, wh: tuple[int, int], color=(1.0, 0.95, 0.6), shade: bool = True) -> np.ndarray | None:
+        """(h, w, 4) float RGBA, premultiplied, of line segments (m, 2, 3) in EM space, drawn on the GPU with `cam` (as _camera makes). None if the
+        GPU view is off; the caller then draws on the CPU (game/shape_draw.py)."""
+        if not self._want_gpu():
+            return None
+        try:
+            return self._gpu.call(lambda: self._draw_lines(segs, cam, wh, color, shade))
+        except Exception as e:
+            self._fail(e)
+            return None
 
     # --- the camera the next frame uses ----------------------------------------------------------------------------------------------
     def _camera(self, key: str) -> dict:

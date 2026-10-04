@@ -165,4 +165,6 @@ The adult connectome data is Janelia FlyEM MaleCNS v1.0, a collaboration between
 
 The Drosophila larva connectome data is from Winding, M., Pedigo, B.D., Barnes, C.L., et al. (2023). "The connectome of an insect brain." *Science*, 379(6636), eadd9330. DOI: [10.1126/science.add9330](https://doi.org/10.1126/science.add9330) (Supplementary Data S1). No license is stated for it, so Kick the Fly does not redistribute it: the larva pack is built on your machine from the downloaded Data S1 (checksum-verified; mirror: [github.com/brain-networks/larval-drosophila-connectome](https://github.com/brain-networks/larval-drosophila-connectome)).
 
+Real neuron shapes (opt-in, Settings > Brain; [docs/real-shapes.md](docs/real-shapes.md)) are the skeletons of the same MaleCNS v1.0 release (FlyEM at HHMI Janelia with the University of Cambridge, the MRC LMB and Google Research; CC BY 4.0, [male-cns.janelia.org](https://male-cns.janelia.org/)), downloaded one neuron at a time from Janelia's public bucket when you inspect it, checksummed and cached on your machine, and never bundled.
+
 The exe and AppImage bundle a compact pack derived from the adult data only. The pack keeps the signed synapse counts, the neuron labels (type, superclass, subclass, instance), body IDs and the cell-body positions, and is otherwise unmodified.
