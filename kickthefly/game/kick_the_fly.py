@@ -614,8 +614,8 @@ def get_max_flies(backend: str | None = None, brain: str = "adult") -> int:
     if backend is None or backend == "auto":
         from kickthefly.sim.connectome.backends import detect_available_backends
         avail = detect_available_backends()
-        # the same chain create_backend's 'auto' walks: gl is not in it, so the cap must not assume it either
-        backend = next((b for b in ("torch-cuda", "torch-rocm", "numba") if b in avail), "cpu")
+        from kickthefly.sim.connectome.backends import auto_chain
+        backend = auto_chain(avail)[0]          # the same chain create_backend's 'auto' walks, under the same policy
     backend = str(backend).lower()
     if backend == "gl":
         return 32                    # a 33rd fly would start a second group, streaming the weights twice per step
@@ -7607,6 +7607,9 @@ def main(argv: list[str] | None = None) -> int:
             sim_backend_choice = "auto"
     if sim_backend_choice:
         cfg.set("brain.backend", sim_backend_choice)
+    if os.environ.get("KICK_THE_FLY_AUTO", "").lower() != "exact":           # 3.1.0 task 2: the game's 'auto' is the fastest working engine
+        from kickthefly.sim.connectome import backends as _backends
+        _backends.set_auto_policy("fastest")
     if getattr(args, "dtype", None):
         cfg.set("brain.dtype", args.dtype)
     args.display_backend = display_backend_choice

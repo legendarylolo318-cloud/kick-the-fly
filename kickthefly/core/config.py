@@ -220,10 +220,11 @@ SETTINGS: tuple[Setting, ...] = (
       "the numbers slightly; validation hasn't been run in it.", options=("float32", "float64"), labels=("float32 (Fast)", "float64 (Double)"),
       tag=CONNECTOME),
     S("brain.backend", "Brain", "Compute backend", "choice", "auto",
-      "What runs the brain simulation. Auto picks a PyTorch GPU, then Numba, then NumPy. OpenGL compute (4.3+) "
-      "runs only when you pick it: it works on any vendor's GPU but is slower than NumPy here and doesn't scale to "
-      "many flies. Numba and PyTorch are optional (from source only); anything missing falls back to NumPy. "
-      "Applies to every fly right away.",
+      "What runs the brain simulation. Auto picks the fastest engine that works here: a real GPU through OpenGL "
+      "compute (4.3+, any vendor), then a PyTorch GPU, then Numba, then NumPy, falling back to the next on any error. "
+      "(Headless runs, validation and replays use the exact chain without OpenGL; set KICK_THE_FLY_AUTO=exact to "
+      "make the game do the same.) GPU engines agree with NumPy statistically, not spike for spike; pick CPU "
+      "(NumPy) for bit-exact runs. Numba and PyTorch are optional (from source only). Applies to every fly right away.",
       options=("auto", "cpu", "numba", "gl", "torch-cpu", "torch-cuda", "torch-rocm"),
       labels=("Auto", "CPU (NumPy)", "Numba (JIT)", "OpenGL Compute", "PyTorch (CPU)", "PyTorch (CUDA)",
               "PyTorch (ROCm)"),

@@ -141,7 +141,10 @@ The complete list: **[docs/connectome-and-game-rules.md](docs/connectome-and-gam
 
 One fly keeps real time (200 brain steps/s) on any backend. With many flies Numba scales best on the CPU and PyTorch GPU backends run them
 batched; the OpenGL `gl` backend runs on any vendor's GPU and steps a process's flies together. NumPy, Numba and torch-cpu give spike-for-spike
-identical results; GPU backends agree statistically. The exe and AppImage use NumPy. Tables and methods: [docs/performance.md](docs/performance.md).
+identical results; GPU backends agree statistically. **Auto** (the default, new in 3.1.0) picks the fastest engine that works in the game: a real GPU through
+OpenGL compute, then a PyTorch GPU, then Numba, then NumPy, with a fallback to the next on any error; Settings > Brain shows the engine in use and lets you
+pick another. Validation, protocols, bundles and replays keep the exact (non-gl) chain. The exe and AppImage carry the `gl` backend (ModernGL and the EGL
+context are bundled), so a machine with an OpenGL 4.3 GPU gets it without installing anything. Tables and methods: [docs/performance.md](docs/performance.md).
 
 ## Repository
 

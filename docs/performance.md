@@ -3,6 +3,12 @@
 How fast the brain simulation runs on each compute backend, and how many flies each one keeps in real time. The
 backend is picked in Settings > Brain > Compute backend or with `--backend NAME` (README: Run from source).
 
+**Auto (3.1.0).** In the interactive game, `auto` tries `gl` first (only on a real GPU: a software rasterizer such as llvmpipe has the compute shaders but
+runs them on the CPU, so it does not count), then a PyTorch GPU, then Numba, then NumPy, moving on at any error; Settings > Brain shows the engine in use and
+the chain. Headless runs (`--validate`, protocols, bundles, replays, the selftest) keep the exact chain (PyTorch GPU, Numba, NumPy) so their numbers do not
+move; `KICK_THE_FLY_AUTO=exact` gives the game the same chain. Pick `cpu` or `numba` for spike-for-spike runs. gl is fastest for one brain; Numba is faster for
+8 to 16 brains on a CPU (table below).
+
 A brain steps every 5 ms of brain time, so real time is 200 steps/s. "Paced" is whether a brain held to real time
 keeps up; "uncapped" is how fast it steps when it isn't held back, as a multiple of real time.
 
