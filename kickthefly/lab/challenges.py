@@ -37,6 +37,9 @@ INFO = (
     ("puppeteer", "Puppeteer",
      "You cannot touch the fly. Steer it only with the optogenetics laser and by switching its real neurons on and off: ten puzzles, each with a par and the circuit that solves it.",
      "levels", "high"),
+    ("contraption", "Contraption builder",
+     "A sandbox: place ramps, dominoes, springs, fans, lamps, sugar, tool triggers, buttons and timers, then run the machine against the fly.",
+     "runs", "high"),
     ("predict", "Predict the move (Motor readouts)",
      "A descending motor spike surge flashes on the monitor. Can you predict the fly's move before it triggers?",
      "correct predictions", "high"),
@@ -77,6 +80,8 @@ def stars(key: str, value: float) -> int:
         return 3 if value <= 1.0 else 2 if value <= 2.0 else 1 if value <= 3.5 else 0
     if key == "puppeteer":                                   # levels finished, of ten
         return 3 if value >= 10 else 2 if value >= 7 else 1 if value >= 3 else 0
+    if key == "contraption":                                 # a sandbox: no stars, the count of runs is the whole score
+        return 0
     if key in ("reverse_surgery", "mystery"):
         return 3 if value >= 3 else 2 if value >= 2 else 1 if value >= 1 else 0
     if key == "predict":
@@ -1036,18 +1041,21 @@ class PredictNeuron(Challenge):
 
 
 class _Classes(dict):
-    """The challenge classes; Puppeteer (3.1.0) is loaded when asked for, since its module imports this one."""
+    """The challenge classes; Puppeteer and the contraption builder (3.1.0) are loaded when asked for, since their modules import this one."""
+
+    LAZY = {"puppeteer": ("kickthefly.lab.puppet_challenge", "Puppeteer"), "contraption": ("kickthefly.lab.contraption_challenge", "Contraption")}
 
     def __missing__(self, key):
-        if key == "puppeteer":
-            from kickthefly.lab.puppet_challenge import Puppeteer
+        if key in self.LAZY:
+            import importlib
 
-            self[key] = Puppeteer
-            return Puppeteer
+            mod, name = self.LAZY[key]
+            self[key] = getattr(importlib.import_module(mod), name)
+            return self[key]
         raise KeyError(key)
 
     def __contains__(self, key):
-        return key == "puppeteer" or super().__contains__(key)
+        return key in self.LAZY or super().__contains__(key)
 
 
 CLASSES = _Classes({"tmaze": TMaze, "sneak": Sneak, "sweet": Sweet, "reverse_surgery": ReverseSurgery, "predict": PredictNeuron})
@@ -1078,9 +1086,10 @@ def page_challenges(m, surf, rect, mouse) -> None:
         card = card.move(0, extra)                      # the score row and Start button sit under the description
         best = scores.get(c_key)
         if best is not None:
-            shown = f"{best:.0f}/10" if c_key == "tmaze" else f"{best:.1f} fly lengths" if c_key == "sneak" else f"{best:.0f} stars" if c_key == "reverse_surgery" else f"{best:.0f}/10 levels" if c_key == "puppeteer" else f"{best:.0f}%"
+            shown = f"{best:.0f}/10" if c_key == "tmaze" else f"{best:.1f} fly lengths" if c_key == "sneak" else f"{best:.0f} stars" if c_key == "reverse_surgery" else f"{best:.0f}/10 levels" if c_key == "puppeteer" else f"{best:.0f} runs" if c_key == "contraption" else f"{best:.0f}%"
             m.text(surf, f"Best: {shown}", (card.x + 20, card.y + 96), ui.AMBER, m.f_bold)
-            draw_stars(surf, (card.x + 250, card.y + 106), stars(c_key, best), 11)
+            if c_key != "contraption":
+                draw_stars(surf, (card.x + 250, card.y + 106), stars(c_key, best), 11)
         else:
             m.text(surf, "Not played yet", (card.x + 20, card.y + 96), ui.LABEL, m.f_text)
         m.button(surf, (card.right - 170, card.y + 86, 150, 46), "Start", (lambda k=c_key: game.start_challenge(k)),

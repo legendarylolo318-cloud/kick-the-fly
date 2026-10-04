@@ -19,9 +19,9 @@ from kickthefly.core import sharecode as sc
 from kickthefly.core.i18n import tr
 from kickthefly.ui import menu as ui
 
-KINDS = ("surgery", "loadout", "lab", "protocol", "challenge")
+KINDS = ("surgery", "loadout", "lab", "protocol", "challenge", "contraption")
 KIND_NAMES = {"surgery": "Brain surgery", "loadout": "Tool loadout", "lab": "Lab parameters", "protocol": "Protocol",
-              "challenge": "Challenge setup"}
+              "challenge": "Challenge setup", "contraption": "Contraption build"}
 
 
 def install(menu) -> None:
@@ -51,7 +51,7 @@ def _state(m) -> _State:
 def make_context(host) -> sc.Context:
     """What this running game knows, for validating and previewing a code."""
     from kickthefly.core import loadout as lo
-    from kickthefly.game import kick_the_fly as k
+    from kickthefly.game import contraption, kick_the_fly as k
     from kickthefly.lab import challenges, lab
 
     x3 = host.x3
@@ -64,7 +64,7 @@ def make_context(host) -> sc.Context:
         surgery_labels={label for label, _ in k.SURGERY}, type_names=x3._type_names[1],
         challenges=set(challenges.CLASSES), arenas=arenas, current_surgery=sc.payload_for_surgery(host),
         current_loadout=list(host.cfg.loadout["custom"]), saved_loadouts=[i["name"] for i in host.cfg.loadout["saved"]],
-        max_saved_loadouts=lo.MAX_SAVED, protocol_names={f.stem for f in lab.protocol_files()},
+        max_saved_loadouts=lo.MAX_SAVED, contraption_slots_used=sum(d is not None for d in contraption.load_slots()), protocol_names={f.stem for f in lab.protocol_files()},
         larva=bool(host.is_larva), lab=bool(host.cfg.lab), brain=x3.brain_name)
 
 
@@ -92,6 +92,15 @@ def _payload(host, st: _State) -> tuple[dict | None, str | None]:
             return {"protocol": yaml.safe_load(f.read_text(encoding="utf-8"))}, None
         except Exception as e:
             return None, f"{f.name}: {e}"
+    if kind == "contraption":
+        from kickthefly.game import contraption
+
+        ch = getattr(host, "challenge", None)
+        build = getattr(ch, "build", None) if getattr(ch, "key", "") == "contraption" else None
+        if build is None or not build.parts:                       # not building now: the last one saved in a slot
+            filled = [d for d in contraption.load_slots() if d is not None]
+            build = contraption.Build.from_json(filled[-1]) if filled else None
+        return ((build.to_json(), None) if build is not None and build.parts else (None, tr("No contraption yet: build and save one in Esc > Challenges > Contraption.")))
     if kind == "challenge":
         p = {"challenge": st.challenge, "seed": int(host.cfg["brain.seed"]), "arena": host.cfg["brain.arena"]}
         sg = sc.payload_for_surgery(host)

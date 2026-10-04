@@ -23,6 +23,8 @@ def payloads():
         "challenge": {"challenge": "tmaze", "seed": 1004, "arena": "room",
                       "surgery": {"types": {"PPL101": -1}}, "params": {"noise_std": 0.06}},
         "lab": {"params": {"noise_std": 0.06, "thresh.escape": 5.0}},
+        "contraption": {"name": "tiny", "parts": [{"k": "marble", "x": -200, "y": 100}, {"k": "button", "x": 0, "y": 0, "ch": 1},
+                                                  {"k": "tool", "x": 20, "y": 40, "ch": 1, "tool": "swatter"}]},
     }
 
 
