@@ -366,9 +366,12 @@ def test_every_new_screen_draws_in_every_mode(synthetic_pack):
             g.menu.close()
 
 
-def test_the_neurodex_hides_everything_about_an_undiscovered_type(game):
+def test_the_neurodex_hides_everything_about_an_undiscovered_type(game, monkeypatch):
     from kickthefly.ui import neurodex_ui
 
+    # The panel's Neuron of the Day line names that day's curated type whether discovered or not (by design, docs/neurodex.md); on a
+    # day whose pick was LPLC2 (2026-10-04) it failed this check. The check is about the undiscovered entry, so the card is left out.
+    monkeypatch.setattr(neurodex_ui.notd, "card", lambda *a, **k: None)
     game.x3.ensure_table()
     game.menu.show("neurodex")
     st = neurodex_ui._state(game.menu)

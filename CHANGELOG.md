@@ -58,6 +58,9 @@ Fixed (regression tests in `tests/test_release_3_0.py` and `tests/test_layout_3_
   "calm" was DM1/DM2/DP1m already smelling it (~40 Hz instead of 1-2 Hz) and the vinegar's peak was judged against that. The fly is
   now held at a spot out of the smell through the calm second (`KITCHEN_CALM`); the criterion is unchanged (vinegar: calm ~3 Hz,
   peak ~54 Hz, needed 31-34 Hz, 10 of 10 clock origins locally).
+  On the merge PR's checks (2026-10-04 UTC) `test_the_neurodex_hides_everything_about_an_undiscovered_type` failed: the panel's Neuron
+  of the Day line names the day's curated type whether discovered or not (as documented), that day's pick was LPLC2, the type the
+  test hides. The test now leaves the date-picked card out; the Neurodex-related tests all pass with the date pinned to that day.
   **The playthrough was not reproducible:** the game clock starts at `time.perf_counter()` and the fly's
   flight bob, wind and wobble read that absolute time, so a run started at another moment drove the fly differently; 2D flypaper bomb and
   spider failed on one CI run of code that had passed on two. The playthrough's games now start their clock at a fixed 1000.0 (chosen
