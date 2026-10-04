@@ -241,38 +241,52 @@ def draw3d(play: PredatorPlay, rd, now: float) -> None:
 
         if p.kind == "frog":
             g1, g2, belly, dark = (0.30, 0.52, 0.18), (0.38, 0.62, 0.22), (0.86, 0.84, 0.62), (0.16, 0.30, 0.10)
-            tilt = _norm(face * math.cos(0.42) + up * math.sin(0.42))      # sits with its head raised
+            ps = p.pose()                                                  # 4.0 task 0: the hop's body pose (a pure function of the state)
+            sq, st, hind, tuck, reach, pitch = (ps[k] for k in ("squash", "stretch", "hind", "tuck", "reach", "pitch"))
+            airborne = p.state == "airborne"
+            lerp = lambda a_, b_, k: a_ + (b_ - a_) * k                    # noqa: E731
+            tilt = _norm(face * math.cos(pitch) + up * math.sin(pitch))    # head raised at rest, level in a crouch, along the arc in the air
             # the head is built around the engine's mouth point (where the tongue starts; it sets the strike's geometry, so the
             # art follows it, not the other way round): the lips meet there (3.0 day 3 review: the tongue came out of the chin)
             mouth = base + up * p.spec.body_r * 0.7 + face * p.spec.body_r * 0.8
-            head = mouth - face * 0.072 * sc + up * 0.012 * sc
-            body = head - tilt * 0.125 * sc - up * 0.012 * sc
-            ell(body, tilt, (0.15, 0.075, 0.12), g1)
-            ell(body - up * 0.025 * sc + tilt * 0.01 * sc, tilt, (0.13, 0.055, 0.105), belly)
+            head = mouth - face * 0.072 * sc + up * (0.012 - 0.02 * sq) * sc
+            body = head - tilt * (0.125 - 0.012 * sq) * sc - up * (0.012 + 0.012 * sq) * sc
+            bsize = (0.15 * (1 - 0.10 * sq + 0.35 * st), 0.075 * (1 - 0.35 * sq - 0.25 * st), 0.12 * (1 + 0.18 * sq - 0.15 * st))
+            ell(body, tilt, bsize, g1)
+            ell(body - up * 0.025 * sc + tilt * 0.01 * sc, tilt, (bsize[0] * 0.87, bsize[1] * 0.73, bsize[2] * 0.88), belly)
             ell(head, face, (0.08, 0.05, 0.105), g2)                         # upper head, down to the lips
             ell(mouth - face * 0.05 * sc - up * 0.014 * sc, face, (0.06, 0.022, 0.092), belly)        # lower jaw and throat
             ell(mouth - face * 0.012 * sc, face, (0.012, 0.004, 0.07), (0.25, 0.12, 0.12))           # the line of the lips
             for k in range(-1, 2):                                         # dark spots on the back
-                ell(body + up * 0.07 * sc + side * 0.05 * k * sc - tilt * 0.03 * abs(k) * sc, tilt, (0.025, 0.012, 0.022), dark)
+                ell(body + up * 0.07 * bsize[1] / 0.075 * sc + side * 0.05 * k * sc - tilt * 0.03 * abs(k) * sc, tilt,
+                    (0.025, 0.012, 0.022), dark)
+            gy = float(y) + 0.012 * sc                                       # where a foot or hand rests on the ground
             for sg in (-1, 1):
                 eye = head + up * 0.048 * sc + side * 0.055 * sg * sc - face * 0.005 * sc
                 rd.add("sphere", trs(eye, None, (0.032 * sc,) * 3), (0.85, 0.72, 0.25))
                 ell(eye + face * 0.022 * sc + side * 0.008 * sg * sc, face, (0.012, 0.012, 0.022), (0.04, 0.04, 0.04))
                 ell(head + face * 0.074 * sc + up * 0.02 * sc + side * 0.02 * sg * sc, face, (0.004, 0.004, 0.004), dark)  # nostril
                 sh = body + tilt * 0.07 * sc + side * 0.08 * sg * sc - up * 0.02 * sc                   # front leg: arm and hand
-                h = at(0.17, 0.0, 0.11 * sg)
-                hand = np.array([h[0], 0.012 * sc, h[2]])
+                if airborne:                                               # tucked at first, then reaching ahead for the ground
+                    hand = lerp(at(0.07, -0.01, 0.09 * sg), at(0.27, -0.05, 0.10 * sg), reach)
+                else:                                                      # planted; on landing it reaches forward first
+                    h = at(0.17 + 0.10 * reach, 0.0, 0.11 * sg)
+                    hand = np.array([h[0], gy, h[2]])
                 elbow = (sh + hand) / 2 + side * 0.02 * sg * sc
                 limb(sh, elbow, 0.016, g1)
                 limb(elbow, hand, 0.013, g1)
                 ell(hand, face + side * 0.4 * sg, (0.03, 0.006, 0.025), g2)
-                hip = body - tilt * 0.09 * sc + side * 0.08 * sg * sc                                   # hind leg, folded
-                knee = at(0.06, 0.07, 0.17 * sg)
-                ankle = at(-0.12, 0.03, 0.14 * sg)
+                hip = body - tilt * 0.09 * sc + side * 0.08 * sg * sc                                   # hind leg: folded, extended or tucked
+                knee = lerp(lerp(at(0.06, 0.07 + 0.06 * sq, 0.17 * sg), at(-0.10, 0.06, 0.10 * sg), hind), at(0.04, 0.07, 0.15 * sg), tuck)
+                ankle = lerp(lerp(at(-0.12, 0.03, 0.14 * sg), at(-0.32, 0.02, 0.06 * sg), hind), at(-0.02, 0.05, 0.12 * sg), tuck)
                 limb(hip, knee, 0.03, g1)
                 limb(knee, ankle, 0.022, g1)
-                foot = np.array([ankle[0], 0.012 * sc, ankle[2]]) + face * 0.06 * sc
-                limb(ankle, np.array([ankle[0], 0.012 * sc, ankle[2]]), 0.015, g1)
+                if airborne:
+                    foot = ankle - face * 0.07 * sc * (1 - tuck) - up * 0.02 * sc
+                    limb(ankle, foot, 0.015, g1)
+                else:
+                    foot = np.array([ankle[0], gy, ankle[2]]) + face * 0.06 * sc
+                    limb(ankle, np.array([ankle[0], gy, ankle[2]]), 0.015, g1)
                 ell(foot, face + side * 0.3 * sg, (0.075, 0.006, 0.04), g2)                             # long webbed foot
             if p.tip is not None:
                 rd.add("cylinder", segment(p.mouth, p.tip, 0.03), (0.9, 0.35, 0.4), P_NONE)
@@ -339,7 +353,9 @@ def draw3d(play: PredatorPlay, rd, now: float) -> None:
                 for k in range(3):                                          # legs tucked under, as when it carries prey
                     hip = body - up * 0.012 * sc + dirn * (0.01 - 0.01 * k) * sc
                     limb(hip, hip + (dirn * 0.02 - up * 0.02 + sd * 0.01 * sg) * sc, 0.0025, (0.1, 0.1, 0.1))
-        rd.add("sphere", trs(np.array([x, 0.005, z]), None, (0.14 * sc, 0.004, 0.14 * sc)), (0.0, 0.0, 0.0, 0.25), P_NONE)
+        hf = min(1.0, max(0.0, y / pr.LEAP_APEX)) if p.kind == "frog" else 0.0     # a blob shadow that shrinks and fades as it rises
+        rd.add("sphere", trs(np.array([x, 0.005, z]), None, (0.14 * sc * (1 - 0.45 * hf), 0.004, 0.14 * sc * (1 - 0.45 * hf))),
+               (0.0, 0.0, 0.0, 0.25 * (1 - 0.6 * hf)), P_NONE)
 
 
 def draw2d(play: PredatorPlay, surf, now: float) -> None:
@@ -359,11 +375,24 @@ def draw2d(play: PredatorPlay, surf, now: float) -> None:
             return (gx + d * dx * sc, gy + dy * sc)
 
         if p.kind == "frog":
-            k2.aacircle(surf, P(0, -14), 22 * sc, (62, 128, 52))
-            k2.aacircle(surf, P(18, -22), 12 * sc, (84, 150, 64))
-            k2.aacircle(surf, P(22, -33), 5 * sc, (240, 220, 80))
-            k2.aacircle(surf, P(23, -33), 2 * sc, (20, 20, 20))
-            k2.thick_line(surf, P(-12, -4), P(-26, 0), 5 * sc, (50, 108, 42))
+            ps = p.pose()                                              # 4.0 task 0: the hop's pose, drawn side-on
+            sq, st, hind, tuck = ps["squash"], ps["stretch"], ps["hind"], ps["tuck"]
+            ph = ps["pitch"] - 0.42                                    # head up or down from the resting pose
+            body_r = 22 * sc * (1 - 0.18 * sq)
+            by = -14 + 5 * sq - 4 * st
+            k2.aacircle(surf, P(0, by), body_r, (62, 128, 52))
+            if st > 0.05:
+                k2.aacircle(surf, P(-10 * st, by), body_r * 0.8, (62, 128, 52))     # stretched along the leap
+            k2.aacircle(surf, P(18 + 4 * st, by - 8 - 14 * ph), 12 * sc, (84, 150, 64))
+            k2.aacircle(surf, P(22 + 4 * st, by - 19 - 14 * ph), 5 * sc, (240, 220, 80))
+            k2.aacircle(surf, P(23 + 4 * st, by - 19 - 14 * ph), 2 * sc, (20, 20, 20))
+            hip, foot_rest, foot_ext, foot_tuck = P(-12, by + 8), P(-26, 0), P(-44, by + 14 - 10 * st), P(-8, by + 12)
+            foot = [foot_rest[i] + (foot_ext[i] - foot_rest[i]) * hind for i in (0, 1)]
+            foot = [foot[i] + (foot_tuck[i] - foot[i]) * tuck for i in (0, 1)]
+            knee = P(-20 + 6 * hind, by + 6 - 10 * sq)
+            k2.thick_line(surf, hip, knee, 5 * sc, (50, 108, 42))
+            k2.thick_line(surf, knee, (foot[0], foot[1]), 4 * sc, (50, 108, 42))
+            k2.thick_line(surf, P(12, by + 6), P(14 + 12 * ps["reach"], by + 14 + 6 * ps["reach"] if p.state == "airborne" else -2), 4 * sc, (50, 108, 42))
             if p.tip is not None:
                 mx, my = play.to_game(p.mouth)
                 tx, ty = play.to_game(p.tip)
@@ -392,4 +421,5 @@ def draw2d(play: PredatorPlay, surf, now: float) -> None:
             for off in (-2, 8):
                 gfxdraw.filled_ellipse(surf, int(gx - dd * off * sc), int(gy - flap), int(22 * sc), int(4 * sc), (200, 215, 235, 150))
                 gfxdraw.filled_ellipse(surf, int(gx - dd * off * sc), int(gy + flap * 0.3), int(22 * sc), int(3 * sc), (200, 215, 235, 110))
-        gfxdraw.filled_ellipse(surf, int(gx), int(k2.FLOOR + 1), int(26 * sc), 4, (0, 0, 0, 70))
+        hf = min(1.0, max(0.0, float(p.p[1]) / pr.LEAP_APEX)) if p.kind == "frog" else 0.0      # shrinks and fades as the frog rises
+        gfxdraw.filled_ellipse(surf, int(gx), int(k2.FLOOR + 1), int(26 * sc * (1 - 0.45 * hf)), 4, (0, 0, 0, int(70 * (1 - 0.6 * hf))))
