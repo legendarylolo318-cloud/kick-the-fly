@@ -3132,6 +3132,10 @@ class Game:
                  "or block inhibition, and see which validated behaviors survive."),
                 ("Critical path finder", "lab_critical", "Silence each cell type in turn and rank them by what it "
                  "does to a behavior, against a same-seed unperturbed control."),
+                ("Activation screen", "lab_activation", "MODEL PREDICTION. Hold each cell type driven in turn on held-out seeds with matched "
+                 "controls: which descending neurons respond, and which behavior readout moves. Searchable, sortable, resumable."),
+                ("Knockout screen", "lab_knockout", "MODEL PREDICTION. Silence candidate cell types for each validated behavior and rank them by how "
+                 "much the response drops against matched random lesions. Resumable."),
                 ("Simulation benchmark", "lab_benchmark", "Measure simulation throughput (neurons/s, synapses/s, sim vs real time) for 1, 8, 16 flies."),
                 ("Parameters", "lab_params", "Model parameters and game-rule thresholds, live."),
                 ("Record and export", "lab_export", "Record spike times and firing rates live to CSV and npz, with "
@@ -7557,6 +7561,20 @@ def parse_args(argv: list[str] | None = None):
                          "communities, regions); cached; CSV into --out")
     ap.add_argument("--sleep-deprivation", dest="sleep_deprivation", action="store_true",
                     help="3.0 day 4, headless: the sleep-deprivation assay (rebound sleep vs undisturbed controls, paired)")
+    ap.add_argument("--activation-screen", dest="activation_screen", action="store_true",
+                    help="3.1.0, headless, MODEL PREDICTION: hold each cell type driven in turn on held-out seeds (default 4000-4007) with matched "
+                         "controls; record every descending neuron type's response and the behavior readouts; resumable, CSV/Parquet into --out")
+    ap.add_argument("--knockout-screen", dest="knockout_screen", nargs="*", metavar="BEHAVIOR",
+                    help="3.1.0, headless, MODEL PREDICTION: for each validated pathway behavior (or those named) silence ranked candidate cell types "
+                         "and rank them by how much the response drops, with matched controls; resumable")
+    ap.add_argument("--screen-controls", dest="screen_controls", type=int, help="matched controls per condition and seed for a screen (default 2)")
+    ap.add_argument("--min-neurons", dest="min_neurons", type=int, help="with --activation-screen: only cell types with at least this many neurons")
+    ap.add_argument("--max-types", dest="max_types", type=int, help="with --activation-screen: only the first N cell types in name order")
+    ap.add_argument("--screen-batch", dest="screen_batch", type=int, help="run a screen's brains on this many threads of one process, stepped together "
+                    "on the GPU with --backend gl (default: processes, --workers)")
+    ap.add_argument("--candidate-batch", dest="candidate_batch", type=int, help="with --knockout-screen: silence ranked candidates in batches of this "
+                    "many first, then singly the members of the batches that cut the response")
+    ap.add_argument("--restart", action="store_true", help="with a screen: discard what --out already holds and start again")
     ap.add_argument("--flies", type=int, nargs="+", help="flies count list for benchmark (default: 1 8 16)")
     ap.add_argument("--seconds", type=float, help="duration per benchmark condition in seconds")
     ap.add_argument("--strict", action="store_true", help="exit 1 if validation differs from the expected results")
@@ -7621,6 +7639,7 @@ def main(argv: list[str] | None = None) -> int:
             or getattr(args, "sensitivity", False) or getattr(args, "tournament", None) or getattr(args, "race", False)
             or getattr(args, "netsci", None) or getattr(args, "sleep_deprivation", False)
             or getattr(args, "rig", None) or getattr(args, "rig_assay", None) or getattr(args, "minipaper", None)
+            or getattr(args, "activation_screen", False) or getattr(args, "knockout_screen", None) is not None
             or getattr(args, "replay", None) or getattr(args, "record_replay", None)
             or getattr(args, "rerun_bundle", None) or getattr(args, "share_decode", None)):
         if getattr(args, "replay", None) and not args.headless:

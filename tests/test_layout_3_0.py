@@ -116,7 +116,7 @@ class Recorder:
 
 
 PAGES = ("lab", "lab_params", "lab_assays", "lab_protocols", "lab_assumptions", "lab_asymmetry", "lab_benchmark", "lab_export", "lab_wiring",
-         "lab_critical", "lab_clamp", "lab_diff", "lab_laser", "lab_psych", "lab_classroom", "lab_genetics", "lab_thermo", "lab_patch",
+         "lab_critical", "lab_activation", "lab_knockout", "lab_clamp", "lab_diff", "lab_laser", "lab_psych", "lab_classroom", "lab_genetics", "lab_thermo", "lab_patch",
          "lab_imaging", "lab_pharm", "lab_netsci", "lab_sleepdep", "lab_sensitivity", "lab_rigs", "lab_minipapers", "whatsnew",
          "settings:Graphics", "settings:Audio", "settings:Brain", "settings:Controls", "settings:Accessibility", "settings:Help", "confirm_quit")
 

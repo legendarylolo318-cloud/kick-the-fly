@@ -137,6 +137,30 @@ def run_critical_path(args) -> int:
     return 0
 
 
+def run_screen(args, kind: str) -> int:
+    """--activation-screen / --knockout-screen (3.1.0 tasks 6 and 7): resumable whole-brain screens, CSV and Parquet into --out."""
+    from kickthefly.lab import recorder, screens
+
+    folder = Path(args.out) if args.out else recorder.exports_dir() / f"{kind}-screen"
+    seeds = parse_seeds(args.seeds, screens.SCREEN_SEEDS)
+    common = dict(seeds=seeds, controls=getattr(args, "screen_controls", None) or 2, workers=args.workers,
+                  batch=getattr(args, "screen_batch", None) or 0, backend=os.environ.get("KICK_THE_FLY_SIM_BACKEND") or None,
+                  types=getattr(args, "types", None), restart=bool(getattr(args, "restart", False)))
+    try:
+        if kind == "activation":
+            res = screens.run_activation(folder, min_neurons=getattr(args, "min_neurons", None) or 1,
+                                         max_types=getattr(args, "max_types", None), **common)
+        else:
+            res = screens.run_knockout(folder, behaviors=getattr(args, "knockout_screen", None) or None,
+                                       top=getattr(args, "top", None) or 25, batch_size=getattr(args, "candidate_batch", None) or 0, **common)
+    except screens.ScreenError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 2
+    print(screens.summary(res))
+    print(f"results written to {folder}")
+    return 0
+
+
 def run_sensitivity(args) -> int:
     """--sensitivity: vary each LIF parameter across its documented range and re-run the validated behaviors (analysis only)."""
     from kickthefly.lab import recorder, sensitivity, validation
@@ -392,6 +416,10 @@ def main(args) -> int:
             return run_signflip(args)
         if getattr(args, "critical_path", None):
             return run_critical_path(args)
+        if getattr(args, "activation_screen", False):
+            return run_screen(args, "activation")
+        if getattr(args, "knockout_screen", None) is not None:
+            return run_screen(args, "knockout")
         if getattr(args, "sensitivity", False):
             return run_sensitivity(args)
         if getattr(args, "tournament", None):
@@ -427,7 +455,7 @@ def main(args) -> int:
         print(f"error: {e}", file=sys.stderr)
         return 2
     print("nothing to do: use --validate, --protocol FILE, --playthrough, --replay FILE, --audit-asymmetry, --benchmark, "
-          "--threshold-sweep, --signflip-test, --critical-path TARGET, --sensitivity, --tournament N, --race, --netsci, "
+          "--threshold-sweep, --signflip-test, --critical-path TARGET, --activation-screen, --knockout-screen, --sensitivity, --tournament N, --race, --netsci, "
           "--sleep-deprivation, --rig NAME, --rig-assay NAME, --minipaper ID, --rerun-bundle ZIP or --share-decode CODE", file=sys.stderr)
     return 2
 
