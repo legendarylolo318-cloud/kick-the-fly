@@ -116,7 +116,8 @@ TOOL_PLAN = {"hand": ("hold", 3.0), "flick": ("click", 15.0), "swatter": ("click
              # 3.0 day 3: predators. One use each; the mantis needs most of its creep (about 12 s at 10 cm/s) before it strikes
              "frog": ("once", 20.0), "dragonfly": ("once", 15.0), "mantis": ("once", 30.0)}
 PREDATORS = ("frog", "dragonfly", "mantis")
-SAVE_LOAD_AT_S = 1.0        # seconds after the tool is first used: before anything has died
+BOMB_DROP_PX = 150.0        # 2D: how far above the fly's head a bomb is dropped
+SAVE_LOAD_AT_S = 1.0       # seconds after the tool is first used: before anything has died
 QUICK_ARENAS = ("room", "orchard")
 
 
@@ -531,6 +532,8 @@ class Rig:
             self._after_use(tool)
         else:
             pos = tuple(self.slot.fly.p[k2.HEAD])
+            if tool == "bomb":                                         # dropped from above, so it falls onto the fly: dropped on its
+                pos = (pos[0], max(pos[1] - BOMB_DROP_PX, 30.0))       # head it fell away and never loomed (v3.1.0 tag run, flypaper)
             g.use_tool(pos, g.clock.now)
             self._after_use(tool)
 

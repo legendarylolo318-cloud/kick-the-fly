@@ -21,6 +21,7 @@
 - Faster in the game with several flies: the render thread no longer holds Python's lock for the HUD upload, the fly drawing's vector math or the memory card; 8 flies 0.39x -> 0.66x of real time, one fly uncapped 170 -> 302 fps ([performance.md](performance.md)).
 - Fixed: a read-only data folder crashed and hung the game at quit; `--protocol` on a classroom lecture crashed with KeyError (both also in 3.0).
 - Honesty: the shape-download consent question now names the per-neuron download; engine-choice and brain-view entries say what is exact and what is statistical.
+- Fixed (playthrough rig): the v3.1.0 tag run failed at 2D flypaper + bomb (loom peak 4.7 Hz, needed 8.7): the rig dropped the 2D bomb on the fly's head, so it fell away and never loomed, and passing depended on the blast. It is now dropped 150 px above the fly and falls onto it (loom 16-28 rad/s before the blast in every 2D arena). The game is unchanged; nothing was published from that run.
 - Docs: F5 in the controls; Lesion battles and the Contraption builder in playing.md. CI: a release gate diffs `--validate` against the previous tag and builds the AppImage and the exe on every pull request.
 
 # What changed in 3.0 (consolidated)
