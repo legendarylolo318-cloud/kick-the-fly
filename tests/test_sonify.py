@@ -210,6 +210,11 @@ def test_it_is_silent_until_asked_then_follows_the_brain_and_obeys_mute_mic_and_
         assert sn.reason == "off" and sn.chunks == 0 and not sn._playing
         g.cfg.set("audio.sonify", True)
         r.seconds(3.0)
+        import time
+        t_end = time.monotonic() + 15.0               # the audio driver drains chunks in wall time, not game time (CI ran the frames faster)
+        while sn.chunks <= 5 and time.monotonic() < t_end:
+            r.seconds(0.2)
+            time.sleep(0.05)
         assert sn.reason == "" and sn.chunks > 5 and set(sn.levels) == set(so.VOICE_NAMES) and pygame.mixer.Channel(0).get_busy()
         # it reads the brain's own rates: a strong smell stirs the antennal lobe voice up the scale
         br = g.flies[0].brain

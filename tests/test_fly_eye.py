@@ -222,7 +222,9 @@ def test_the_3d_frame_renders_three_views_from_the_flys_head_and_is_throttled(sy
         assert 85 < ang(fwds[0], fwds[1]) < 95 and 85 < ang(fwds[2], fwds[1]) < 95 and ang(fwds[0], fwds[2]) > 170
         side = np.cross(fwds[1], [0, 1, 0])                  # the fly's right in this world
         assert np.dot(fwds[2], side) > 0.9 > 0 > np.dot(fwds[0], side), "views[2] looks to the fly's right"
+        min_dt, view.min_dt = view.min_dt, 60.0       # the throttle is wall-clock: a slow CI runner took longer than 50 ms between the calls
         again = view.frame_3d(g, app, 0.01, (700, 400))
+        view.min_dt = min_dt
         assert again is surf and len(app.calls) == 3, "throttled to about 20 frames a second"
         view.last_t = -1.0
         view.frame_3d(g, app, 0.1, (700, 400))
