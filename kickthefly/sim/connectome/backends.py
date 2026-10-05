@@ -562,6 +562,8 @@ class _GLContextBinder:
             libegl.eglGetCurrentDisplay.restype = ctypes.c_void_p
             libegl.eglMakeCurrent.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
             libegl.eglMakeCurrent.restype = ctypes.c_bool
+            libegl.eglGetCurrentSurface.restype = ctypes.c_void_p
+            libegl.eglGetCurrentSurface.argtypes = [ctypes.c_int]
             self._libegl = libegl
         except Exception:
             pass
@@ -572,6 +574,7 @@ class _GLContextBinder:
             libgl.glXGetCurrentDisplay.restype = ctypes.c_void_p
             libgl.glXMakeCurrent.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
             libgl.glXMakeCurrent.restype = ctypes.c_bool
+            libgl.glXGetCurrentDrawable.restype = ctypes.c_ulong
             self._libgl = libgl
         except Exception:
             pass
@@ -591,11 +594,14 @@ class _GLContextBinder:
         if self._libegl:
             ctx = self._libegl.eglGetCurrentContext()
             if ctx:
-                return ("egl", self._libegl.eglGetCurrentDisplay(), ctx)
+                # 3.1.0 review: the draw and read surfaces too. Restoring the context without them left the game window with no surface
+                # on Wayland (EGL): every frame went nowhere and the window kept showing the loading screen while the game ran.
+                return ("egl", self._libegl.eglGetCurrentDisplay(), ctx, self._libegl.eglGetCurrentSurface(0x3059),
+                        self._libegl.eglGetCurrentSurface(0x305A))
         if self._libgl:
             ctx = self._libgl.glXGetCurrentContext()
             if ctx:
-                return ("glx", self._libgl.glXGetCurrentDisplay(), ctx)
+                return ("glx", self._libgl.glXGetCurrentDisplay(), ctx, self._libgl.glXGetCurrentDrawable())
         if self._libwgl:
             ctx = self._libwgl.wglGetCurrentContext()
             if ctx:
@@ -607,9 +613,10 @@ class _GLContextBinder:
             return
         kind = handle[0]
         if kind == "egl":
-            self._libegl.eglMakeCurrent(handle[1], None, None, handle[2])
+            draw, read = (handle[3], handle[4]) if len(handle) > 4 else (None, None)
+            self._libegl.eglMakeCurrent(handle[1], draw, read, handle[2])
         elif kind == "glx":
-            self._libgl.glXMakeCurrent(handle[1], 0, handle[2])
+            self._libgl.glXMakeCurrent(handle[1], handle[3] if len(handle) > 3 else 0, handle[2])
         elif kind == "wgl":
             self._libwgl.wglMakeCurrent(handle[1], handle[2])
 
