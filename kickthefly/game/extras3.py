@@ -292,6 +292,7 @@ class Extras:
             self.dex_tick()
             self.kc_feed()
             self.g.live.tick()
+            self.g.sonify.tick(now)
         except Exception:
             from kickthefly.core.crash import log
             log.exception("3.0 tick failed")
@@ -317,6 +318,9 @@ class Extras:
             if "profiler" in acts:                       # 3.1.0 task 5: off at every launch
                 from kickthefly.core.profiler import PROF
                 g.note("PROFILER  on (F3 again to hide)" if PROF.toggle() else "PROFILER  off")
+                return True
+            if "sonify" in acts:                        # 3.1.0 task 14: opt-in audio, off until you turn it on
+                g.sonify.toggle()
                 return True
             if "fly_eye" in acts:                       # 3.1.0 task 11: GAME RULE, visual only
                 g.note("FLY'S EYE  on (F4 again to leave)" if g.fly_eye.toggle() else "FLY'S EYE  off")
@@ -426,6 +430,35 @@ class Extras:
             pygame.draw.rect(surf, (255, 170, 90) if hz > calm * 1.6 + 1 else (110, 190, 255), (bar.x, bar.y, max(2, int(bar.w * min(1.0, hz / top))), bar.h), border_radius=4)
             surf.blit(f.render(f"{hz:5.1f}", True, (205, 212, 224)), (bar.right + 6, ry))
 
+    def draw_sonify(self, surf) -> None:
+        """The sonification's legend: each voice with its note bar, the song, and why it is silent when it is (game/sonify_play.py)."""
+        from kickthefly.game import kick_the_fly as k2
+
+        g = self.g
+        sn = g.sonify
+        f = g.f_small
+        rows = list(sn.levels.items())
+        w, h = 270, 68 + 17 * max(1, len(rows))
+        r = pygame.Rect(min(surf.get_width(), k2.PLAY_W) - w - 8, 62, w, h)
+        bg = pygame.Surface(r.size, pygame.SRCALPHA)
+        pygame.draw.rect(bg, (8, 10, 16, 215), bg.get_rect(), border_radius=8)
+        surf.blit(bg, r)
+        surf.blit(f.render("SONIFICATION", True, (255, 236, 160)), (r.x + 10, r.y + 5))
+        tag = "GAME RULE"
+        chip = pygame.Rect(r.right - f.size(tag)[0] - 20, r.y + 4, f.size(tag)[0] + 12, f.get_linesize() + 2)
+        pygame.draw.rect(surf, (220, 150, 50), chip, border_radius=5)
+        surf.blit(f.render(tag, True, (12, 14, 18)), (chip.x + 6, chip.y + 1))
+        surf.blit(f.render(("silent: " + sn.reason)[:40] if sn.reason else "follows the CONNECTOME's rates", True, (255, 150, 110) if sn.reason else (130, 142, 160)), (r.x + 10, r.y + 24))
+        for i, (name, (step, loud)) in enumerate(rows):
+            ry = r.y + 44 + 17 * i
+            surf.blit(f.render(name[:18], True, (205, 212, 224)), (r.x + 10, ry))
+            bar = pygame.Rect(r.x + 160, ry + 3, 70, 8)
+            pygame.draw.rect(surf, (30, 36, 48), bar, border_radius=3)
+            pygame.draw.rect(surf, (255, 170, 90) if step else (110, 190, 255), (bar.x, bar.y, max(1, int(bar.w * loud)), bar.h), border_radius=3)
+            surf.blit(f.render("^" * min(step, 3) if step else "", True, (255, 200, 150)), (bar.right + 4, ry))
+        if sn.gate is not None and sn.gate.on:
+            surf.blit(f.render("song voice: sounding", True, (255, 180, 220)), (r.x + 10, r.bottom - 20))
+
     def draw_profiler(self, surf) -> None:
         """The frame profiler (core/profiler.py): FPS, the sections' milliseconds, a frame-time strip, the engine and the brain view."""
         from kickthefly.core.profiler import PROF
@@ -464,6 +497,8 @@ class Extras:
             self.draw_profiler(surf)
         if getattr(getattr(g, "fly_eye", None), "on", False):
             self.draw_fly_eye(surf)
+        if getattr(getattr(g, "sonify", None), "wanted", False):
+            self.draw_sonify(surf)
         if self.player is not None:
             self.draw_killcam(surf, wall)
             return

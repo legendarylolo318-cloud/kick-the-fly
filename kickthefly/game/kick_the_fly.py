@@ -2597,6 +2597,8 @@ class Game:
         from kickthefly.sim import realshapes
         from kickthefly.game import fly_eye
         self.fly_eye = fly_eye.FlyEyeView()               # 3.1.0 task 11: the scene as a fly's eyes sample it (GAME RULE, visual only)
+        from kickthefly.game import sonify_play
+        self.sonify = sonify_play.Sonifier(self)          # 3.1.0 task 14: opt-in brain sonification (core/sonify.py); silent until Settings > Audio turns it on
         self.shapes = realshapes.ShapeLoader()           # 3.1.0 task 9: real neuron shapes, asked for when a neuron is inspected
         self._shape_cache: dict = {}
         if hasattr(view, "pref"):
@@ -4332,7 +4334,7 @@ class Game:
             slot.song_ready = now + 1.8
             self.note(f"SONG     ps1 wing MNs x{slot.song_slow:.1f}")
             self.on_reaction("SONG", slot)
-            if self.cfg["brain.song_buzz"]:
+            if self.cfg["brain.song_buzz"] and not self.sonify.voicing_song():       # the sonification's song voice is that buzz, said once
                 self.sound.play("pulse_song")
                 head_offset = np.array([0.0, 0.4, 0.0]) if len(fly.p[HEAD]) == 3 else np.array([0.0, -60.0])
                 self.popup(fly.p[HEAD] + head_offset, "♪ BUZZ ♪", (255, 180, 220))

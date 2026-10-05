@@ -105,6 +105,16 @@ SETTINGS: tuple[Setting, ...] = (
       options=("mushroom_body", "antennal_lobe", "central_complex", "optic_lobes", "motor", "whole_brain"),
       labels=("Mushroom body", "Antennal lobe", "Central complex", "Optic lobes", "Motor neurons", "Whole brain"),
       tag=GAME_RULE),
+    S("audio.sonify", "Audio", "Brain sonification", "bool", False,
+      "Opt-in audio: each brain region is a voice (descending neurons low, optic lobe high, all on one pentatonic scale) whose volume and pitch follow how active it is compared "
+      "with its own calm, and the courtship song is synthesized when the song neurons (ps1, driven by pIP10 and P1) fire. Hotkey F5. Silent while muted, with the microphone on, "
+      "or in Streamer mode (unless allowed below). CONNECTOME for the activity it follows; GAME RULE for the sound, which is a rendering and not a recording.", tag=GAME_RULE),
+    S("audio.sonify_vol", "Audio", "Sonification volume", "float", 0.4,
+      "Volume of the brain sonification (times the master volume).", lo=0.0, hi=1.0, step=0.05, fmt="{:.0%}", tag=GAME_RULE),
+    S("audio.sonify_song", "Audio", "Sonification: courtship song", "bool", True,
+      "Include the song voice: pulses (220 Hz carrier, 12 ms pulses 35 ms apart, the game's song buzz) while the song neurons fire above the game's SONG threshold.", tag=GAME_RULE),
+    S("stream.allow_sonify", "Audio", "Sonification in Streamer mode", "bool", False,
+      "Streamer mode silences the brain sonification (a continuous tone bed on a stream is the streamer's call). Tick this to let it play while Streamer mode is on.", tag=GAME_RULE),
     # --- Brain
     S("brain.mode", "Brain", "Mode", "choice", "play",
       "Play is the game with challenges and scores. Lab adds the research tools: validation results, repeated "
@@ -291,6 +301,7 @@ ACTIONS: tuple[tuple[str, str, str], ...] = (
     ("stethoscope", "Brain stethoscope", "k"),
     ("profiler", "Profiler overlay", "f3"),
     ("fly_eye", "Fly's-eye view", "f4"),
+    ("sonify", "Brain sonification (opt-in audio)", "f5"),
     ("timelapse", "Time-lapse record", "l"),
     ("recall", "Recall a lost fly (outdoors)", "j"),
     ("cycle_fly", "Cycle focused fly", "f"),
