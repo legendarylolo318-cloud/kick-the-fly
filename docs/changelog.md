@@ -22,6 +22,7 @@
 - Fixed: a read-only data folder crashed and hung the game at quit; `--protocol` on a classroom lecture crashed with KeyError (both also in 3.0).
 - Honesty: the shape-download consent question now names the per-neuron download; engine-choice and brain-view entries say what is exact and what is statistical.
 - Fixed (playthrough rig): the v3.1.0 tag run failed at 2D flypaper + bomb (loom peak 4.7 Hz, needed 8.7): the rig dropped the 2D bomb on the fly's head, so it fell away and never loomed, and passing depended on the blast. It is now dropped 150 px above the fly and falls onto it (loom 16-28 rad/s before the blast in every 2D arena). The game is unchanged; nothing was published from that run.
+- Fixed (CI): the v3.1.0 tag run's Windows job hit its 150-minute limit, 2 hours of it in `tests/test_puppeteer.py`'s real-brain levels (4-14 min each on a Windows runner). Those levels test game logic and still run on Linux; on Windows they are skipped unless `KTF_WINDOWS_FULL=1`. `release.yml` run by hand on main with a `release_tag` now publishes that tag's release once every job passes. The game is unchanged.
 - Docs: F5 in the controls; Lesion battles and the Contraption builder in playing.md. CI: a release gate diffs `--validate` against the previous tag and builds the AppImage and the exe on every pull request.
 
 # What changed in 3.0 (consolidated)
