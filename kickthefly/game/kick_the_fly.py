@@ -7488,14 +7488,14 @@ def playable_brain(cfg) -> str:
 
 
 def page_neuron_shapes(menu, surf, rect, mouse) -> None:
-    """The one-time question (3.0 day 3 review): may the brain view download ten real neuron shapes from neuPrint?"""
+    """The one-time question (3.0 day 3 review; 3.1.0: the per-neuron shapes too): may the game download real neuron shapes?"""
     cx = rect.centerx
     menu.text(surf, tr("Download real neuron shapes?"), (cx, rect.y + 40), menu_ui.INK, menu.f_head, "midtop")
-    menu.wrapped(surf, tr("The brain view can draw ten neurons (the giant fiber DNp01, DNa02, MBON01, MBON14 and a Kenyon cell type) "
-                          "from their real electron-microscopy skeletons, downloaded once from Janelia's neuPrint and kept in a "
-                          "cache. Without them it draws estimated fibers. Nothing about the simulation changes either way: every "
-                          "neuron is simulated as a point. This is the game's only network use besides Streamer mode, so it is "
-                          "off unless you say yes. Settings > Brain changes it later; it applies on the next launch."),
+    menu.wrapped(surf, tr("The game can draw real neurons from their electron-microscopy skeletons (Janelia's MaleCNS v1.0, CC BY 4.0): ten"
+                          " in the brain view, and any neuron you inspect, fetched when you click it (10-100 kB each), checksummed and "
+                          "cached. Without them it draws estimated fibers; every neuron is still simulated as a point. This is the game's "
+                          "only network use besides Streamer mode, so it is off unless you say yes. Settings > Brain changes it later; it "
+                          "applies on the next launch."),
                  (rect.x + 60, rect.y + 96), rect.w - 120, menu_ui.TEXT, menu.f_text, max_lines=9)
 
     def answer(yes: bool) -> None:

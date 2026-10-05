@@ -550,8 +550,10 @@ def check_network() -> Check:
     ok, why = netguard.allowed()
     return Check("network", "Network features (optional)", PASS,
                  ("Streamer mode could connect to irc.chat.twitch.tv (port 6697) if you turn it on; it is off at every launch and the "
-                  "self-test did not connect" if ok else f"off here: {why}") + "; the only other network use is the brain view's one-time "
-                 "download of ten neuron skeletons from neuPrint (KICK_THE_FLY_OFFLINE=1 turns it off); no telemetry", data=dict(allowed=ok))
+                  "self-test did not connect" if ok else f"off here: {why}") + "; the only other network use is the real neuron shapes, off "
+                 "until you opt in (Settings > Brain): a skeleton is fetched from Janelia's public MaleCNS bucket (storage.googleapis.com) "
+                 "when you inspect that neuron, and the brain view's ten skeletons from neuPrint (KICK_THE_FLY_OFFLINE=1 turns both off); "
+                 "no telemetry", data=dict(allowed=ok))
 
 
 def _writable(d: Path) -> str | None:
