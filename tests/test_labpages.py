@@ -77,7 +77,7 @@ def menu():
 
 
 LAB_PAGES = ["lab", "lab_params", "lab_assumptions", "lab_asymmetry", "lab_benchmark", "lab_export", "lab_protocols",
-             "lab_validation", "lab_assays", "lab_wiring", "lab_critical", "lab_clamp", "lab_diff", "lab_laser", "lab_psych", "lab_classroom"]
+             "lab_validation", "lab_assays", "lab_wiring", "lab_critical", "lab_activation", "lab_knockout", "lab_autopsy", "lab_clamp", "lab_diff", "lab_laser", "lab_psych", "lab_classroom"]
 
 
 @pytest.mark.parametrize("page", LAB_PAGES)

@@ -61,6 +61,9 @@ def run_validate(args) -> int:
     validation.save_results(res, out)
     print(validation.summary(res))
     print(f"results written to {out}")
+    if getattr(args, "autopsy", False) and brain == "adult":          # 3.1.0 task 8: read-only, after the results are saved
+        print("\nautopsy of every failure (read-only):")
+        run_failure_autopsy(args, results=res, folder=out.parent / "failure-autopsy")
     if args.strict:
         wrong = [t["id"] for t in res["tests"] if t["passed"] != validation.EXPECTED.get(t["id"])]
         if wrong:
@@ -133,6 +136,50 @@ def run_critical_path(args) -> int:
                            types=getattr(args, "types", None))
     criticalpath.save(res, folder)
     print(criticalpath.summary(res))
+    print(f"results written to {folder}")
+    return 0
+
+
+def run_failure_autopsy(args, results: dict | None = None, folder: Path | None = None) -> int:
+    """--failure-autopsy [TEST ...] (3.1.0 task 8): a read-only page per failing validation test."""
+    from kickthefly.lab import failure_autopsy as fa, recorder
+
+    folder = folder or (Path(args.out) if args.out else recorder.exports_dir() / "failure-autopsy")
+    only = getattr(args, "failure_autopsy", None) or None
+    t0 = time.time()
+    try:
+        out = fa.run_all(folder, results=results, only=only, progress=lambda d, n, label: print(f"  {d}/{n} {label} ({time.time() - t0:.0f}s)", flush=True))
+    except fa.AutopsyError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 2
+    for a in out:
+        print(f"- {a['test']['name']}")
+        for s in a.get("sections", []):
+            print(f"    {s.get('verdict', {}).get('text', s.get('error', ''))}")
+    print(f"autopsies written to {folder} (read-only: nothing was changed; MODEL PREDICTION)")
+    return 0
+
+
+def run_screen(args, kind: str) -> int:
+    """--activation-screen / --knockout-screen (3.1.0 tasks 6 and 7): resumable whole-brain screens, CSV and Parquet into --out."""
+    from kickthefly.lab import recorder, screens
+
+    folder = Path(args.out) if args.out else recorder.exports_dir() / f"{kind}-screen"
+    seeds = parse_seeds(args.seeds, screens.SCREEN_SEEDS)
+    common = dict(seeds=seeds, controls=getattr(args, "screen_controls", None) or 2, workers=args.workers,
+                  batch=getattr(args, "screen_batch", None) or 0, backend=os.environ.get("KICK_THE_FLY_SIM_BACKEND") or None,
+                  types=getattr(args, "types", None), restart=bool(getattr(args, "restart", False)))
+    try:
+        if kind == "activation":
+            res = screens.run_activation(folder, min_neurons=getattr(args, "min_neurons", None) or 1,
+                                         max_types=getattr(args, "max_types", None), **common)
+        else:
+            res = screens.run_knockout(folder, behaviors=getattr(args, "knockout_screen", None) or None,
+                                       top=getattr(args, "top", None) or 25, batch_size=getattr(args, "candidate_batch", None) or 0, **common)
+    except screens.ScreenError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 2
+    print(screens.summary(res))
     print(f"results written to {folder}")
     return 0
 
@@ -290,6 +337,16 @@ def run_benchmark(args) -> int:
     print(benchmark.format_benchmark_report(res))
     out_p = benchmark.save_benchmark_results(res, getattr(args, "out", None))
     print(f"Results written to {out_p}")
+    if not getattr(args, "no_render_bench", False):             # 3.1.0 task 5: where a frame's milliseconds go
+        from kickthefly.lab import framebench
+        print("\nFrame profile, fixed rendered scenes (offscreen; --no-render-bench skips this):")
+        rows = framebench.run_scenes(backend=None if backend == "auto" else backend)
+        print(framebench.format_table(rows))
+        try:
+            import json
+            Path(str(out_p)).with_name(Path(str(out_p)).stem + "-frames.json").write_text(json.dumps(rows, indent=1), encoding="utf-8")
+        except Exception:
+            pass
     return 0
 
 
@@ -382,6 +439,12 @@ def main(args) -> int:
             return run_signflip(args)
         if getattr(args, "critical_path", None):
             return run_critical_path(args)
+        if getattr(args, "failure_autopsy", None) is not None:
+            return run_failure_autopsy(args)
+        if getattr(args, "activation_screen", False):
+            return run_screen(args, "activation")
+        if getattr(args, "knockout_screen", None) is not None:
+            return run_screen(args, "knockout")
         if getattr(args, "sensitivity", False):
             return run_sensitivity(args)
         if getattr(args, "tournament", None):
@@ -417,7 +480,7 @@ def main(args) -> int:
         print(f"error: {e}", file=sys.stderr)
         return 2
     print("nothing to do: use --validate, --protocol FILE, --playthrough, --replay FILE, --audit-asymmetry, --benchmark, "
-          "--threshold-sweep, --signflip-test, --critical-path TARGET, --sensitivity, --tournament N, --race, --netsci, "
+          "--threshold-sweep, --signflip-test, --critical-path TARGET, --failure-autopsy, --activation-screen, --knockout-screen, --sensitivity, --tournament N, --race, --netsci, "
           "--sleep-deprivation, --rig NAME, --rig-assay NAME, --minipaper ID, --rerun-bundle ZIP or --share-decode CODE", file=sys.stderr)
     return 2
 

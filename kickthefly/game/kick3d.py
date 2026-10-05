@@ -19,6 +19,7 @@ from __future__ import annotations
 import math
 import random
 
+import sys
 import threading
 import time
 from pathlib import Path
@@ -28,9 +29,12 @@ import numpy as np
 import pygame
 
 from kickthefly.core import crash
+from kickthefly.core import profiler as _profiler
+from kickthefly.core.profiler import PROF
 from kickthefly.game import kick_the_fly as k2
 from kickthefly.game import gamepad, outdoors
 from kickthefly.game import kitchen
+from kickthefly.game.predator_anim import SpiderCycle
 from kickthefly.game import weather as weather_rules
 from kickthefly.game.kick_the_fly import (ABD, FOOT, HEAD, KNEE, LINKS, MAX_HEALTH, N_P, PULL, RADIUS, REST, THRESH, THX, TOOLS,
                           TORCH_KEYS, TRIPOD, WING, drop_item)
@@ -180,6 +184,8 @@ HELP3D = (
     ("F", "cycle focused fly (in photo mode: autofocus)"),
     ("R", "reset to a single fresh fly"),
     ("Z  [  ]  .", "pause time, slower, faster, single step"),
+    ("F3", "profiler overlay: sim, physics, render and UI milliseconds, FPS, engine (off at every launch)"),
+    ("F4", "fly's-eye view: the scene as a fly's eyes sample it (wide field, hexagonal ommatidia, UV-blue-green color); visual only, not fed to the brain"),
     ("Esc", "close a panel, or open the menu (settings, save, quit)"),
 )
 
@@ -1397,7 +1403,7 @@ class Game3D(k2.Game):
     def _scents(self, slot: "k2.FlySlot", now: float, mouse=None) -> None:
         fly = slot.fly
         slot.scent_now, slot.sugar_scent = None, False
-        if fly.dead:
+        if fly.dead or self.puppet_active:                    # Puppeteer: nothing of yours is near it (no smell, no remembered fear of one)
             return
         head = fly.p[HEAD]
         if not self._overlay_open() and np.linalg.norm(self.tool_tip() - head) < 2.5:
@@ -2090,11 +2096,15 @@ class Game3D(k2.Game):
             fly = slot.fly
             d = fly.p[THX] + (0, 0.1, 0) - sp["p"]
             dist = float(np.linalg.norm(d))
-            if dist > 0.2:
+            cyc = sp.setdefault("cycle", SpiderCycle())      # 3.1.0 task 1: walk -> windup -> strike -> recover (GAME RULE)
+            if dist > 1e-6 and cyc.state in ("walk", "windup"):
+                sp["face"] = np.array([d[0], 0.0, d[2]]) / max(float(np.hypot(d[0], d[2])), 1e-6)
+            evs = cyc.step(1.0 / 60.0, dist, 0.2)
+            if cyc.walking and dist > 0.2:
                 sp["p"] += d / dist * min(3.4 * S, dist)
                 sp["p"][1] = max(0.12, sp["p"][1])
                 sp["anchor"] = sp["p"].copy()
-            elif now - sp["bite_at"] > 0.7:
+            if "bite" in evs:
                 sp["bite_at"] = now
                 sp["bites"] += 1
                 fly.venom = min(1.0, fly.venom + 0.3)
@@ -3143,23 +3153,15 @@ class Game3D(k2.Game):
             x, y, z = sp["p"]
             rd.add("cylinder", segment((x, y + 0.05, z), (x, min(RY, SPIDER_TOP), z), 0.002), (0.9, 0.9, 0.92, 0.7))
             body = np.array([x, y, z])
-            black = (0.12, 0.11, 0.13)
-            rd.add("sphere", trs(body, None, (0.075, 0.06, 0.09)), black)
-            rd.add("sphere", trs(body + (0, 0.01, 0.09), None, (0.045, 0.04, 0.045)), black)
-            for sgn in (-1, 1):
-                for kk in range(4):
-                    a = (kk - 1.5) * 0.45
-                    wig = 0.015 * math.sin(now * 14 + kk * 1.7 + sgn)
-                    knee = body + (sgn * 0.12 * math.cos(a), 0.06 + wig, 0.12 * math.sin(a))
-                    foot = body + (sgn * 0.2 * math.cos(a), -0.1 - wig, 0.2 * math.sin(a))
-                    rd.add("cylinder", segment(body, knee, 0.008), black)
-                    rd.add("cylinder", segment(knee, foot, 0.006), black)
-            for dx in (-0.015, 0.015):
-                rd.add("sphere", trs(body + (dx, 0.03, 0.13), None, (0.008,) * 3), (1.0, 0.25, 0.25), P_NONE, 1.0)
+            from kickthefly.game import predator_play
+            predator_play.draw_spider3d(sp, rd, now)
             self._shadow(rd, body, 0.15)
         if self.preds.list:
             from kickthefly.game import predator_play
             predator_play.draw3d(self.preds, rd, now)
+        ch = getattr(self, "challenge", None)
+        if ch is not None and hasattr(ch, "draw_world3d"):          # 3.1.0: Puppeteer's goal post
+            ch.draw_world3d(rd, now)
         for sh in self.shards3:
             R = rot_x(sh["rot"][0]) @ rot_y(sh["rot"][1]) @ rot_z(sh["rot"][2])
             rd.add("cube", trs(sh["p"], R, (sh["size"], sh["size"] * 0.6, sh["size"] * 0.3)),
@@ -3732,6 +3734,22 @@ class GLUnavailable(RuntimeError):
     """No OpenGL 3.3 core context (old GPU/driver, remote session, software GL too old): the caller falls back to 2D."""
 
 
+_BGRA_MASKS = (0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000)
+
+
+def upload_surface(tex: moderngl.Texture, surf: pygame.Surface) -> None:
+    """Write a 32-bit surface into an RGBA texture of its size, as pygame.image.tobytes(surf, "RGBA") would. A little-endian ARGB8888
+    surface (what SRCALPHA surfaces are) is BGRA in memory: its pixels go up as they are and the texture's swizzle reorders them, which
+    skips a full-frame conversion that held the GIL for ~1 ms per frame at 1280x760 (4 ms at 1440p) while the brain threads waited
+    (3.1.0 review). Anything else takes the conversion."""
+    raw = (sys.byteorder == "little" and surf.get_bytesize() == 4 and tuple(surf.get_masks()) == _BGRA_MASKS
+           and surf.get_pitch() == surf.get_width() * 4)
+    want = "BGRA" if raw else "RGBA"
+    if tex.swizzle != want:
+        tex.swizzle = want
+    tex.write(surf.get_view("1") if raw else pygame.image.tobytes(surf, "RGBA", False))
+
+
 class App:
     """Window, GL context, frame composition, fullscreen and scaling."""
 
@@ -3780,6 +3798,15 @@ class App:
         self.hud_tex.filter = self.hud_filter
         return self.hud_tex
 
+    def _eye_texture(self, size: tuple[int, int]) -> moderngl.Texture:
+        if getattr(self, "_eye_tex_size", None) != size:
+            if getattr(self, "_eye_tex", None) is not None:
+                self._eye_tex.release()
+            self._eye_tex = self.ctx.texture(size, 4)
+            self._eye_tex.filter = moderngl.NEAREST, moderngl.NEAREST
+            self._eye_tex_size = size
+        return self._eye_tex
+
     def _ensure_scene(self, w: int, h: int):
         if self.scene_size == (w, h):
             return
@@ -3801,6 +3828,8 @@ class App:
 
     def render(self, game: Game3D, now: float, target=None, size=None):
         ctx, rd = self.ctx, self.rd
+        _sec = PROF.section("render")                      # 3.1.0 profiler: the world, then (below) the HUD
+        _sec.__enter__()
         Wn, Hn, s, hud_w, hud_h, play_w, view_w = self.layout(game, size)
         k2.W, k2.H, k2.PLAY_W, k2.FLOOR = hud_w, hud_h, play_w, hud_h - 120   # the shared HUD code reads these
         game.view_w, game.hud_h = view_w, hud_h
@@ -3827,13 +3856,26 @@ class App:
         if not getattr(game, "photo_mode", False):
             lens[0, 3] = play_w / view_w - 1                  # shift in clip x by w: moves the image center left
         proj = lens @ proj
-        rd.clear()
-        game.draw_world(rd, now)
-        rd.set_scene(view, proj, eye, lights, now)
-        rd.draw_layer("opaque")
-        rd.draw_layer("blend")
-        rd.draw_particles()
-        if not getattr(game, "photo_mode", False):
+        eye_on = bool(getattr(game, "fly_eye", None) is not None and game.fly_eye.on)      # 3.1.0: the fly's eyes replace the player's view
+        eye_frame = None
+        if eye_on:
+            try:
+                eye_frame = game.fly_eye.frame_3d(game, self, now, (max(64, int(round(view_w * s))), max(64, Hn)))
+            except Exception:
+                game.fly_eye.on = False
+                k2.log.exception("the fly's-eye view failed; back to your own view")
+                eye_on = False
+            fb.use()
+            ctx.viewport = (0, 0, vw, vh)
+            ctx.enable(moderngl.DEPTH_TEST)
+        if not eye_on:
+            rd.clear()
+            game.draw_world(rd, now)
+            rd.set_scene(view, proj, eye, lights, now)
+            rd.draw_layer("opaque")
+            rd.draw_layer("blend")
+            rd.draw_particles()
+        if not getattr(game, "photo_mode", False) and not eye_on:
             # the tool in your hand: squeezed into the front 10% of the depth range so it never sinks into walls,
             # lit by the same lights moved into camera space
             game.draw_viewmodel(rd, now)
@@ -3847,7 +3889,7 @@ class App:
                          cam_lights, now)
             rd.draw_layer("view")
             rd.draw_layer("view_blend")
-        if self.ms is not None:
+        if self.ms is not None and not eye_on:
             ctx.copy_framebuffer(self.scene, self.ms)
 
         def project(p):
@@ -3859,9 +3901,12 @@ class App:
                 return None
             return ((ndc[0] + 1) / 2 * view_w, (1 - ndc[1]) / 2 * hud_h)
 
+        _sec.__exit__()
+        _sec = PROF.section("ui")
+        _sec.__enter__()
         game.draw_hud3d(now, project)
         tex = self.hud_texture(hud_w, hud_h, s)
-        tex.write(pygame.image.tobytes(game.screen, "RGBA", False))
+        upload_surface(tex, game.screen)
         out = target or ctx.screen
         out.use()
         ctx.viewport = (0, 0, Wn, Hn)
@@ -3871,12 +3916,45 @@ class App:
         if dof > 0:
             rd.blit_dof(self.scene_tex, self.scene.depth_attachment, (0, 0, round(view_w * s), Hn), (Wn, Hn),
                         focus=focus, dof=dof, flip=False, blend=False)
+        elif eye_on and eye_frame is not None:
+            et = self._eye_texture(eye_frame.get_size())
+            upload_surface(et, eye_frame)
+            rd.blit_texture(et, (0, 0, round(view_w * s), Hn), (Wn, Hn), flip=True, blend=False)
         else:
             rd.blit_texture(self.scene_tex, (0, 0, round(view_w * s), Hn), (Wn, Hn), flip=False, blend=False)
         if not (getattr(game, "photo_mode", False) and getattr(game, "photo_hide_ui", False)):
             rd.blit_texture(tex, (0, 0, hud_w * s, hud_h * s), (Wn, Hn), flip=True, blend=True)
         self.view_frac = view_w / hud_w
+        _sec.__exit__()
         return (Wn, Hn, s, hud_w, hud_h, play_w, view_w)
+
+    def render_view(self, game: Game3D, now: float, eye, forward, fov_deg: float, px: int) -> np.ndarray:
+        """The scene from any eye and heading, `px` square, as an (px, px, 3) byte image (rows top first). Used by the fly's-eye view (game/fly_eye.py);
+        draws the world only: no HUD, no viewmodel."""
+        ctx = self.ctx
+        key = ("eye", px)
+        cache = self.__dict__.setdefault("_view_fb", {})
+        if key not in cache:
+            tex = ctx.texture((px, px), 4)
+            depth = ctx.depth_texture((px, px))
+            cache[key] = (tex, depth, ctx.framebuffer(color_attachments=[tex], depth_attachment=depth))
+        tex, depth, fb = cache[key]
+        fb.use()
+        ctx.viewport = (0, 0, px, px)
+        lights, clear_col, far = scene_setup(game)
+        ctx.clear(*clear_col, depth=1.0)
+        ctx.enable(moderngl.DEPTH_TEST)
+        eye = np.asarray(eye, float)
+        view = look_at(eye, eye + np.asarray(forward, float))
+        proj = perspective(math.radians(fov_deg), 1.0, 0.03, far)
+        self.rd.clear()
+        game.draw_world(self.rd, now)
+        self.rd.set_scene(view, proj, eye, lights, now)
+        self.rd.draw_layer("opaque")
+        self.rd.draw_layer("blend")
+        self.rd.draw_particles()
+        data = fb.read(viewport=(0, 0, px, px), components=3)
+        return np.frombuffer(data, np.uint8).reshape(px, px, 3)[::-1].copy()
 
     def capture(self, game: Game3D) -> None:
         """Downscale the finished frame into the GIF buffer (15 fps)."""
@@ -4022,7 +4100,8 @@ def run(smoke: float = 0.0, shot: str | None = None, fullscreen: bool = False, s
     font = pygame.font.SysFont("segoeui,consolas", 22)
     state: dict = {
         "stage": "starting", "seed": seed, "backend": cfg["brain.backend"], "dtype": cfg["brain.dtype"],
-        "brain_type": k2.playable_brain(cfg), "individuality": cfg.get("brain.individuality", "subtle")
+        "brain_type": k2.playable_brain(cfg), "individuality": cfg.get("brain.individuality", "subtle"),
+        "mirror_weights": bool(cfg["brain.mirror_weights"]), "process": k2.use_brain_process(cfg),
     }
     threading.Thread(target=k2.load_brain, args=(state,), daemon=True).start()
     t0 = time.perf_counter()
@@ -4070,6 +4149,8 @@ def run(smoke: float = 0.0, shot: str | None = None, fullscreen: bool = False, s
         s = app.layout(game, (Wn, Hn))[2]
         return (int(pos[0] / s), int(pos[1] / s))
 
+    _profiler.bench_start()
+    warm_done = False
     while running:
         real = time.perf_counter()
         dt = min(0.05, real - last)
@@ -4096,10 +4177,11 @@ def run(smoke: float = 0.0, shot: str | None = None, fullscreen: bool = False, s
             game.spawn_fly()
             to_spawn -= 1
         game.sync_time()
-        game.update_player(dt, keys, rel)
-        for tick_dt in ticks:
-            game.clock.now += tick_dt
-            game.update3d(game.clock.now, tick_dt, keys, rel)
+        with PROF.section("physics"):
+            game.update_player(dt, keys, rel)
+            for tick_dt in ticks:
+                game.clock.now += tick_dt
+                game.update3d(game.clock.now, tick_dt, keys, rel)
         now = game.clock.now
         if script is not None and script(game, app, real - t_game, lay) is False:
             running = False
@@ -4116,8 +4198,15 @@ def run(smoke: float = 0.0, shot: str | None = None, fullscreen: bool = False, s
             app.ctx.screen.use()
             app.screenshot(path, lay, game=game, now=now)
             game.saved_note(path)
-        pygame.display.flip()
+        with PROF.section("present"):
+            pygame.display.flip()
+        if PROF.on:
+            PROF.sim_busy(sum(sl.brain.sim.busy_s for sl in game.flies))
+            PROF.end_frame()
         if smoke and real - t_game > smoke / 2 and not to_spawn:
+            if not warm_done:
+                warm_done = True
+                _profiler.bench_warm_done()                # the profiler's numbers cover the second half only
             fps_log.append(clock.get_fps())                # the second half of the run: after spawning and warm-up
         if smoke and real - t_game > smoke:
             try:
@@ -4131,6 +4220,7 @@ def run(smoke: float = 0.0, shot: str | None = None, fullscreen: bool = False, s
                       f"sound {game.sound.ok}, {gif}, arena {k2.ARENAS[game.arena_i]}, {len(game.flies)} flies, "
                       f"sim/real {min(rates) / 200:.2f}x (slowest fly) {np.mean(rates) / 200:.2f}x (mean)")
             print(status)
+            _profiler.bench_finish(game, status)
             if shot:
                 app.ctx.screen.use()
                 app.screenshot(Path(shot), lay)

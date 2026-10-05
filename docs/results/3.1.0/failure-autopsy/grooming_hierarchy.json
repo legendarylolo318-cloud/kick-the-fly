@@ -1,0 +1,899 @@
+{
+ "version": 1,
+ "tag": "MODEL PREDICTION",
+ "test": {
+  "id": "grooming_hierarchy",
+  "name": "Grooming hierarchy: head stimulation wins over, and suppresses, abdomen grooming",
+  "claim": "With head and abdomen stimulated together, flies groom anterior first: the head (front-leg) program runs and the posterior (hind-leg) program is suppressed.",
+  "citation": "Seeds et al. 2014, eLife 3:e02951",
+  "note": "Redesigned in 2.9 to match Seeds et al. (simultaneous stimulation), criteria fixed before the run. Front-leg motor neurons stand in for head grooming and hind-leg ones for abdomen grooming. Neither half of the hierarchy shows: head bristles barely move the front-leg motor neurons, and adding them doesn't suppress the abdomen's drive to the hind legs."
+ },
+ "result": {
+  "passed": false,
+  "criteria": "abdomen alone raises hind-leg MNs >= 1.5x; with both, front-leg MNs > hind-leg MNs and hind-leg MNs < abdomen alone (each one-sided Wilcoxon p < 0.01)",
+  "measured": {
+   "posterior_hind_mean": 1.4640374878527551,
+   "posterior_hind_sd": 0.025339804070593212,
+   "anterior_front_mean": 1.0705289085921006,
+   "both_front_mean": 1.0914997671354039,
+   "both_front_sd": 0.05584560762489607,
+   "both_hind_mean": 1.4439110146154621,
+   "both_hind_sd": 0.021364603876075465,
+   "p_priority": 1.0,
+   "p_suppression": 0.0654296875,
+   "n": 10
+  }
+ },
+ "seeds": [
+  1000,
+  1001,
+  1002
+ ],
+ "created": "2026-10-04 14:11:06",
+ "read_only": true,
+ "weights_digest": "31952e3631ba801d",
+ "sections": [
+  {
+   "label": "head bristles to the front-leg motor neurons (the head grooming program)",
+   "input": "head bristle neurons (BM_*)",
+   "target": "front-leg motor neurons",
+   "n_input": 823,
+   "n_target": 135,
+   "direct_synapses": 0,
+   "budget": [
+    {
+     "hop": 1,
+     "excitatory": 0.0,
+     "inhibitory": 0.0,
+     "net": 0.0,
+     "total": 0.0,
+     "inhibitory_share": NaN
+    },
+    {
+     "hop": 2,
+     "excitatory": 0.00044799153980838973,
+     "inhibitory": 7.392277832330129e-05,
+     "net": 0.00037406876148508844,
+     "total": 0.000521914318131691,
+     "inhibitory_share": 0.14163776649762055
+    },
+    {
+     "hop": 3,
+     "excitatory": 0.0012783818909248683,
+     "inhibitory": 0.0011276942287824347,
+     "net": 0.0001506876621424336,
+     "total": 0.002406076119707303,
+     "inhibitory_share": 0.46868601518709124
+    }
+   ],
+   "routes": [
+    {
+     "hops": 2,
+     "types": [
+      "DNg15"
+     ],
+     "share": 0.00011729234984373337,
+     "excitatory": 0.00011729234984373337,
+     "inhibitory": 0.0,
+     "net_sign": 1,
+     "inhibitory_share": 0.0,
+     "edges": [
+      {
+       "synapses": 3129,
+       "excitatory": 3129,
+       "inhibitory": 0
+      },
+      {
+       "synapses": 491,
+       "excitatory": 491,
+       "inhibitory": 0
+      }
+     ],
+     "stage_ratios": [
+      {
+       "stage": "input",
+       "base_hz": 3.4084649655731063,
+       "driven_hz": 65.68408262454436,
+       "ratio": 19.270869229398137,
+       "neurons": 823
+      },
+      {
+       "stage": "DNg15",
+       "base_hz": 5.583333333333333,
+       "driven_hz": 27.5,
+       "ratio": 4.925373134328359,
+       "neurons": 2
+      },
+      {
+       "stage": "target",
+       "base_hz": 3.4000000000000004,
+       "driven_hz": 3.602469135802469,
+       "ratio": 1.0595497458242555,
+       "neurons": 135
+      }
+     ]
+    },
+    {
+     "hops": 3,
+     "types": [
+      "DNg48",
+      "IN03A024"
+     ],
+     "share": 9.370532684911505e-05,
+     "excitatory": 9.370532684911505e-05,
+     "inhibitory": 0.0,
+     "net_sign": 1,
+     "inhibitory_share": 0.0,
+     "edges": [
+      {
+       "synapses": 2624,
+       "excitatory": 2624,
+       "inhibitory": 0
+      },
+      {
+       "synapses": 165,
+       "excitatory": 165,
+       "inhibitory": 0
+      },
+      {
+       "synapses": 941,
+       "excitatory": 941,
+       "inhibitory": 0
+      }
+     ],
+     "stage_ratios": [
+      {
+       "stage": "input",
+       "base_hz": 3.4084649655731063,
+       "driven_hz": 65.68408262454436,
+       "ratio": 19.270869229398137,
+       "neurons": 823
+      },
+      {
+       "stage": "DNg48",
+       "base_hz": 3.25,
+       "driven_hz": 44.166666666666664,
+       "ratio": 13.58974358974359,
+       "neurons": 2
+      },
+      {
+       "stage": "IN03A024",
+       "base_hz": 3.625,
+       "driven_hz": 8.25,
+       "ratio": 2.2758620689655173,
+       "neurons": 4
+      },
+      {
+       "stage": "target",
+       "base_hz": 3.4000000000000004,
+       "driven_hz": 3.602469135802469,
+       "ratio": 1.0595497458242555,
+       "neurons": 135
+      }
+     ]
+    },
+    {
+     "hops": 3,
+     "types": [
+      "DNg48",
+      "INXXX194"
+     ],
+     "share": 7.749507880736568e-05,
+     "excitatory": 0.0,
+     "inhibitory": 7.749507880736568e-05,
+     "net_sign": -1,
+     "inhibitory_share": 1.0,
+     "edges": [
+      {
+       "synapses": 2624,
+       "excitatory": 2624,
+       "inhibitory": 0
+      },
+      {
+       "synapses": 125,
+       "excitatory": 125,
+       "inhibitory": 0
+      },
+      {
+       "synapses": 628,
+       "excitatory": 0,
+       "inhibitory": 628
+      }
+     ],
+     "stage_ratios": [
+      {
+       "stage": "input",
+       "base_hz": 3.4084649655731063,
+       "driven_hz": 65.68408262454436,
+       "ratio": 19.270869229398137,
+       "neurons": 823
+      },
+      {
+       "stage": "DNg48",
+       "base_hz": 3.25,
+       "driven_hz": 44.166666666666664,
+       "ratio": 13.58974358974359,
+       "neurons": 2
+      },
+      {
+       "stage": "INXXX194",
+       "base_hz": 3.9166666666666665,
+       "driven_hz": 33.416666666666664,
+       "ratio": 8.53191489361702,
+       "neurons": 2
+      },
+      {
+       "stage": "target",
+       "base_hz": 3.4000000000000004,
+       "driven_hz": 3.602469135802469,
+       "ratio": 1.0595497458242555,
+       "neurons": 135
+      }
+     ]
+    },
+    {
+     "hops": 2,
+     "types": [
+      "DNge078"
+     ],
+     "share": 6.956004487188403e-05,
+     "excitatory": 6.956004487188403e-05,
+     "inhibitory": 0.0,
+     "net_sign": 1,
+     "inhibitory_share": 0.0,
+     "edges": [
+      {
+       "synapses": 131,
+       "excitatory": 131,
+       "inhibitory": 0
+      },
+      {
+       "synapses": 600,
+       "excitatory": 600,
+       "inhibitory": 0
+      }
+     ],
+     "stage_ratios": [
+      {
+       "stage": "input",
+       "base_hz": 3.4084649655731063,
+       "driven_hz": 65.68408262454436,
+       "ratio": 19.270869229398137,
+       "neurons": 823
+      },
+      {
+       "stage": "DNge078",
+       "base_hz": 3.5,
+       "driven_hz": 18.333333333333332,
+       "ratio": 5.238095238095238,
+       "neurons": 2
+      },
+      {
+       "stage": "target",
+       "base_hz": 3.4000000000000004,
+       "driven_hz": 3.602469135802469,
+       "ratio": 1.0595497458242555,
+       "neurons": 135
+      }
+     ]
+    }
+   ],
+   "input_rate": {
+    "base_hz": 3.4084649655731063,
+    "driven_hz": 65.68408262454436,
+    "ratio": 19.270869229398137,
+    "neurons": 823
+   },
+   "target_rate": {
+    "base_hz": 3.4000000000000004,
+    "driven_hz": 3.602469135802469,
+    "ratio": 1.0595497458242555,
+    "neurons": 135
+   },
+   "verdict": {
+    "stage": "DNg15 -> target",
+    "text": "the signal is lost between DNg15 (x4.93) and target (x1.06), below the test's 1.5x",
+    "ratios": [
+     {
+      "stage": "input",
+      "ratio": 19.270869229398137
+     },
+     {
+      "stage": "DNg15",
+      "ratio": 4.925373134328359
+     },
+     {
+      "stage": "target",
+      "ratio": 1.0595497458242555
+     }
+    ]
+   }
+  },
+  {
+   "label": "abdominal sensory neurons to the hind-leg motor neurons (the abdomen program)",
+   "input": "abdominal mechanosensory neurons",
+   "target": "hind-leg motor neurons",
+   "n_input": 1043,
+   "n_target": 130,
+   "direct_synapses": 4,
+   "budget": [
+    {
+     "hop": 1,
+     "excitatory": 3.973299261325827e-06,
+     "inhibitory": 0.0,
+     "net": 3.973299261325827e-06,
+     "total": 3.973299261325827e-06,
+     "inhibitory_share": 0.0
+    },
+    {
+     "hop": 2,
+     "excitatory": 0.0017516458763884336,
+     "inhibitory": 0.0005988944689134304,
+     "net": 0.0011527514074750032,
+     "total": 0.0023505403453018643,
+     "inhibitory_share": 0.2547901252197049
+    },
+    {
+     "hop": 3,
+     "excitatory": 0.003285597940552962,
+     "inhibitory": 0.0027133238653468277,
+     "net": 0.0005722740752061341,
+     "total": 0.0059989218058997896,
+     "inhibitory_share": 0.4523019224351852
+    }
+   ],
+   "routes": [
+    {
+     "hops": 2,
+     "types": [
+      "INXXX025"
+     ],
+     "share": 0.0004330168267010579,
+     "excitatory": 0.0004330168267010579,
+     "inhibitory": 0.0,
+     "net_sign": 1,
+     "inhibitory_share": 0.0,
+     "edges": [
+      {
+       "synapses": 3115,
+       "excitatory": 3115,
+       "inhibitory": 0
+      },
+      {
+       "synapses": 259,
+       "excitatory": 259,
+       "inhibitory": 0
+      }
+     ],
+     "stage_ratios": [
+      {
+       "stage": "input",
+       "base_hz": 11.956535634387983,
+       "driven_hz": 66.80009587727709,
+       "ratio": 5.586910616914359,
+       "neurons": 1043
+      },
+      {
+       "stage": "INXXX025",
+       "base_hz": 2.25,
+       "driven_hz": 64.83333333333333,
+       "ratio": 28.814814814814813,
+       "neurons": 2
+      },
+      {
+       "stage": "target",
+       "base_hz": 5.71025641025641,
+       "driven_hz": 8.357692307692306,
+       "ratio": 1.4636281993713511,
+       "neurons": 130
+      }
+     ]
+    },
+    {
+     "hops": 2,
+     "types": [
+      "INXXX058"
+     ],
+     "share": 0.0002271782264865858,
+     "excitatory": 0.0,
+     "inhibitory": 0.0002271782264865858,
+     "net_sign": -1,
+     "inhibitory_share": 1.0,
+     "edges": [
+      {
+       "synapses": 7647,
+       "excitatory": 7647,
+       "inhibitory": 0
+      },
+      {
+       "synapses": 141,
+       "excitatory": 0,
+       "inhibitory": 141
+      }
+     ],
+     "stage_ratios": [
+      {
+       "stage": "input",
+       "base_hz": 11.956535634387983,
+       "driven_hz": 66.80009587727709,
+       "ratio": 5.586910616914359,
+       "neurons": 1043
+      },
+      {
+       "stage": "INXXX058",
+       "base_hz": 2.4166666666666665,
+       "driven_hz": 59.5,
+       "ratio": 24.620689655172416,
+       "neurons": 6
+      },
+      {
+       "stage": "target",
+       "base_hz": 5.71025641025641,
+       "driven_hz": 8.357692307692306,
+       "ratio": 1.4636281993713511,
+       "neurons": 130
+      }
+     ]
+    },
+    {
+     "hops": 3,
+     "types": [
+      "INXXX025",
+      "IN21A010"
+     ],
+     "share": 6.764557615617479e-05,
+     "excitatory": 6.764557615617479e-05,
+     "inhibitory": 0.0,
+     "net_sign": 1,
+     "inhibitory_share": 0.0,
+     "edges": [
+      {
+       "synapses": 3115,
+       "excitatory": 3115,
+       "inhibitory": 0
+      },
+      {
+       "synapses": 605,
+       "excitatory": 605,
+       "inhibitory": 0
+      },
+      {
+       "synapses": 1233,
+       "excitatory": 1233,
+       "inhibitory": 0
+      }
+     ],
+     "stage_ratios": [
+      {
+       "stage": "input",
+       "base_hz": 11.956535634387983,
+       "driven_hz": 66.80009587727709,
+       "ratio": 5.586910616914359,
+       "neurons": 1043
+      },
+      {
+       "stage": "INXXX025",
+       "base_hz": 2.25,
+       "driven_hz": 64.83333333333333,
+       "ratio": 28.814814814814813,
+       "neurons": 2
+      },
+      {
+       "stage": "IN21A010",
+       "base_hz": 4.8055555555555545,
+       "driven_hz": 6.083333333333333,
+       "ratio": 1.2658959537572256,
+       "neurons": 6
+      },
+      {
+       "stage": "target",
+       "base_hz": 5.71025641025641,
+       "driven_hz": 8.357692307692306,
+       "ratio": 1.4636281993713511,
+       "neurons": 130
+      }
+     ]
+    },
+    {
+     "hops": 3,
+     "types": [
+      "INXXX114",
+      "IN20A.22A008"
+     ],
+     "share": 6.095960619819422e-05,
+     "excitatory": 6.095960619819422e-05,
+     "inhibitory": 0.0,
+     "net_sign": 1,
+     "inhibitory_share": 0.0,
+     "edges": [
+      {
+       "synapses": 1489,
+       "excitatory": 1489,
+       "inhibitory": 0
+      },
+      {
+       "synapses": 321,
+       "excitatory": 321,
+       "inhibitory": 0
+      },
+      {
+       "synapses": 2071,
+       "excitatory": 2071,
+       "inhibitory": 0
+      }
+     ],
+     "stage_ratios": [
+      {
+       "stage": "input",
+       "base_hz": 11.956535634387983,
+       "driven_hz": 66.80009587727709,
+       "ratio": 5.586910616914359,
+       "neurons": 1043
+      },
+      {
+       "stage": "INXXX114",
+       "base_hz": 11.083333333333334,
+       "driven_hz": 60.333333333333336,
+       "ratio": 5.443609022556391,
+       "neurons": 2
+      },
+      {
+       "stage": "IN20A.22A008",
+       "base_hz": 3.0,
+       "driven_hz": 8.291666666666666,
+       "ratio": 2.763888888888889,
+       "neurons": 12
+      },
+      {
+       "stage": "target",
+       "base_hz": 5.71025641025641,
+       "driven_hz": 8.357692307692306,
+       "ratio": 1.4636281993713511,
+       "neurons": 130
+      }
+     ]
+    },
+    {
+     "hops": 1,
+     "types": [],
+     "share": 3.973299044446321e-06,
+     "excitatory": 3.973299044446321e-06,
+     "inhibitory": 0.0,
+     "net_sign": 1,
+     "inhibitory_share": 0.0,
+     "edges": [
+      {
+       "synapses": 4,
+       "excitatory": 4,
+       "inhibitory": 0
+      }
+     ],
+     "stage_ratios": [
+      {
+       "stage": "input",
+       "base_hz": 11.956535634387983,
+       "driven_hz": 66.80009587727709,
+       "ratio": 5.586910616914359,
+       "neurons": 1043
+      },
+      {
+       "stage": "target",
+       "base_hz": 5.71025641025641,
+       "driven_hz": 8.357692307692306,
+       "ratio": 1.4636281993713511,
+       "neurons": 130
+      }
+     ]
+    }
+   ],
+   "input_rate": {
+    "base_hz": 11.956535634387983,
+    "driven_hz": 66.80009587727709,
+    "ratio": 5.586910616914359,
+    "neurons": 1043
+   },
+   "target_rate": {
+    "base_hz": 5.71025641025641,
+    "driven_hz": 8.357692307692306,
+    "ratio": 1.4636281993713511,
+    "neurons": 130
+   },
+   "verdict": {
+    "stage": "INXXX025 -> target",
+    "text": "the signal is lost between INXXX025 (x28.81) and target (x1.46), below the test's 1.5x",
+    "ratios": [
+     {
+      "stage": "input",
+      "ratio": 5.586910616914359
+     },
+     {
+      "stage": "INXXX025",
+      "ratio": 28.814814814814813
+     },
+     {
+      "stage": "target",
+      "ratio": 1.4636281993713511
+     }
+    ]
+   }
+  },
+  {
+   "label": "head bristles to the hind-leg motor neurons (the suppression the hierarchy needs)",
+   "input": "head bristle neurons (BM_*)",
+   "target": "hind-leg motor neurons",
+   "n_input": 823,
+   "n_target": 130,
+   "direct_synapses": 0,
+   "budget": [
+    {
+     "hop": 1,
+     "excitatory": 0.0,
+     "inhibitory": 0.0,
+     "net": 0.0,
+     "total": 0.0,
+     "inhibitory_share": NaN
+    },
+    {
+     "hop": 2,
+     "excitatory": 0.00020662344578240268,
+     "inhibitory": 4.669597831029024e-05,
+     "net": 0.00015992746747211243,
+     "total": 0.00025331942409269293,
+     "inhibitory_share": 0.18433635114061986
+    },
+    {
+     "hop": 3,
+     "excitatory": 0.0002723651717592798,
+     "inhibitory": 0.00023560560014073342,
+     "net": 3.675957161854639e-05,
+     "total": 0.0005079707719000133,
+     "inhibitory_share": 0.463817237475051
+    }
+   ],
+   "routes": [
+    {
+     "hops": 2,
+     "types": [
+      "DNg35"
+     ],
+     "share": 0.00017812860186302058,
+     "excitatory": 0.00017812860186302058,
+     "inhibitory": 0.0,
+     "net_sign": 1,
+     "inhibitory_share": 0.0,
+     "edges": [
+      {
+       "synapses": 2207,
+       "excitatory": 2207,
+       "inhibitory": 0
+      },
+      {
+       "synapses": 372,
+       "excitatory": 372,
+       "inhibitory": 0
+      }
+     ],
+     "stage_ratios": [
+      {
+       "stage": "input",
+       "base_hz": 3.4084649655731063,
+       "driven_hz": 65.68408262454436,
+       "ratio": 19.270869229398137,
+       "neurons": 823
+      },
+      {
+       "stage": "DNg35",
+       "base_hz": 6.0,
+       "driven_hz": 17.75,
+       "ratio": 2.9583333333333335,
+       "neurons": 2
+      },
+      {
+       "stage": "target",
+       "base_hz": 5.71025641025641,
+       "driven_hz": 5.348717948717948,
+       "ratio": 0.936686124831612,
+       "neurons": 130
+      }
+     ]
+    },
+    {
+     "hops": 2,
+     "types": [
+      "DNge067"
+     ],
+     "share": 4.057313591607871e-05,
+     "excitatory": 0.0,
+     "inhibitory": 4.057313591607871e-05,
+     "net_sign": -1,
+     "inhibitory_share": 1.0,
+     "edges": [
+      {
+       "synapses": 613,
+       "excitatory": 613,
+       "inhibitory": 0
+      },
+      {
+       "synapses": 82,
+       "excitatory": 0,
+       "inhibitory": 82
+      }
+     ],
+     "stage_ratios": [
+      {
+       "stage": "input",
+       "base_hz": 3.4084649655731063,
+       "driven_hz": 65.68408262454436,
+       "ratio": 19.270869229398137,
+       "neurons": 823
+      },
+      {
+       "stage": "DNge067",
+       "base_hz": 1.25,
+       "driven_hz": 30.166666666666668,
+       "ratio": 24.133333333333333,
+       "neurons": 2
+      },
+      {
+       "stage": "target",
+       "base_hz": 5.71025641025641,
+       "driven_hz": 5.348717948717948,
+       "ratio": 0.936686124831612,
+       "neurons": 130
+      }
+     ]
+    },
+    {
+     "hops": 3,
+     "types": [
+      "BM_InOm",
+      "DNg35"
+     ],
+     "share": 3.532774308355473e-05,
+     "excitatory": 3.532774308355473e-05,
+     "inhibitory": 0.0,
+     "net_sign": 1,
+     "inhibitory_share": 0.0,
+     "edges": [
+      {
+       "synapses": 2986,
+       "excitatory": 2986,
+       "inhibitory": 0
+      },
+      {
+       "synapses": 1376,
+       "excitatory": 1376,
+       "inhibitory": 0
+      },
+      {
+       "synapses": 372,
+       "excitatory": 372,
+       "inhibitory": 0
+      }
+     ],
+     "stage_ratios": [
+      {
+       "stage": "input",
+       "base_hz": 3.4084649655731063,
+       "driven_hz": 65.68408262454436,
+       "ratio": 19.270869229398137,
+       "neurons": 823
+      },
+      {
+       "stage": "BM_InOm",
+       "base_hz": 3.479194630872483,
+       "driven_hz": 65.58859060402685,
+       "ratio": 18.85165895061729,
+       "neurons": 745
+      },
+      {
+       "stage": "DNg35",
+       "base_hz": 6.0,
+       "driven_hz": 17.75,
+       "ratio": 2.9583333333333335,
+       "neurons": 2
+      },
+      {
+       "stage": "target",
+       "base_hz": 5.71025641025641,
+       "driven_hz": 5.348717948717948,
+       "ratio": 0.936686124831612,
+       "neurons": 130
+      }
+     ]
+    },
+    {
+     "hops": 3,
+     "types": [
+      "BM_Vt_PoOc",
+      "DNg35"
+     ],
+     "share": 1.6732546495455394e-05,
+     "excitatory": 1.6732546495455394e-05,
+     "inhibitory": 0.0,
+     "net_sign": 1,
+     "inhibitory_share": 0.0,
+     "edges": [
+      {
+       "synapses": 1129,
+       "excitatory": 1129,
+       "inhibitory": 0
+      },
+      {
+       "synapses": 723,
+       "excitatory": 723,
+       "inhibitory": 0
+      },
+      {
+       "synapses": 372,
+       "excitatory": 372,
+       "inhibitory": 0
+      }
+     ],
+     "stage_ratios": [
+      {
+       "stage": "input",
+       "base_hz": 3.4084649655731063,
+       "driven_hz": 65.68408262454436,
+       "ratio": 19.270869229398137,
+       "neurons": 823
+      },
+      {
+       "stage": "BM_Vt_PoOc",
+       "base_hz": 5.916666666666667,
+       "driven_hz": 66.5625,
+       "ratio": 11.25,
+       "neurons": 8
+      },
+      {
+       "stage": "DNg35",
+       "base_hz": 6.0,
+       "driven_hz": 17.75,
+       "ratio": 2.9583333333333335,
+       "neurons": 2
+      },
+      {
+       "stage": "target",
+       "base_hz": 5.71025641025641,
+       "driven_hz": 5.348717948717948,
+       "ratio": 0.936686124831612,
+       "neurons": 130
+      }
+     ]
+    }
+   ],
+   "input_rate": {
+    "base_hz": 3.4084649655731063,
+    "driven_hz": 65.68408262454436,
+    "ratio": 19.270869229398137,
+    "neurons": 823
+   },
+   "target_rate": {
+    "base_hz": 5.71025641025641,
+    "driven_hz": 5.348717948717948,
+    "ratio": 0.936686124831612,
+    "neurons": 130
+   },
+   "verdict": {
+    "stage": "DNg35 -> target",
+    "text": "the signal is lost between DNg35 (x2.96) and target (x0.94), below the test's 1.5x",
+    "ratios": [
+     {
+      "stage": "input",
+      "ratio": 19.270869229398137
+     },
+     {
+      "stage": "DNg35",
+      "ratio": 2.9583333333333335
+     },
+     {
+      "stage": "target",
+      "ratio": 0.936686124831612
+     }
+    ]
+   }
+  }
+ ],
+ "ratio_min": 1.5,
+ "method": "walks of 1-3 synapses, simulator weights (signed count / post's input count); stage rates from 3 seeds, the pathway tests' drive (0.5 for 2 s after 2 s calm)"
+}

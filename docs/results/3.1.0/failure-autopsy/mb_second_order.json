@@ -1,0 +1,341 @@
+{
+ "version": 1,
+ "tag": "MODEL PREDICTION",
+ "test": {
+  "id": "mb_second_order",
+  "name": "Mushroom body second-order conditioning: odor A + shock, then odor B with odor A",
+  "claim": "After odor A is paired with shock, pairing odor B with odor A, without shock, makes flies avoid odor B; explicitly unpaired presentations don't.",
+  "citation": "Tabone & de Belle 2011, Learn Mem 18:250",
+  "note": "No rule is added: odor B can only gain fear if odor A's learned MBON output drives the dopamine neurons through the connectome while odor B's Kenyon cells are active."
+ },
+ "result": {
+  "passed": false,
+  "criteria": "PI >= 0.5, |unpaired PI| <= 0.25, paired > unpaired (one-sided Wilcoxon p < 0.01)",
+  "measured": {
+   "pi_mean": 5.551115123125783e-18,
+   "pi_sd": 0.19436506316151,
+   "control_pi_mean": -0.029999999999999992,
+   "control_pi_sd": 0.2110818693198342,
+   "fear_b_paired": 0.0358613843777424,
+   "fear_b_unpaired": 0.034409139725482846,
+   "p_value": 0.125,
+   "n": 10
+  }
+ },
+ "seeds": [
+  1000,
+  1001,
+  1002
+ ],
+ "created": "2026-10-04 14:11:47",
+ "read_only": true,
+ "weights_digest": "31952e3631ba801d",
+ "sections": [
+  {
+   "label": "mushroom body output neurons to the punishment dopamine neurons (odor A's memory must drive PPL1 for odor B to gain fear)",
+   "input": "MBON types",
+   "target": "PPL1 punishment dopamine neurons",
+   "n_input": 97,
+   "n_target": 16,
+   "direct_synapses": 4205,
+   "budget": [
+    {
+     "hop": 1,
+     "excitatory": 0.021727535363424977,
+     "inhibitory": 0.01952615930713364,
+     "net": 0.0022013760562913376,
+     "total": 0.041253694670558616,
+     "inhibitory_share": 0.47331904361692984
+    },
+    {
+     "hop": 2,
+     "excitatory": 0.013626538033520229,
+     "inhibitory": 0.016861526130201414,
+     "net": -0.003234988096681185,
+     "total": 0.030488064163721643,
+     "inhibitory_share": 0.5530533535896084
+    },
+    {
+     "hop": 3,
+     "excitatory": 0.008504026017042868,
+     "inhibitory": 0.008412520289553322,
+     "net": 9.150572748954644e-05,
+     "total": 0.01691654630659619,
+     "inhibitory_share": 0.4972953779739938
+    }
+   ],
+   "routes": [
+    {
+     "hops": 1,
+     "types": [],
+     "share": 0.041253700852394104,
+     "excitatory": 0.021727539598941803,
+     "inhibitory": 0.0195261612534523,
+     "net_sign": 1,
+     "inhibitory_share": 0.47331901986968344,
+     "edges": [
+      {
+       "synapses": 4205,
+       "excitatory": 1776,
+       "inhibitory": 2429
+      }
+     ],
+     "stage_ratios": [
+      {
+       "stage": "input",
+       "base_hz": 30.445017182130584,
+       "driven_hz": 66.75429553264604,
+       "ratio": 2.1926180935718715,
+       "neurons": 97
+      },
+      {
+       "stage": "target",
+       "base_hz": 29.96875,
+       "driven_hz": 28.666666666666668,
+       "ratio": 0.956551963851234,
+       "neurons": 16
+      }
+     ]
+    },
+    {
+     "hops": 2,
+     "types": [
+      "CB1357"
+     ],
+     "share": 0.0015033216206065676,
+     "excitatory": 0.0008353991778455894,
+     "inhibitory": 0.0006679224427609783,
+     "net_sign": 1,
+     "inhibitory_share": 0.44429776942307375,
+     "edges": [
+      {
+       "synapses": 975,
+       "excitatory": 522,
+       "inhibitory": 453
+      },
+      {
+       "synapses": 533,
+       "excitatory": 533,
+       "inhibitory": 0
+      }
+     ],
+     "stage_ratios": [
+      {
+       "stage": "input",
+       "base_hz": 30.445017182130584,
+       "driven_hz": 66.75429553264604,
+       "ratio": 2.1926180935718715,
+       "neurons": 97
+      },
+      {
+       "stage": "CB1357",
+       "base_hz": 14.303030303030305,
+       "driven_hz": 12.984848484848484,
+       "ratio": 0.9078389830508473,
+       "neurons": 11
+      },
+      {
+       "stage": "target",
+       "base_hz": 29.96875,
+       "driven_hz": 28.666666666666668,
+       "ratio": 0.956551963851234,
+       "neurons": 16
+      }
+     ]
+    },
+    {
+     "hops": 2,
+     "types": [
+      "CRE055"
+     ],
+     "share": 0.0012640390605457024,
+     "excitatory": 0.000484006376270865,
+     "inhibitory": 0.0007800326842748374,
+     "net_sign": -1,
+     "inhibitory_share": 0.6170953957214637,
+     "edges": [
+      {
+       "synapses": 2061,
+       "excitatory": 1276,
+       "inhibitory": 785
+      },
+      {
+       "synapses": 301,
+       "excitatory": 0,
+       "inhibitory": 301
+      }
+     ],
+     "stage_ratios": [
+      {
+       "stage": "input",
+       "base_hz": 30.445017182130584,
+       "driven_hz": 66.75429553264604,
+       "ratio": 2.1926180935718715,
+       "neurons": 97
+      },
+      {
+       "stage": "CRE055",
+       "base_hz": 26.980392156862745,
+       "driven_hz": 37.2156862745098,
+       "ratio": 1.379360465116279,
+       "neurons": 17
+      },
+      {
+       "stage": "target",
+       "base_hz": 29.96875,
+       "driven_hz": 28.666666666666668,
+       "ratio": 0.956551963851234,
+       "neurons": 16
+      }
+     ]
+    },
+    {
+     "hops": 3,
+     "types": [
+      "APL",
+      "KCg-m"
+     ],
+     "share": 0.00017340859760937554,
+     "excitatory": 0.00016658914080391798,
+     "inhibitory": 6.819456805457547e-06,
+     "net_sign": 1,
+     "inhibitory_share": 0.03932594403894104,
+     "edges": [
+      {
+       "synapses": 2347,
+       "excitatory": 91,
+       "inhibitory": 2256
+      },
+      {
+       "synapses": 79151,
+       "excitatory": 0,
+       "inhibitory": 79151
+      },
+      {
+       "synapses": 23903,
+       "excitatory": 23903,
+       "inhibitory": 0
+      }
+     ],
+     "stage_ratios": [
+      {
+       "stage": "input",
+       "base_hz": 30.445017182130584,
+       "driven_hz": 66.75429553264604,
+       "ratio": 2.1926180935718715,
+       "neurons": 97
+      },
+      {
+       "stage": "APL",
+       "base_hz": 39.5,
+       "driven_hz": 37.083333333333336,
+       "ratio": 0.938818565400844,
+       "neurons": 2
+      },
+      {
+       "stage": "KCg-m",
+       "base_hz": 30.44945355191257,
+       "driven_hz": 28.67436661698957,
+       "ratio": 0.9417038163953683,
+       "neurons": 1342
+      },
+      {
+       "stage": "target",
+       "base_hz": 29.96875,
+       "driven_hz": 28.666666666666668,
+       "ratio": 0.956551963851234,
+       "neurons": 16
+      }
+     ]
+    },
+    {
+     "hops": 3,
+     "types": [
+      "SMP247",
+      "SMP115"
+     ],
+     "share": 0.0001317327548644598,
+     "excitatory": 9.939427584034086e-05,
+     "inhibitory": 3.2338479024118936e-05,
+     "net_sign": 1,
+     "inhibitory_share": 0.24548548352603788,
+     "edges": [
+      {
+       "synapses": 451,
+       "excitatory": 84,
+       "inhibitory": 367
+      },
+      {
+       "synapses": 982,
+       "excitatory": 982,
+       "inhibitory": 0
+      },
+      {
+       "synapses": 727,
+       "excitatory": 0,
+       "inhibitory": 727
+      }
+     ],
+     "stage_ratios": [
+      {
+       "stage": "input",
+       "base_hz": 30.445017182130584,
+       "driven_hz": 66.75429553264604,
+       "ratio": 2.1926180935718715,
+       "neurons": 97
+      },
+      {
+       "stage": "SMP247",
+       "base_hz": 1.2777777777777777,
+       "driven_hz": 0.3148148148148148,
+       "ratio": 0.24637681159420294,
+       "neurons": 9
+      },
+      {
+       "stage": "SMP115",
+       "base_hz": 8.916666666666666,
+       "driven_hz": 11.333333333333334,
+       "ratio": 1.2710280373831777,
+       "neurons": 2
+      },
+      {
+       "stage": "target",
+       "base_hz": 29.96875,
+       "driven_hz": 28.666666666666668,
+       "ratio": 0.956551963851234,
+       "neurons": 16
+      }
+     ]
+    }
+   ],
+   "input_rate": {
+    "base_hz": 30.445017182130584,
+    "driven_hz": 66.75429553264604,
+    "ratio": 2.1926180935718715,
+    "neurons": 97
+   },
+   "target_rate": {
+    "base_hz": 29.96875,
+    "driven_hz": 28.666666666666668,
+    "ratio": 0.956551963851234,
+    "neurons": 16
+   },
+   "verdict": {
+    "stage": "input -> target",
+    "text": "the signal is lost between input (x2.19) and target (x0.96), below the test's 1.5x",
+    "ratios": [
+     {
+      "stage": "input",
+      "ratio": 2.1926180935718715
+     },
+     {
+      "stage": "target",
+      "ratio": 0.956551963851234
+     }
+    ]
+   }
+  }
+ ],
+ "ratio_min": 1.5,
+ "method": "walks of 1-3 synapses, simulator weights (signed count / post's input count); stage rates from 3 seeds, the pathway tests' drive (0.5 for 2 s after 2 s calm)"
+}

@@ -138,6 +138,7 @@ class LIFSim:
         self.target_p = self.p.target_rate_hz * self.p.dt_ms / 1000.0
         self.activity = ActivityBuffer(self.n)
         self.last_step_ms = 0.0
+        self.busy_s = 0.0
         self.path_counts = {"columns": 0, "full": 0}
         self.spike_total = 0
         self.individuality = getattr(self.p, "individuality", "off")
@@ -150,13 +151,6 @@ class LIFSim:
         from kickthefly.sim.connectome import backends
         self.backend_choice = getattr(self.p, "backend", "auto")
         self.backend = backends.create_backend(self, self.backend_choice)
-        if self.d_pre is not None and self.backend.name == "gl":
-            # the gl shaders propagate with the shared W only; say so rather than report gains that are not applied
-            import logging
-            logging.getLogger("kickthefly").warning(
-                "individuality '%s' is not implemented on the gl backend; this fly runs the shared connectome",
-                self.individuality)
-            self.d_pre = self.d_post = None
 
     def _propagate(self) -> np.ndarray:
         active = np.flatnonzero(self.spikes)
@@ -197,6 +191,7 @@ class LIFSim:
 
         self.activity.push(spikes)
         self.last_step_ms = (time.perf_counter() - t0) * 1000
+        self.busy_s += self.last_step_ms / 1000.0       # the profiler's `sim` row (core/profiler.py)
         return spikes
 
 

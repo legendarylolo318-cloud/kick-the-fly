@@ -293,6 +293,12 @@ def modified_entries(g, w: Wiring) -> tuple[np.ndarray, np.ndarray]:
     return idx, mult[idx]
 
 
+def apply_locked(brain, w: "Wiring") -> None:
+    """apply() between two steps, with the brain's own graph: what the game runs in the brain process (core/brainproc.py)."""
+    with brain.step_lock:
+        apply(brain, w, getattr(brain, "graph", None))
+
+
 def apply(brain, w: Wiring, g=None) -> dict:
     """Put this wiring on a live brain (or any object with .sim), undoing whatever wiring was on it first.
 

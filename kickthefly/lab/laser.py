@@ -127,6 +127,8 @@ class LaserState:
                 return genetics.rows_of_lines(brain.types, tt)
             except genetics.GeneticsError:
                 return np.array([], dtype=int)
+        if tt.startswith(("type:", "prefix:", "side:")):            # 3.1.0 (Puppeteer): the same specs simcore.rows_of reads, plus one side
+            return self._spec_rows(brain, tt)
         types = np.char.lower(brain.types.astype(str))
         exact = np.flatnonzero(types == tt)
         if len(exact):
@@ -136,6 +138,25 @@ class LaserState:
             return prefix
         contains = np.flatnonzero(np.char.find(types, tt) >= 0)
         return contains
+
+    @staticmethod
+    def _spec_rows(brain, tt: str) -> np.ndarray:
+        """`type:A,B` (exact types), `prefix:A,B` (type names starting with), `side:R:A,B` (those exact types, the right or left cell of each pair
+        only: the instance name ends _R or _L). Case-insensitive."""
+        types = np.char.lower(brain.types.astype(str))
+        kind, _, rest = tt.partition(":")
+        side = None
+        if kind == "side":
+            side, _, rest = rest.partition(":")
+            kind = "type"
+        names = [x.strip() for x in rest.split(",") if x.strip()]
+        m = np.zeros(len(types), bool)
+        for nme in names:
+            m |= (np.char.startswith(types, nme) if kind == "prefix" else types == nme)
+        if side:
+            inst = np.array([("" if x is None else str(x)).lower() for x in getattr(brain, "instance", np.full(len(types), ""))])
+            m &= np.char.endswith(inst, "_" + side.lower())
+        return np.flatnonzero(m)
 
     def apply(self, brain, now: float, is_hitting: bool) -> float:
         """Applies laser current to target neurons if active and striking fly.

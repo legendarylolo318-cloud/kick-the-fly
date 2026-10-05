@@ -123,16 +123,70 @@ def test_individuality_forced_off_in_larva_validation(monkeypatch):
     assert built and all(d is None for d in built)
 
 
-def test_gl_does_not_claim_individuality():
-    """The gl shaders do not apply D_pre/D_post, so a gl fly must not report gains it does not use."""
+def _gl_or_skip():
     if "gl" not in backends.detect_available_backends():
         pytest.skip("no OpenGL 4.3 compute here")
+
+
+def test_gl_applies_individuality():
+    """3.1.0: the gl shaders apply D_pre and D_post (before, a gl fly ran as a clone and the code said so)."""
+    _gl_or_skip()
     _, W, _ = simcore.pack("adult")
     sim = LIFSim(None, LIFParams(backend="gl", individuality="subtle"), W_in=W, seed=1)
     try:
-        assert sim.d_pre is None and sim.d_post is None
+        assert sim.d_pre is not None and sim.d_post is not None
+        sim.step(None)
+        assert sim.backend.name == "gl"
     finally:
         sim.backend.close()
+
+
+@pytest.mark.parametrize("mode", ["subtle", "strong"])
+def test_gl_one_step_matches_the_cpu_with_individuality(mode):
+    """The same state stepped once on the CPU and on gl: the individuality gains give the same input to within float32 summation order."""
+    _gl_or_skip()
+    _, W, _ = simcore.pack("adult")
+    rng = np.random.default_rng(5)
+    out = {}
+    for name in ("cpu", "gl"):
+        sim = LIFSim(None, LIFParams(backend=name, individuality=mode), W_in=W, seed=3)
+        try:
+            sim.v[:] = rng.uniform(0, 0.5, sim.n).astype(np.float32) if name == "cpu" else out["cpu"][2]
+            sim.spikes[:] = (np.random.default_rng(9).random(sim.n) < 0.03) if name == "cpu" else out["cpu"][3]
+            first_v, first_s = sim.v.copy(), sim.spikes.copy()
+            if name == "gl":
+                sim.backend.sync_from_host()
+            sp = sim.step(None)
+            sim.backend.sync_to_host()
+            out[name] = (sim.v.copy(), np.asarray(sp).copy(), first_v, first_s)
+        finally:
+            getattr(sim.backend, "close", lambda: None)()
+    vc, sc, _, _ = out["cpu"]
+    vg, sg, _, _ = out["gl"]
+    both = ~(sc | sg)
+    assert np.mean(sc == sg) > 0.9995
+    assert np.allclose(vc[both], vg[both], rtol=2e-4, atol=2e-5)
+
+
+def test_gl_individuals_differ_from_each_other_and_from_a_clone():
+    """Two gl flies with different seeds under 'strong' must not be the same brain."""
+    _gl_or_skip()
+    _, W, _ = simcore.pack("adult")
+    a = LIFSim(None, LIFParams(backend="gl", individuality="strong"), W_in=W, seed=1)
+    b = LIFSim(None, LIFParams(backend="gl", individuality="strong"), W_in=W, seed=2)
+    c = LIFSim(None, LIFParams(backend="gl", individuality="off"), W_in=W, seed=1)
+    try:
+        assert not np.array_equal(a.d_pre, b.d_pre) and c.d_pre is None
+        for sim in (a, b, c):
+            sim.spikes[:] = np.random.default_rng(1).random(sim.n) < 0.03
+            sim.v[:] = 0
+            sim.backend.sync_from_host()
+            sim.step(None)
+            sim.backend.sync_to_host()
+        assert not np.allclose(a.v, b.v) and not np.allclose(a.v, c.v)
+    finally:
+        for sim in (a, b, c):
+            sim.backend.close()
 
 
 def test_personality_card_generation():

@@ -105,6 +105,16 @@ def fetch_or_load_skeleton(body_id: int, cache_dir: Path | None = None,
         except Exception as e:
             log.warning("Failed to read cached skeleton %s: %s", cache_file, e)
 
+    # 3.1.0 task 9: the public, checksummed MaleCNS release first (sim/realshapes.py: no token, md5-verified, cached); neuPrint's API after it
+    try:
+        from kickthefly.sim import realshapes
+        sk = realshapes.ShapeStore(cache_dir / "cns-v1.0").get(body_id, allow_network=allow_network and network_allowed())
+        if sk is not None and sk.n >= 2:
+            idx = np.linspace(0, sk.n - 1, n_samples).astype(np.int64)
+            return sk.xyz[idx].astype(np.float32)
+    except Exception as e:
+        log.info("public MaleCNS skeleton for body %d not used (%s)", body_id, e)
+
     if not allow_network or not network_allowed():
         return None
 

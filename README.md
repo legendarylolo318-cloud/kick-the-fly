@@ -16,7 +16,7 @@ brain responding. Recorded with the in-game video recorder (Shift+R).*
 |---|---|
 | **Windows** | **[KickTheFly.exe](https://github.com/legendarylolo318-cloud/kick-the-fly/releases/latest/download/KickTheFly.exe)** (about 90 MB). Double-click it: nothing to install, the whole brain is inside. It isn't code-signed, so SmartScreen may warn: **More info**, then **Run anyway**. |
 | **Linux** | **[KickTheFly-x86_64.AppImage](https://github.com/legendarylolo318-cloud/kick-the-fly/releases/latest/download/KickTheFly-x86_64.AppImage)** (about 110 MB). `chmod +x` it and run it. Built on Ubuntu 22.04; Wayland or X11; no FUSE? add `--appimage-extract-and-run`. A Flatpak manifest is in `packaging/flatpak/`. |
-| **From source** | Any OS with Python 3.11+: [docs/running-from-source.md](docs/running-from-source.md). That's how you get the faster Numba and GPU backends, the Python API and NWB export. |
+| **From source** | Any OS with Python 3.11+: [docs/running-from-source.md](docs/running-from-source.md). That's how you get the Numba and PyTorch GPU backends, the Python API and NWB export (the downloads already carry the OpenGL GPU backend). |
 
 Each release lists `SHA256SUMS`. The 3D game needs OpenGL 3.3; without it the game says why and starts the 2D version (`--2d`). Run
 `--selftest` (or Settings > Help) to check an install; it explains how to fix whatever it finds and changes nothing.
@@ -141,7 +141,10 @@ The complete list: **[docs/connectome-and-game-rules.md](docs/connectome-and-gam
 
 One fly keeps real time (200 brain steps/s) on any backend. With many flies Numba scales best on the CPU and PyTorch GPU backends run them
 batched; the OpenGL `gl` backend runs on any vendor's GPU and steps a process's flies together. NumPy, Numba and torch-cpu give spike-for-spike
-identical results; GPU backends agree statistically. The exe and AppImage use NumPy. Tables and methods: [docs/performance.md](docs/performance.md).
+identical results; GPU backends agree statistically. **Auto** (the default, new in 3.1.0) picks the fastest engine that works in the game: a real GPU through
+OpenGL compute, then a PyTorch GPU, then Numba, then NumPy, with a fallback to the next on any error; Settings > Brain shows the engine in use and lets you
+pick another. Validation, protocols, bundles and replays keep the exact (non-gl) chain. The exe and AppImage carry the `gl` backend (ModernGL and the EGL
+context are bundled), so a machine with an OpenGL 4.3 GPU gets it without installing anything. Tables and methods: [docs/performance.md](docs/performance.md).
 
 ## Repository
 
@@ -161,5 +164,7 @@ Fly in research or teaching, cite it with [CITATION.cff](CITATION.cff) and cite 
 The adult connectome data is Janelia FlyEM MaleCNS v1.0, a collaboration between HHMI Janelia, the University of Cambridge, the MRC Laboratory of Molecular Biology and Google Research. It is licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) and available at [male-cns.janelia.org](https://male-cns.janelia.org/download/).
 
 The Drosophila larva connectome data is from Winding, M., Pedigo, B.D., Barnes, C.L., et al. (2023). "The connectome of an insect brain." *Science*, 379(6636), eadd9330. DOI: [10.1126/science.add9330](https://doi.org/10.1126/science.add9330) (Supplementary Data S1). No license is stated for it, so Kick the Fly does not redistribute it: the larva pack is built on your machine from the downloaded Data S1 (checksum-verified; mirror: [github.com/brain-networks/larval-drosophila-connectome](https://github.com/brain-networks/larval-drosophila-connectome)).
+
+Real neuron shapes (opt-in, Settings > Brain; [docs/real-shapes.md](docs/real-shapes.md)) are the skeletons of the same MaleCNS v1.0 release (FlyEM at HHMI Janelia with the University of Cambridge, the MRC LMB and Google Research; CC BY 4.0, [male-cns.janelia.org](https://male-cns.janelia.org/)), downloaded one neuron at a time from Janelia's public bucket when you inspect it, checksummed and cached on your machine, and never bundled.
 
 The exe and AppImage bundle a compact pack derived from the adult data only. The pack keeps the signed synapse counts, the neuron labels (type, superclass, subclass, instance), body IDs and the cell-body positions, and is otherwise unmodified.

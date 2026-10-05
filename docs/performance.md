@@ -3,6 +3,12 @@
 How fast the brain simulation runs on each compute backend, and how many flies each one keeps in real time. The
 backend is picked in Settings > Brain > Compute backend or with `--backend NAME` (README: Run from source).
 
+**Auto (3.1.0).** In the interactive game, `auto` tries `gl` first (only on a real GPU: a software rasterizer such as llvmpipe has the compute shaders but
+runs them on the CPU, so it does not count), then a PyTorch GPU, then Numba, then NumPy, moving on at any error; Settings > Brain shows the engine in use and
+the chain. Headless runs (`--validate`, protocols, bundles, replays, the selftest) keep the exact chain (PyTorch GPU, Numba, NumPy) so their numbers do not
+move; `KICK_THE_FLY_AUTO=exact` gives the game the same chain. Pick `cpu` or `numba` for spike-for-spike runs. gl is fastest for one brain; Numba is faster for
+8 to 16 brains on a CPU (table below).
+
 A brain steps every 5 ms of brain time, so real time is 200 steps/s. "Paced" is whether a brain held to real time
 keeps up; "uncapped" is how fast it steps when it isn't held back, as a multiple of real time.
 
@@ -11,6 +17,60 @@ python kick_the_fly.py --headless --benchmark --backend NAME --flies 1 8 16 32 -
 ```
 
 Lab > Simulation benchmark runs the same thing in the game and reports the backend that actually ran.
+
+## The profiler and the frame profile (3.1.0)
+
+**F3** (rebindable in Settings > Controls; off at every launch) puts a card over the game: FPS, the frame time with its 95th percentile and worst, a
+strip of the last frames (green and amber lines at 60 and 30 fps), the milliseconds of each part of a frame, the compute engine and the brain view's
+renderer. Tag: **GAME RULE** (it reads clocks and counters; nothing the simulation does). The rows are milliseconds of the game's own thread, per frame,
+over the last 180 frames:
+
+| row | what it is |
+|---|---|
+| `sim` | the brains' own step time summed over the steps they took this frame. The brains run on threads of their own, so this is compute used while the frame ran, **not** time the frame waited (flies batched on one GPU overlap, so it can exceed the frame) |
+| `physics` | the fly's physics, the tools, predators, the rest of the game update, and the player's movement |
+| `render` | 3D: building and submitting the scene; 2D: drawing the arena |
+| `ui` | the HUD, the brain panel, menus and the science card |
+| `present` | swapping buffers: where vsync, the frame cap and a busy GPU show |
+
+`render`, `ui` and `physics` are CPU time. Sections nest and the inner time is taken out of the outer, so the rows add up to the frame. With the profiler off
+each section costs one method call returning a shared no-op context (under 2 microseconds).
+
+`python kick_the_fly.py --benchmark` runs the simulation table above and then the **frame profile**: the game's own smoke run, seed 1, the room, 4 flies in
+3D and one in 2D, offscreen (EGL; no display needed, and the monitor cannot cap it), ten seconds of which the first five are warm-up, one row each for
+3D at the 60 fps cap (what a player gets), 3D uncapped (how fast the frame can go; flat out it competes with a GPU brain for the GPU, so its steps/s drop),
+3D with the brain view on the CPU, and 2D. `--no-render-bench` skips it. Each child's numbers also land in `benchmark_results-frames.json` next to the
+simulation results. On this machine (an RX 9070 XT; every number is in `HANDOFF.md`) the GPU brain view takes `ui` from 6.6 to 4.8 ms and
+`physics` from 3.5 to 2.5 ms in the capped 3D scene, and the brains keep 198 steps/s against 174 with the CPU view (the CPU view's sparse products compete
+with the brains for the interpreter).
+
+## Where the simulation runs (3.1.0)
+
+Each fly's brain steps on a thread of its own at a fixed 200 steps per second of brain time (times the game speed: slow motion scales it, pause stops
+it, single-step runs one), paced by the wall clock, while the game's frame loop draws and moves the fly at 60 Hz and only reads the brain's latest group
+rates. On the gl backend the GPU work runs on a further thread per group of flies. That was already so in 3.0; 3.1.0 checks it and fixes one way it
+failed: CPython gives a waiting thread the GIL only every 5 ms while another thread is running Python, so a busy frame left the brain **27 of its 200
+steps/s** (measured with a main thread that never yields; 0.001 s: 78, 0.0005 s: 163, 0.0002 s: 200). The brain thread now lowers the interpreter's switch
+interval to 0.2 ms when it starts. The spikes are unchanged: the same seed gives the same spikes whether a thread or a caller steps the brain
+(`tests/test_brain_thread.py`). Rendering does not interpolate brain state: nothing the player sees moves with the brain's 5 ms steps (the fly's body
+moves at the game's 60 Hz tick from the rates read that frame), and the brain panel reads its own 20 Hz view. A separate *process* would avoid the GIL
+altogether and was not built.
+
+**In the game, the GIL is the limit, not the GPU or the CPU cores (3.1.0 review).** The headless table above has no render thread; in the game the
+render thread and every brain thread share one interpreter lock, so with many flies the brains fall behind real time while the GPU and most
+cores sit idle. The review removed the render thread's longest lock-holding calls (the HUD was converted to RGBA bytes every frame, ~1 ms at
+1280x760 and ~4 ms at 1440p; every limb segment ran numpy on 3-vectors; the memory card rescored every smell against 41k synapses every frame).
+Measured in the 3D game, RX 9070 XT, 60 fps cap unless noted, steady second half of a 60-75 s run, quiet machine (steps/s per fly; 200 is real time):
+
+| scene | 3.0.0-rc.2 (NumPy) | 3.1.0 before the review fixes (gl) | 3.1.0 (gl) |
+|---|---|---|---|
+| 1 fly | 200, GPU 9% busy | 200 | 200, GPU 31% busy, main thread 28% (rc.2 43%) |
+| 4 flies | 200 | 200 | 200 |
+| 8 flies | 70 (0.35x) | 78 (0.39x), 52 fps | 132 (0.66x), 58 fps |
+| 1 fly, no fps cap | 59 (0.29x) | 133 (0.67x), 170 fps | 187 (0.94x), 302 fps |
+
+So up to about 4-5 flies keep real time in the game on this machine; beyond that the brains slow down (the game shows steps/s in the profiler, F3)
+even though the headless benchmark runs 16 gl flies in real time. The remaining main-thread cost is mostly the flies' physics and drawing.
 
 ## 2.10
 

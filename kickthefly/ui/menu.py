@@ -712,6 +712,8 @@ class Menu:
                             lambda k=s.key: host.set_setting(k, random.randrange(1, 2**31 - 1)), id=(s.key, "rand"),
                             tip="Pick a new random seed.", font=self.f_small)
             y += 48 + extra
+        if self.tab == "Brain":
+            y = self._engine_info(surf, body, y + 4, host)
         if self.tab == "Controls":
             y = self._keybinds(surf, body, y + 8)
         if self.tab == "Help":
@@ -736,6 +738,35 @@ class Menu:
         nx = max(rect.centerx, left + self.f_small.size(note)[0] // 2)
         if nx + self.f_small.size(note)[0] // 2 < rect.right - 176:
             self.text(surf, note, (nx, fy + 21), LABEL, self.f_small, "center")
+
+    def _engine_info(self, surf, body, y: int, host) -> int:
+        """Which engine is running the brain now (3.1.0 task 2), what 'Auto' would try, and a note when a fallback happened."""
+        from kickthefly.sim.connectome import backends
+
+        lines = []
+        try:
+            flies = getattr(host, "flies", None) or []
+            be = flies[0].brain.sim.backend if flies else None
+            asked = str(host.cfg["brain.backend"])
+            if be is not None:
+                lines.append(f"Engine in use: {be.name}  ({be.device})")
+                if asked not in ("auto", be.name) and not (asked in ("torch-cuda", "torch-rocm") and be.name.startswith("torch")):
+                    lines.append(f"You chose {asked}, but it is not available here or failed; {be.name} runs instead.")
+            else:
+                lines.append("Engine in use: none yet (a fly has not been created)")
+            vw = getattr(host, "view", None)
+            if vw is not None and hasattr(vw, "engine_note"):
+                lines.append(f"Brain view: {vw.engine_note}")
+            chain = backends.auto_chain()
+            lines.append(f"Auto tries: {' > '.join(chain)}   ({backends.auto_policy()} policy; pick an engine above to override)")
+        except Exception as e:                       # the panel is information only: never let it break Settings
+            lines.append(f"Engine information unavailable ({type(e).__name__})")
+        self.text(surf, "ENGINE", (body.x + 12, y + 8), LABEL, self.f_small, "midleft")
+        y += 22
+        for ln in lines:
+            self.text(surf, ln, (body.x + 12, y + 8), TEXT, self.f_small, "midleft")
+            y += 22
+        return y + 4
 
     def _reset_tab(self) -> None:
         changed = self.host.cfg.reset_tab(self.tab)

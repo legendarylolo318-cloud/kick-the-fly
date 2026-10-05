@@ -30,8 +30,10 @@ Backend support, measured in the 2.11 review (`tests/test_individuality.py`):
 - **torch-cpu**: bit-exact with individuality off. With it on, the scaled products are summed in a different order, the
   float32 rounding differs and the chaotic network drifts apart (after 150 steps at `subtle`, spikes differ and
   voltages by up to 6.5). Not bit-exact.
-- **gl** (OpenGL compute): **not implemented**. The shaders use the shared $W$ only; a gl brain logs a warning and runs
-  with individuality off (its gains are cleared so nothing reports gains it does not use).
+- **gl** (OpenGL compute): implemented in 3.1.0 (before, a gl brain logged a warning and ran as a clone). The SpMM shader scales each spiking
+  presynaptic neuron's weights by D_pre and the summed input by D_post for the flies that carry gains; a fly without them runs the
+  unchanged path, so individuality off stays bit-exact with the CPU. With gains on, gl agrees with NumPy to float32 summation order and
+  then drifts like any chaotic network (`tests/test_individuality.py`).
 - torch-cuda / torch-rocm: implemented as above, untested in 2.11 (no such device in the review).
 
 ---

@@ -1,0 +1,339 @@
+{
+ "version": 1,
+ "tag": "MODEL PREDICTION",
+ "test": {
+  "id": "epg_compass",
+  "name": "E-PG central complex compass forms an orientation bump",
+  "claim": "E-PG / PEN / Delta7 recurrent ring attractor forms a persistent head-direction bump.",
+  "citation": "Seelig & Jayaraman 2015, Nature 521:186; Green et al. 2017, Nature 546:101",
+  "note": "With the connectome's signed synapse counts and no ring weights tuned, bump contrast and persistence fail; reported as a negative result."
+ },
+ "result": {
+  "passed": false,
+  "criteria": "contrast >= 3.0x and persistence >= 500 ms post-cue",
+  "measured": {
+   "mean_contrast": 1.042347500874134,
+   "sd_contrast": 0.14147532431202228,
+   "mean_persistence_ms": 0.0,
+   "mean_baseline_hz": 9.366304347826087,
+   "mean_baseline_sd_hz": 1.56310174002606,
+   "n": 10
+  }
+ },
+ "seeds": [
+  1000,
+  1001,
+  1002
+ ],
+ "created": "2026-10-04 14:10:26",
+ "read_only": true,
+ "weights_digest": "31952e3631ba801d",
+ "sections": [
+  {
+   "label": "the driven wedge to the rest of the ring (what a bump needs to spread and persist)",
+   "input": "4 EPG neurons (the wedge the test drives)",
+   "target": "the other 42 EPG neurons",
+   "n_input": 4,
+   "n_target": 42,
+   "direct_synapses": 1010,
+   "budget": [
+    {
+     "hop": 1,
+     "excitatory": 0.005560297700521048,
+     "inhibitory": 0.0,
+     "net": 0.005560297700521048,
+     "total": 0.005560297700521048,
+     "inhibitory_share": 0.0
+    },
+    {
+     "hop": 2,
+     "excitatory": 0.002423189296049604,
+     "inhibitory": 0.006042698611232565,
+     "net": -0.0036195093151829612,
+     "total": 0.00846588790728217,
+     "inhibitory_share": 0.7137702125768485
+    },
+    {
+     "hop": 3,
+     "excitatory": 0.0036775696454728482,
+     "inhibitory": 0.0029581575810214015,
+     "net": 0.0007194120644514468,
+     "total": 0.00663572722649425,
+     "inhibitory_share": 0.4457925228165593
+    }
+   ],
+   "routes": [
+    {
+     "hops": 1,
+     "types": [],
+     "share": 0.0055602979846298695,
+     "excitatory": 0.0055602979846298695,
+     "inhibitory": 0.0,
+     "net_sign": 1,
+     "inhibitory_share": 0.0,
+     "edges": [
+      {
+       "synapses": 1010,
+       "excitatory": 1010,
+       "inhibitory": 0
+      }
+     ],
+     "stage_ratios": [
+      {
+       "stage": "input",
+       "base_hz": 6.166666666666667,
+       "driven_hz": 67.0,
+       "ratio": 10.864864864864865,
+       "neurons": 4
+      },
+      {
+       "stage": "target",
+       "base_hz": 6.789682539682539,
+       "driven_hz": 2.7817460317460316,
+       "ratio": 0.40970192869666866,
+       "neurons": 42
+      }
+     ]
+    },
+    {
+     "hops": 2,
+     "types": [
+      "ER4m"
+     ],
+     "share": 0.001603260418001083,
+     "excitatory": 0.0,
+     "inhibitory": 0.001603260418001083,
+     "net_sign": -1,
+     "inhibitory_share": 1.0,
+     "edges": [
+      {
+       "synapses": 399,
+       "excitatory": 399,
+       "inhibitory": 0
+      },
+      {
+       "synapses": 19148,
+       "excitatory": 0,
+       "inhibitory": 19148
+      }
+     ],
+     "stage_ratios": [
+      {
+       "stage": "input",
+       "base_hz": 6.166666666666667,
+       "driven_hz": 67.0,
+       "ratio": 10.864864864864865,
+       "neurons": 4
+      },
+      {
+       "stage": "ER4m",
+       "base_hz": 8.454545454545455,
+       "driven_hz": 5.363636363636363,
+       "ratio": 0.6344086021505375,
+       "neurons": 11
+      },
+      {
+       "stage": "target",
+       "base_hz": 6.789682539682539,
+       "driven_hz": 2.7817460317460316,
+       "ratio": 0.40970192869666866,
+       "neurons": 42
+      }
+     ]
+    },
+    {
+     "hops": 2,
+     "types": [
+      "ExR6"
+     ],
+     "share": 0.0014465393816996879,
+     "excitatory": 0.0,
+     "inhibitory": 0.0014465393816996879,
+     "net_sign": -1,
+     "inhibitory_share": 1.0,
+     "edges": [
+      {
+       "synapses": 884,
+       "excitatory": 884,
+       "inhibitory": 0
+      },
+      {
+       "synapses": 5705,
+       "excitatory": 0,
+       "inhibitory": 5705
+      }
+     ],
+     "stage_ratios": [
+      {
+       "stage": "input",
+       "base_hz": 6.166666666666667,
+       "driven_hz": 67.0,
+       "ratio": 10.864864864864865,
+       "neurons": 4
+      },
+      {
+       "stage": "ExR6",
+       "base_hz": 11.916666666666666,
+       "driven_hz": 17.0,
+       "ratio": 1.4265734265734267,
+       "neurons": 2
+      },
+      {
+       "stage": "target",
+       "base_hz": 6.789682539682539,
+       "driven_hz": 2.7817460317460316,
+       "ratio": 0.40970192869666866,
+       "neurons": 42
+      }
+     ]
+    },
+    {
+     "hops": 3,
+     "types": [
+      "ER4m",
+      "ER4m"
+     ],
+     "share": 0.0008800983870630368,
+     "excitatory": 0.0008800983870630368,
+     "inhibitory": 0.0,
+     "net_sign": 1,
+     "inhibitory_share": 0.0,
+     "edges": [
+      {
+       "synapses": 399,
+       "excitatory": 399,
+       "inhibitory": 0
+      },
+      {
+       "synapses": 14580,
+       "excitatory": 0,
+       "inhibitory": 14580
+      },
+      {
+       "synapses": 19148,
+       "excitatory": 0,
+       "inhibitory": 19148
+      }
+     ],
+     "stage_ratios": [
+      {
+       "stage": "input",
+       "base_hz": 6.166666666666667,
+       "driven_hz": 67.0,
+       "ratio": 10.864864864864865,
+       "neurons": 4
+      },
+      {
+       "stage": "ER4m",
+       "base_hz": 8.454545454545455,
+       "driven_hz": 5.363636363636363,
+       "ratio": 0.6344086021505375,
+       "neurons": 11
+      },
+      {
+       "stage": "ER4m",
+       "base_hz": 8.454545454545455,
+       "driven_hz": 5.363636363636363,
+       "ratio": 0.6344086021505375,
+       "neurons": 11
+      },
+      {
+       "stage": "target",
+       "base_hz": 6.789682539682539,
+       "driven_hz": 2.7817460317460316,
+       "ratio": 0.40970192869666866,
+       "neurons": 42
+      }
+     ]
+    },
+    {
+     "hops": 3,
+     "types": [
+      "ExR6",
+      "PEN_a(PEN1)"
+     ],
+     "share": 0.0004142330421223989,
+     "excitatory": 0.0,
+     "inhibitory": 0.0004142330421223989,
+     "net_sign": -1,
+     "inhibitory_share": 1.0,
+     "edges": [
+      {
+       "synapses": 884,
+       "excitatory": 884,
+       "inhibitory": 0
+      },
+      {
+       "synapses": 5089,
+       "excitatory": 0,
+       "inhibitory": 5089
+      },
+      {
+       "synapses": 13146,
+       "excitatory": 13146,
+       "inhibitory": 0
+      }
+     ],
+     "stage_ratios": [
+      {
+       "stage": "input",
+       "base_hz": 6.166666666666667,
+       "driven_hz": 67.0,
+       "ratio": 10.864864864864865,
+       "neurons": 4
+      },
+      {
+       "stage": "ExR6",
+       "base_hz": 11.916666666666666,
+       "driven_hz": 17.0,
+       "ratio": 1.4265734265734267,
+       "neurons": 2
+      },
+      {
+       "stage": "PEN_a(PEN1)",
+       "base_hz": 12.016666666666666,
+       "driven_hz": 7.9750000000000005,
+       "ratio": 0.6636615811373094,
+       "neurons": 20
+      },
+      {
+       "stage": "target",
+       "base_hz": 6.789682539682539,
+       "driven_hz": 2.7817460317460316,
+       "ratio": 0.40970192869666866,
+       "neurons": 42
+      }
+     ]
+    }
+   ],
+   "input_rate": {
+    "base_hz": 6.166666666666667,
+    "driven_hz": 67.0,
+    "ratio": 10.864864864864865,
+    "neurons": 4
+   },
+   "target_rate": {
+    "base_hz": 6.789682539682539,
+    "driven_hz": 2.7817460317460316,
+    "ratio": 0.40970192869666866,
+    "neurons": 42
+   },
+   "verdict": {
+    "stage": "input -> target",
+    "text": "the signal is lost between input (x10.86) and target (x0.41), below the test's 1.5x",
+    "ratios": [
+     {
+      "stage": "input",
+      "ratio": 10.864864864864865
+     },
+     {
+      "stage": "target",
+      "ratio": 0.40970192869666866
+     }
+    ]
+   }
+  }
+ ],
+ "ratio_min": 1.5,
+ "method": "walks of 1-3 synapses, simulator weights (signed count / post's input count); stage rates from 3 seeds, the pathway tests' drive (0.5 for 2 s after 2 s calm)"
+}

@@ -1013,6 +1013,10 @@ def install(menu: ui.Menu) -> None:
     menu.pages.update(labtoolkit.PAGES)                 # 3.0 day 2: genetic toolkit, thermogenetics, patch, imaging, pharmacology
     menu.pages["lab_wiring"] = labwiring.page
     menu.pages["lab_critical"] = labcritical.page
+    from kickthefly.lab import labscreen
+    labscreen.install(menu)                                       # 3.1.0: activation screen, knockout screen
+    from kickthefly.lab import labautopsy
+    labautopsy.install(menu)                                      # 3.1.0: failure autopsy
     menu.pages["lab_clamp"] = labclamp.page
     menu.pages["lab_diff"] = labdiff.page
     menu.pages["lab_laser"] = lablaser.page

@@ -37,7 +37,10 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+from kickthefly.game.predator_anim import ease
+
 DT = 1.0 / 60.0
+UP_Y = np.array([0.0, 1.0, 0.0])
 THORAX_Y = 0.38              # how high the game's standing fly's thorax is (kick3d.STAND3), m
 KINDS = ("frog", "dragonfly", "mantis")
 
@@ -72,7 +75,16 @@ SPECS = {
 }
 TELL_FREEZE_S = (0.4, 0.9)       # the mantis's stalk: it freezes for this long every STALK_RUN_S of walking
 STALK_RUN_S = 2.0
-HOP_S, HOP_LEN, HOP_EVERY_S = 0.35, 1.0, 1.5          # the frog's hop: how long, how far, how often
+# The frog's hop (4.0 task 0). GAME RULE, all of it. Locomotion is a series of ballistic leaps: crouch, leap, airborne, land,
+# recover. The arc comes from the game's own gravity and one fixed apex height, so a longer leap is a faster, flatter-looking one
+# in the same time; nothing ever slides along the floor.
+GRAVITY = 0.9 * 0.006 * 3600.0         # m/s^2: kick3d.GRAV (0.9 px-scale metres per frame^2) at the 60 Hz tick (a test pins it)
+LEAP_APEX = 0.45                       # m: how high every leap goes
+LEAP_T = 2.0 * math.sqrt(2.0 * LEAP_APEX / GRAVITY)   # s in the air, the same for every leap (apex and gravity are fixed)
+LEAP_MAX, LEAP_MIN = 1.8, 0.35         # m: the longest and shortest hop
+STANDOFF = 1.2                         # m: a hunting frog lands this far from the fly (inside its tongue's trigger range)
+IDLE_S, TRACK_S, CROUCH_S, TAKEOFF_S, LAND_S, RECOVER_S = 0.8, 0.30, 0.28, 0.07, 0.16, 0.30
+TONGUE_OVERSHOOT = 0.08                # the tongue goes this far past its aim point before it snaps back
 DRAGONFLY_GIVE_UP_S = 30.0
 DRAGONFLY_GROUND_PATIENCE_S = 1.0                      # a target that lands this long stops being prey
 DRAGONFLY_TURN = 5.0                                   # rad/s
@@ -133,7 +145,7 @@ class Predator:
             raise ValueError(f"unknown predator {kind!r}; use one of {', '.join(KINDS)}")
         self.kind, self.spec, self.rng, self.bounds = kind, SPECS[kind], rng, bounds
         self.p = np.array(position, float)
-        self.state = "patrol" if kind == "dragonfly" else "lurk"
+        self.state = "patrol" if kind == "dragonfly" else ("idle" if kind == "frog" else "lurk")
         self.t = 0.0                    # time in this state
         self.age = 0.0
         self.strikes = 0
@@ -147,7 +159,15 @@ class Predator:
         self.face = self.heading.copy()   # where it looks: toward the nearest fly (the games draw it that way)
         self.anchor = self.p.copy()
         self.vel = np.zeros(3)
-        self._since_hop = 0.0
+        self._launch = self.p.copy()             # the frog's takeoff point, landing point and the leap's velocity
+        self._tgt = None
+        self._reach = 0.0                        # the dragonfly's legs: how far thrown forward (0..1), and its bank (rad)
+        self._bank = 0.0
+        self.leaving = False
+        self._leave_age = 0.0
+        self._land_at: np.ndarray | None = None
+        self._v0 = np.zeros(3)
+        self._leave_dir = np.zeros(3)
         self._stalk_t = 0.0
         self._freeze_left = 0.0
         self._ground_t = 0.0
@@ -183,13 +203,13 @@ class Predator:
         live = [t for t in targets if t.alive]
         for t in live:
             self._prev[t.id] = np.asarray(t.p, float).copy()
-        if live:
+        if live and not (self.leaving or self.state in ("leap", "airborne", "land")):
             near, _ = self._nearest(live)
             _, h = self._horizontal(near)
             if float(np.linalg.norm(h)) > 1e-6:
                 self.face = _unit(h)
         getattr(self, "_" + self.kind)(dt, live, ev)
-        self.p = self.bounds.clip(self.p, margin=0.0) if self.state != "leave" else self.p
+        self.p = self.bounds.clip(self.p, margin=0.0) if self.state != "leave" and not self.leaving else self.p
         return ev
 
     def _set(self, state: str) -> None:
@@ -223,7 +243,7 @@ class Predator:
             tgt = next((t for t in live if t.id == self.target), None)
             if self.t >= sp.aim_s:
                 if tgt is None:
-                    self._set("lurk" if self.kind == "frog" else "stalk")
+                    self._set("idle" if self.kind == "frog" else "stalk")
                     return True
                 self.aim_at = np.asarray(tgt.p, float).copy()          # it aims once, then commits: no tracking
                 self.mouth = self.p + (0.0, sp.body_r * 0.7, 0.0) + self.face * sp.body_r * 0.8
@@ -235,7 +255,9 @@ class Predator:
             f = min(1.0, self.t / sp.strike_s)
             aim_vec = self.aim_at - self.mouth
             reach_vec = _unit(aim_vec) * min(sp.reach, float(np.linalg.norm(aim_vec)) + 0.05)
-            self.tip = self.mouth + reach_vec * f
+            # the frog's tongue overshoots its aim point a little and snaps back (4.0 task 0); the mantis's claw does not
+            over = 1.0 + TONGUE_OVERSHOOT * math.sin(math.pi * f) ** 2 * (f > 0.5) if self.kind == "frog" else 1.0
+            self.tip = self.mouth + reach_vec * f * over
             self._tip_full = self.tip.copy()
             hit = self._capture_check(live, ev)
             if hit:
@@ -245,29 +267,36 @@ class Predator:
             return True
         if self.state == "retract":
             f = max(0.0, 1.0 - self.t / sp.retract_s)
+            f = f * f if self.kind == "frog" else f                     # a tongue that snaps back fast
             self.tip = self.mouth + (self._tip_full - self.mouth) * f
             if self.t >= sp.retract_s:
                 self.tip = None
                 self.strikes += 1
                 ev.append(Event("miss", self.target))
                 if self.strikes >= sp.max_strikes:
-                    self._set("leave")
-                    ev.append(Event("leave"))
+                    self._go(ev)
                 else:
-                    self._set("recover")
+                    self._set("regroup" if self.kind == "frog" else "recover")
             return True
-        if self.state == "recover":
+        if self.state in ("recover", "regroup"):
             if self.t >= sp.recover_s:
-                self._set("lurk" if self.kind == "frog" else "stalk")
+                self._set("idle" if self.kind == "frog" else "stalk")
             return True
         if self.state == "eat":
             self.tip = self.mouth + (self.tip - self.mouth) * max(0.0, 1.0 - dt / CARRY_S)
             if self.t >= CARRY_S:
                 self.tip = None
-                self._set("leave")
-                ev.append(Event("leave"))
+                self._go(ev)
             return True
         return False
+
+    def _go(self, ev) -> None:
+        """The predator is done here: it leaves (the frog in hops)."""
+        if self.kind == "frog":
+            self._begin_leave(ev)
+        else:
+            self._set("leave")
+            ev.append(Event("leave"))
 
     def _capture_check(self, live, ev) -> bool:
         """The striking part grabs any fly within capture_r of it. Returns True once something was caught."""
@@ -285,38 +314,155 @@ class Predator:
         return False
 
     def _frog(self, dt: float, live, ev) -> None:
+        """idle -> track -> crouch -> leap -> airborne -> land -> recover, and a tongue strike (aim, strike, retract, regroup)
+        when a fly is in range. GAME RULE. The frog only ever moves while it is airborne, and then along one ballistic arc.
+        Leaving the arena is the same hops in one direction."""
         sp = self.spec
-        if self.state in ("aim", "strike", "retract", "recover", "eat"):
+        if self.state in ("aim", "strike", "retract", "regroup", "eat"):
             self._strike_phase(dt, live, ev)
             return
-        if self.state == "leave":
-            self.p = self.p + self.heading * 1.6 * dt
-            if self.t >= LEAVE_S:
+        if self.leaving:
+            self._leave_age += dt
+        if self.state in ("crouch", "leap", "airborne", "land", "recover"):
+            self._hop_step(ev)                 # a hop in progress is committed; its aim point was fixed at takeoff
+            return
+        if self.leaving:
+            if self._leave_age >= LEAVE_S:
                 self.done = True
                 ev.append(Event("gone"))
+            else:
+                self._set("crouch")
             return
         if not live:
             if self.t > 8.0:
-                self._set("leave")
-                ev.append(Event("leave"))
+                self._begin_leave(ev)
             return
         t, _ = self._nearest(live)
+        self._tgt = t
         dh, h = self._horizontal(t)
         height = float(np.asarray(t.p, float)[1] - self.p[1])
-        self._since_hop += dt
-        if self.state == "hop":
-            self.p = self.p + _unit(h) * (HOP_LEN / HOP_S) * dt
-            if self.t >= HOP_S:
-                self._set("lurk")
-                self._since_hop = 0.0
-            return
         if dh <= sp.trigger and height <= sp.reach * 0.9:
             self._begin_aim(t, ev)
-        elif self._since_hop >= HOP_EVERY_S and dh > sp.trigger * 0.6:
-            self._set("hop")
-        if self.t > 25.0 and self.state == "lurk":                 # nothing came near for a long time
-            self._set("leave")
-            ev.append(Event("leave"))
+            return
+        if self.state == "idle" and self.t >= IDLE_S and dh > sp.trigger * 0.6:
+            self._set("track")
+        elif self.state == "track" and self.t >= TRACK_S:
+            self._set("crouch")
+        if self.t > 25.0 and self.state == "idle":         # nothing came near for a long time
+            self._begin_leave(ev)
+
+    def _begin_leave(self, ev) -> None:
+        self.leaving, self._leave_age = True, 0.0
+        self._leave_dir = _unit(np.array([self.heading[0], 0.0, self.heading[2]]))
+        self._set("crouch")
+        ev.append(Event("leave"))
+
+    def _hop_step(self, ev) -> None:
+        """crouch -> leap (a push-off on the ground) -> airborne (the ballistic arc) -> land -> recover -> idle."""
+        if self.state == "crouch":
+            if self.t >= CROUCH_S:
+                self._begin_leap()
+        elif self.state == "leap":
+            if self.t >= TAKEOFF_S:
+                self._set("airborne")
+        elif self.state == "airborne":
+            ta = self.t
+            if ta >= LEAP_T:
+                self.p = self._land_at.copy()
+                self.vel = np.zeros(3)
+                self._set("land")
+            else:
+                self.p = self._launch + self._v0 * ta + np.array([0.0, -0.5 * GRAVITY * ta * ta, 0.0])
+                self.vel = self._v0 + np.array([0.0, -GRAVITY * ta, 0.0])
+        elif self.state == "land":
+            if self.t >= LAND_S:
+                self._set("recover")
+        elif self.state == "recover":
+            if self.t >= RECOVER_S:
+                self._set("idle")
+
+    def _begin_leap(self) -> None:
+        """Fix the ballistic arc: from here to a landing point, in LEAP_T, peaking LEAP_APEX above the ground. A hunting frog aims at
+        the fly's position now, so a fly that moves away during the flight is not followed."""
+        if self.leaving:
+            d, dist = self._leave_dir, LEAP_MAX
+        else:
+            tg = self._tgt
+            dh, h = self._horizontal(tg) if tg is not None else (0.0, self.face)
+            d = _unit(h) if dh > 1e-6 else self.face
+            dist = float(np.clip(dh - STANDOFF, LEAP_MIN, LEAP_MAX))
+        land = self.p + d * dist
+        land[1] = 0.0
+        if not self.leaving:
+            land = self.bounds.clip(land, margin=0.0)
+        horiz = land - self.p
+        horiz[1] = 0.0
+        self._launch = self.p.copy()
+        self._land_at = land
+        self._v0 = horiz / LEAP_T + np.array([0.0, GRAVITY * LEAP_T / 2.0, 0.0])
+        if float(np.linalg.norm(horiz)) > 1e-6:
+            self.face = _unit(horiz)
+        self._set("leap")
+
+    def pose(self) -> dict:
+        """The body pose for the drawing, by kind (see _frog_pose, _mantis_pose, _dragonfly_pose). A pure function of state and time."""
+        return getattr(self, "_" + self.kind + "_pose")()
+
+    def _frog_pose(self) -> dict:
+        """The frog's body pose for the drawing, all 0..1 except pitch (rad, nose up). A pure function of state and time, so the
+        drawing never decides anything. squash: body low and wide; stretch: long along the velocity; hind: hind legs extended
+        (0 folded); tuck: legs pulled in under the body; reach: the front legs reaching ahead for the ground."""
+        st, f = self.state, self.t
+        rest = dict(squash=0.0, stretch=0.0, hind=0.0, tuck=0.0, reach=0.0, pitch=0.42)
+        e = lambda x: max(0.0, min(1.0, x))                      # noqa: E731
+        if st in ("idle", "track", "aim", "regroup"):
+            return rest
+        if st == "crouch":
+            k = e(f / CROUCH_S)
+            return dict(rest, squash=k, hind=0.0, pitch=0.42 - 0.3 * k)
+        if st == "leap":
+            k = e(f / TAKEOFF_S)
+            return dict(rest, squash=1.0 - k, stretch=k, hind=k, pitch=0.12 + 0.5 * k)
+        if st == "airborne":
+            k = e(f / LEAP_T)
+            vy, vh = float(self.vel[1]), float(np.hypot(self.vel[0], self.vel[2]))
+            return dict(rest, stretch=1.0 - e((k - 0.1) / 0.5) * 0.7, hind=1.0 - e((k - 0.35) / 0.4), tuck=e((k - 0.35) / 0.4),
+                        pitch=math.atan2(vy, max(vh, 1e-6)), reach=e((k - 0.7) / 0.3))
+        if st == "land":
+            k = e(f / LAND_S)
+            return dict(rest, squash=0.7 * math.sin(math.pi * min(1.0, k * 1.0)) , reach=1.0 - k, pitch=0.1 + 0.3 * k)
+        if st == "recover":
+            k = e(f / RECOVER_S)
+            return dict(rest, squash=0.25 * (1.0 - k), pitch=0.3 + 0.12 * k)
+        if st in ("strike", "retract", "eat"):
+            return dict(rest, pitch=0.55)
+        return rest
+
+    def _mantis_pose(self) -> dict:
+        """The mantis (3.1.0 task 1). sway: the rocking of a stalking mantis (0 while it freezes); rear: the wind-up, the body rearing back with
+        the forelegs cocked; cock: forelegs cocked; walking: the legs may step. Strike and retract are the tip's job."""
+        st, f = self.state, self.t
+        k = lambda x: ease(x)                                   # noqa: E731
+        if st == "aim":
+            w = k(f / max(self.spec.aim_s, 1e-6))
+            return dict(sway=0.0, rear=w, cock=w, walking=False)
+        if st in ("strike", "retract"):
+            return dict(sway=0.0, rear=1.0 if st == "strike" else 1.0 - k(f / max(self.spec.retract_s, 1e-6)), cock=0.0, walking=False)
+        if st == "recover":
+            return dict(sway=0.0, rear=0.5 * (1.0 - k(f / max(self.spec.recover_s, 1e-6))), cock=0.0, walking=False)
+        if st in ("eat",):
+            return dict(sway=0.0, rear=0.0, cock=0.0, walking=False)
+        frozen = self._freeze_left > 0.0
+        return dict(sway=0.0 if frozen else math.sin(self.age * 3.1), rear=0.0, cock=0.0, walking=not frozen)
+
+    def _dragonfly_pose(self) -> dict:
+        """The dragonfly: pitch along the velocity, bank into a turn, and the legs, tucked in patrol and thrown forward into a basket as it
+        closes on a fly (`reach`), pulled in once it holds one."""
+        speed = float(np.linalg.norm(self.vel))
+        pitch = math.asin(max(-1.0, min(1.0, float(self.vel[1]) / speed))) if speed > 1e-6 else 0.0
+        reach = self._reach if self.state == "pursue" else 0.0
+        bank = self._bank if self.state == "pursue" else 0.0
+        return dict(pitch=pitch, bank=bank, reach=reach, tuck=1.0 if self.state in ("eat", "leave") else 1.0 - reach)
 
     def _mantis(self, dt: float, live, ev) -> None:
         sp = self.spec
@@ -401,6 +547,9 @@ class Predator:
         ang = math.acos(cosang)
         k = 1.0 if ang < 1e-6 else min(1.0, DRAGONFLY_TURN * dt / ang)
         dirn = _unit(cur * (1 - k) + want * k)
+        turn = float(np.dot(np.cross(cur, dirn), UP_Y)) / max(dt, 1e-9)                # rad/s, signed
+        self._bank += (float(np.clip(turn * 0.12, -0.7, 0.7)) - self._bank) * min(1.0, 8.0 * dt)
+        self._reach = float(np.clip(1.0 - float(np.linalg.norm(tp - self.p)) / (4.0 * sp.capture_r), 0.0, 1.0))
         self.vel = dirn * sp.speed
         self.p = self.p + self.vel * dt
         if float(np.linalg.norm(tp - self.p)) <= sp.capture_r:

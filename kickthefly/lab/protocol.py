@@ -55,6 +55,12 @@ Two kinds of protocol:
     #   buridan: mode stripes|none, seconds                           fourfield: mode odor|sham, seconds
     #   any of them: individuality: off|subtle|strong (default subtle)
 
+3.1.0 task 6 and 7: a fifth stand-alone kind, a whole-brain screen (lab/screens.py), MODEL PREDICTION. Resumable (run the same protocol into the same
+--out again); the protocol's `seeds`/`seed`+`flies` are the held-out seeds (default 4000-4007):
+
+    screen: {kind: activation, controls: 2, min_neurons: 1, max_types: 200, types: [LC4, LPLC2]}     # hold each cell type driven in turn
+    screen: {kind: knockout, behaviors: [looming_escape], top: 25, candidate_batch: 5, controls: 2}   # silence candidates, rank by the drop
+
 3.0 day 3 additions (stimulus protocols only; each is optional):
 
     weather:                                 # rain, gusts, lightning (game/weather.py), GAME RULE on the real touch / humidity / wind / light neurons
@@ -83,7 +89,7 @@ import numpy as np
 
 TOP_KEYS = {"name", "description", "title", "classroom", "steps", "seed", "seeds", "flies", "warmup_s", "duration_s", "params", "surgery", "control",
             "stimuli", "recordings", "assay", "assay_options", "workers", "nwb", "thermogenetics", "drug", "imaging", "patch",
-            "weather", "audio", "predator", "rig"}
+            "weather", "audio", "predator", "rig", "screen"}
 STIM_KEYS = {"at_s", "for_s", "target", "strength", "recruit", "mode", "amp", "side"}
 
 
@@ -102,6 +108,14 @@ def _check_day2(p: dict, where: str) -> None:
     """Validate the 3.0 day 2 blocks (thermogenetics, drug, imaging, patch); raise ProtocolError with the reason."""
     from kickthefly.lab import imaging, patchclamp, pharmacology, thermogenetics
 
+    if "screen" in p:
+        ignored = [k for k in ("assay", "classroom", "thermogenetics", "drug", "imaging", "stimuli", "recordings", "surgery", "control",
+                               "warmup_s", "duration_s", "patch", "params", "nwb", "assay_options", "rig", *DAY3_KEYS) if k in p]
+        if ignored:
+            raise ProtocolError(f"{where}: a screen protocol stands alone; it can't use {', '.join(ignored)} (a screen sets its own timeline and "
+                                "builds its flies with the default parameters)")
+        _check_screen(p, where)
+        return
     if "rig" in p:
         # 3.0 release review: params, nwb and assay_options were accepted and then silently ignored (a rig fly is built with the default
         # Lab parameters and writes no NWB), so a protocol asking for changed parameters would have reported the defaults' result as its own
@@ -261,6 +275,34 @@ def _check_day3(p: dict, where: str) -> None:
 RIG_KEYS = {"name", "mode", "seconds", "omega", "gain", "scene", "bar_deg", "individuality"}
 
 
+SCREEN_KEYS = {"kind", "controls", "min_neurons", "max_types", "types", "behaviors", "top", "candidate_batch", "batch", "backend"}
+
+
+def _check_screen(p: dict, where: str) -> None:
+    """The screen block (3.1.0): numbers become numbers, names are checked against what the screens can run, before anything runs."""
+    from kickthefly.lab import screens, validation
+
+    sc = p["screen"]
+    if not isinstance(sc, dict) or set(sc) - SCREEN_KEYS or sc.get("kind") not in ("activation", "knockout"):
+        raise ProtocolError(f"{where}: screen needs {{kind: activation | knockout, ...}} with only {sorted(SCREEN_KEYS)}")
+    out = dict(sc)
+    for key, lo, hi in (("controls", 1, 20), ("min_neurons", 1, 100000), ("max_types", 1, 100000), ("top", 1, 500), ("candidate_batch", 0, 100),
+                        ("batch", 0, 64)):
+        if key in sc:
+            out[key] = int(_num(sc[key], lo, hi, f"screen.{key}", where))
+    for key in ("types", "behaviors"):
+        if key in sc and (not isinstance(sc[key], list) or not sc[key] or not all(isinstance(x, str) for x in sc[key]) or len(sc[key]) > 20000):
+            raise ProtocolError(f"{where}: screen.{key} must be a non-empty list of names")
+    if sc["kind"] == "activation" and set(sc) & {"behaviors", "top", "candidate_batch"}:
+        raise ProtocolError(f"{where}: behaviors, top and candidate_batch belong to a knockout screen")
+    if sc["kind"] == "knockout" and set(sc) & {"min_neurons", "max_types"}:
+        raise ProtocolError(f"{where}: min_neurons and max_types belong to an activation screen")
+    for b in sc.get("behaviors", []):
+        if b not in screens.VALIDATED_PATHWAYS or b not in validation.BY_ID:
+            raise ProtocolError(f"{where}: screen.behaviors: {b!r} is not a validated pathway behavior; use {', '.join(screens.VALIDATED_PATHWAYS)}")
+    p["screen"] = out
+
+
 def _check_rig(p: dict, where: str) -> None:
     """The rig block (3.0 day 5): checked against rigassay.SCENES; numbers become numbers before anything runs."""
     from kickthefly.lab import rigassay
@@ -363,6 +405,10 @@ def check(data, where: str = "protocol") -> dict:
         raise ProtocolError(f"{where}: unknown keys {sorted(unknown)}; allowed: {sorted(TOP_KEYS)}")
     p = dict(data)
     p.setdefault("name", Path(where).stem if where != "protocol" else "protocol")
+    if "screen" in p and not any(k in p for k in ("seeds", "seed", "flies")):
+        from kickthefly.lab import screens
+
+        p["seeds"] = list(screens.SCREEN_SEEDS)                 # a screen's own held-out seeds
     if "seeds" in p:
         if not isinstance(p["seeds"], list) or not all(isinstance(s, int) for s in p["seeds"]):
             raise ProtocolError(f"{where}: seeds must be a list of integers")
@@ -394,7 +440,7 @@ def check(data, where: str = "protocol") -> dict:
     if p.get("classroom"):
         _check_day2(p, where)
         return p
-    if "patch" in p or "rig" in p:
+    if "patch" in p or "rig" in p or "screen" in p:
         _check_day2(p, where)
         return p
     for key, default in (("warmup_s", 1.0), ("duration_s", 2.0)):
@@ -634,7 +680,10 @@ def run(p: dict, out: Path | None = None, workers: int | None = None, progress=N
     folder.mkdir(parents=True, exist_ok=True)
     (folder / "protocol.json").write_text(json.dumps(p, indent=1, default=str), encoding="utf-8")
     t0 = time.time()
-    if "rig" in p:
+    if "screen" in p:
+        summary = run_screen(p, folder, progress)
+        summary["seconds"] = round(time.time() - t0, 1)
+    elif "rig" in p:
         summary = run_rig(p, folder, progress)
         summary["seconds"] = round(time.time() - t0, 1)
     elif "patch" in p:
@@ -702,6 +751,29 @@ def run_patch(p: dict, folder: Path, progress=None) -> dict:
                 rate_hz_by_current=by_amp, rheobase_by_seed={str(k): v for k, v in rheo.items()})
 
 
+def run_screen(p: dict, folder: Path, progress=None) -> dict:
+    """A screen protocol (lab/screens.py): the whole-brain activation or knockout screen over the protocol's seeds, into folder/screen. To
+    resume an interrupted one run the same protocol with --out pointing at the same folder name (the screen folder is fixed inside it)."""
+    from kickthefly.lab import screens
+
+    sc = dict(p["screen"])
+    kind = sc.pop("kind")
+    out = folder / "screen"
+    cb = (lambda d, n, label: progress(d, n)) if progress else None
+    common = dict(seeds=p["seeds"], controls=sc.get("controls", 2), workers=p.get("workers"), batch=sc.get("batch", 0),
+                  backend=sc.get("backend"), types=sc.get("types"), progress=cb, stream=None)
+    try:
+        if kind == "activation":
+            res = screens.run_activation(out, min_neurons=sc.get("min_neurons", 1), max_types=sc.get("max_types"), **common)
+        else:
+            res = screens.run_knockout(out, behaviors=sc.get("behaviors"), top=sc.get("top", 25), batch_size=sc.get("candidate_batch", 0), **common)
+    except screens.ScreenError as e:
+        raise ProtocolError(str(e)) from None
+    head = res["rows"][:10]
+    return dict(protocol=p["name"], seeds=p["seeds"], screen=dict(p["screen"]), tag=screens.TAG, criteria=res["criteria"],
+                text=screens.summary(res), files=sorted(x.name for x in out.iterdir()), top_rows=[{k: v for k, v in r.items() if not k.startswith(("lo_", "hi_", "z_", "sign_", "p_", "q_", "eff_", "_"))} for r in head])
+
+
 def run_rig(p: dict, folder: Path, progress=None) -> dict:
     """A rig protocol: each seed's fly in the rig (lab/rigassay.scene_run), recorded in the Lab's format. Tags: see rigs.RIG_TAGS."""
     from kickthefly.game import rigs
@@ -765,6 +837,10 @@ def run_file(path: Path, out: Path | None = None, workers: int | None = None, nw
     path = find(path)
     try:
         p = load(path)
+        if p.get("classroom"):
+            # 3.1.0 review: a lecture loaded and then failed in run() with KeyError 'warmup_s' (rc.2 too); the Lab's protocol list
+            # already says the same thing (lab.py)
+            raise ProtocolError(f"{path.name} is a classroom lecture, not a runnable protocol: step through it in Lab > Classroom")
         if nwb:
             p["nwb"] = True
         if p.get("nwb"):
@@ -778,12 +854,15 @@ def run_file(path: Path, out: Path | None = None, workers: int | None = None, nw
         return 2
     t0 = time.time()
     print(f"protocol {p['name']}: {len(p['seeds'])} fly(s)" + (f", assay {p['assay']}" if "assay" in p else "")
-          + (", patch clamp (MODEL)" if "patch" in p else "") + (f", rig {p['rig']['name']}" if "rig" in p else ""), flush=True)
+          + (", patch clamp (MODEL)" if "patch" in p else "") + (f", rig {p['rig']['name']}" if "rig" in p else "")
+          + (f", {p['screen']['kind']} screen (MODEL PREDICTION)" if "screen" in p else ""), flush=True)
     folder = run(p, out, workers, progress=lambda d, n: print(f"  {d}/{n} ({time.time() - t0:.0f}s)", flush=True))
     summary = json.loads((folder / "summary.json").read_text(encoding="utf-8"))
     for tag, groups in summary.get("mean_rate_hz", {}).items():
         for g, c in groups.items():
             print(f"  {tag:8s} {g:20s} {c['mean']:8.2f} Hz  (n={c['n']})")
+    if summary.get("text"):
+        print(summary["text"])
     for sd_, sm in (summary.get("rig_summary") or {}).items():
         print(f"  seed {sd_}: " + ", ".join(f"{k} {v:.3g}" if isinstance(v, float) else f"{k} {v}" for k, v in sm.items() if v is not None))
     for a_, c in (summary.get("rate_hz_by_current") or {}).items():

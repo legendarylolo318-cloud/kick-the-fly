@@ -34,6 +34,12 @@ INFO = (
     ("reverse_surgery", "Mystery defect (Reverse surgery)",
      "One brain circuit is turned off! Test the fly with tools, ask for hints, and deduce what's missing.",
      "stars", "high"),
+    ("puppeteer", "Puppeteer",
+     "You cannot touch the fly. Steer it only with the optogenetics laser and by switching its real neurons on and off: ten puzzles, each with a par and the circuit that solves it.",
+     "levels", "high"),
+    ("contraption", "Contraption builder",
+     "A sandbox: place ramps, dominoes, springs, fans, lamps, sugar, tool triggers, buttons and timers, then run the machine against the fly.",
+     "runs", "high"),
     ("predict", "Predict the move (Motor readouts)",
      "A descending motor spike surge flashes on the monitor. Can you predict the fly's move before it triggers?",
      "correct predictions", "high"),
@@ -72,6 +78,10 @@ def stars(key: str, value: float) -> int:
         return 3 if value >= 9 else 2 if value >= 7 else 1 if value >= 5 else 0
     if key == "sneak":
         return 3 if value <= 1.0 else 2 if value <= 2.0 else 1 if value <= 3.5 else 0
+    if key == "puppeteer":                                   # levels finished, of ten
+        return 3 if value >= 10 else 2 if value >= 7 else 1 if value >= 3 else 0
+    if key == "contraption":                                 # a sandbox: no stars, the count of runs is the whole score
+        return 0
     if key in ("reverse_surgery", "mystery"):
         return 3 if value >= 3 else 2 if value >= 2 else 1 if value >= 1 else 0
     if key == "predict":
@@ -183,21 +193,17 @@ class TMaze(Challenge):
         return self.SPEED if self.phase in ("naive", "train", "test") else 1.0
 
     def _snapshot_memory(self) -> None:
-        mem = self.game.brain.memory
-        with mem.lock:
-            self.saved_memory = (mem.w.copy(), {k: v.copy() for k, v in mem.templates.items()}, dict(mem.naive_mbon),
-                                 {k: list(v) for k, v in mem.log.items()}, mem.dirty)
+        br = self.game.brain
+        self.saved_memory = (br.run(__name__, "memory_snapshot") if getattr(br, "remote", False) else memory_snapshot(br))
 
     def _restore_memory(self) -> None:
         if self.saved_memory is None:
             return
         br = self.game.brain
-        mem = br.memory
-        w, templates, naive, log, dirty = self.saved_memory
-        with br.step_lock, mem.lock:
-            mem.w[:] = w
-            mem.templates, mem.naive_mbon, mem.log, mem.dirty = templates, naive, log, dirty
-            mem._write_back()
+        if getattr(br, "remote", False):                # 3.1.0 review: the memory lives in the brain process
+            br.run(__name__, "memory_restore", self.saved_memory)
+        else:
+            memory_restore(br, self.saved_memory)
         self.saved_memory = None
 
     def pick(self, door: str) -> None:
@@ -1030,7 +1036,25 @@ class PredictNeuron(Challenge):
         self.draw_buttons(surf, mouse)
 
 
-CLASSES = {"tmaze": TMaze, "sneak": Sneak, "sweet": Sweet, "reverse_surgery": ReverseSurgery, "predict": PredictNeuron}
+class _Classes(dict):
+    """The challenge classes; Puppeteer and the contraption builder (3.1.0) are loaded when asked for, since their modules import this one."""
+
+    LAZY = {"puppeteer": ("kickthefly.lab.puppet_challenge", "Puppeteer"), "contraption": ("kickthefly.lab.contraption_challenge", "Contraption")}
+
+    def __missing__(self, key):
+        if key in self.LAZY:
+            import importlib
+
+            mod, name = self.LAZY[key]
+            self[key] = getattr(importlib.import_module(mod), name)
+            return self[key]
+        raise KeyError(key)
+
+    def __contains__(self, key):
+        return key in self.LAZY or super().__contains__(key)
+
+
+CLASSES = _Classes({"tmaze": TMaze, "sneak": Sneak, "sweet": Sweet, "reverse_surgery": ReverseSurgery, "predict": PredictNeuron})
 
 
 def page_challenges(m, surf, rect, mouse) -> None:
@@ -1058,9 +1082,10 @@ def page_challenges(m, surf, rect, mouse) -> None:
         card = card.move(0, extra)                      # the score row and Start button sit under the description
         best = scores.get(c_key)
         if best is not None:
-            shown = f"{best:.0f}/10" if c_key == "tmaze" else f"{best:.1f} fly lengths" if c_key == "sneak" else f"{best:.0f} stars" if c_key == "reverse_surgery" else f"{best:.0f}%"
+            shown = f"{best:.0f}/10" if c_key == "tmaze" else f"{best:.1f} fly lengths" if c_key == "sneak" else f"{best:.0f} stars" if c_key == "reverse_surgery" else f"{best:.0f}/10 levels" if c_key == "puppeteer" else f"{best:.0f} runs" if c_key == "contraption" else f"{best:.0f}%"
             m.text(surf, f"Best: {shown}", (card.x + 20, card.y + 96), ui.AMBER, m.f_bold)
-            draw_stars(surf, (card.x + 250, card.y + 106), stars(c_key, best), 11)
+            if c_key != "contraption":
+                draw_stars(surf, (card.x + 250, card.y + 106), stars(c_key, best), 11)
         else:
             m.text(surf, "Not played yet", (card.x + 20, card.y + 96), ui.LABEL, m.f_text)
         m.button(surf, (card.right - 170, card.y + 86, 150, 46), "Start", (lambda k=c_key: game.start_challenge(k)),
@@ -1070,3 +1095,20 @@ def page_challenges(m, surf, rect, mouse) -> None:
     surf.set_clip(prev)
     m.clip = None
     m.button(surf, (rect.right - 164, rect.bottom - 58, 140, 42), "Back", m.back, style="primary", id=("ch", "back"))
+
+
+def memory_snapshot(br) -> tuple:
+    """A copy of a brain's mushroom body memory (the challenges that borrow it put it back with memory_restore)."""
+    mem = br.memory
+    with mem.lock:
+        return (mem.w.copy(), {k: v.copy() for k, v in mem.templates.items()}, dict(mem.naive_mbon),
+                {k: list(v) for k, v in mem.log.items()}, mem.dirty)
+
+
+def memory_restore(br, saved: tuple) -> None:
+    mem = br.memory
+    w, templates, naive, log, dirty = saved
+    with br.step_lock, mem.lock:
+        mem.w[:] = w
+        mem.templates, mem.naive_mbon, mem.log, mem.dirty = templates, naive, log, dirty
+        mem._write_back()

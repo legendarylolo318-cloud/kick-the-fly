@@ -48,14 +48,18 @@ def trs(pos, rot: np.ndarray | None = None, scale=(1.0, 1.0, 1.0)) -> np.ndarray
 
 def frame_from_x(axis) -> np.ndarray:
     """Rotation whose local +x points along axis (local +y stays as close to world up as possible)."""
-    x = np.asarray(axis, float)
-    n = np.linalg.norm(x)
-    x = np.array([1.0, 0, 0]) if n < 1e-9 else x / n
-    up = np.array([0.0, 1, 0]) if abs(x[1]) < 0.95 else np.array([1.0, 0, 0])
-    z = np.cross(x, up)
-    z /= np.linalg.norm(z)
-    y = np.cross(z, x)
-    return np.stack([x, y, z], 1)
+    ax, ay, az = (float(v) for v in axis)           # plain floats: numpy's per-call cost on 3-vectors dominated the fly's draw (3.1.0 review)
+    n = math.sqrt(ax * ax + ay * ay + az * az)
+    if n < 1e-9:
+        ax, ay, az = 1.0, 0.0, 0.0
+    else:
+        ax, ay, az = ax / n, ay / n, az / n
+    ux, uy, uz = (0.0, 1.0, 0.0) if abs(ay) < 0.95 else (1.0, 0.0, 0.0)
+    zx, zy, zz = ay * uz - az * uy, az * ux - ax * uz, ax * uy - ay * ux
+    m = math.sqrt(zx * zx + zy * zy + zz * zz)
+    zx, zy, zz = zx / m, zy / m, zz / m
+    yx, yy, yz = zy * az - zz * ay, zz * ax - zx * az, zx * ay - zy * ax
+    return np.array([[ax, yx, zx], [ay, yy, zy], [az, yz, zz]])
 
 
 def rot_y(a: float) -> np.ndarray:
@@ -75,18 +79,20 @@ def rot_z(a: float) -> np.ndarray:
 
 def segment(a, b, radius: float) -> np.ndarray:
     """Model matrix taking the unit cylinder (y from 0 to 1, radius 1) onto the segment a->b."""
-    a, b = np.asarray(a, float), np.asarray(b, float)
-    d = b - a
-    L = float(np.linalg.norm(d))
+    ax, ay, az = (float(v) for v in a)               # plain floats, as in frame_from_x: called for every limb of every fly, every frame
+    dx, dy, dz = float(b[0]) - ax, float(b[1]) - ay, float(b[2]) - az
+    L = math.sqrt(dx * dx + dy * dy + dz * dz)
     if L < 1e-9:                    # 3.0 day 3 review: a zero-length segment (a tongue on its first strike frame) gave a NaN matrix
-        L, y = 1e-6, np.array([0.0, 1.0, 0.0])
+        L, yx, yy, yz = 1e-6, 0.0, 1.0, 0.0
     else:
-        y = d / L
-    helper = np.array([1.0, 0, 0]) if abs(y[0]) < 0.9 else np.array([0, 0, 1.0])
-    x = np.cross(helper, y)
-    x /= np.linalg.norm(x)
-    z = np.cross(x, y)
-    return trs(a, np.stack([x, y, z], 1), (radius, L, radius))
+        yx, yy, yz = dx / L, dy / L, dz / L
+    hx, hy, hz = (1.0, 0.0, 0.0) if abs(yx) < 0.9 else (0.0, 0.0, 1.0)
+    xx, xy, xz = hy * yz - hz * yy, hz * yx - hx * yz, hx * yy - hy * yx
+    m = math.sqrt(xx * xx + xy * xy + xz * xz)
+    xx, xy, xz = xx / m, xy / m, xz / m
+    zx, zy, zz = xy * yz - xz * yy, xz * yx - xx * yz, xx * yy - xy * yx
+    r = float(radius)
+    return np.array([[xx * r, yx * L, zx * r, ax], [xy * r, yy * L, zy * r, ay], [xz * r, yz * L, zz * r, az], [0.0, 0.0, 0.0, 1.0]])
 
 
 # --- meshes (interleaved position + normal) ---------------------------------------------------------------------

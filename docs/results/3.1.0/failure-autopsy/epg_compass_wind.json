@@ -1,0 +1,228 @@
+{
+ "version": 1,
+ "tag": "MODEL PREDICTION",
+ "test": {
+  "id": "epg_compass_wind",
+  "name": "E-PG compass forms a bump from steady directional wind (open field)",
+  "claim": "Wind direction is a head-direction cue: steady directional wind anchors a persistent E-PG bump whose position follows the wind.",
+  "citation": "Okubo, Patella, D'Alessandro & Wilson 2020, Neuron 107:924; Seelig & Jayaraman 2015, Nature 521:186",
+  "note": "A second, different test from the visual one: wind, not a visual landmark. The pass criteria are the visual test's, fixed before the run. Direction tracking is reported (circular correlation with a permutation null) but not needed to pass. No weights or time constants were tuned."
+ },
+ "result": {
+  "passed": false,
+  "criteria": "contrast >= 3.0x across the 16 PB glomeruli during wind and persistence >= 500 ms after it stops (fixed before the run; the same as the visual test)",
+  "measured": {
+   "mean_contrast": 1.8131146258157003,
+   "sd_contrast": 0.10701638590700673,
+   "baseline_contrast": 1.7052468221901438,
+   "mean_persistence_ms": 101.25,
+   "direction_tracking": 0.4602956241021863,
+   "direction_tracking_p": 0.16991504247876063,
+   "direction_tracking_null": 0.3994335077594858,
+   "epg_rate_baseline_hz": 6.803385416666667,
+   "epg_rate_wind_hz": 5.472721354166667,
+   "wind_speed_m_s": 6.0,
+   "n": 10
+  }
+ },
+ "seeds": [
+  1000,
+  1001,
+  1002
+ ],
+ "created": "2026-10-04 14:10:36",
+ "read_only": true,
+ "weights_digest": "31952e3631ba801d",
+ "sections": [
+  {
+   "label": "wind neurons to the E-PG compass neurons",
+   "input": "JO-C/E mechanosensory neurons (the wind's route in the open field)",
+   "target": "EPG neurons",
+   "n_input": 335,
+   "n_target": 46,
+   "direct_synapses": 0,
+   "budget": [
+    {
+     "hop": 1,
+     "excitatory": 0.0,
+     "inhibitory": 0.0,
+     "net": 0.0,
+     "total": 0.0,
+     "inhibitory_share": NaN
+    },
+    {
+     "hop": 2,
+     "excitatory": 0.0,
+     "inhibitory": 0.0,
+     "net": 0.0,
+     "total": 0.0,
+     "inhibitory_share": NaN
+    },
+    {
+     "hop": 3,
+     "excitatory": 1.481736188975593e-05,
+     "inhibitory": 7.367035351312176e-05,
+     "net": -5.885299162336583e-05,
+     "total": 8.84877154028777e-05,
+     "inhibitory_share": 0.832548938321058
+    }
+   ],
+   "routes": [
+    {
+     "hops": 3,
+     "types": [
+      "CB2585",
+      "ER1_b"
+     ],
+     "share": 2.0882461016410242e-05,
+     "excitatory": 0.0,
+     "inhibitory": 2.0882461016410242e-05,
+     "net_sign": -1,
+     "inhibitory_share": 1.0,
+     "edges": [
+      {
+       "synapses": 262,
+       "excitatory": 262,
+       "inhibitory": 0
+      },
+      {
+       "synapses": 120,
+       "excitatory": 120,
+       "inhibitory": 0
+      },
+      {
+       "synapses": 5624,
+       "excitatory": 0,
+       "inhibitory": 5624
+      }
+     ],
+     "stage_ratios": [
+      {
+       "stage": "input",
+       "base_hz": 0.5656716417910448,
+       "driven_hz": 65.82985074626866,
+       "ratio": 116.37467018469657,
+       "neurons": 335
+      },
+      {
+       "stage": "CB2585",
+       "base_hz": 0.16666666666666666,
+       "driven_hz": 2.333333333333333,
+       "ratio": 4.666666666666666,
+       "neurons": 6
+      },
+      {
+       "stage": "ER1_b",
+       "base_hz": 10.217948717948717,
+       "driven_hz": 11.512820512820511,
+       "ratio": 1.1267252195734,
+       "neurons": 13
+      },
+      {
+       "stage": "target",
+       "base_hz": 6.7355072463768115,
+       "driven_hz": 6.224637681159419,
+       "ratio": 0.9241527703066162,
+       "neurons": 46
+      }
+     ]
+    },
+    {
+     "hops": 3,
+     "types": [
+      "",
+      "ER1_b"
+     ],
+     "share": 1.7280255802968567e-05,
+     "excitatory": 0.0,
+     "inhibitory": 1.7280255802968567e-05,
+     "net_sign": -1,
+     "inhibitory_share": 1.0,
+     "edges": [
+      {
+       "synapses": 2278,
+       "excitatory": 2278,
+       "inhibitory": 0
+      },
+      {
+       "synapses": 165,
+       "excitatory": 165,
+       "inhibitory": 0
+      },
+      {
+       "synapses": 5624,
+       "excitatory": 0,
+       "inhibitory": 5624
+      }
+     ],
+     "stage_ratios": [
+      {
+       "stage": "input",
+       "base_hz": 0.5656716417910448,
+       "driven_hz": 65.82985074626866,
+       "ratio": 116.37467018469657,
+       "neurons": 335
+      },
+      {
+       "stage": "",
+       "base_hz": 7.527879064114252,
+       "driven_hz": 7.310240048617441,
+       "ratio": 0.971088933065582,
+       "neurons": 2194
+      },
+      {
+       "stage": "ER1_b",
+       "base_hz": 10.217948717948717,
+       "driven_hz": 11.512820512820511,
+       "ratio": 1.1267252195734,
+       "neurons": 13
+      },
+      {
+       "stage": "target",
+       "base_hz": 6.7355072463768115,
+       "driven_hz": 6.224637681159419,
+       "ratio": 0.9241527703066162,
+       "neurons": 46
+      }
+     ]
+    }
+   ],
+   "input_rate": {
+    "base_hz": 0.5656716417910448,
+    "driven_hz": 65.82985074626866,
+    "ratio": 116.37467018469657,
+    "neurons": 335
+   },
+   "target_rate": {
+    "base_hz": 6.7355072463768115,
+    "driven_hz": 6.224637681159419,
+    "ratio": 0.9241527703066162,
+    "neurons": 46
+   },
+   "verdict": {
+    "stage": "CB2585 -> ER1_b",
+    "text": "the signal is lost between CB2585 (x4.67) and ER1_b (x1.13), below the test's 1.5x",
+    "ratios": [
+     {
+      "stage": "input",
+      "ratio": 116.37467018469657
+     },
+     {
+      "stage": "CB2585",
+      "ratio": 4.666666666666666
+     },
+     {
+      "stage": "ER1_b",
+      "ratio": 1.1267252195734
+     },
+     {
+      "stage": "target",
+      "ratio": 0.9241527703066162
+     }
+    ]
+   }
+  }
+ ],
+ "ratio_min": 1.5,
+ "method": "walks of 1-3 synapses, simulator weights (signed count / post's input count); stage rates from 3 seeds, the pathway tests' drive (0.5 for 2 s after 2 s calm)"
+}

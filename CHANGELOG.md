@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.1.0 (2026-10-04)
+
+The whole release by feature: [docs/changelog.md](docs/changelog.md); the release review: [REVIEW.md](REVIEW.md).
+
 ## 3.0.0 (2026-10-03)
 
 The whole release in one page, by feature: [docs/changelog.md](docs/changelog.md). This file keeps it day by day, with the reviews; the decisions,

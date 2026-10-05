@@ -562,6 +562,8 @@ class _GLContextBinder:
             libegl.eglGetCurrentDisplay.restype = ctypes.c_void_p
             libegl.eglMakeCurrent.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
             libegl.eglMakeCurrent.restype = ctypes.c_bool
+            libegl.eglGetCurrentSurface.restype = ctypes.c_void_p
+            libegl.eglGetCurrentSurface.argtypes = [ctypes.c_int]
             self._libegl = libegl
         except Exception:
             pass
@@ -572,6 +574,7 @@ class _GLContextBinder:
             libgl.glXGetCurrentDisplay.restype = ctypes.c_void_p
             libgl.glXMakeCurrent.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
             libgl.glXMakeCurrent.restype = ctypes.c_bool
+            libgl.glXGetCurrentDrawable.restype = ctypes.c_ulong
             self._libgl = libgl
         except Exception:
             pass
@@ -591,11 +594,14 @@ class _GLContextBinder:
         if self._libegl:
             ctx = self._libegl.eglGetCurrentContext()
             if ctx:
-                return ("egl", self._libegl.eglGetCurrentDisplay(), ctx)
+                # 3.1.0 review: the draw and read surfaces too. Restoring the context without them left the game window with no surface
+                # on Wayland (EGL): every frame went nowhere and the window kept showing the loading screen while the game ran.
+                return ("egl", self._libegl.eglGetCurrentDisplay(), ctx, self._libegl.eglGetCurrentSurface(0x3059),
+                        self._libegl.eglGetCurrentSurface(0x305A))
         if self._libgl:
             ctx = self._libgl.glXGetCurrentContext()
             if ctx:
-                return ("glx", self._libgl.glXGetCurrentDisplay(), ctx)
+                return ("glx", self._libgl.glXGetCurrentDisplay(), ctx, self._libgl.glXGetCurrentDrawable())
         if self._libwgl:
             ctx = self._libwgl.wglGetCurrentContext()
             if ctx:
@@ -607,9 +613,10 @@ class _GLContextBinder:
             return
         kind = handle[0]
         if kind == "egl":
-            self._libegl.eglMakeCurrent(handle[1], None, None, handle[2])
+            draw, read = (handle[3], handle[4]) if len(handle) > 4 else (None, None)
+            self._libegl.eglMakeCurrent(handle[1], draw, read, handle[2])
         elif kind == "glx":
-            self._libgl.glXMakeCurrent(handle[1], 0, handle[2])
+            self._libgl.glXMakeCurrent(handle[1], handle[3] if len(handle) > 3 else 0, handle[2])
         elif kind == "wgl":
             self._libwgl.wglMakeCurrent(handle[1], handle[2])
 
@@ -757,7 +764,7 @@ class _GLFence:
 
 # SSBO binding points, shared by the three shaders of one context
 _B_ROWPTR, _B_COLIND, _B_VALUES, _B_V, _B_REFR, _B_SPIKES, _B_NOISE, _B_SENS, _B_ISYN, _B_SCATTER, _B_ROWOFF, \
-    _B_ROWVALS, _B_PARAMS, _B_TARGET = range(14)
+    _B_ROWVALS, _B_PARAMS, _B_TARGET, _B_DPRE, _B_DPOST = range(16)
 
 _SPMM_COMPUTE_SHADER = """
 #version 430
@@ -769,11 +776,15 @@ layout(std430, binding = 5) readonly buffer BSpikes { uint spikes[]; };
 layout(std430, binding = 8) writeonly buffer BISyn { float i_syn[]; };
 layout(std430, binding = 10) readonly buffer BRowOff { uint row_off[]; };
 layout(std430, binding = 11) readonly buffer BRowVals { float row_vals[]; };
+layout(std430, binding = 14) readonly buffer BDPre { float d_pre[]; };      // individuality (3.1.0): per fly, per neuron
+layout(std430, binding = 15) readonly buffer BDPost { float d_post[]; };
 uniform uint num_neurons;
 uniform uint num_slots;
 uniform uint active_mask;
+uniform uint gain_mask;                 // the flies whose brains carry individuality gains; the others run the unchanged path
 
 shared float s_w[64];
+shared uint s_col[64];
 shared uint s_mask[32][2];              // per fly: which of the chunk's 64 synapses had a spiking presynaptic neuron
 
 // One workgroup per row (a neuron's inputs). The 64 lanes look up 64 synapses' presynaptic spikes at once, which is
@@ -787,6 +798,7 @@ void main() {
     uint end = row_ptr[row + 1];
     uint off = row_off[row];
     bool mine = lane < num_slots && ((active_mask >> lane) & 1u) != 0u;
+    bool gaining = lane < 32u && ((gain_mask >> lane) & 1u) != 0u;
     precise float acc = 0.0;
     for (uint base = start; base < end; base += 64u) {
         if (lane < 32u) { s_mask[lane][0] = 0u; s_mask[lane][1] = 0u; }
@@ -796,6 +808,7 @@ void main() {
             uint bits = spikes[col_ind[idx]] & active_mask;
             if (bits != 0u) {
                 if (off == 0xFFFFFFFFu) s_w[lane] = values[idx];
+                s_col[lane] = col_ind[idx];
                 uint word = lane >> 5;
                 uint bit = 1u << (lane & 31u);
                 while (bits != 0u) { int f = findLSB(bits); atomicOr(s_mask[f][word], bit); bits &= bits - 1u; }
@@ -809,13 +822,18 @@ void main() {
                 while (m != 0u) {
                     uint j = word * 32u + uint(findLSB(m));
                     m &= m - 1u;
-                    acc += (off == 0xFFFFFFFFu) ? s_w[j] : row_vals[(off + base - start + j) * num_slots + lane];
+                    float w = (off == 0xFFFFFFFFu) ? s_w[j] : row_vals[(off + base - start + j) * num_slots + lane];
+                    if (gaining) w = w * d_pre[lane * num_neurons + s_col[j]];
+                    acc += w;
                 }
             }
         }
         barrier();
     }
-    if (mine) i_syn[lane * num_neurons + row] = acc;
+    if (mine) {
+        if (gaining) acc = acc * d_post[lane * num_neurons + row];
+        i_syn[lane * num_neurons + row] = acc;
+    }
 }
 """
 
@@ -939,6 +957,8 @@ class _GLGroup:
         self.base = np.ascontiguousarray(W.data, dtype=np.float32).copy()   # the shared weights, as on the GPU
         self.noise_len = int(sim._noise.size)
         self.members: list[Any] = []                 # weakref to each slot's backend, or None
+        self.serials: dict[int, int] = {}            # which admission owns each slot (see _remove)
+        self._serial = 0
         self.row_off = np.full(self.n, _NO_ROW, np.uint32)
         self.priv_pos = np.zeros(0, np.int64)        # W_csr.data index of each private entry, in row_vals order
         self.slots = 0
@@ -1063,8 +1083,8 @@ class _GLGroup:
             raise RuntimeError(f"OpenGL {ver:.1f} does not support compute shaders (OpenGL 4.3+ required)")
         self.device_name = f"OpenGL {ctx.version_code / 100.0:.1f}: {ctx.info.get('GL_RENDERER', 'OpenGL GPU')}"
         bindings = int(ctx.info.get("GL_MAX_SHADER_STORAGE_BUFFER_BINDINGS", 0) or 0)
-        if bindings and bindings < 14:
-            raise RuntimeError(f"OpenGL offers {bindings} storage buffer bindings, the brain needs 14")
+        if bindings and bindings < 16:
+            raise RuntimeError(f"OpenGL offers {bindings} storage buffer bindings, the brain needs 16")
         block = int(ctx.info.get("GL_MAX_SHADER_STORAGE_BLOCK_SIZE", 0) or 0) & 0xFFFFFFFF
         if block:
             # every fly's noise bank is one buffer, and it has to fit in one shader storage block
@@ -1083,6 +1103,8 @@ class _GLGroup:
         self.buf_rowvals = ctx.buffer(reserve=64 * 1024)
         self.buf_scatter = ctx.buffer(reserve=64 * 1024)
         self.buf_v = self.buf_refr = self.buf_isyn = self.buf_sens = self.buf_noise = self.buf_params = None
+        self.buf_dpre = self.buf_dpost = None
+        self.gain_mask = 0
         self.cs_spmm["num_neurons"] = self.n
         self.cs_lif["num_neurons"] = self.n
         self.cs_lif["noise_len"] = self.noise_len
@@ -1093,12 +1115,12 @@ class _GLGroup:
                        (self.buf_v, _B_V), (self.buf_refr, _B_REFR), (self.buf_spikes, _B_SPIKES),
                        (self.buf_noise, _B_NOISE), (self.buf_sens, _B_SENS), (self.buf_isyn, _B_ISYN),
                        (self.buf_scatter, _B_SCATTER), (self.buf_rowoff, _B_ROWOFF), (self.buf_rowvals, _B_ROWVALS),
-                       (self.buf_params, _B_PARAMS)):
+                       (self.buf_params, _B_PARAMS), (self.buf_dpre, _B_DPRE), (self.buf_dpost, _B_DPOST)):
             buf.bind_to_storage_buffer(b)
 
     def _alloc_slots(self, slots: int) -> None:
         """(Re)allocate the per-fly buffers for `slots` flies. Callers re-upload every member afterwards."""
-        for name in ("buf_v", "buf_refr", "buf_isyn", "buf_sens", "buf_noise", "buf_params"):
+        for name in ("buf_v", "buf_refr", "buf_isyn", "buf_sens", "buf_noise", "buf_params", "buf_dpre", "buf_dpost"):
             buf = getattr(self, name)
             if buf is not None:
                 buf.release()
@@ -1109,6 +1131,9 @@ class _GLGroup:
         self.buf_sens = ctx.buffer(reserve=n * 4 * slots)
         self.buf_noise = ctx.buffer(reserve=self.noise_len * 4 * slots)
         self.buf_params = ctx.buffer(reserve=_FLY_PARAMS.itemsize * slots)
+        self.buf_dpre = ctx.buffer(reserve=n * 4 * slots)
+        self.buf_dpost = ctx.buffer(reserve=n * 4 * slots)
+        self.gain_mask = 0                                    # re-set by _push for every member after a resize
         old = self.slots
         self.slots = slots
         self.members += [None] * (slots - len(self.members))
@@ -1138,7 +1163,11 @@ class _GLGroup:
         return np.searchsorted(self.indptr, pos, side="right") - 1
 
     def _add(self, backend: "GLBackend") -> int | None:
-        """Take this brain into a free slot, or None if it doesn't fit here (other wiring, or no room)."""
+        """Take this brain into a free slot, or None if it doesn't fit here (other wiring, or no room, or this group has closed)."""
+        if self.closed:
+            # 3.1.0: a join queued behind the departure of the group's last brain ran after _remove had closed the group, and the
+            # brain it admitted then failed on its first step and fell back to the CPU (seen in the 3D game's first seconds on gl)
+            return None
         sim = backend.sim
         W = sim.W_csr
         live = self._live_members()
@@ -1170,6 +1199,8 @@ class _GLGroup:
             free = [s for s in range(self.slots) if self.members[s] is None]
         slot = free[0]
         self.members[slot] = weakref.ref(backend)
+        self._serial += 1
+        self.serials[slot] = self._serial
         self._last_seen.pop(slot, None)
         if len(rows):
             self._privatize(rows)
@@ -1179,9 +1210,15 @@ class _GLGroup:
         self._push_noise(slot, sim)
         return slot
 
-    def _remove(self, slot: int) -> None:
+    def _remove(self, slot: int, serial: int | None = None) -> None:
+        # 3.1.0: a garbage-collected brain's departure is posted to this thread and can run after a NEW brain took its slot (a slot whose
+        # owner has died is free to reuse). It must remove only the brain that posted it, or it empties the new brain's slot, the group
+        # closes under it, and the brain fails on its next step and falls back to the CPU (seen in the 3D game's first seconds on gl).
+        if serial is not None and self.serials.get(slot) != serial:
+            return
         if slot < len(self.members):
             self.members[slot] = None
+        self.gain_mask &= ~(1 << slot)
         self._last_seen.pop(slot, None)
         if not self._live_members():
             self.close()
@@ -1326,6 +1363,21 @@ class _GLGroup:
         bits &= ~bit
         bits[np.asarray(sim.spikes, bool)] |= bit
         self.buf_spikes.write(bits.tobytes())
+        self._push_gains(slot, sim)
+
+    def _push_gains(self, slot: int, sim: Any) -> None:
+        """This fly's individuality gains (d_pre scales each presynaptic neuron's spike, d_post each postsynaptic neuron's input, as
+        LIFSim._propagate does), or nothing: a fly without them runs the unchanged shader path."""
+        n = self.n
+        pre, post = getattr(sim, "d_pre", None), getattr(sim, "d_post", None)
+        if pre is None and post is None:
+            self.gain_mask &= ~(1 << slot)
+            return
+        pre = np.ones(n, np.float32) if pre is None else np.ascontiguousarray(pre, dtype=np.float32)
+        post = np.ones(n, np.float32) if post is None else np.ascontiguousarray(post, dtype=np.float32)
+        self.buf_dpre.write(pre.tobytes(), offset=slot * n * 4)
+        self.buf_dpost.write(post.tobytes(), offset=slot * n * 4)
+        self.gain_mask |= 1 << slot
 
     def _push_noise(self, slot: int, sim: Any) -> None:
         if sim._noise.size != self.noise_len:
@@ -1353,6 +1405,7 @@ class _GLGroup:
                 self.buf_sens.write(sens.tobytes(), offset=slot * n * 4)
         self.buf_params.write(params.tobytes())
         self.cs_spmm["active_mask"] = active
+        self.cs_spmm["gain_mask"] = self.gain_mask
         self.cs_lif["active_mask"] = active
         self.cs_spmm.run(*self.row_groups)
         self.ctx.memory_barrier(moderngl.SHADER_STORAGE_BARRIER_BIT)
@@ -1396,6 +1449,7 @@ class GLBackend(SimBackend):
         self.batched = self.BATCH                   # fixed per brain, so batched and unbatched brains can coexist
         self._group: _GLGroup | None = None
         self._slot = -1
+        self._serial: int | None = None
         self._finalizer = None
         self._noise_id = None
         self._W = None
@@ -1426,7 +1480,8 @@ class GLBackend(SimBackend):
             self._leave()
         if self._group is None:
             self._group, self._slot = _GLGroup.join(self, shared=self.batched)
-            self._finalizer = weakref.finalize(self, self._group.post, self._group._remove, self._slot)
+            self._serial = self._group.serials.get(self._slot)
+            self._finalizer = weakref.finalize(self, self._group.post, self._group._remove, self._slot, self._serial)
             self._noise_id = id(sim._noise)
             self._W = sim.W_csr
         return self._group
@@ -1438,7 +1493,7 @@ class GLBackend(SimBackend):
             self._finalizer = None
         if g is not None:
             try:
-                g.call(g._remove, self._slot)
+                g.call(g._remove, self._slot, self._serial)
             except Exception:
                 pass
 
@@ -1566,6 +1621,53 @@ def detect_available_backends() -> dict[str, str]:
     return avail
 
 
+# --- 'auto' (3.1.0 task 2) ------------------------------------------------------------------------------------------------------
+# Two policies for what 'auto' means. "exact" (the default, and what every headless path uses: --validate, protocols, bundles, replays,
+# the selftest) keeps the old chain: a PyTorch GPU, then Numba, then NumPy. "fastest" is what the interactive game switches on at launch
+# (set_auto_policy): a capable GPU first through OpenGL compute (any vendor), then a PyTorch GPU, then Numba, then NumPy, each with a
+# fallback to the next on any error. GPU backends agree with NumPy statistically, not spike for spike (docs/performance.md); the engine
+# in use is recorded in replays, save states and bundles as before, and Settings > Brain shows it with a manual override.
+AUTO_POLICIES = ("exact", "fastest")
+_auto_policy = "exact"
+_SOFTWARE_GL = ("llvmpipe", "softpipe", "swrast", "software", "lavapipe", "microsoft basic render")
+
+
+def set_auto_policy(policy: str) -> None:
+    global _auto_policy
+    _auto_policy = policy if policy in AUTO_POLICIES else "exact"
+
+
+def auto_policy() -> str:
+    return _auto_policy
+
+
+_gpu_cache: tuple[bool, str] | None = None
+
+
+def gpu_capable(refresh: bool = False) -> tuple[bool, str]:
+    """Whether OpenGL compute (4.3+) runs on a real GPU here, and the device string. A software rasterizer (llvmpipe and friends) has the
+    compute shaders but runs them on the CPU, slower than NumPy, so it does not count. Cached: the probe makes a context."""
+    global _gpu_cache
+    if _gpu_cache is None or refresh:
+        ok, dev = _gl_compute_available()
+        if ok and any(w in dev.lower() for w in _SOFTWARE_GL):
+            ok, dev = False, f"{dev} (a software renderer, not a GPU)"
+        _gpu_cache = (ok, dev)
+    return _gpu_cache
+
+
+def auto_chain(avail: dict[str, str] | None = None) -> list[str]:
+    """The names 'auto' would try, in order, under the current policy. `avail` is detect_available_backends() (probed if omitted)."""
+    avail = detect_available_backends() if avail is None else avail
+    chain: list[str] = []
+    if _auto_policy == "fastest" and "gl" in avail and gpu_capable()[0]:
+        chain.append("gl")
+    chain += [b for b in ("torch-cuda", "torch-rocm") if b in avail]
+    if "numba" in avail:
+        chain.append("numba")
+    return chain + ["cpu"]
+
+
 def _try(make, label: str) -> SimBackend | None:
     try:
         b = make()
@@ -1583,12 +1685,14 @@ def create_backend(sim: Any, backend_choice: str = "auto") -> SimBackend:
     choice = (backend_choice or "auto").lower()
     b: SimBackend | None = None
     if choice == "auto":
-        if _torch_gpu_kind():
+        # 'gl' is in the chain only under the "fastest" policy (the interactive game). Since 2.10 it is the fastest backend here for one
+        # brain (0.96 ms/step on a 9070 XT, Numba 1.06, NumPy 1.21) and batches a process's brains (16 in real time,
+        # docs/performance.md), but it is held only to a statistical tolerance of NumPy on other drivers, where Numba is bit-exact; so
+        # headless runs (validation, protocols, bundles, replays) keep the exact chain.
+        if _auto_policy == "fastest" and _moderngl_available and gpu_capable()[0]:
+            b = _try(lambda: GLBackend(sim), "OpenGL Compute")
+        if b is None and _torch_gpu_kind():
             b = _try(lambda: TorchBackend(sim, "cuda:0"), "PyTorch GPU")
-        # 'gl' is deliberately not in the auto chain. Since 2.10 it is the fastest backend here for one brain
-        # (0.96 ms/step on a 9070 XT, Numba 1.06, NumPy 1.21) and batches a process's brains (16 in real time,
-        # docs/performance.md), but it is held only to a statistical tolerance of NumPy on other drivers, where
-        # Numba is bit-exact. Ask for it with --backend gl.
         if b is None and _numba_available:
             b = _try(lambda: NumbaBackend(sim), "Numba")
     elif choice in ("torch-cuda", "torch-rocm"):

@@ -57,6 +57,10 @@ SETTINGS: tuple[Setting, ...] = (
       "Linux only. Auto uses native Wayland when available and falls back to X11 (XWayland). Try X11 if the window "
       "or mouse misbehaves. Applies on restart.", options=("auto", "wayland", "x11"), labels=("Auto", "Wayland", "X11"),
       restart=True, only="linux"),
+    S("graphics.brain_view", "Graphics", "Brain view drawn by", "choice", "auto",
+      "Who draws the live brain image (panel and big view). Auto uses the GPU (every neuron as an instanced point, one number per neuron "
+      "uploaded a frame) when there is a real GPU, else the CPU. Same picture either way; the GPU makes turning the big view smooth.",
+      options=("auto", "gpu", "cpu"), labels=("Auto", "GPU", "CPU"), tag=GAME_RULE),
     S("graphics.panel_mode", "Graphics", "Brain panel", "choice", "solid",
       "How the live brain panel on the right is drawn: solid, see-through, faint, or hidden to give the room the "
       "whole screen. Hotkey V.", options=("solid", "see-through", "faint", "hidden"),
@@ -101,6 +105,16 @@ SETTINGS: tuple[Setting, ...] = (
       options=("mushroom_body", "antennal_lobe", "central_complex", "optic_lobes", "motor", "whole_brain"),
       labels=("Mushroom body", "Antennal lobe", "Central complex", "Optic lobes", "Motor neurons", "Whole brain"),
       tag=GAME_RULE),
+    S("audio.sonify", "Audio", "Brain sonification", "bool", False,
+      "Opt-in audio: each brain region is a voice (descending neurons low, optic lobe high, all on one pentatonic scale) whose volume and pitch follow how active it is compared "
+      "with its own calm, and the courtship song is synthesized when the song neurons (ps1, driven by pIP10 and P1) fire. Hotkey F5. Silent while muted, with the microphone on, "
+      "or in Streamer mode (unless allowed below). CONNECTOME for the activity it follows; GAME RULE for the sound, which is a rendering and not a recording.", tag=GAME_RULE),
+    S("audio.sonify_vol", "Audio", "Sonification volume", "float", 0.4,
+      "Volume of the brain sonification (times the master volume).", lo=0.0, hi=1.0, step=0.05, fmt="{:.0%}", tag=GAME_RULE),
+    S("audio.sonify_song", "Audio", "Sonification: courtship song", "bool", True,
+      "Include the song voice: pulses (220 Hz carrier, 12 ms pulses 35 ms apart, the game's song buzz) while the song neurons fire above the game's SONG threshold.", tag=GAME_RULE),
+    S("stream.allow_sonify", "Audio", "Sonification in Streamer mode", "bool", False,
+      "Streamer mode silences the brain sonification (a continuous tone bed on a stream is the streamer's call). Tick this to let it play while Streamer mode is on.", tag=GAME_RULE),
     # --- Brain
     S("brain.mode", "Brain", "Mode", "choice", "play",
       "Play is the game with challenges and scores. Lab adds the research tools: validation results, repeated "
@@ -147,10 +161,12 @@ SETTINGS: tuple[Setting, ...] = (
       "here) and a Try it button that sets up a one-click experiment. Separate from the real-science popups. Which type, "
       "the card and Try it are game rules.", tag=GAME_RULE),
     S("brain.neuron_shapes", "Brain", "Download real neuron shapes", "bool", False,
-      "Lets the brain view download the EM skeletons of ten neurons (two each of DNp01, DNa02, MBON01, MBON14 and KCg) from "
-      "Janelia's neuPrint, once, into a cache. Off by default: it is the game's only network use outside Streamer mode. "
+      "Lets the game download real neuron shapes (EM skeletons) from Janelia's public MaleCNS v1.0 release (CC BY 4.0, credited on screen): "
+      "the ten shown in the brain view, and any neuron you inspect, one at a time (10-100 kB each, only when you click it), checksummed "
+      "and cached in your data folder, never bundled. Off by default: it is the game's only network use outside Streamer mode. "
       "Shapes are drawing only: the simulation treats every neuron as a point either way, so no result depends on this. "
-      "Shapes already in the cache load without the network. Never used in headless runs or tests.", restart=True),
+      "Shapes already in the cache load without the network. Never used in headless runs or tests. Anything that goes wrong "
+      "falls back to the estimated fiber.", restart=True),
     S("brain.mic_sensitivity", "Brain", "Microphone sensitivity", "float", 1.0,
       "Esc > Mic and streamer: how loud a band must be to drive the Johnston's organ JO-A/JO-B neurons fully (the sound is band-passed "
       "into JO-B, below ~100 Hz, and JO-A, higher; neurons from the dataset, the transduction and every number a GAME RULE). Only the "
@@ -220,14 +236,22 @@ SETTINGS: tuple[Setting, ...] = (
       "the numbers slightly; validation hasn't been run in it.", options=("float32", "float64"), labels=("float32 (Fast)", "float64 (Double)"),
       tag=CONNECTOME),
     S("brain.backend", "Brain", "Compute backend", "choice", "auto",
-      "What runs the brain simulation. Auto picks a PyTorch GPU, then Numba, then NumPy. OpenGL compute (4.3+) "
-      "runs only when you pick it: it works on any vendor's GPU but is slower than NumPy here and doesn't scale to "
-      "many flies. Numba and PyTorch are optional (from source only); anything missing falls back to NumPy. "
-      "Applies to every fly right away.",
+      "What runs the brain simulation. Auto picks the fastest engine that works here: a real GPU through OpenGL "
+      "compute (4.3+, any vendor), then a PyTorch GPU, then Numba, then NumPy, falling back to the next on any error. "
+      "(Headless runs, validation and replays use the exact chain without OpenGL; set KICK_THE_FLY_AUTO=exact to "
+      "make the game do the same.) GPU engines agree with NumPy statistically, not spike for spike; pick CPU "
+      "(NumPy) for bit-exact runs. Numba and PyTorch are optional (from source only). Applies to every fly right away.",
       options=("auto", "cpu", "numba", "gl", "torch-cpu", "torch-cuda", "torch-rocm"),
       labels=("Auto", "CPU (NumPy)", "Numba (JIT)", "OpenGL Compute", "PyTorch (CPU)", "PyTorch (CUDA)",
               "PyTorch (ROCm)"),
       tag=CONNECTOME),
+    S("brain.process", "Brain", "Run the brains in their own process", "choice", "auto",
+      "Where the flies' brains run in the game. Their own process (Auto, On) lets the brains use other CPU cores and the GPU while the game "
+      "draws: with many flies they keep real time where they used to slow down (one Python process shares a single interpreter lock). "
+      "Same spikes either way: the brains are the same code with the same seeds. Off runs them in the game process as before 3.1.0; the "
+      "Lab's spike recording and patch electrode need that, so Auto uses the separate process except when the game starts in Lab mode. "
+      "Applies at the next launch.",
+      options=("auto", "on", "off"), labels=("Auto", "On", "Off"), restart=True),
     # --- Controls
     S("controls.mouse_sensitivity", "Controls", "Mouse sensitivity", "float", 1.0,
       "How far the view turns when you move the mouse.", lo=0.1, hi=5.0, step=0.1, only="3d", fmt="{:.1f}"),
@@ -282,6 +306,9 @@ ACTIONS: tuple[tuple[str, str, str], ...] = (
     ("autopilot", "Autopilot / spectator", "y"),
     ("photo_mode", "Photo mode / free camera", "f10"),
     ("stethoscope", "Brain stethoscope", "k"),
+    ("profiler", "Profiler overlay", "f3"),
+    ("fly_eye", "Fly's-eye view", "f4"),
+    ("sonify", "Brain sonification (opt-in audio)", "f5"),
     ("timelapse", "Time-lapse record", "l"),
     ("recall", "Recall a lost fly (outdoors)", "j"),
     ("cycle_fly", "Cycle focused fly", "f"),
@@ -378,6 +405,7 @@ class Config:
         self.loadout: dict = {"custom": [], "saved": []}     # custom: tool names; saved: [{"name", "tools"}] (max 5)
         self.first_run: dict = dict(FIRST_RUN_DEFAULTS)
         self.migrated_from: int | None = None                # the schema version this file was migrated from
+        self.session: dict = {}                              # key -> the saved value a command-line flag is overriding (set_for_session)
 
     # --- values -----------------------------------------------------------------------------------------------------
     def __getitem__(self, key: str):
@@ -392,8 +420,18 @@ class Config:
         if self.values.get(key) == v:
             return False
         self.values[key] = v
+        self.session.pop(key, None)                          # the player changed it: that change is saved
         self.dirty = True
         return True
+
+    def set_for_session(self, key: str, value) -> None:
+        """A command-line flag (--autopilot, --arena, --backend...): in effect now, never written to config.toml, which keeps the player's
+        own value unless they change the setting in the game. (3.1.0 review: `--autopilot` was saved, so every later launch started in
+        spectator mode with no tools.)"""
+        v = _coerce(BY_KEY[key], value)
+        if key not in self.session:
+            self.session[key] = self.values.get(key)
+        self.values[key] = v
 
     def reset_tab(self, tab: str) -> list[str]:
         changed = []
@@ -633,7 +671,7 @@ class Config:
         sections: dict[str, list[str]] = {}
         for s in SETTINGS:
             section, name = s.key.split(".")
-            sections.setdefault(section, []).append(f"{name} = {_toml_value(self.values[s.key])}")
+            sections.setdefault(section, []).append(f"{name} = {_toml_value(self.session.get(s.key, self.values[s.key]))}")
         for section, lines in sections.items():
             out += [f"[{section}]", *lines, ""]
         out.append("[keys]")

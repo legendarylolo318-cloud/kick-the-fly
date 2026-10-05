@@ -1,0 +1,313 @@
+{
+ "version": 1,
+ "tag": "MODEL PREDICTION",
+ "test": {
+  "id": "p1_courtship_song",
+  "name": "P1 activation drives the ps1 wing motor neurons (courtship song)",
+  "claim": "Activating the male P1 cluster excites the ps1 wing motor neurons used in pulse song.",
+  "citation": "von Philipsborn et al. 2011, Neuron 69:509; Kimura et al. 2008, Neuron 59:759",
+  "note": "MaleCNS v1.0 has no \"P1\" label; P1 is the pC1 types carrying the synonym \"Cachero 2010: pMP-e; Yu 2010: pMP4\" (assays.P1_TYPES). Added in 2.9 alongside pIP10, with the same criteria. Consistent but too weak. P1 sends pIP10 1,503 synapses and ps1 none, so it is one step further from the motor neurons than pIP10."
+ },
+ "result": {
+  "passed": false,
+  "criteria": "drive ratio >= 1.5 and > control (one-sided Wilcoxon p < 0.01)",
+  "measured": {
+   "drive_ratio_mean": 1.4275451336589107,
+   "drive_ratio_sd": 0.23591710897913853,
+   "control_ratio_mean": 0.9763620149200645,
+   "control_ratio_sd": 0.17203177171927395,
+   "readout_base_hz": 5.225,
+   "readout_driven_hz": 7.25,
+   "p_value": 0.0009765625,
+   "n": 10
+  }
+ },
+ "seeds": [
+  1000,
+  1001,
+  1002
+ ],
+ "created": "2026-10-04 14:11:16",
+ "read_only": true,
+ "weights_digest": "31952e3631ba801d",
+ "sections": [
+  {
+   "label": "Activating the male P1 cluster excites the ps1 wing motor neurons used in pulse song.",
+   "input": "P1 (pMP-e/pMP4 pC1 types, 86)",
+   "target": "ps1 wing motor neurons (2)",
+   "n_input": 86,
+   "n_target": 2,
+   "direct_synapses": 0,
+   "budget": [
+    {
+     "hop": 1,
+     "excitatory": 0.0,
+     "inhibitory": 0.0,
+     "net": 0.0,
+     "total": 0.0,
+     "inhibitory_share": NaN
+    },
+    {
+     "hop": 2,
+     "excitatory": 2.144399800470313e-05,
+     "inhibitory": 0.0,
+     "net": 2.144399800470313e-05,
+     "total": 2.144399800470313e-05,
+     "inhibitory_share": 0.0
+    },
+    {
+     "hop": 3,
+     "excitatory": 9.562027196856653e-05,
+     "inhibitory": 0.0001346252350644374,
+     "net": -3.900496309587087e-05,
+     "total": 0.00023024550703300392,
+     "inhibitory_share": 0.5847029842156265
+    }
+   ],
+   "routes": [
+    {
+     "hops": 2,
+     "types": [
+      "aSP22"
+     ],
+     "share": 2.120782892709341e-05,
+     "excitatory": 2.120782892709341e-05,
+     "inhibitory": 0.0,
+     "net_sign": 1,
+     "inhibitory_share": 0.0,
+     "edges": [
+      {
+       "synapses": 1018,
+       "excitatory": 1018,
+       "inhibitory": 0
+      },
+      {
+       "synapses": 13,
+       "excitatory": 13,
+       "inhibitory": 0
+      }
+     ],
+     "stage_ratios": [
+      {
+       "stage": "input",
+       "base_hz": 3.3507751937984493,
+       "driven_hz": 66.99031007751938,
+       "ratio": 19.99248120300752,
+       "neurons": 86
+      },
+      {
+       "stage": "aSP22",
+       "base_hz": 2.5833333333333335,
+       "driven_hz": 15.416666666666666,
+       "ratio": 5.96774193548387,
+       "neurons": 2
+      },
+      {
+       "stage": "target",
+       "base_hz": 4.75,
+       "driven_hz": 6.833333333333333,
+       "ratio": 1.4385964912280702,
+       "neurons": 2
+      }
+     ]
+    },
+    {
+     "hops": 3,
+     "types": [
+      "DNa08",
+      "IN08A011"
+     ],
+     "share": 1.2135009686622655e-05,
+     "excitatory": 0.0,
+     "inhibitory": 1.2135009686622655e-05,
+     "net_sign": -1,
+     "inhibitory_share": 1.0,
+     "edges": [
+      {
+       "synapses": 99,
+       "excitatory": 99,
+       "inhibitory": 0
+      },
+      {
+       "synapses": 313,
+       "excitatory": 313,
+       "inhibitory": 0
+      },
+      {
+       "synapses": 271,
+       "excitatory": 0,
+       "inhibitory": 271
+      }
+     ],
+     "stage_ratios": [
+      {
+       "stage": "input",
+       "base_hz": 3.3507751937984493,
+       "driven_hz": 66.99031007751938,
+       "ratio": 19.99248120300752,
+       "neurons": 86
+      },
+      {
+       "stage": "DNa08",
+       "base_hz": 0.3333333333333333,
+       "driven_hz": 14.333333333333334,
+       "ratio": 28.666666666666668,
+       "neurons": 2
+      },
+      {
+       "stage": "IN08A011",
+       "base_hz": 3.4166666666666665,
+       "driven_hz": 12.797619047619046,
+       "ratio": 3.7456445993031355,
+       "neurons": 14
+      },
+      {
+       "stage": "target",
+       "base_hz": 4.75,
+       "driven_hz": 6.833333333333333,
+       "ratio": 1.4385964912280702,
+       "neurons": 2
+      }
+     ]
+    },
+    {
+     "hops": 3,
+     "types": [
+      "SIP136m",
+      "DNg74_b"
+     ],
+     "share": 1.1013859347660115e-05,
+     "excitatory": 0.0,
+     "inhibitory": 1.1013859347660115e-05,
+     "net_sign": -1,
+     "inhibitory_share": 1.0,
+     "edges": [
+      {
+       "synapses": 1287,
+       "excitatory": 1287,
+       "inhibitory": 0
+      },
+      {
+       "synapses": 632,
+       "excitatory": 632,
+       "inhibitory": 0
+      },
+      {
+       "synapses": 159,
+       "excitatory": 0,
+       "inhibitory": 159
+      }
+     ],
+     "stage_ratios": [
+      {
+       "stage": "input",
+       "base_hz": 3.3507751937984493,
+       "driven_hz": 66.99031007751938,
+       "ratio": 19.99248120300752,
+       "neurons": 86
+      },
+      {
+       "stage": "SIP136m",
+       "base_hz": 0.0,
+       "driven_hz": 3.6666666666666665,
+       "ratio": 7.333333333333333,
+       "neurons": 2
+      },
+      {
+       "stage": "DNg74_b",
+       "base_hz": 7.25,
+       "driven_hz": 6.25,
+       "ratio": 0.8620689655172413,
+       "neurons": 2
+      },
+      {
+       "stage": "target",
+       "base_hz": 4.75,
+       "driven_hz": 6.833333333333333,
+       "ratio": 1.4385964912280702,
+       "neurons": 2
+      }
+     ]
+    },
+    {
+     "hops": 2,
+     "types": [
+      "DNp34"
+     ],
+     "share": 2.3616907760972048e-07,
+     "excitatory": 2.3616907760972048e-07,
+     "inhibitory": 0.0,
+     "net_sign": 1,
+     "inhibitory_share": 0.0,
+     "edges": [
+      {
+       "synapses": 3,
+       "excitatory": 3,
+       "inhibitory": 0
+      },
+      {
+       "synapses": 13,
+       "excitatory": 13,
+       "inhibitory": 0
+      }
+     ],
+     "stage_ratios": [
+      {
+       "stage": "input",
+       "base_hz": 3.3507751937984493,
+       "driven_hz": 66.99031007751938,
+       "ratio": 19.99248120300752,
+       "neurons": 86
+      },
+      {
+       "stage": "DNp34",
+       "base_hz": 6.5,
+       "driven_hz": 5.583333333333333,
+       "ratio": 0.8589743589743589,
+       "neurons": 2
+      },
+      {
+       "stage": "target",
+       "base_hz": 4.75,
+       "driven_hz": 6.833333333333333,
+       "ratio": 1.4385964912280702,
+       "neurons": 2
+      }
+     ]
+    }
+   ],
+   "input_rate": {
+    "base_hz": 3.3507751937984493,
+    "driven_hz": 66.99031007751938,
+    "ratio": 19.99248120300752,
+    "neurons": 86
+   },
+   "target_rate": {
+    "base_hz": 4.75,
+    "driven_hz": 6.833333333333333,
+    "ratio": 1.4385964912280702,
+    "neurons": 2
+   },
+   "verdict": {
+    "stage": "aSP22 -> target",
+    "text": "the signal is lost between aSP22 (x5.97) and target (x1.44), below the test's 1.5x",
+    "ratios": [
+     {
+      "stage": "input",
+      "ratio": 19.99248120300752
+     },
+     {
+      "stage": "aSP22",
+      "ratio": 5.96774193548387
+     },
+     {
+      "stage": "target",
+      "ratio": 1.4385964912280702
+     }
+    ]
+   }
+  }
+ ],
+ "ratio_min": 1.5,
+ "method": "walks of 1-3 synapses, simulator weights (signed count / post's input count); stage rates from 3 seeds, the pathway tests' drive (0.5 for 2 s after 2 s calm)"
+}

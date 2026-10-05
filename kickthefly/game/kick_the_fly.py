@@ -504,6 +504,9 @@ from kickthefly.core import crash
 from kickthefly.core import loadout as loadout_mod
 from kickthefly.ui import menu as menu_ui
 from kickthefly.core import paths
+from kickthefly.core import profiler as _profiler
+from kickthefly.core.profiler import PROF
+from kickthefly.game.predator_anim import SpiderCycle
 from kickthefly.core import platform_env
 from kickthefly.core.simclock import SimClock
 from kickthefly.core.crash import log
@@ -613,8 +616,8 @@ def get_max_flies(backend: str | None = None, brain: str = "adult") -> int:
     if backend is None or backend == "auto":
         from kickthefly.sim.connectome.backends import detect_available_backends
         avail = detect_available_backends()
-        # the same chain create_backend's 'auto' walks: gl is not in it, so the cap must not assume it either
-        backend = next((b for b in ("torch-cuda", "torch-rocm", "numba") if b in avail), "cpu")
+        from kickthefly.sim.connectome.backends import auto_chain
+        backend = auto_chain(avail)[0]          # the same chain create_backend's 'auto' walks, under the same policy
     backend = str(backend).lower()
     if backend == "gl":
         return 32                    # a 33rd fly would start a second group, streaming the weights twice per step
@@ -1044,7 +1047,15 @@ class Brain:
             self._step()
         self.k_base = k
 
+    SWITCH_S = 0.0002        # 3.1.0 task 3, see start()
+
     def start(self) -> None:
+        # The brain runs on a thread of its own so a slow frame cannot slow it, but CPython hands the GIL to a waiting thread only every
+        # sys.getswitchinterval() (5 ms by default) while another thread runs Python code. A render thread that is busy for a frame then
+        # starved the brain: measured with a main thread that never yields, 27 steps/s of the 200 (0.001 s gave 78, 0.0005 s 163, 0.0002 s
+        # 200). Waiting costs nothing; the brain's own numeric work releases the GIL. Spike for spike the output is unchanged.
+        if sys.getswitchinterval() > self.SWITCH_S:
+            sys.setswitchinterval(self.SWITCH_S)
         threading.Thread(target=self._loop, name="brain", daemon=True).start()
 
     def stop(self) -> None:
@@ -1374,6 +1385,23 @@ class BrainView:
         self.tint = np.where(self.hot_mask[:, None], self.hot * 2.2, cool).astype(np.float32)
         self.legend = (tuple(int(255 * c) for c in hot), tuple(int(min(255, 255 * c * 1.1)) for c in cool_base))
 
+    # --- the two pieces of render() that a GPU view replaces (kickthefly/game/gpu_brainview.py) ----------------------------------
+    def _accumulate(self, key: str, amp: np.ndarray, mode: str, sparks: np.ndarray | None = None) -> np.ndarray:
+        """The light of every neuron on the (h*w, 3) image: sum over a neuron's fiber and arbor samples of weight * depth * amp * color,
+        times the view's gain, plus a sparkle at the cell body of each neuron in `sparks`. `mode` picks the color: the neuron tints, or
+        the region colors."""
+        color = self.tint if mode == "neuron" else self.col_region * 1.8
+        light = (self.M[key] @ (amp[:, None] * color)) * self.gain[key]
+        if sparks is not None and len(sparks):
+            pix = self.spark_pix[key][sparks]
+            s, pix = sparks[pix >= 0], pix[pix >= 0]
+            np.add.at(light, pix, np.where(self.hot_mask[s, None], self.hot * 3.0, np.float32(0.7)))
+        return light
+
+    def _region_base(self, key: str) -> np.ndarray:
+        """The dim, depth-shaded structure of the brain in region colors."""
+        return self.M[key] @ (self.col_region * 0.45)
+
     def render(self, key: str, rates: np.ndarray, spiked: np.ndarray, t: float, learn: bool) -> pygame.Surface:
         if key == "big" and getattr(self, "_dirty_big", False):
             self._recompute_big()
@@ -1391,8 +1419,8 @@ class BrainView:
         if self.view_mode == "region":
             reg_heat = self.region_rates[self.region_id]
             heat_act = np.clip((reg_heat - 2.0) / 4.0, 0.0, 3.0).astype(np.float32) * 1.5 + 0.4 * act
-            light = (self.M[key] @ (heat_act[:, None] * self.col_region * 1.8)) * self.gain[key]
-            base_col = (self.M[key] @ (self.col_region * 0.45))
+            light = self._accumulate(key, heat_act, "region")
+            base_col = self._region_base(key)
             img = (255 * (1 - np.exp(-(base_col + light)))).astype(np.uint8)
             surf = pygame.image.frombuffer(img.tobytes(), (w, h), "RGB").copy()
             hot = (255 * (1 - np.exp(-0.7 * light))).astype(np.uint8)
@@ -1401,12 +1429,10 @@ class BrainView:
             surf.blit(glow, (0, 0), special_flags=pygame.BLEND_RGB_ADD)
             return surf
 
-        light = (self.M[key] @ (act[:, None] * self.tint)) * self.gain[key]
+        sparks = None
         if len(spiked) and self.sparkle:              # sparkles: firing neurons that spiked on the latest step
-            s = spiked[act[spiked] > 2.0]
-            pix = self.spark_pix[key][s]
-            s, pix = s[pix >= 0], pix[pix >= 0]
-            np.add.at(light, pix, np.where(self.hot_mask[s, None], self.hot * 3.0, np.float32(0.7)))
+            sparks = spiked[act[spiked] > 2.0]
+        light = self._accumulate(key, act, "neuron", sparks)
         img = (255 * (1 - np.exp(-(self.base[key] + light)))).astype(np.uint8)
         surf = pygame.image.frombuffer(img.tobytes(), (w, h), "RGB").copy()
         hot = (255 * (1 - np.exp(-0.7 * light))).astype(np.uint8)          # bloom from the firing only
@@ -2500,6 +2526,9 @@ HELP = (
     ("D", "the Neurodex: cell types you have discovered (in 3D only with the mouse free, Tab)"),
     (";", "kill cam: slow-motion replay of the fly's last seconds, after it dies"),
     ("Z [ ] .", "pause time, slower, faster, single step"),
+    ("F3", "profiler overlay: sim, physics, render and UI milliseconds, FPS, engine (off at every launch)"),
+    ("F4", "fly's-eye view: the scene as a fly's eyes sample it (wide field, hexagonal ommatidia, UV-blue-green color); visual only, not fed to the brain"),
+    ("F5", "brain sonification: the brain's regions as sound (opt-in, saved; silent when muted or paused)"),
     ("H", "this help"),
     ("Esc", "close a panel, or open the menu (settings, save, quit)"),
 )
@@ -2525,6 +2554,8 @@ class Game:
         from kickthefly.lab import validation
         self.menu.pages["challenges"] = challenges.page_challenges
         self.challenge = None
+        self.puppet_active = False                     # 3.1.0 task 10: Puppeteer mode (lab/puppet_challenge.py): nothing of yours may touch the fly
+        self.note_hooks: list = []                     # called with each reaction note's text (Puppeteer reads its goals through this)
         self.recording: dict | None = None
         self.last_export: str | None = None
         self.science_card: tuple[dict, float] | None = None
@@ -2564,12 +2595,22 @@ class Game:
         self.bg = make_background()
         self.shadow = make_shadow()
         self.view = view
+        from kickthefly.sim import realshapes
+        from kickthefly.game import fly_eye
+        self.fly_eye = fly_eye.FlyEyeView()               # 3.1.0 task 11: the scene as a fly's eyes sample it (GAME RULE, visual only)
+        from kickthefly.game import sonify_play
+        self.sonify = sonify_play.Sonifier(self)          # 3.1.0 task 14: opt-in brain sonification (core/sonify.py); silent until Settings > Audio turns it on
+        self.shapes = realshapes.ShapeLoader()           # 3.1.0 task 9: real neuron shapes, asked for when a neuron is inspected
+        self._shape_cache: dict = {}
+        if hasattr(view, "pref"):
+            view.pref = str(self.cfg.get("graphics.brain_view", "auto"))
         self.view_surf: dict[str, pygame.Surface] = {}
         self.view_rect = pygame.Rect(0, 0, 0, 0)
         self.big_view = False
         self.view_stop = False
         view.calm[:] = brain.sim.activity.rates()   # the warmed-up brain's own resting rates
         self._primary_brain = brain
+        self.brainproc = getattr(brain, "_proc", None)          # 3.1.0 review: the brain process, when the brains run in one
         self.born_view = time.perf_counter()
         self.immortal = False
         self.pain_level = 0
@@ -2711,14 +2752,8 @@ class Game:
                 if changed:
                     self.note(f"ARENA    {ARENAS[self.arena_i]}")
         elif key == "brain.individuality":
-            mode = c[key]
             for slot in getattr(self, "flies", []):
-                sim = slot.brain.sim
-                sim.p.individuality = mode
-                from kickthefly.core.individuality import compute_fly_gains
-                sim.d_pre, sim.d_post = compute_fly_gains(slot.seed, sim.n, mode=mode, sigma=sim.p.individuality_sigma)
-                sim.backend.sync_to_host()      # device backends keep their own copy of the gains
-                sim.backend.sync_from_host()
+                on_brain(slot.brain, "brain_set_individuality", c[key], slot.seed)
         elif key == "controls.loadout_preset":
             if hasattr(self, "loadout"):
                 self.refresh_loadout()
@@ -2733,6 +2768,8 @@ class Game:
         elif key == "brain.neuron_shapes":
             from kickthefly.sim import morphology
             morphology.set_opt_in(bool(c[key]))
+            if hasattr(self, "shapes"):
+                self.shapes.reset_offline()                  # ask again for the shapes that were refused while it was off
         elif key == "brain.pet_real_stakes":
             if getattr(self, "pet", None):
                 self.pet.real_stakes = bool(c[key])
@@ -2746,6 +2783,8 @@ class Game:
             self.clock.scale = c[key]
         elif key == "graphics.fps_cap":
             self.clock.fixed_per_frame = c[key] == 60
+        elif key == "graphics.brain_view" and hasattr(self.view, "pref"):
+            self.view.pref = str(c[key])
         elif key == "graphics.fullscreen":
             if bool(c[key]) != self.is_fullscreen():
                 pygame.display.toggle_fullscreen()
@@ -2760,34 +2799,15 @@ class Game:
             from kickthefly.core import simcore
             mirror = bool(c[key]) and not self.is_larva       # mirroring pairs adult L/R instances only
             g, orig_w, _ = simcore.pack(brain=self.brain_type)
-            w_new = simcore.symmetrize_weights(g, orig_w) if mirror else orig_w
-            self.weights = w_new
-            w_csr = w_new.astype(np.float32).tocsr()
-            w_csc = w_csr.tocsc()
+            self.weights = simcore.symmetrize_weights(g, orig_w) if mirror else orig_w
             for slot in self.flies:
-                slot.brain.sim.W_csr = w_csr
-                slot.brain.sim.W_csc = w_csc
+                on_brain(slot.brain, "brain_set_mirror", mirror, self.brain_type)
         elif key == "brain.dtype":
-            dt_str = str(c[key])
-            dt = np.float64 if dt_str == "float64" else np.float32
             for slot in getattr(self, "flies", []):
-                sim = slot.brain.sim
-                sim.p.dtype = dt_str
-                sim.dtype = dt
-                sim.v = sim.v.astype(dt)
-                sim._drive = sim._drive.astype(dt)
-                sim._noise = sim._noise.astype(dt)
-                sim._sfloat = sim._sfloat.astype(dt)
-                sim._zeros = sim._zeros.astype(dt)
-                sim.leak = dt(sim.p.dt_ms / sim.p.tau_ms)
+                on_brain(slot.brain, "brain_set_dtype", str(c[key]))
         elif key == "brain.backend":
-            from kickthefly.sim.connectome import backends
-            b_choice = str(c[key])
             for slot in getattr(self, "flies", []):
-                sim = slot.brain.sim
-                sim.p.backend = b_choice
-                sim.backend_choice = b_choice
-                sim.backend = backends.create_backend(sim, b_choice)
+                on_brain(slot.brain, "brain_set_backend", str(c[key]))
             if getattr(self, "flies", None):
                 self.max_flies = get_max_flies(self.flies[0].brain.sim.backend.name)
 
@@ -2853,6 +2873,8 @@ class Game:
 
     def select_tool(self, name: str) -> bool:
         """Take a tool in hand by name, from the hotbar, the wheel, the mouse wheel or the gamepad."""
+        if self.puppet_active:                         # Puppeteer: the laser is the only tool
+            return False
         if name not in TOOL_NAMES or not loadout_mod.available(name, lab=self.cfg.lab, larva=self.is_larva):
             return False
         self.tool = TOOL_NAMES.index(name)
@@ -2862,6 +2884,8 @@ class Game:
 
     def select_slot(self, slot: int) -> bool:
         """Hotbar slot 0-9 (keys 1-9, 0) on the page showing."""
+        if self.puppet_active and getattr(self.challenge, "pick_chip", None):
+            return self.challenge.pick_chip(slot)          # Puppeteer: the keys choose a palette cell type
         name = self.loadout.slot_tool(slot)
         return self.select_tool(name) if name else False
 
@@ -3101,6 +3125,12 @@ class Game:
                  "or block inhibition, and see which validated behaviors survive."),
                 ("Critical path finder", "lab_critical", "Silence each cell type in turn and rank them by what it "
                  "does to a behavior, against a same-seed unperturbed control."),
+                ("Activation screen", "lab_activation", "MODEL PREDICTION. Hold each cell type driven in turn on held-out seeds with matched "
+                 "controls: which descending neurons respond, and which behavior readout moves. Searchable, sortable, resumable."),
+                ("Knockout screen", "lab_knockout", "MODEL PREDICTION. Silence candidate cell types for each validated behavior and rank them by how "
+                 "much the response drops against matched random lesions. Resumable."),
+                ("Failure autopsy", "lab_autopsy", "MODEL PREDICTION, read-only. For each failing validation test: the paths from its input to its "
+                 "target, how much of the target's input they can supply, excitation versus inhibition, and what each stage did in the run."),
                 ("Simulation benchmark", "lab_benchmark", "Measure simulation throughput (neurons/s, synapses/s, sim vs real time) for 1, 8, 16 flies."),
                 ("Parameters", "lab_params", "Model parameters and game-rule thresholds, live."),
                 ("Record and export", "lab_export", "Record spike times and firing rates live to CSV and npz, with "
@@ -3146,7 +3176,11 @@ class Game:
             except ValueError as e:
                 self.menu.flash(str(e), menu_ui.BAD)
                 return
-        rec = recorder.Recorder(br, named).start()
+        try:
+            rec = recorder.Recorder(br, named).start()
+        except RuntimeError as e:                      # a brain in the brain process (core/brainproc.py): say how to record
+            self.menu.flash(str(e), menu_ui.BAD)
+            return
         self.recording = dict(rec=rec, until=br.steps + int(seconds / 0.005), seconds=seconds,
                               slot=self.flies[self.focus], nwb=bool(nwb))
         self.note(f"RECORD   {len(rec.rows):,} neurons for {seconds:g} s{' (+NWB)' if nwb else ''}")
@@ -3455,6 +3489,19 @@ class Game:
             lif_params.backend = str(self.cfg.get("brain.backend", "auto"))
             lif_params.dtype = str(self.cfg.get("brain.dtype", "float32"))
             lif_params.individuality = str(self.cfg.get("brain.individuality", "off"))
+        primary = self.flies[0].brain if getattr(self, "flies", None) else getattr(self, "_primary_brain", None)
+        if getattr(primary, "remote", False):
+            # 3.1.0 review: in the brain process, next to the others (a Lab wiring is applied there before the warm-up, as below)
+            nb = primary._proc.new_brain(primary._template, dict(
+                seed=seed, backend=lif_params.backend, dtype=lif_params.dtype, individuality=lif_params.individuality,
+                lab_params=dict(self.lab_params) if self.lab_params else None, pain_level=self.pain_level, persist_memory=False,
+                warmup=0 if not self.wiring.is_identity else 600))
+            if not self.wiring.is_identity:            # the same order as below: wiring, then the warm-up
+                nb.run("kickthefly.sim.wiring", "apply_locked", self.wiring)
+                nb.warmup()
+            nb.__dict__["_template"] = primary._template
+            nb.set_pain_level(self.pain_level)
+            return nb
         sim = LIFSim(None, lif_params, W_in=self.weights, seed=seed)
         lab.apply_to_sim(sim, self.lab_params)
         new_brain = Brain(self.graph, sim, seed=seed)
@@ -3492,6 +3539,9 @@ class Game:
             try:
                 for slot in list(self.flies):
                     br = slot.brain
+                    if getattr(br, "remote", False):      # 3.1.0 review: done in the brain process, on the real matrix
+                        br.run("kickthefly.sim.wiring", "apply_locked", w)
+                        continue
                     with br.step_lock:
                         wiring_mod.apply(br, w, self.graph)
                 if note:
@@ -4000,7 +4050,7 @@ class Game:
         """Each tool carries its own scent (6 of the 53 olfactory glomeruli; a game rule) that the fly smells up close."""
         fly = slot.fly
         slot.scent_now, slot.sugar_scent = None, False
-        if fly.dead:
+        if fly.dead or self.puppet_active:                    # Puppeteer: nothing of yours is near it, so no smell and no remembered fear of one
             return
         name = TOOLS[self.tool][0]
         name = "sugar" if name == "fruit" else name           # fruit smells like sugar: same glomeruli, same memory
@@ -4024,7 +4074,7 @@ class Game:
             slot.fear_now = slot.like_now = 0.0
             return
         if self.frame % 3 == 0:
-            r = br.sim.activity.rates()
+            r = None if getattr(br, "remote", False) else br.sim.activity.rates()   # a remote memory reads its own brain's rates
             for key in ([slot.scent_now] if slot.scent_now else []) + (["sugar"] if slot.sugar_scent else []):
                 mem.observe(key, r)
             if (slot.scent_now or slot.sugar_scent) and not fly.dead:
@@ -4281,7 +4331,7 @@ class Game:
             slot.song_ready = now + 1.8
             self.note(f"SONG     ps1 wing MNs x{slot.song_slow:.1f}")
             self.on_reaction("SONG", slot)
-            if self.cfg["brain.song_buzz"]:
+            if self.cfg["brain.song_buzz"] and not self.sonify.voicing_song():       # the sonification's song voice is that buzz, said once
                 self.sound.play("pulse_song")
                 head_offset = np.array([0.0, 0.4, 0.0]) if len(fly.p[HEAD]) == 3 else np.array([0.0, -60.0])
                 self.popup(fly.p[HEAD] + head_offset, "♪ BUZZ ♪", (255, 180, 220))
@@ -4775,6 +4825,7 @@ class Game:
             return None if q < 0 else (rect.x + q % w, rect.y + q // w)
 
         me = at(info["i"])
+        shape = self._real_shape(info["i"], rect, surf)
         for lst, col in ((info["ins"], (110, 200, 255)), (info["outs"], (255, 160, 80))):
             for j, _ in lst:
                 q = at(j)
@@ -4826,7 +4877,9 @@ class Game:
             self._text(surf, f"{how}, {conf_txt}" + ("   SIGN FLIPPED IN LAB" if flipped else ""), (x, yy + 14),
                        (255, 140, 140) if flipped else LABEL, self.f_small)
             yy += 34
-        yy += 4
+        yy += 2
+        self._text(surf, shape, (x, yy), (255, 236, 140) if shape.startswith("real shape:") else DIM, self.f_small)
+        yy += 14
         for title, lst, col in (("strongest inputs (% of its input)", info["ins"], (110, 200, 255)),
                                 ("strongest outputs (% of target's input)", info["outs"], (255, 160, 80))):
             self._text(surf, title, (x, yy), col, self.f_small)
@@ -4870,6 +4923,50 @@ class Game:
             pygame.draw.rect(surf, (40, 120, 90) if on else (40, 46, 58), r, border_radius=6)
             self._text(surf, label, r.center, INK, self.f_small, "center")
             self.path_buttons.append((r, what, i))
+
+    def _real_shape(self, i: int, rect: pygame.Rect, surf) -> str:
+        """3.1.0 task 9: ask for the inspected neuron's real shape (a cached one at once; a download only if the player opted in), draw it over
+        the big view and as an inset with its credit, and return the line the card shows. Drawing only."""
+        from kickthefly.game import shape_draw
+        from kickthefly.sim import realshapes
+
+        br = self.brain
+        bid = int(br.body_id[i]) if getattr(br, "body_id", None) is not None and i < len(br.body_id) else None
+        if not bid or bid <= 0:
+            return "estimated fiber (no body id)"
+        self.shapes.request(bid)
+        state, msg = self.shapes.status(bid)
+        skel = self.shapes.skeleton(bid)
+        if skel is None:
+            if state == "loading":
+                return "estimated fiber (downloading the real shape...)"
+            if state == "off":
+                return "estimated fiber (real shapes are off: Settings > Brain)" if not realshapes.opted_in() else f"estimated fiber ({msg[:44]})"
+            return f"estimated fiber ({msg[:44]})" if msg else "estimated fiber"
+        v = self.view
+        sig = (bid, round(v.yaw, 2), round(v.pitch, 2), round(v.pan_x, 1), round(v.pan_y, 1), round(v.zoom, 3), getattr(v, "on_gpu", False))
+        c = self._shape_cache
+        if c.get("sig") != sig:
+            try:
+                c["sig"], c["overlay"] = sig, shape_draw.overlay(v, skel)
+            except Exception:
+                log.exception("drawing a real neuron shape failed")
+                c["sig"], c["overlay"] = sig, None
+        if c.get("overlay") is not None:
+            surf.blit(c["overlay"], rect.topleft)
+        if c.get("thumb_for") != bid:
+            try:
+                c["thumb_for"], c["thumb"] = bid, shape_draw.thumbnail(v, skel, (236, 118))
+            except Exception:
+                c["thumb_for"], c["thumb"] = bid, None
+        box = pygame.Rect(rect.x + 10, rect.bottom - 150, 244, 140)
+        bg = pygame.Surface(box.size, pygame.SRCALPHA)
+        pygame.draw.rect(bg, (8, 10, 16, 215), bg.get_rect(), border_radius=8)
+        surf.blit(bg, box)
+        if c.get("thumb") is not None:
+            surf.blit(c["thumb"], (box.x + 4, box.y + 4))
+        self._text(surf, realshapes.CREDIT_SHORT, (box.x + 6, box.bottom - 16), DIM, self.f_small)
+        return f"real shape: {skel.n:,} nodes, {skel.cable_length_um():,.0f} um of cable"
 
     # --- big view: neuron search and path tracer (kickthefly/lab/neurosearch.py) ---------------------------------
     def search_box_rect(self) -> pygame.Rect:
@@ -5328,7 +5425,13 @@ class Game:
 
     def _draw_memory(self, surf) -> None:
         mem = self.brain.memory
-        learned = [(k, *self.memory_of(k)) for k in (mem.templates if mem is not None else {})]
+        # Scoring every remembered smell against all 41k plastic synapses each frame held the GIL for ~1 ms per fly shown (3.1.0 review);
+        # the card is a readout, so it refreshes five times a second (and at once for another fly).
+        t = time.perf_counter()
+        c = getattr(self, "_memory_card", None)
+        if c is None or c[0] is not mem or t - c[1] > 0.2:
+            c = self._memory_card = (mem, t, [(k, *self.memory_of(k)) for k in (mem.templates if mem is not None else {})])
+        learned = c[2]
         x, y, w = 10, 380, 236
         rows = sorted((r for r in learned if max(r[1], r[2]) >= 0.02), key=lambda r: -max(r[1], r[2]))[:4]
         h = 46 + 16 * max(1, len(rows))
@@ -5367,6 +5470,8 @@ class Game:
         return out
 
     def hit(self, slot: "FlySlot", i: int, strength: float) -> None:
+        if self.puppet_active:                         # Puppeteer: you cannot hit the fly (no tool, no body, no kick pokes its touch neurons)
+            return
         key = particle_region(i)
         slot.pending_hits[key] = max(slot.pending_hits.get(key, 0.0), strength)
         self.record_event("hit", key[0], TOOLS[self.tool][0], strength, slot)
@@ -5412,6 +5517,11 @@ class Game:
         src = source or reaction_source(text)
         self.log.append((self.clock.now, text, src))
         self.log = self.log[-7:]
+        for hook in tuple(self.note_hooks):
+            try:
+                hook(text)
+            except Exception:
+                log.exception("a note hook failed")
         self.record_event("note", text.split()[0] if text.split() else "note", text.strip(), 0.0,
                           extra=dict(source=src))
 
@@ -5685,9 +5795,13 @@ class Game:
             fly = slot.fly
             d = fly.p[THX] + (0, -18) - sp["p"]
             dist = float(np.hypot(*d))
-            if dist > 26:
+            cyc = sp.setdefault("cycle", SpiderCycle())      # 3.1.0 task 1: walk -> windup -> strike -> recover (GAME RULE)
+            if cyc.state in ("walk", "windup") and abs(d[0]) > 1.0:
+                sp["face_x"] = 1.0 if d[0] > 0 else -1.0
+            evs = cyc.step(1.0 / 60.0, dist, 26.0)
+            if cyc.walking and dist > 26:
                 sp["p"] += d / dist * min(3.4, dist)
-            elif now - sp["bite_at"] > 0.7:
+            if "bite" in evs:
                 sp["bite_at"] = now
                 sp["bites"] += 1
                 fly.venom = min(1.0, fly.venom + 0.3)
@@ -6234,6 +6348,10 @@ class Game:
 
     # --- render ---
     def draw(self, now: float, mouse) -> None:
+        with PROF.section("render"):
+            self._draw(now, mouse)
+
+    def _draw(self, now: float, mouse) -> None:
         scr = self.screen
         scr.fill(BG)
         arena = self.bg.copy()
@@ -6373,6 +6491,8 @@ class Game:
             arena.blit(txt, (x, y))
             if pu[5] and self.cfg.tags_on():
                 draw_source_chip(arena, (pu[0], y + txt.get_height()), pu[5], self.f_small, alpha=a)
+        _ui = PROF.section("ui")                       # the HUD, the brain panel and the menus (3.1.0 profiler)
+        _ui.__enter__()
         if getattr(self, "photo_mode", False):
             b_txt = self.f_small.render("PHOTO MODE  |  S / F12: Clean Snap  |  F10: Exit", True, (240, 240, 240))
             box = b_txt.get_rect(midbottom=(PLAY_W // 2, FLOOR + 30)).inflate(24, 8)
@@ -6418,6 +6538,7 @@ class Game:
             self.tutorial.draw(scr)                   # review: it drew over the kill cam
         if self.menu.open:
             self.menu.draw(scr, pygame.mouse.get_pos(), now)
+        _ui.__exit__()
 
     def draw_time_indicator(self, surf, cx: int, y: int) -> None:
         label = self.clock.label()
@@ -6432,20 +6553,8 @@ class Game:
         sp = self.spider
         x, y = sp["p"]
         pygame.draw.aaline(surf, (220, 220, 225), (x, CEIL), (x, y - 8))
-        for sgn in (-1, 1):
-            for k in range(4):
-                a = (k - 1.5) * 0.5
-                wig = 3 * math.sin(now * 14 + k * 1.7 + sgn)
-                knee = (x + sgn * 20 * math.cos(a), y - 12 + 10 * math.sin(a) + wig)
-                foot = (x + sgn * 30 * math.cos(a), y + 6 + 12 * math.sin(a) - wig)
-                thick_line(surf, (x, y), knee, 2.5, (30, 28, 32))
-                thick_line(surf, knee, foot, 2, (30, 28, 32))
-        aacircle(surf, (x, y + 4), 13, (38, 34, 40))
-        aapoly(surf, [(x - 3, y), (x + 3, y), (x, y + 6)], (200, 40, 40))
-        aapoly(surf, [(x - 3, y + 12), (x + 3, y + 12), (x, y + 6)], (200, 40, 40))
-        aacircle(surf, (x, y - 10), 8, (30, 28, 32))
-        for dx in (-3, 3):
-            aacircle(surf, (x + dx, y - 12), 1.6, (230, 60, 60))
+        from kickthefly.game import predator_play
+        predator_play.draw_spider2d(sp, surf, now)
 
     def _draw_decoy_female_2d(self, surf: pygame.Surface, x: float, y: float, now: float) -> None:
         """Draw 2D decoy as a female fly: larger, rounder abdomen with the female band pattern across all
@@ -7376,14 +7485,14 @@ def playable_brain(cfg) -> str:
 
 
 def page_neuron_shapes(menu, surf, rect, mouse) -> None:
-    """The one-time question (3.0 day 3 review): may the brain view download ten real neuron shapes from neuPrint?"""
+    """The one-time question (3.0 day 3 review; 3.1.0: the per-neuron shapes too): may the game download real neuron shapes?"""
     cx = rect.centerx
     menu.text(surf, tr("Download real neuron shapes?"), (cx, rect.y + 40), menu_ui.INK, menu.f_head, "midtop")
-    menu.wrapped(surf, tr("The brain view can draw ten neurons (the giant fiber DNp01, DNa02, MBON01, MBON14 and a Kenyon cell type) "
-                          "from their real electron-microscopy skeletons, downloaded once from Janelia's neuPrint and kept in a "
-                          "cache. Without them it draws estimated fibers. Nothing about the simulation changes either way: every "
-                          "neuron is simulated as a point. This is the game's only network use besides Streamer mode, so it is "
-                          "off unless you say yes. Settings > Brain changes it later; it applies on the next launch."),
+    menu.wrapped(surf, tr("The game can draw real neurons from their electron-microscopy skeletons (Janelia's MaleCNS v1.0, CC BY 4.0): ten"
+                          " in the brain view, and any neuron you inspect, fetched when you click it (10-100 kB each), checksummed and "
+                          "cached. Without them it draws estimated fibers; every neuron is still simulated as a point. This is the game's "
+                          "only network use besides Streamer mode, so it is off unless you say yes. Settings > Brain changes it later; it "
+                          "applies on the next launch."),
                  (rect.x + 60, rect.y + 96), rect.w - 120, menu_ui.TEXT, menu.f_text, max_lines=9)
 
     def answer(yes: bool) -> None:
@@ -7394,6 +7503,66 @@ def page_neuron_shapes(menu, surf, rect, mouse) -> None:
     menu.button(surf, (cx - 10 - bw, rect.bottom - 90, bw, 50), tr("Yes, download them"), lambda: answer(True), id=("ns", "yes"))
     menu.button(surf, (cx + 10, rect.bottom - 90, bw, 50), tr("No thanks"), lambda: answer(False), style="primary",
                 id=("ns", "no"))
+
+
+# --- changing a live brain's settings (3.1.0 review): one function each, run on the real brain wherever it lives (core/brainproc.py) ---
+def use_brain_process(cfg) -> bool:
+    """Whether the interactive game runs its brains in their own process (Settings > Brain; KICK_THE_FLY_BRAIN_PROCESS=0 or 1 overrides)."""
+    env = os.environ.get("KICK_THE_FLY_BRAIN_PROCESS", "").strip().lower()
+    if env in ("0", "off", "no", "false"):
+        return False
+    if env in ("1", "on", "yes", "true"):
+        return True
+    choice = str(cfg.get("brain.process", "auto"))
+    if choice == "auto":                                  # the Lab's recording and patch electrode need the brains here
+        return str(cfg.get("brain.mode", "play")) != "lab"
+    return choice == "on"
+
+
+def on_brain(brain, fn: str, *args):
+    """Run fn(brain, *args) from this module on `brain`: here, or in the brain process for a RemoteBrain."""
+    if getattr(brain, "remote", False):
+        return brain.run(__name__, fn, *args)
+    return globals()[fn](brain, *args)
+
+
+def brain_set_individuality(brain, mode: str, seed: int) -> None:
+    from kickthefly.core.individuality import compute_fly_gains
+    sim = brain.sim
+    sim.p.individuality = mode
+    sim.d_pre, sim.d_post = compute_fly_gains(seed, sim.n, mode=mode, sigma=sim.p.individuality_sigma)
+    sim.backend.sync_to_host()      # device backends keep their own copy of the gains
+    sim.backend.sync_from_host()
+
+
+def brain_set_mirror(brain, mirror: bool, brain_type: str) -> None:
+    from kickthefly.core import simcore
+    g, orig_w, _ = simcore.pack(brain=brain_type)
+    w = simcore.symmetrize_weights(g, orig_w) if mirror else orig_w
+    w_csr = w.astype(np.float32).tocsr()
+    brain.sim.W_csr = w_csr
+    brain.sim.W_csc = w_csr.tocsc()
+
+
+def brain_set_dtype(brain, dt_str: str) -> None:
+    dt = np.float64 if dt_str == "float64" else np.float32
+    sim = brain.sim
+    sim.p.dtype = dt_str
+    sim.dtype = dt
+    sim.v = sim.v.astype(dt)
+    sim._drive = sim._drive.astype(dt)
+    sim._noise = sim._noise.astype(dt)
+    sim._sfloat = sim._sfloat.astype(dt)
+    sim._zeros = sim._zeros.astype(dt)
+    sim.leak = dt(sim.p.dt_ms / sim.p.tau_ms)
+
+
+def brain_set_backend(brain, choice: str) -> None:
+    from kickthefly.sim.connectome import backends
+    sim = brain.sim
+    sim.p.backend = choice
+    sim.backend_choice = choice
+    sim.backend = backends.create_backend(sim, choice)
 
 
 def load_brain(out: dict) -> None:
@@ -7419,8 +7588,22 @@ def load_brain(out: dict) -> None:
         if "dtype" in out:
             p.dtype = out["dtype"]
         p.individuality = out.get("individuality", "off")   # callers that want individuality pass it (main, kick3d)
-        sim = LIFSim(None, p, W_in=weights, seed=seed)
-        brain = Brain(g, sim, seed=seed)
+        proc = None
+        if out.get("process"):
+            # 3.1.0 review: the brains run in a process of their own (core/brainproc.py); here only the tables every brain shares
+            try:
+                from kickthefly.core import brainproc
+                from kickthefly.sim.connectome import backends as _bk
+                out["stage"] = "starting the brain process"
+                proc = brainproc.BrainProcess(brain_type=brain_type, mirror_weights=bool(out.get("mirror_weights", False)),
+                                              auto_policy=_bk.auto_policy())
+                brain = brainproc.make_template(g, weights)
+            except Exception as e:
+                log.warning("the brain process did not start (%s); the brains run in the game process", e)
+                proc = None
+        if proc is None:
+            sim = LIFSim(None, p, W_in=weights, seed=seed)
+            brain = Brain(g, sim, seed=seed)
         brain.brain_type = brain_type
         out["stage"] = "placing neurons"
         if brain_type == "larva":
@@ -7430,13 +7613,22 @@ def load_brain(out: dict) -> None:
         else:
             pain_groups = [brain.col[n] for n in (*TOUCH, "heat", "cold", "smell", "taste", "body_extra")]
             pain_mask = np.isin(brain.det_id, pain_groups) | (brain.pop_id == [n for n, _ in POPS].index("ascending"))
-        out["view"] = BrainView(soma, weights, pain_mask, regions=getattr(g, "region", None), graph=g)
-        if getattr(g, "dan_mbon", None) is not None:
-            from kickthefly.core import memory
-            out["stage"] = "loading the fly's memory"
-            brain.memory = memory.Memory(g, sim)
-        out["stage"] = "waking the fly up"
-        brain.warmup()
+        from kickthefly.game.gpu_brainview import make_view          # 3.1.0 task 4: the GPU view, or this file's CPU one
+        out["view"] = make_view(soma, weights, pain_mask, regions=getattr(g, "region", None), graph=g)
+        if proc is not None:
+            out["stage"] = "waking the fly up"
+            template = brain
+            brain = proc.new_brain(template, dict(seed=seed, backend=p.backend, dtype=p.dtype, individuality=p.individuality,
+                                                  persist_memory=True, warmup=600))
+            brain.__dict__["_template"] = template
+            out["brainproc"] = proc
+        else:
+            if getattr(g, "dan_mbon", None) is not None:
+                from kickthefly.core import memory
+                out["stage"] = "loading the fly's memory"
+                brain.memory = memory.Memory(g, sim)
+            out["stage"] = "waking the fly up"
+            brain.warmup()
         out["brain"] = brain
         out["brain_type"] = brain_type
         out["graph"], out["weights"] = g, weights   # kept so spawning more flies never re-touches disk
@@ -7472,7 +7664,9 @@ def parse_args(argv: list[str] | None = None):
     ap.add_argument("--autopilot", "--spectator", dest="autopilot", action="store_true", help="spectator mode: hands-off simulation with auto-orbiting brain view")
     ap.add_argument("--audit-asymmetry", dest="audit_asymmetry", action="store_true", help="run bilateral asymmetry audit and exit")
     ap.add_argument("--mirror-weights", dest="mirror_weights", action="store_true", help="mirror-average synaptic weights (game rule: data modification)")
-    ap.add_argument("--benchmark", action="store_true", help="run simulation throughput benchmark (1, 8, 16 flies) and exit")
+    ap.add_argument("--benchmark", action="store_true", help="run simulation throughput benchmark (1, 8, 16 flies), then a frame profile "
+                    "of fixed rendered scenes (sim, physics, render, UI milliseconds, FPS, engine), and exit")
+    ap.add_argument("--no-render-bench", dest="no_render_bench", action="store_true", help="with --benchmark: skip the rendered scenes")
     ap.add_argument("--threshold-sweep", dest="threshold_sweep", action="store_true",
                     help="re-run the validated behaviors at a range of minimum-synapse thresholds and exit")
     ap.add_argument("--thresholds", type=int, nargs="+", help="minimum-synapse thresholds for --threshold-sweep")
@@ -7524,6 +7718,24 @@ def parse_args(argv: list[str] | None = None):
                          "communities, regions); cached; CSV into --out")
     ap.add_argument("--sleep-deprivation", dest="sleep_deprivation", action="store_true",
                     help="3.0 day 4, headless: the sleep-deprivation assay (rebound sleep vs undisturbed controls, paired)")
+    ap.add_argument("--activation-screen", dest="activation_screen", action="store_true",
+                    help="3.1.0, headless, MODEL PREDICTION: hold each cell type driven in turn on held-out seeds (default 4000-4007) with matched "
+                         "controls; record every descending neuron type's response and the behavior readouts; resumable, CSV/Parquet into --out")
+    ap.add_argument("--knockout-screen", dest="knockout_screen", nargs="*", metavar="BEHAVIOR",
+                    help="3.1.0, headless, MODEL PREDICTION: for each validated pathway behavior (or those named) silence ranked candidate cell types "
+                         "and rank them by how much the response drops, with matched controls; resumable")
+    ap.add_argument("--failure-autopsy", dest="failure_autopsy", nargs="*", metavar="TEST",
+                    help="3.1.0, headless, MODEL PREDICTION, read-only: for each failing test of the latest validation result (or those named) trace the "
+                         "paths from its input to its target and report where the driven signal fades; a page per failure (Markdown and JSON) into --out")
+    ap.add_argument("--autopsy", action="store_true", help="with --validate: then autopsy every failure into --out/failure-autopsy")
+    ap.add_argument("--screen-controls", dest="screen_controls", type=int, help="matched controls per condition and seed for a screen (default 2)")
+    ap.add_argument("--min-neurons", dest="min_neurons", type=int, help="with --activation-screen: only cell types with at least this many neurons")
+    ap.add_argument("--max-types", dest="max_types", type=int, help="with --activation-screen: only the first N cell types in name order")
+    ap.add_argument("--screen-batch", dest="screen_batch", type=int, help="run a screen's brains on this many threads of one process, stepped together "
+                    "on the GPU with --backend gl (default: processes, --workers)")
+    ap.add_argument("--candidate-batch", dest="candidate_batch", type=int, help="with --knockout-screen: silence ranked candidates in batches of this "
+                    "many first, then singly the members of the batches that cut the response")
+    ap.add_argument("--restart", action="store_true", help="with a screen: discard what --out already holds and start again")
     ap.add_argument("--flies", type=int, nargs="+", help="flies count list for benchmark (default: 1 8 16)")
     ap.add_argument("--seconds", type=float, help="duration per benchmark condition in seconds")
     ap.add_argument("--strict", action="store_true", help="exit 1 if validation differs from the expected results")
@@ -7588,6 +7800,8 @@ def main(argv: list[str] | None = None) -> int:
             or getattr(args, "sensitivity", False) or getattr(args, "tournament", None) or getattr(args, "race", False)
             or getattr(args, "netsci", None) or getattr(args, "sleep_deprivation", False)
             or getattr(args, "rig", None) or getattr(args, "rig_assay", None) or getattr(args, "minipaper", None)
+            or getattr(args, "failure_autopsy", None) is not None
+            or getattr(args, "activation_screen", False) or getattr(args, "knockout_screen", None) is not None
             or getattr(args, "replay", None) or getattr(args, "record_replay", None)
             or getattr(args, "rerun_bundle", None) or getattr(args, "share_decode", None)):
         if getattr(args, "replay", None) and not args.headless:
@@ -7613,23 +7827,26 @@ def main(argv: list[str] | None = None) -> int:
         elif args.backend == "auto":
             sim_backend_choice = "auto"
     if sim_backend_choice:
-        cfg.set("brain.backend", sim_backend_choice)
+        cfg.set_for_session("brain.backend", sim_backend_choice)
+    if os.environ.get("KICK_THE_FLY_AUTO", "").lower() != "exact":           # 3.1.0 task 2: the game's 'auto' is the fastest working engine
+        from kickthefly.sim.connectome import backends as _backends
+        _backends.set_auto_policy("fastest")
     if getattr(args, "dtype", None):
-        cfg.set("brain.dtype", args.dtype)
+        cfg.set_for_session("brain.dtype", args.dtype)
     args.display_backend = display_backend_choice
     args.sim_backend = sim_backend_choice
     if args.autopilot:
-        cfg.set("brain.autopilot", True)
+        cfg.set_for_session("brain.autopilot", True)
     if getattr(args, "brain", None):
-        cfg.set("brain.brain", args.brain)
+        cfg.set_for_session("brain.brain", args.brain)
     if getattr(args, "individuality", None):
-        cfg.set("brain.individuality", args.individuality)
+        cfg.set_for_session("brain.individuality", args.individuality)
     if getattr(args, "pet", False):
-        cfg.set("brain.mode", "pet")
+        cfg.set_for_session("brain.mode", "pet")
     if getattr(args, "arena", None):
-        cfg.set("brain.arena", args.arena)
+        cfg.set_for_session("brain.arena", args.arena)
     if getattr(args, "mirror_weights", False):
-        cfg.set("brain.mirror_weights", True)
+        cfg.set_for_session("brain.mirror_weights", True)
     seed = args.seed if args.seed is not None else cfg["brain.seed"]
     crash.info["seed"] = str(seed)
     smoke, shot = args.smoke_s, args.shot
@@ -7680,6 +7897,7 @@ def main(argv: list[str] | None = None) -> int:
     state["mirror_weights"] = bool(cfg["brain.mirror_weights"])
     state["backend"] = getattr(args, "sim_backend", None) or cfg["brain.backend"]
     state["dtype"] = cfg["brain.dtype"]
+    state["process"] = use_brain_process(cfg)
     threading.Thread(target=load_brain, args=(state,), daemon=True).start()
     t0 = time.perf_counter()
     while "brain" not in state:
@@ -7708,8 +7926,13 @@ def main(argv: list[str] | None = None) -> int:
         game.toggle_video_recording(None if args.record_video == "default" else args.record_video)
     running = True
     t_game = time.perf_counter()
+    _profiler.bench_start()
+    warm_done = False
     while running:
         real = time.perf_counter()
+        if smoke and not warm_done and real - t_game > smoke / 2:
+            warm_done = True
+            _profiler.bench_warm_done()
         if smoke and real - t_game > smoke:
             try:
                 from PIL import Image  # noqa: F401  (GIF saving works in this build)
@@ -7718,6 +7941,7 @@ def main(argv: list[str] | None = None) -> int:
                 gif = "no gif"
             status = f"smoke ok: {brain.n:,} neurons, {brain.steps_per_s:.0f} steps/s, sound {game.sound.ok}, {gif}"
             print(status)
+            _profiler.bench_finish(game, status)
             if shot:                                      # optional screenshot path; the exe has no console
                 save_image(screen, shot)
                 with open(shot + ".txt", "w") as f:
@@ -7733,9 +7957,10 @@ def main(argv: list[str] | None = None) -> int:
                 continue
             running = game.handle(ev, game.clock.now) and running
         game.sync_time()
-        for dt in ticks:
-            game.clock.now += dt
-            game.update(game.clock.now, (min(mouse[0], PLAY_W - 5), mouse[1]))
+        with PROF.section("physics"):
+            for dt in ticks:
+                game.clock.now += dt
+                game.update(game.clock.now, (min(mouse[0], PLAY_W - 5), mouse[1]))
         game.draw(game.clock.now, mouse)
         if ticks and game.frame % 4 == 0:            # rolling footage for G / the death GIF
             game.capture()
@@ -7743,7 +7968,11 @@ def main(argv: list[str] | None = None) -> int:
             game.capture_timelapse_frame()
         if ticks and getattr(game, "video_recorder", None) and game.video_recorder.is_recording:
             game.capture_video_frame()
-        pygame.display.flip()
+        with PROF.section("present"):
+            pygame.display.flip()
+        if PROF.on:
+            PROF.sim_busy(sum(sl.brain.sim.busy_s for sl in game.flies))
+            PROF.end_frame()
         clock.tick(cfg["graphics.fps_cap"])
     shutdown(game)
     return 0
@@ -7769,6 +7998,8 @@ def shutdown(game) -> None:
         game.x3.progress.save()                     # 3.0: the Neurodex is saved at each discovery; this is the backstop
     if game.cfg.dirty:
         game.cfg.save()
+    if getattr(game, "brainproc", None) is not None:         # it saves the player's fly's memory as its brains go
+        game.brainproc.close()
     pygame.quit()
 
 

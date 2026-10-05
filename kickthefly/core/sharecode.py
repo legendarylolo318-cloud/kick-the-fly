@@ -37,12 +37,13 @@ _TO_CROCKFORD = str.maketrans(_B32, ALPHABET)
 _FROM_CROCKFORD = str.maketrans(ALPHABET, _B32)
 _FIX = str.maketrans("OIL", "011")
 
-KINDS = {"surgery": "SRG", "loadout": "LDT", "protocol": "PRT", "challenge": "CHL", "lab": "LAB"}
+KINDS = {"surgery": "SRG", "loadout": "LDT", "protocol": "PRT", "challenge": "CHL", "lab": "LAB",
+         "contraption": "CTN"}                        # 3.1.0: appended, so every earlier kind keeps its byte
 KIND_OF = {v: k for k, v in KINDS.items()}
 KIND_BYTE = {k: i + 1 for i, k in enumerate(KINDS)}
 BYTE_KIND = {v: k for k, v in KIND_BYTE.items()}
 KIND_LABEL = {"surgery": "Brain surgery", "loadout": "Tool loadout", "protocol": "Protocol",
-              "challenge": "Challenge setup", "lab": "Lab parameters"}
+              "challenge": "Challenge setup", "lab": "Lab parameters", "contraption": "Contraption build"}
 
 
 class ShareError(ValueError):
@@ -247,6 +248,12 @@ def check_payload(kind: str, p) -> str | None:
             r = check_payload("lab", {"params": p["params"]})
             if r:
                 return r
+    elif kind == "contraption":
+        from kickthefly.game import contraption
+
+        bad = contraption.check(p)
+        if bad:
+            return bad[0]
     elif kind == "lab":
         if set(p) - {"params"} or not isinstance(p.get("params"), dict) or not p["params"]:
             return "a Lab code carries a list of parameter values"
@@ -271,6 +278,7 @@ class Context:
     current_surgery: dict = field(default_factory=dict)    # {"groups": {...}, "types": {...}} now active
     current_loadout: list = field(default_factory=list)
     saved_loadouts: list = field(default_factory=list)      # names
+    contraption_slots_used: int = 0                         # of the 8 contraption save slots
     max_saved_loadouts: int = 5
     protocol_names: set = field(default_factory=set)
     larva: bool = False
@@ -293,6 +301,11 @@ def validate(code: Code, ctx: Context) -> str | None:
                 return f"this loadout uses tools this version doesn't have: {', '.join(unknown[:5])}"
     elif k == "lab":
         return _validate_params(p["params"], ctx)
+    elif k == "contraption":
+        from kickthefly.game import contraption
+
+        bad = contraption.check(p, (lambda t: t in ctx.tools) if ctx.tools is not None else None)
+        return bad[0] if bad else None
     elif k == "protocol":
         name = p["protocol"].get("name", "shared-protocol")
         if not isinstance(name, str) or name != _clean_name(name, 60) or "/" in name or "\\" in name or name.startswith("."):
@@ -380,6 +393,20 @@ def preview(code: Code, ctx: Context) -> Preview:
             warns.append("Tools with no larval sensory mapping stay hidden in larva mode")
     elif k == "lab":
         lines += _param_lines(p["params"], ctx)
+    elif k == "contraption":
+        from kickthefly.game import contraption
+
+        kinds: dict[str, int] = {}
+        for r in p["parts"]:
+            kinds[r["k"]] = kinds.get(r["k"], 0) + 1
+        lines.append(f"Contraption '{p.get('name') or 'shared'}': " + ", ".join(f"{n} x {contraption.LABEL[k].lower()}" for k, n in kinds.items()))
+        tools = sorted({r.get("tool", "swatter") for r in p["parts"] if r["k"] == "tool"})
+        if tools:
+            lines.append("It fires: " + ", ".join(tools) + " (at the fly's own risk: these are the game's tools)")
+        if ctx.contraption_slots_used < contraption.SLOTS:
+            lines.append("Saves it into the first free contraption slot (it does not run it)")
+        else:
+            warns.append("All 8 contraption slots are full, so it won't be saved; paste the code in the builder to open it without saving")
     elif k == "protocol":
         pr = p["protocol"]
         nm = pr.get("name", "shared-protocol")
@@ -444,6 +471,8 @@ def apply(code: Code, game) -> list[str]:
         return _apply_loadout(p, game)
     if k == "lab":
         return _apply_params(p["params"], game)
+    if k == "contraption":
+        return _apply_contraption(p)
     if k == "protocol":
         return _apply_protocol(p["protocol"])
     if k == "challenge":
@@ -490,6 +519,17 @@ def _apply_loadout(p: dict, game) -> list[str]:
     cfg.save()
     res.append("loadout set")
     return res
+
+
+def _apply_contraption(p: dict) -> list[str]:
+    from kickthefly.game import contraption
+
+    slots = contraption.load_slots()
+    free = next((i for i, d in enumerate(slots) if d is None), None)
+    if free is None:
+        return ["all 8 contraption slots are full: not saved"]
+    contraption.save_slot(free, contraption.Build.from_json(p))
+    return [f"contraption saved in slot {free + 1}"]
 
 
 def _apply_params(params: dict, game) -> list[str]:

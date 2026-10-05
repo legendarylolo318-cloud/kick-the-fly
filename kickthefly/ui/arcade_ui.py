@@ -160,6 +160,11 @@ def _collect(m, st: ArcadeState) -> None:
     if job is None or job.running:
         return
     st.job = None
+    if job.label == "Battle":
+        from kickthefly.ui import battle_ui
+
+        battle_ui.collect(m, st, job)
+        return
     if job.error:
         st.error = job.error
         return
@@ -256,7 +261,7 @@ def page(m: ui.Menu, surf, rect, mouse) -> None:
     m.text(surf, tr("Points: {n}  (game points only: no money, nothing to buy)").format(n=st.wallet.points), (rect.right - 24, rect.y + 22),
            ui.AMBER, m.f_small, "topright")
     x = rect.x + 24
-    for key, label in (("tournament", tr("Tournament")), ("race", tr("Racing"))):
+    for key, label in (("tournament", tr("Tournament")), ("race", tr("Racing")), ("battle", tr("Lesion battle"))):
         m.button(surf, (x, rect.y + 54, 150, 32), label, (lambda k=key: setattr(st, "tab", k)), id=("arcade_tab", key), active=st.tab == key)
         x += 158
     slots = _play_slots(m)
@@ -273,7 +278,12 @@ def page(m: ui.Menu, surf, rect, mouse) -> None:
     prev = surf.get_clip()
     surf.set_clip(body)
     y = body.y + 4 - off
-    y = (_tournament(m, surf, body, y, st) if st.tab == "tournament" else _racing(m, surf, body, y, st))
+    if st.tab == "battle":
+        from kickthefly.ui import battle_ui
+
+        y = battle_ui.draw(m, surf, body, y, st, _tag, _draw_duel, _advance, _colors(m))
+    else:
+        y = (_tournament(m, surf, body, y, st) if st.tab == "tournament" else _racing(m, surf, body, y, st))
     m.content_h[key] = max(0, y + off - body.bottom + 8)
     surf.set_clip(prev)
     m.clip = None
