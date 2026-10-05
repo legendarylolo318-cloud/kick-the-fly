@@ -398,7 +398,9 @@ class Rig:
 
         pygame.init()
         self.k2, self.three_d = k2, three_d
-        state = {"seed": seed, "backend": backend, "individuality": "off"}
+        state = {"seed": seed, "backend": backend, "individuality": "off",
+                 # KICK_THE_FLY_BRAIN_PROCESS=1: the brains in their own process, as the game runs them (3.1.0 review: tests that path)
+                 "process": os.environ.get("KICK_THE_FLY_BRAIN_PROCESS", "").strip().lower() in ("1", "on", "yes", "true")}
         k2.load_brain(state)
         if "error" in state:
             raise RuntimeError(state["error"])

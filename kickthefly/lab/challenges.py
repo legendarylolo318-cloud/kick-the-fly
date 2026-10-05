@@ -193,21 +193,17 @@ class TMaze(Challenge):
         return self.SPEED if self.phase in ("naive", "train", "test") else 1.0
 
     def _snapshot_memory(self) -> None:
-        mem = self.game.brain.memory
-        with mem.lock:
-            self.saved_memory = (mem.w.copy(), {k: v.copy() for k, v in mem.templates.items()}, dict(mem.naive_mbon),
-                                 {k: list(v) for k, v in mem.log.items()}, mem.dirty)
+        br = self.game.brain
+        self.saved_memory = (br.run(__name__, "memory_snapshot") if getattr(br, "remote", False) else memory_snapshot(br))
 
     def _restore_memory(self) -> None:
         if self.saved_memory is None:
             return
         br = self.game.brain
-        mem = br.memory
-        w, templates, naive, log, dirty = self.saved_memory
-        with br.step_lock, mem.lock:
-            mem.w[:] = w
-            mem.templates, mem.naive_mbon, mem.log, mem.dirty = templates, naive, log, dirty
-            mem._write_back()
+        if getattr(br, "remote", False):                # 3.1.0 review: the memory lives in the brain process
+            br.run(__name__, "memory_restore", self.saved_memory)
+        else:
+            memory_restore(br, self.saved_memory)
         self.saved_memory = None
 
     def pick(self, door: str) -> None:
@@ -1099,3 +1095,20 @@ def page_challenges(m, surf, rect, mouse) -> None:
     surf.set_clip(prev)
     m.clip = None
     m.button(surf, (rect.right - 164, rect.bottom - 58, 140, 42), "Back", m.back, style="primary", id=("ch", "back"))
+
+
+def memory_snapshot(br) -> tuple:
+    """A copy of a brain's mushroom body memory (the challenges that borrow it put it back with memory_restore)."""
+    mem = br.memory
+    with mem.lock:
+        return (mem.w.copy(), {k: v.copy() for k, v in mem.templates.items()}, dict(mem.naive_mbon),
+                {k: list(v) for k, v in mem.log.items()}, mem.dirty)
+
+
+def memory_restore(br, saved: tuple) -> None:
+    mem = br.memory
+    w, templates, naive, log, dirty = saved
+    with br.step_lock, mem.lock:
+        mem.w[:] = w
+        mem.templates, mem.naive_mbon, mem.log, mem.dirty = templates, naive, log, dirty
+        mem._write_back()

@@ -173,6 +173,18 @@ def restore_brain(brain, meta: dict, z, prefix: str) -> None:
 
 
 # --- bodies --------------------------------------------------------------------------------------------------------------
+def capture_locked(brain, prefix: str, arrays: dict | None = None) -> tuple[dict, dict]:
+    """brain_state between steps, never mid-step. Returns (meta, arrays)."""
+    arrays = {} if arrays is None else arrays
+    with brain.step_lock:
+        return brain_state(brain, prefix, arrays), arrays
+
+
+def restore_locked(brain, meta: dict, z, prefix: str) -> None:
+    with brain.step_lock:
+        restore_brain(brain, meta, z, prefix)
+
+
 def object_state(obj, now: float, prefix: str, arrays: dict, skip=()) -> dict:
     out = {}
     for name, v in vars(obj).items():
@@ -235,8 +247,11 @@ def save_game(game, path: Path) -> Path:
     flies = []
     for i, slot in enumerate(game.flies):
         br = slot.brain
-        with br.step_lock:                               # never snapshot a brain mid-step
-            bmeta = brain_state(br, f"f{i}_b_", arrays)
+        if getattr(br, "remote", False):                 # 3.1.0 review: a brain in the brain process is captured there
+            bmeta, more = br.run("kickthefly.core.savestate", "capture_locked", f"f{i}_b_")
+            arrays.update(more)
+        else:
+            bmeta, _ = capture_locked(br, f"f{i}_b_", arrays)
         fly_meta = object_state(slot.fly, now, f"f{i}_fly_", arrays, skip=("p_tick",))
         slot_meta = object_state(slot, now, f"f{i}_slot_", arrays, skip=("fly", "brain", "pending_hits", "loom_prev"))
         flies.append(dict(seed=int(slot.seed), primary=bool(slot.primary), brain=bmeta, fly=fly_meta, slot=slot_meta,
@@ -321,8 +336,12 @@ def load_game(game, path: Path) -> dict:
     game.on_arena_changed(now)
     for i, (slot, fm) in enumerate(zip(game.flies, meta["flies"])):
         br = slot.brain
-        with br.step_lock:
-            restore_brain(br, fm["brain"], z, f"f{i}_b_")
+        prefix = f"f{i}_b_"
+        if getattr(br, "remote", False):
+            br.run("kickthefly.core.savestate", "restore_locked", fm["brain"], {k: v for k, v in z.items() if k.startswith(prefix)}, prefix)
+            br.refresh_mirrors()
+        else:
+            restore_locked(br, fm["brain"], z, prefix)
         restore_object(slot.fly, fm["fly"], z, now)
         restore_object(slot, fm["slot"], z, now)
         slot.pending_hits, slot.loom_prev = {}, {}

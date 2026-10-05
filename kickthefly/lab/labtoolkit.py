@@ -394,7 +394,10 @@ def page_patch(m: ui.Menu, surf, rect, mouse) -> None:
     # live trace
     plot = pygame.Rect(x, y, rect.w - 48, 190)
     ele = st.p_electrode
-    if st.p_live and (ele is None or ele.row != row or ele.br is not br):
+    if st.p_live and getattr(br, "remote", False):          # 3.1.0 review: a brain in the brain process takes no electrode
+        from kickthefly.core.brainproc import LOCAL_ONLY
+        st.p_live, st.note = False, LOCAL_ONLY
+    elif st.p_live and (ele is None or ele.row != row or ele.br is not br):
         _detach(st)
         ele = st.p_electrode = pc.LiveElectrode(br, row).attach()
         ele.set_hold(st.p_hold)
@@ -528,6 +531,10 @@ def _run_steps(st, host, br, row) -> None:
     if st.p_mode == 1:                                              # isolated: no brain needed, instant
         st.p_rec = pc.run_current_clamp(br, row, proto, "isolated", seed=int(br.seed), params=br.sim.p)
         st.note = "isolated unit: no synaptic input"
+        return
+    if getattr(br, "remote", False):
+        from kickthefly.core.brainproc import LOCAL_ONLY
+        st.note = LOCAL_ONLY
         return
     st.p_live = True
     if st.p_electrode is None or st.p_electrode.row != row:
