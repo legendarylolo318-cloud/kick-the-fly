@@ -77,7 +77,10 @@ def page(m: ui.Menu, surf, rect, mouse) -> None:
         right = pygame.Rect(right.x, y + 34, right.w, right.h - 34)
     _list(m, surf, left, st)
     if st["error"] and not st["fails"]:
-        m.text(surf, st["error"], (right.x + 8, right.y + 8), ui.BAD, m.f_small)
+        if hasattr(m, "wrapped"):                           # 3.1.0 review: one line ran past the panel at narrow widths
+            m.wrapped(surf, st["error"], (right.x + 8, right.y + 8), right.w - 16, ui.BAD, m.f_small, 4)
+        else:
+            m.text(surf, st["error"], (right.x + 8, right.y + 8), ui.BAD, m.f_small)
     elif st["sel"] is not None:
         a = st["done"].get(st["sel"])
         if a is None:
