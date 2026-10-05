@@ -540,8 +540,12 @@ class Extras:
         g = self.g
         c = self.notd
         base = g.science_rect()
-        left = max(base.x, 256)                          # clear of the HUD cards down the left side
-        r = pygame.Rect(left, base.y - 172, min(base.w, 880 - left), 162)
+        # Centred on the play area like the science card, clear of the HUD cards down the left side, never narrower than its text needs.
+        # (3.1.0 review: `880 - left` assumed the 2D layout; in a wide 3D window the card shrank to ~90 px with its text spilling out.)
+        play_right = base.centerx * 2 - 16               # science_rect is centred on the play area
+        left = max(256, base.centerx - 300)
+        w = max(440, min(600, play_right - left))
+        r = pygame.Rect(left, base.y - 172, w, 162)
         card = pygame.Surface(r.size, pygame.SRCALPHA)
         pygame.draw.rect(card, (14, 20, 30, 240), card.get_rect(), border_radius=14)
         pygame.draw.rect(card, (86, 214, 255, 255), card.get_rect(), 2, border_radius=14)
