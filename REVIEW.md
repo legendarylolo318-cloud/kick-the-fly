@@ -148,5 +148,6 @@ backend needs a source install.
 | tests: fly's-eye throttle, sonification (found by PR CI) | depended on the runner's wall-clock speed |
 | fix: GL context restore (found by the owner, **release blocker**) | on Wayland the 3D window stayed on the loading screen while the game ran (the GPU probe restored the window's context without its surface; X11 lost its drawable the same way). No automated test has a real window, so none caught it |
 | fix: Neuron of the Day card (found by the owner) | in a wide 3D window the card shrank to ~90 px with its text spilling out (also in 3.0) |
+| fix: command-line flags are session-only (found by the owner) | `--autopilot` (and `--arena`, `--backend`, `--dtype`...) was saved to config.toml, so a launch with it left every later launch in spectator mode with no tools |
 
 Left: the load-dependent Puppeteer flake; torch-cpu with individuality (documented); the 3.0 What's-new screen.
