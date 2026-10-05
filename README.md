@@ -16,7 +16,7 @@ brain responding. Recorded with the in-game video recorder (Shift+R).*
 |---|---|
 | **Windows** | **[KickTheFly.exe](https://github.com/legendarylolo318-cloud/kick-the-fly/releases/latest/download/KickTheFly.exe)** (about 90 MB). Double-click it: nothing to install, the whole brain is inside. It isn't code-signed, so SmartScreen may warn: **More info**, then **Run anyway**. |
 | **Linux** | **[KickTheFly-x86_64.AppImage](https://github.com/legendarylolo318-cloud/kick-the-fly/releases/latest/download/KickTheFly-x86_64.AppImage)** (about 110 MB). `chmod +x` it and run it. Built on Ubuntu 22.04; Wayland or X11; no FUSE? add `--appimage-extract-and-run`. A Flatpak manifest is in `packaging/flatpak/`. |
-| **From source** | Any OS with Python 3.11+: [docs/running-from-source.md](docs/running-from-source.md). That's how you get the faster Numba and GPU backends, the Python API and NWB export. |
+| **From source** | Any OS with Python 3.11+: [docs/running-from-source.md](docs/running-from-source.md). That's how you get the Numba and PyTorch GPU backends, the Python API and NWB export (the downloads already carry the OpenGL GPU backend). |
 
 Each release lists `SHA256SUMS`. The 3D game needs OpenGL 3.3; without it the game says why and starts the 2D version (`--2d`). Run
 `--selftest` (or Settings > Help) to check an install; it explains how to fix whatever it finds and changes nothing.

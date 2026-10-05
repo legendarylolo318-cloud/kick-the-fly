@@ -36,6 +36,14 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="3.1.0" date="2026-10-04">
+      <description>
+        <p>The GPU by default in the game and a GPU-drawn brain view; a profiler overlay; activation and knockout screens and a
+        read-only failure autopsy in the Lab; opt-in real neuron shapes; Puppeteer mode, lesion battles and a contraption
+        builder; a fly's-eye view; opt-in brain sonification; a hopping frog and animated predators. The simulation is
+        unchanged. Every new feature is tagged connectome, game rule or model prediction.</p>
+      </description>
+    </release>
     <release version="3.0.0" date="2026-10-03">
       <description>
         <p>The Neurodex, a kill cam and a Neuron of the Day; a Lab toolkit (split-GAL4 lines, thermogenetics, a virtual patch

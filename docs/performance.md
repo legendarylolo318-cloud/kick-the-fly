@@ -54,7 +54,23 @@ steps/s** (measured with a main thread that never yields; 0.001 s: 78, 0.0005 s:
 interval to 0.2 ms when it starts. The spikes are unchanged: the same seed gives the same spikes whether a thread or a caller steps the brain
 (`tests/test_brain_thread.py`). Rendering does not interpolate brain state: nothing the player sees moves with the brain's 5 ms steps (the fly's body
 moves at the game's 60 Hz tick from the rates read that frame), and the brain panel reads its own 20 Hz view. A separate *process* would avoid the GIL
-altogether and was not built: it would copy every hit and every rate across a process boundary for no change in what the game does.
+altogether and was not built.
+
+**In the game, the GIL is the limit, not the GPU or the CPU cores (3.1.0 review).** The headless table above has no render thread; in the game the
+render thread and every brain thread share one interpreter lock, so with many flies the brains fall behind real time while the GPU and most
+cores sit idle. The review removed the render thread's longest lock-holding calls (the HUD was converted to RGBA bytes every frame, ~1 ms at
+1280x760 and ~4 ms at 1440p; every limb segment ran numpy on 3-vectors; the memory card rescored every smell against 41k synapses every frame).
+Measured in the 3D game, RX 9070 XT, 60 fps cap unless noted, steady second half of a 60-75 s run, quiet machine (steps/s per fly; 200 is real time):
+
+| scene | 3.0.0-rc.2 (NumPy) | 3.1.0 before the review fixes (gl) | 3.1.0 (gl) |
+|---|---|---|---|
+| 1 fly | 200, GPU 9% busy | 200 | 200, GPU 31% busy, main thread 28% (rc.2 43%) |
+| 4 flies | 200 | 200 | 200 |
+| 8 flies | 70 (0.35x) | 78 (0.39x), 52 fps | 132 (0.66x), 58 fps |
+| 1 fly, no fps cap | 59 (0.29x) | 133 (0.67x), 170 fps | 187 (0.94x), 302 fps |
+
+So up to about 4-5 flies keep real time in the game on this machine; beyond that the brains slow down (the game shows steps/s in the profiler, F3)
+even though the headless benchmark runs 16 gl flies in real time. The remaining main-thread cost is mostly the flies' physics and drawing.
 
 ## 2.10
 
