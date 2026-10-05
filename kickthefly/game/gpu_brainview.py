@@ -428,4 +428,12 @@ def make_view(*args, **kw) -> k2.BrainView:
         return k2.BrainView(*args, **kw)
     if os.environ.get("KICK_THE_FLY_BRAINVIEW", "").lower() == "cpu":
         return k2.BrainView(*args, **kw)
+    from kickthefly.sim.connectome import backends
+    ok, why = backends.gpu_capable()
+    if not ok:
+        # 3.1.0 review: decided here, on the loading thread, rather than by failing over inside the view thread's first frame (which, with no
+        # GPU, held the game for seconds after it was closed: tests/test_day3_review.py failed on CI's GPU-less runner)
+        view = k2.BrainView(*args, **kw)
+        view.engine_note = f"CPU (sparse matrices; no GPU for the view: {why})"
+        return view
     return GPUBrainView(*args, **kw)

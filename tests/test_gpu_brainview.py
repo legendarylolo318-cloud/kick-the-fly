@@ -159,7 +159,12 @@ def test_make_view_honours_the_environment(synthetic_pack, monkeypatch):
     monkeypatch.setenv("KICK_THE_FLY_BRAINVIEW", "cpu")
     assert type(gv.make_view(soma, W, np.zeros(g.n, bool))) is k2.BrainView
     monkeypatch.delenv("KICK_THE_FLY_BRAINVIEW")
+    from kickthefly.sim.connectome import backends
+    monkeypatch.setattr(backends, "gpu_capable", lambda refresh=False: (True, "a GPU"))
     assert isinstance(gv.make_view(soma, W, np.zeros(g.n, bool)), gv.GPUBrainView)
+    monkeypatch.setattr(backends, "gpu_capable", lambda refresh=False: (False, "llvmpipe (a software renderer, not a GPU)"))
+    v = gv.make_view(soma, W, np.zeros(g.n, bool))          # no GPU: the CPU view from the start, not a failover in its first frame
+    assert type(v) is k2.BrainView and "no GPU" in v.engine_note
 
 
 def test_the_setting_exists_and_the_game_applies_it():
