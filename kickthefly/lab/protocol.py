@@ -837,6 +837,10 @@ def run_file(path: Path, out: Path | None = None, workers: int | None = None, nw
     path = find(path)
     try:
         p = load(path)
+        if p.get("classroom"):
+            # 3.1.0 review: a lecture loaded and then failed in run() with KeyError 'warmup_s' (rc.2 too); the Lab's protocol list
+            # already says the same thing (lab.py)
+            raise ProtocolError(f"{path.name} is a classroom lecture, not a runnable protocol: step through it in Lab > Classroom")
         if nwb:
             p["nwb"] = True
         if p.get("nwb"):
