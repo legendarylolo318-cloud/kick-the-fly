@@ -143,5 +143,8 @@ backend needs a source install.
 | honesty: engine choice, GPU view | overstated exactness |
 | ci: release gate | numbers vs rc.2, exe + AppImage on PRs |
 | Release 3.1.0 | version, CITATION, changelogs, notes, appdata, performance docs |
+| fix: no-GPU brain view (found by PR CI) | without a GPU the view failed over inside its first frame, holding a closed game and its brains for seconds |
+| fix: autopsy empty state (found by PR CI) | the 'no validation result yet' line ran past the panel |
+| tests: fly's-eye throttle, sonification (found by PR CI) | depended on the runner's wall-clock speed |
 
 Left: the load-dependent Puppeteer flake; torch-cpu with individuality (documented); the 3.0 What's-new screen.
