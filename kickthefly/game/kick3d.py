@@ -19,6 +19,7 @@ from __future__ import annotations
 import math
 import random
 
+import sys
 import threading
 import time
 from pathlib import Path
@@ -3733,6 +3734,22 @@ class GLUnavailable(RuntimeError):
     """No OpenGL 3.3 core context (old GPU/driver, remote session, software GL too old): the caller falls back to 2D."""
 
 
+_BGRA_MASKS = (0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000)
+
+
+def upload_surface(tex: moderngl.Texture, surf: pygame.Surface) -> None:
+    """Write a 32-bit surface into an RGBA texture of its size, as pygame.image.tobytes(surf, "RGBA") would. A little-endian ARGB8888
+    surface (what SRCALPHA surfaces are) is BGRA in memory: its pixels go up as they are and the texture's swizzle reorders them, which
+    skips a full-frame conversion that held the GIL for ~1 ms per frame at 1280x760 (4 ms at 1440p) while the brain threads waited
+    (3.1.0 review). Anything else takes the conversion."""
+    raw = (sys.byteorder == "little" and surf.get_bytesize() == 4 and tuple(surf.get_masks()) == _BGRA_MASKS
+           and surf.get_pitch() == surf.get_width() * 4)
+    want = "BGRA" if raw else "RGBA"
+    if tex.swizzle != want:
+        tex.swizzle = want
+    tex.write(surf.get_view("1") if raw else pygame.image.tobytes(surf, "RGBA", False))
+
+
 class App:
     """Window, GL context, frame composition, fullscreen and scaling."""
 
@@ -3889,7 +3906,7 @@ class App:
         _sec.__enter__()
         game.draw_hud3d(now, project)
         tex = self.hud_texture(hud_w, hud_h, s)
-        tex.write(pygame.image.tobytes(game.screen, "RGBA", False))
+        upload_surface(tex, game.screen)
         out = target or ctx.screen
         out.use()
         ctx.viewport = (0, 0, Wn, Hn)
@@ -3901,7 +3918,7 @@ class App:
                         focus=focus, dof=dof, flip=False, blend=False)
         elif eye_on and eye_frame is not None:
             et = self._eye_texture(eye_frame.get_size())
-            et.write(pygame.image.tobytes(eye_frame, "RGBA", False))
+            upload_surface(et, eye_frame)
             rd.blit_texture(et, (0, 0, round(view_w * s), Hn), (Wn, Hn), flip=True, blend=False)
         else:
             rd.blit_texture(self.scene_tex, (0, 0, round(view_w * s), Hn), (Wn, Hn), flip=False, blend=False)
