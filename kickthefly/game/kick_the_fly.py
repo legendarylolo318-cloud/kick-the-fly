@@ -5428,7 +5428,13 @@ class Game:
 
     def _draw_memory(self, surf) -> None:
         mem = self.brain.memory
-        learned = [(k, *self.memory_of(k)) for k in (mem.templates if mem is not None else {})]
+        # Scoring every remembered smell against all 41k plastic synapses each frame held the GIL for ~1 ms per fly shown (3.1.0 review);
+        # the card is a readout, so it refreshes five times a second (and at once for another fly).
+        t = time.perf_counter()
+        c = getattr(self, "_memory_card", None)
+        if c is None or c[0] is not mem or t - c[1] > 0.2:
+            c = self._memory_card = (mem, t, [(k, *self.memory_of(k)) for k in (mem.templates if mem is not None else {})])
+        learned = c[2]
         x, y, w = 10, 380, 236
         rows = sorted((r for r in learned if max(r[1], r[2]) >= 0.02), key=lambda r: -max(r[1], r[2]))[:4]
         h = 46 + 16 * max(1, len(rows))
