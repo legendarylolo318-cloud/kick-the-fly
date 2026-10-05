@@ -208,14 +208,12 @@ def test_it_is_silent_until_asked_then_follows_the_brain_and_obeys_mute_mic_and_
         sn = g.sonify
         r.seconds(1.0)
         assert sn.reason == "off" and sn.chunks == 0 and not sn._playing
+        pygame.mixer.Channel(0).stop()                # a game sound left on the channel never ends under CI's audio driver (nothing drains)
         g.cfg.set("audio.sonify", True)
         r.seconds(3.0)
-        import time
-        t_end = time.monotonic() + 15.0               # the audio driver drains chunks in wall time, not game time (CI ran the frames faster)
-        while sn.chunks <= 5 and time.monotonic() < t_end:
-            r.seconds(0.2)
-            time.sleep(0.05)
-        assert sn.reason == "" and sn.chunks > 5 and set(sn.levels) == set(so.VOICE_NAMES) and pygame.mixer.Channel(0).get_busy()
+        # it started: chunks rendered and queued on its channel (how many more depends on the driver draining them in wall time)
+        assert sn.reason == "" and sn.chunks >= 1 and sn._playing and set(sn.levels) == set(so.VOICE_NAMES)
+        assert pygame.mixer.Channel(0).get_busy()
         # it reads the brain's own rates: a strong smell stirs the antennal lobe voice up the scale
         br = g.flies[0].brain
         calm = sn.levels["Antennal lobe"]
