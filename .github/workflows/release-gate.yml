@@ -1,0 +1,166 @@
+# Release gate (3.1.0 review), on every pull request into main and by hand. What tests.yml and checks.yml do not:
+#   validate-vs-previous  `--validate` on this branch AND on the previous release tag, in the same runner, then every number diffed
+#                         (tools/compare_validation.py): 21 tests, 12 PASS / 9 FAIL, nothing else may change
+#   build-appimage        the AppImage, run headless on the smoke protocol, then its --selftest (0 or 3 pass)
+#   build-exe             the Windows exe (the build script runs it on the smoke protocol), then its --selftest (0 or 3 pass)
+# Nothing is published; release.yml does that from a tag.
+name: release gate
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      previous:
+        description: "the release tag to diff --validate against"
+        default: "v3.0.0-rc.2"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.11"
+  PREVIOUS: ${{ github.event.inputs.previous || 'v3.0.0-rc.2' }}
+
+jobs:
+  brainpack:
+    # the same pack and cache key as tests.yml and release.yml; its own artifact name so the runs don't collide
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        id: cache
+        with:
+          path: data/kick_brain.npz
+          key: brainpack-v2-${{ hashFiles('kickthefly/sim/connectome/loader.py', 'kickthefly/sim/brainpack.py') }}
+      - uses: actions/setup-python@v5
+        if: steps.cache.outputs.cache-hit != 'true'
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Build the brain pack
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          python -m pip install numpy scipy pyarrow
+          python -m kickthefly.sim.connectome.loader build
+          python -m kickthefly.sim.brainpack build
+          rm -f data/*.feather data/graph.pkl
+      - uses: actions/upload-artifact@v4
+        with:
+          name: brainpack-gate
+          path: data/kick_brain.npz
+          retention-days: 1
+
+  validate-vs-previous:
+    name: validate vs previous release
+    needs: brainpack
+    runs-on: ubuntu-22.04
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.PREVIOUS }}
+          path: previous
+      - uses: actions/download-artifact@v4
+        with: {name: brainpack-gate, path: data}
+      - run: mkdir -p previous/data && cp data/kick_brain.npz previous/data/
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+      - name: --validate on the previous release (the default engine, as a player runs it)
+        working-directory: previous
+        run: python kick_the_fly.py --headless --validate --workers 4 --out ../previous.json
+      - name: --validate on this branch
+        run: python kick_the_fly.py --headless --validate --workers 4 --out data/validation_results.json
+      - name: Diff (21 tests, 12 PASS / 9 FAIL, every number identical)
+        run: python tools/compare_validation.py previous.json data/validation_results.json --tests 21 --passed 12
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: validation-results-gate
+          path: |
+            data/validation_results.json
+            previous.json
+          retention-days: 7
+
+  build-appimage:
+    needs: [brainpack, validate-vs-previous]
+    runs-on: ubuntu-22.04          # old glibc, as release.yml
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: {name: brainpack-gate, path: data}
+      - uses: actions/download-artifact@v4
+        with: {name: validation-results-gate, path: gate}
+      - run: cp gate/data/validation_results.json data/ 2>/dev/null || cp gate/validation_results.json data/
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Build
+        run: PYTHON=python ./build_appimage.sh
+      - name: Headless run of the AppImage without FUSE
+        run: |
+          chmod +x dist/KickTheFly-x86_64.AppImage
+          env -u DISPLAY -u WAYLAND_DISPLAY dist/KickTheFly-x86_64.AppImage --appimage-extract-and-run \
+            --headless --protocol protocols/smoke.yaml --out build/smoke-appimage
+          ls build/smoke-appimage/*/summary.json
+      - name: Self-test of the AppImage (0 or 3 pass)
+        run: |
+          rc=0
+          env -u DISPLAY -u WAYLAND_DISPLAY dist/KickTheFly-x86_64.AppImage --appimage-extract-and-run \
+            --selftest --sim-backend cpu --out build/selftest-appimage.json || rc=$?
+          echo "self-test exit code $rc"
+          [ "$rc" -eq 0 ] || [ "$rc" -eq 3 ]
+      - name: Size and the bundled pack
+        run: |
+          ls -l dist/KickTheFly-x86_64.AppImage
+          sha256sum data/kick_brain.npz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: appimage-gate
+          path: dist/KickTheFly-x86_64.AppImage
+          retention-days: 7
+
+  build-exe:
+    needs: [brainpack, validate-vs-previous]
+    runs-on: windows-latest        # a real Windows build, never cross-built
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: {name: brainpack-gate, path: data}
+      - uses: actions/download-artifact@v4
+        with: {name: validation-results-gate, path: gate}
+      - shell: pwsh
+        run: |
+          if (Test-Path gate\data\validation_results.json) { Copy-Item gate\data\validation_results.json data\ } else { Copy-Item gate\validation_results.json data\ }
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Build (the script also runs the exe headless on the smoke protocol and checks exit code 0)
+        shell: pwsh
+        run: ./build_exe.ps1 -Python python
+      - name: Self-test of the exe (0 or 3 pass)
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath dist\KickTheFly.exe -ArgumentList '--selftest','--sim-backend','cpu','--out','build\selftest-exe.json' -Wait -PassThru
+          Write-Host "self-test exit code $($p.ExitCode)"
+          if ($p.ExitCode -ne 0 -and $p.ExitCode -ne 3) { throw "self-test failed" }
+      - name: Size and version
+        shell: pwsh
+        run: |
+          (Get-Item dist\KickTheFly.exe).Length
+          (Get-Item dist\KickTheFly.exe).VersionInfo | Format-List ProductName, ProductVersion, FileVersion
+      - uses: actions/upload-artifact@v4
+        with:
+          name: exe-gate
+          path: dist/KickTheFly.exe
+          retention-days: 7
