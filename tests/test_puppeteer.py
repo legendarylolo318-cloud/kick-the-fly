@@ -4,7 +4,9 @@ answers do not win."""
 from __future__ import annotations
 
 import math
+import os
 import pathlib
+import sys
 
 import numpy as np
 import pygame
@@ -385,9 +387,12 @@ def _solve(rig, ch, lv, limit=30.0):
 
 @pytest.fixture(scope="module", params=[False, True], ids=["2d", "3d"])
 def rig(request, tmp_path_factory):
+    # The real-brain levels are game logic, not platform code: Linux CI runs them. On a Windows runner each one takes 4-14 min
+    # (the 3.1.0 tag run spent its whole 150-minute limit here), so they are skipped there unless KTF_WINDOWS_FULL=1.
+    if sys.platform == "win32" and os.environ.get("KTF_WINDOWS_FULL") != "1":
+        pytest.skip("real-brain puppeteer levels run on Linux CI (set KTF_WINDOWS_FULL=1 to run them on Windows)")
     from kickthefly.lab import playthrough as pt
 
-    import os
     os.environ.setdefault("SDL_VIDEODRIVER", "offscreen")
     r = pt.Rig(request.param, "cpu", lab=False)
     old = challenges.scores_path

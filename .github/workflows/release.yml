@@ -2,13 +2,19 @@
 # docs links, replay determinism), build the AppImage and the exe, then publish a release with both files and
 # SHA256SUMS. The release job only runs if every test, every check, the self-test and the full playthrough (2.13) and both
 # builds passed.
-# Run it by hand (workflow_dispatch) to test and build without publishing.
+# Run it by hand (workflow_dispatch) to test and build without publishing. Give it a release_tag (v3.1.0) on main and, once
+# everything above has passed, it creates that tag at the commit it ran on and publishes the release from it. It refuses to
+# move a tag that already has a release.
 name: release
 
 on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "publish this tag (v3.1.0) from main if everything passes; empty = test and build only"
+        default: ""
 
 permissions:
   contents: read
@@ -201,7 +207,7 @@ jobs:
     uses: ./.github/workflows/checks.yml
 
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || (github.ref == 'refs/heads/main' && github.event.inputs.release_tag != '')
     needs: [test-linux, test-windows, checks, selftest-playthrough, build-appimage, build-exe]
     runs-on: ubuntu-22.04
     permissions:
@@ -220,21 +226,31 @@ jobs:
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.inputs.release_tag }}
         run: |
+          tag="$GITHUB_REF_NAME"
+          if [ -n "$RELEASE_TAG" ]; then
+            tag="$RELEASE_TAG"
+            case "$tag" in v[0-9]*) ;; *) echo "release_tag must look like v3.1.0: $tag"; exit 1;; esac
+            if gh release view "$tag" >/dev/null 2>&1; then echo "$tag already has a release; not moving its tag"; exit 1; fi
+            # a tag from an earlier failed run may point at an older commit: this commit is the one that passed
+            git tag -f "$tag" "$GITHUB_SHA"
+            git push -f origin "refs/tags/$tag"
+          fi
           # The release title is RELEASE_NOTES.md's first line ("# Kick the Fly X.Y.Z: ..."), so it can't go stale
           title="$(head -n1 RELEASE_NOTES.md | sed 's/^# *//')"
           # A tag with a suffix (v3.0.0-rc.1) is a prerelease of that version: the notes are the version's, the title says which rc
-          ver="${GITHUB_REF_NAME#v}"; core="${ver%%-*}"; pre=""
+          ver="${tag#v}"; core="${ver%%-*}"; pre=""
           if [ "$ver" != "$core" ]; then pre="${ver#*-}"; fi
-          case "$title" in "Kick the Fly ${core}:"*) ;; *) echo "RELEASE_NOTES.md is not for ${GITHUB_REF_NAME}: $title"; exit 1;; esac
+          case "$title" in "Kick the Fly ${core}:"*) ;; *) echo "RELEASE_NOTES.md is not for ${tag}: $title"; exit 1;; esac
           flags=()
           if [ -n "$pre" ]; then
             title="Kick the Fly ${core} (${pre}):${title#"Kick the Fly ${core}:"}"
             flags=(--prerelease)
           fi
           files="release/KickTheFly-x86_64.AppImage release/KickTheFly.exe release/SHA256SUMS"
-          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" $files --clobber
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" $files --clobber
           else
-            gh release create "$GITHUB_REF_NAME" $files --title "$title" --notes-file RELEASE_NOTES.md "${flags[@]}"
+            gh release create "$tag" $files --title "$title" --notes-file RELEASE_NOTES.md "${flags[@]}"
           fi
