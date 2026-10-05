@@ -34,6 +34,7 @@ learning rate and forgetting speed.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import threading
 import time
@@ -234,11 +235,16 @@ class Memory:
         with self.lock:
             tmp = self.path.with_suffix(".tmp.npz")
             names = sorted(self.templates)
-            np.savez_compressed(tmp, version=VERSION, signature=self.signature, w=self.w,
-                                names=np.array(names), templates=np.array([self.templates[n] for n in names]) if names
-                                else np.zeros((0, len(self.kc)), np.float32), kc_calm=self.kc_calm, dan_calm=self.dan_calm)
-            tmp.replace(self.path)
-            self.log_path.write_text(json.dumps({"naive_mbon": self.naive_mbon, "trials": self.log}, indent=1))
+            try:
+                np.savez_compressed(tmp, version=VERSION, signature=self.signature, w=self.w,
+                                    names=np.array(names), templates=np.array([self.templates[n] for n in names]) if names
+                                    else np.zeros((0, len(self.kc)), np.float32), kc_calm=self.kc_calm, dan_calm=self.dan_calm)
+                tmp.replace(self.path)
+                self.log_path.write_text(json.dumps({"naive_mbon": self.naive_mbon, "trials": self.log}, indent=1))
+            except OSError as e:
+                # 3.1.0 review: a read-only or full data folder raised here at quit, and the game hung instead of closing (rc.2 too)
+                logging.getLogger("kickthefly").warning("could not save the fly's memory to %s: %s", self.path, e)
+                return
             self.dirty = False
 
     def load(self) -> None:
