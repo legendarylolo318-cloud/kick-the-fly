@@ -72,6 +72,8 @@ Measured in the 3D game, RX 9070 XT, 60 fps cap unless noted, steady second half
 So up to about 4-5 flies keep real time in the game on this machine; beyond that the brains slow down (the game shows steps/s in the profiler, F3)
 even though the headless benchmark runs 16 gl flies in real time. The remaining main-thread cost is mostly the flies' physics and drawing.
 
+**The brain process (3.1.0 release review).** The fix for that limit: the brains now run in a process of their own (`kickthefly/core/brainproc.py`; Settings > Brain > Run the brains in their own process). Same machine, 16 flies: brains 89 -> 195 steps/s at a 240 fps cap and 83 -> 197 at 60, 19 -> 50 fps, GPU 24% -> 48% busy; one fly uncapped 200 steps/s at 311 fps. With 16 flies the game's own thread (physics and drawing for every fly) is now the limit on fps.
+
 ## 2.10
 
 Same machine as 2.9: AMD Radeon RX 9070 XT (radeonsi, Mesa, OpenGL 4.6) / Intel Core Ultra 7 270K Plus (24 cores),

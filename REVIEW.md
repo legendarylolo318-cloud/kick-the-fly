@@ -151,3 +151,7 @@ backend needs a source install.
 | fix: command-line flags are session-only (found by the owner) | `--autopilot` (and `--arena`, `--backend`, `--dtype`...) was saved to config.toml, so a launch with it left every later launch in spectator mode with no tools |
 
 Left: the load-dependent Puppeteer flake; torch-cpu with individuality (documented); the 3.0 What's-new screen.
+
+## After the PR body: the brain process
+
+The owner asked for the hardware to be used. The brains now run in a process of their own (see RELEASE_NOTES.md and docs/performance.md); spike-identical to in-process on CPU and GL, seeds 1000-1002 with learning (tests/test_brainproc.py); the playthrough bot passes with it except for one unreproduced silent exit of the brain process in a long run (faulthandler is on in that process now). All 14 PR checks were green on 67b7649 before the merge.
