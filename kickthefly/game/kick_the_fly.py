@@ -2528,6 +2528,7 @@ HELP = (
     ("Z [ ] .", "pause time, slower, faster, single step"),
     ("F3", "profiler overlay: sim, physics, render and UI milliseconds, FPS, engine (off at every launch)"),
     ("F4", "fly's-eye view: the scene as a fly's eyes sample it (wide field, hexagonal ommatidia, UV-blue-green color); visual only, not fed to the brain"),
+    ("F5", "brain sonification: the brain's regions as sound (opt-in, saved; silent when muted or paused)"),
     ("H", "this help"),
     ("Esc", "close a panel, or open the menu (settings, save, quit)"),
 )
