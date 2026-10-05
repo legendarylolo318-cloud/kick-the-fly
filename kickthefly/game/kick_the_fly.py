@@ -7749,26 +7749,26 @@ def main(argv: list[str] | None = None) -> int:
         elif args.backend == "auto":
             sim_backend_choice = "auto"
     if sim_backend_choice:
-        cfg.set("brain.backend", sim_backend_choice)
+        cfg.set_for_session("brain.backend", sim_backend_choice)
     if os.environ.get("KICK_THE_FLY_AUTO", "").lower() != "exact":           # 3.1.0 task 2: the game's 'auto' is the fastest working engine
         from kickthefly.sim.connectome import backends as _backends
         _backends.set_auto_policy("fastest")
     if getattr(args, "dtype", None):
-        cfg.set("brain.dtype", args.dtype)
+        cfg.set_for_session("brain.dtype", args.dtype)
     args.display_backend = display_backend_choice
     args.sim_backend = sim_backend_choice
     if args.autopilot:
-        cfg.set("brain.autopilot", True)
+        cfg.set_for_session("brain.autopilot", True)
     if getattr(args, "brain", None):
-        cfg.set("brain.brain", args.brain)
+        cfg.set_for_session("brain.brain", args.brain)
     if getattr(args, "individuality", None):
-        cfg.set("brain.individuality", args.individuality)
+        cfg.set_for_session("brain.individuality", args.individuality)
     if getattr(args, "pet", False):
-        cfg.set("brain.mode", "pet")
+        cfg.set_for_session("brain.mode", "pet")
     if getattr(args, "arena", None):
-        cfg.set("brain.arena", args.arena)
+        cfg.set_for_session("brain.arena", args.arena)
     if getattr(args, "mirror_weights", False):
-        cfg.set("brain.mirror_weights", True)
+        cfg.set_for_session("brain.mirror_weights", True)
     seed = args.seed if args.seed is not None else cfg["brain.seed"]
     crash.info["seed"] = str(seed)
     smoke, shot = args.smoke_s, args.shot

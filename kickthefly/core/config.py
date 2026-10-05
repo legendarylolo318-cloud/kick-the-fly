@@ -398,6 +398,7 @@ class Config:
         self.loadout: dict = {"custom": [], "saved": []}     # custom: tool names; saved: [{"name", "tools"}] (max 5)
         self.first_run: dict = dict(FIRST_RUN_DEFAULTS)
         self.migrated_from: int | None = None                # the schema version this file was migrated from
+        self.session: dict = {}                              # key -> the saved value a command-line flag is overriding (set_for_session)
 
     # --- values -----------------------------------------------------------------------------------------------------
     def __getitem__(self, key: str):
@@ -412,8 +413,18 @@ class Config:
         if self.values.get(key) == v:
             return False
         self.values[key] = v
+        self.session.pop(key, None)                          # the player changed it: that change is saved
         self.dirty = True
         return True
+
+    def set_for_session(self, key: str, value) -> None:
+        """A command-line flag (--autopilot, --arena, --backend...): in effect now, never written to config.toml, which keeps the player's
+        own value unless they change the setting in the game. (3.1.0 review: `--autopilot` was saved, so every later launch started in
+        spectator mode with no tools.)"""
+        v = _coerce(BY_KEY[key], value)
+        if key not in self.session:
+            self.session[key] = self.values.get(key)
+        self.values[key] = v
 
     def reset_tab(self, tab: str) -> list[str]:
         changed = []
@@ -653,7 +664,7 @@ class Config:
         sections: dict[str, list[str]] = {}
         for s in SETTINGS:
             section, name = s.key.split(".")
-            sections.setdefault(section, []).append(f"{name} = {_toml_value(self.values[s.key])}")
+            sections.setdefault(section, []).append(f"{name} = {_toml_value(self.session.get(s.key, self.values[s.key]))}")
         for section, lines in sections.items():
             out += [f"[{section}]", *lines, ""]
         out.append("[keys]")
