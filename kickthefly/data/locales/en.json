@@ -586,5 +586,7 @@
   "You expected: {a}. The paper's finding points to: {b}.": "You expected: {a}. The paper's finding points to: {b}.",
   "Commit to a hypothesis before anything runs. It is fixed when you press Run; a change after that applies to your next run.": "Commit to a hypothesis before anything runs. It is fixed when you press Run; a change after that applies to your next run.",
   "On": "On",
-  "unbound": "unbound"
+  "unbound": "unbound",
+  "Lesion battle": "Lesion battle",
+  "No contraption yet: build and save one in Esc > Challenges > Contraption.": "No contraption yet: build and save one in Esc > Challenges > Contraption."
 }

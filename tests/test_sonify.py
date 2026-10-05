@@ -207,7 +207,7 @@ def test_it_is_silent_until_asked_then_follows_the_brain_and_obeys_mute_mic_and_
         g = r.game
         sn = g.sonify
         r.seconds(1.0)
-        assert sn.reason == "off" and sn.chunks == 0 and not pygame.mixer.Channel(0).get_busy()
+        assert sn.reason == "off" and sn.chunks == 0 and not sn._playing
         g.cfg.set("audio.sonify", True)
         r.seconds(3.0)
         assert sn.reason == "" and sn.chunks > 5 and set(sn.levels) == set(so.VOICE_NAMES) and pygame.mixer.Channel(0).get_busy()
