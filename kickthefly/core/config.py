@@ -245,6 +245,13 @@ SETTINGS: tuple[Setting, ...] = (
       labels=("Auto", "CPU (NumPy)", "Numba (JIT)", "OpenGL Compute", "PyTorch (CPU)", "PyTorch (CUDA)",
               "PyTorch (ROCm)"),
       tag=CONNECTOME),
+    S("brain.process", "Brain", "Run the brains in their own process", "choice", "auto",
+      "Where the flies' brains run in the game. Their own process (Auto, On) lets the brains use other CPU cores and the GPU while the game "
+      "draws: with many flies they keep real time where they used to slow down (one Python process shares a single interpreter lock). "
+      "Same spikes either way: the brains are the same code with the same seeds. Off runs them in the game process as before 3.1.0; the "
+      "Lab's spike recording and patch electrode need that, so Auto uses the separate process except when the game starts in Lab mode. "
+      "Applies at the next launch.",
+      options=("auto", "on", "off"), labels=("Auto", "On", "Off"), restart=True),
     # --- Controls
     S("controls.mouse_sensitivity", "Controls", "Mouse sensitivity", "float", 1.0,
       "How far the view turns when you move the mouse.", lo=0.1, hi=5.0, step=0.1, only="3d", fmt="{:.1f}"),

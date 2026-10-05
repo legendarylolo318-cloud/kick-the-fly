@@ -4100,7 +4100,8 @@ def run(smoke: float = 0.0, shot: str | None = None, fullscreen: bool = False, s
     font = pygame.font.SysFont("segoeui,consolas", 22)
     state: dict = {
         "stage": "starting", "seed": seed, "backend": cfg["brain.backend"], "dtype": cfg["brain.dtype"],
-        "brain_type": k2.playable_brain(cfg), "individuality": cfg.get("brain.individuality", "subtle")
+        "brain_type": k2.playable_brain(cfg), "individuality": cfg.get("brain.individuality", "subtle"),
+        "mirror_weights": bool(cfg["brain.mirror_weights"]), "process": k2.use_brain_process(cfg),
     }
     threading.Thread(target=k2.load_brain, args=(state,), daemon=True).start()
     t0 = time.perf_counter()

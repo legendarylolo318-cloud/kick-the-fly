@@ -2610,6 +2610,7 @@ class Game:
         self.view_stop = False
         view.calm[:] = brain.sim.activity.rates()   # the warmed-up brain's own resting rates
         self._primary_brain = brain
+        self.brainproc = getattr(brain, "_proc", None)          # 3.1.0 review: the brain process, when the brains run in one
         self.born_view = time.perf_counter()
         self.immortal = False
         self.pain_level = 0
@@ -2751,14 +2752,8 @@ class Game:
                 if changed:
                     self.note(f"ARENA    {ARENAS[self.arena_i]}")
         elif key == "brain.individuality":
-            mode = c[key]
             for slot in getattr(self, "flies", []):
-                sim = slot.brain.sim
-                sim.p.individuality = mode
-                from kickthefly.core.individuality import compute_fly_gains
-                sim.d_pre, sim.d_post = compute_fly_gains(slot.seed, sim.n, mode=mode, sigma=sim.p.individuality_sigma)
-                sim.backend.sync_to_host()      # device backends keep their own copy of the gains
-                sim.backend.sync_from_host()
+                on_brain(slot.brain, "brain_set_individuality", c[key], slot.seed)
         elif key == "controls.loadout_preset":
             if hasattr(self, "loadout"):
                 self.refresh_loadout()
@@ -2804,34 +2799,15 @@ class Game:
             from kickthefly.core import simcore
             mirror = bool(c[key]) and not self.is_larva       # mirroring pairs adult L/R instances only
             g, orig_w, _ = simcore.pack(brain=self.brain_type)
-            w_new = simcore.symmetrize_weights(g, orig_w) if mirror else orig_w
-            self.weights = w_new
-            w_csr = w_new.astype(np.float32).tocsr()
-            w_csc = w_csr.tocsc()
+            self.weights = simcore.symmetrize_weights(g, orig_w) if mirror else orig_w
             for slot in self.flies:
-                slot.brain.sim.W_csr = w_csr
-                slot.brain.sim.W_csc = w_csc
+                on_brain(slot.brain, "brain_set_mirror", mirror, self.brain_type)
         elif key == "brain.dtype":
-            dt_str = str(c[key])
-            dt = np.float64 if dt_str == "float64" else np.float32
             for slot in getattr(self, "flies", []):
-                sim = slot.brain.sim
-                sim.p.dtype = dt_str
-                sim.dtype = dt
-                sim.v = sim.v.astype(dt)
-                sim._drive = sim._drive.astype(dt)
-                sim._noise = sim._noise.astype(dt)
-                sim._sfloat = sim._sfloat.astype(dt)
-                sim._zeros = sim._zeros.astype(dt)
-                sim.leak = dt(sim.p.dt_ms / sim.p.tau_ms)
+                on_brain(slot.brain, "brain_set_dtype", str(c[key]))
         elif key == "brain.backend":
-            from kickthefly.sim.connectome import backends
-            b_choice = str(c[key])
             for slot in getattr(self, "flies", []):
-                sim = slot.brain.sim
-                sim.p.backend = b_choice
-                sim.backend_choice = b_choice
-                sim.backend = backends.create_backend(sim, b_choice)
+                on_brain(slot.brain, "brain_set_backend", str(c[key]))
             if getattr(self, "flies", None):
                 self.max_flies = get_max_flies(self.flies[0].brain.sim.backend.name)
 
@@ -3200,7 +3176,11 @@ class Game:
             except ValueError as e:
                 self.menu.flash(str(e), menu_ui.BAD)
                 return
-        rec = recorder.Recorder(br, named).start()
+        try:
+            rec = recorder.Recorder(br, named).start()
+        except RuntimeError as e:                      # a brain in the brain process (core/brainproc.py): say how to record
+            self.menu.flash(str(e), menu_ui.BAD)
+            return
         self.recording = dict(rec=rec, until=br.steps + int(seconds / 0.005), seconds=seconds,
                               slot=self.flies[self.focus], nwb=bool(nwb))
         self.note(f"RECORD   {len(rec.rows):,} neurons for {seconds:g} s{' (+NWB)' if nwb else ''}")
@@ -3509,6 +3489,19 @@ class Game:
             lif_params.backend = str(self.cfg.get("brain.backend", "auto"))
             lif_params.dtype = str(self.cfg.get("brain.dtype", "float32"))
             lif_params.individuality = str(self.cfg.get("brain.individuality", "off"))
+        primary = self.flies[0].brain if getattr(self, "flies", None) else getattr(self, "_primary_brain", None)
+        if getattr(primary, "remote", False):
+            # 3.1.0 review: in the brain process, next to the others (a Lab wiring is applied there before the warm-up, as below)
+            nb = primary._proc.new_brain(primary._template, dict(
+                seed=seed, backend=lif_params.backend, dtype=lif_params.dtype, individuality=lif_params.individuality,
+                lab_params=dict(self.lab_params) if self.lab_params else None, pain_level=self.pain_level, persist_memory=False,
+                warmup=0 if not self.wiring.is_identity else 600))
+            if not self.wiring.is_identity:            # the same order as below: wiring, then the warm-up
+                nb.run("kickthefly.sim.wiring", "apply_locked", self.wiring)
+                nb.warmup()
+            nb.__dict__["_template"] = primary._template
+            nb.set_pain_level(self.pain_level)
+            return nb
         sim = LIFSim(None, lif_params, W_in=self.weights, seed=seed)
         lab.apply_to_sim(sim, self.lab_params)
         new_brain = Brain(self.graph, sim, seed=seed)
@@ -3546,6 +3539,9 @@ class Game:
             try:
                 for slot in list(self.flies):
                     br = slot.brain
+                    if getattr(br, "remote", False):      # 3.1.0 review: done in the brain process, on the real matrix
+                        br.run("kickthefly.sim.wiring", "apply_locked", w)
+                        continue
                     with br.step_lock:
                         wiring_mod.apply(br, w, self.graph)
                 if note:
@@ -4078,7 +4074,7 @@ class Game:
             slot.fear_now = slot.like_now = 0.0
             return
         if self.frame % 3 == 0:
-            r = br.sim.activity.rates()
+            r = None if getattr(br, "remote", False) else br.sim.activity.rates()   # a remote memory reads its own brain's rates
             for key in ([slot.scent_now] if slot.scent_now else []) + (["sugar"] if slot.sugar_scent else []):
                 mem.observe(key, r)
             if (slot.scent_now or slot.sugar_scent) and not fly.dead:
@@ -7509,6 +7505,66 @@ def page_neuron_shapes(menu, surf, rect, mouse) -> None:
                 id=("ns", "no"))
 
 
+# --- changing a live brain's settings (3.1.0 review): one function each, run on the real brain wherever it lives (core/brainproc.py) ---
+def use_brain_process(cfg) -> bool:
+    """Whether the interactive game runs its brains in their own process (Settings > Brain; KICK_THE_FLY_BRAIN_PROCESS=0 or 1 overrides)."""
+    env = os.environ.get("KICK_THE_FLY_BRAIN_PROCESS", "").strip().lower()
+    if env in ("0", "off", "no", "false"):
+        return False
+    if env in ("1", "on", "yes", "true"):
+        return True
+    choice = str(cfg.get("brain.process", "auto"))
+    if choice == "auto":                                  # the Lab's recording and patch electrode need the brains here
+        return str(cfg.get("brain.mode", "play")) != "lab"
+    return choice == "on"
+
+
+def on_brain(brain, fn: str, *args):
+    """Run fn(brain, *args) from this module on `brain`: here, or in the brain process for a RemoteBrain."""
+    if getattr(brain, "remote", False):
+        return brain.run(__name__, fn, *args)
+    return globals()[fn](brain, *args)
+
+
+def brain_set_individuality(brain, mode: str, seed: int) -> None:
+    from kickthefly.core.individuality import compute_fly_gains
+    sim = brain.sim
+    sim.p.individuality = mode
+    sim.d_pre, sim.d_post = compute_fly_gains(seed, sim.n, mode=mode, sigma=sim.p.individuality_sigma)
+    sim.backend.sync_to_host()      # device backends keep their own copy of the gains
+    sim.backend.sync_from_host()
+
+
+def brain_set_mirror(brain, mirror: bool, brain_type: str) -> None:
+    from kickthefly.core import simcore
+    g, orig_w, _ = simcore.pack(brain=brain_type)
+    w = simcore.symmetrize_weights(g, orig_w) if mirror else orig_w
+    w_csr = w.astype(np.float32).tocsr()
+    brain.sim.W_csr = w_csr
+    brain.sim.W_csc = w_csr.tocsc()
+
+
+def brain_set_dtype(brain, dt_str: str) -> None:
+    dt = np.float64 if dt_str == "float64" else np.float32
+    sim = brain.sim
+    sim.p.dtype = dt_str
+    sim.dtype = dt
+    sim.v = sim.v.astype(dt)
+    sim._drive = sim._drive.astype(dt)
+    sim._noise = sim._noise.astype(dt)
+    sim._sfloat = sim._sfloat.astype(dt)
+    sim._zeros = sim._zeros.astype(dt)
+    sim.leak = dt(sim.p.dt_ms / sim.p.tau_ms)
+
+
+def brain_set_backend(brain, choice: str) -> None:
+    from kickthefly.sim.connectome import backends
+    sim = brain.sim
+    sim.p.backend = choice
+    sim.backend_choice = choice
+    sim.backend = backends.create_backend(sim, choice)
+
+
 def load_brain(out: dict) -> None:
     try:
         from kickthefly.sim import brainpack
@@ -7532,8 +7588,22 @@ def load_brain(out: dict) -> None:
         if "dtype" in out:
             p.dtype = out["dtype"]
         p.individuality = out.get("individuality", "off")   # callers that want individuality pass it (main, kick3d)
-        sim = LIFSim(None, p, W_in=weights, seed=seed)
-        brain = Brain(g, sim, seed=seed)
+        proc = None
+        if out.get("process"):
+            # 3.1.0 review: the brains run in a process of their own (core/brainproc.py); here only the tables every brain shares
+            try:
+                from kickthefly.core import brainproc
+                from kickthefly.sim.connectome import backends as _bk
+                out["stage"] = "starting the brain process"
+                proc = brainproc.BrainProcess(brain_type=brain_type, mirror_weights=bool(out.get("mirror_weights", False)),
+                                              auto_policy=_bk.auto_policy())
+                brain = brainproc.make_template(g, weights)
+            except Exception as e:
+                log.warning("the brain process did not start (%s); the brains run in the game process", e)
+                proc = None
+        if proc is None:
+            sim = LIFSim(None, p, W_in=weights, seed=seed)
+            brain = Brain(g, sim, seed=seed)
         brain.brain_type = brain_type
         out["stage"] = "placing neurons"
         if brain_type == "larva":
@@ -7545,12 +7615,20 @@ def load_brain(out: dict) -> None:
             pain_mask = np.isin(brain.det_id, pain_groups) | (brain.pop_id == [n for n, _ in POPS].index("ascending"))
         from kickthefly.game.gpu_brainview import make_view          # 3.1.0 task 4: the GPU view, or this file's CPU one
         out["view"] = make_view(soma, weights, pain_mask, regions=getattr(g, "region", None), graph=g)
-        if getattr(g, "dan_mbon", None) is not None:
-            from kickthefly.core import memory
-            out["stage"] = "loading the fly's memory"
-            brain.memory = memory.Memory(g, sim)
-        out["stage"] = "waking the fly up"
-        brain.warmup()
+        if proc is not None:
+            out["stage"] = "waking the fly up"
+            template = brain
+            brain = proc.new_brain(template, dict(seed=seed, backend=p.backend, dtype=p.dtype, individuality=p.individuality,
+                                                  persist_memory=True, warmup=600))
+            brain.__dict__["_template"] = template
+            out["brainproc"] = proc
+        else:
+            if getattr(g, "dan_mbon", None) is not None:
+                from kickthefly.core import memory
+                out["stage"] = "loading the fly's memory"
+                brain.memory = memory.Memory(g, sim)
+            out["stage"] = "waking the fly up"
+            brain.warmup()
         out["brain"] = brain
         out["brain_type"] = brain_type
         out["graph"], out["weights"] = g, weights   # kept so spawning more flies never re-touches disk
@@ -7819,6 +7897,7 @@ def main(argv: list[str] | None = None) -> int:
     state["mirror_weights"] = bool(cfg["brain.mirror_weights"])
     state["backend"] = getattr(args, "sim_backend", None) or cfg["brain.backend"]
     state["dtype"] = cfg["brain.dtype"]
+    state["process"] = use_brain_process(cfg)
     threading.Thread(target=load_brain, args=(state,), daemon=True).start()
     t0 = time.perf_counter()
     while "brain" not in state:
@@ -7919,6 +7998,8 @@ def shutdown(game) -> None:
         game.x3.progress.save()                     # 3.0: the Neurodex is saved at each discovery; this is the backstop
     if game.cfg.dirty:
         game.cfg.save()
+    if getattr(game, "brainproc", None) is not None:         # it saves the player's fly's memory as its brains go
+        game.brainproc.close()
     pygame.quit()
 
 
