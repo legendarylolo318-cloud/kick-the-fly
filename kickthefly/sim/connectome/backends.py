@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import os
+import sys
 import threading
 import time
 import warnings
@@ -645,7 +646,12 @@ def _create_gl_context():
     there the second context does not share a display connection to begin with.
     """
     last: Exception | None = None
-    for kwargs in ({"standalone": True, "backend": "egl"}, {"standalone": True}):
+    # Windows: WGL (glcontext) makes exactly the version asked for, and the default is 3.3, which has no compute shaders,
+    # so gl was "unavailable" there. Ask for 4.6 then 4.3 first. Other platforms keep the order below unchanged.
+    attempts = [{"standalone": True, "backend": "egl"}, {"standalone": True}]
+    if sys.platform == "win32":
+        attempts = [{"standalone": True, "require": r} for r in (460, 430)] + attempts
+    for kwargs in attempts:
         try:
             return moderngl.create_context(**kwargs)
         except Exception as e:
