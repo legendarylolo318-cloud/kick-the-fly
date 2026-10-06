@@ -51,6 +51,9 @@ SETTINGS: tuple[Setting, ...] = (
     S("graphics.fps_cap", "Graphics", "FPS cap", "choice", 60,
       "The most frames per second the game draws. The fly's brain always runs at its own real-time pace.",
       options=(30, 60, 90, 120, 144, 165, 240, 0), labels=("30", "60", "90", "120", "144", "165", "240", "unlimited")),
+    S("graphics.show_fps", "Graphics", "Show FPS counter", "bool", False,
+      "Shows the frames per second in the top-right corner while you play. Off by default; it only reads the frame clock "
+      "(F3 shows the full profiler)."),
     S("graphics.vsync", "Graphics", "VSync", "bool", False,
       "Sync frames to the monitor to stop tearing. Applies on restart.", restart=True, only="3d"),
     S("graphics.backend", "Graphics", "Display backend", "choice", "auto",

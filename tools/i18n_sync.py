@@ -24,7 +24,8 @@ MODULES = ("kickthefly/ui/loadout_ui.py", "kickthefly/ui/tutorial.py", "kickthef
            "kickthefly/ui/minipaper_ui.py", "kickthefly/ui/menu.py")              # 3.0 release review: menu.py was never scanned
 NEW_SETTINGS = ("controls.loadout_preset", "brain.neurodex", "brain.killcam", "brain.neuron_of_day", "brain.imaging_indicator",
                 "brain.imaging_fps", "brain.imaging_f0_tau_s", "brain.mic_sensitivity", "stream.allow_tool",
-                "stream.allow_arena", "stream.allow_surgery", "stream.window_s", "stream.cooldown_s", "stream.min_votes")
+                "stream.allow_arena", "stream.allow_surgery", "stream.window_s", "stream.cooldown_s", "stream.min_votes",
+                "graphics.show_fps")
 
 
 def literals(path: Path) -> set[str]:

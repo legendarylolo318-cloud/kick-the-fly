@@ -32,6 +32,7 @@
   "Fullscreen": "Vollbild",
   "Resolution scale": "Auflösungsskalierung",
   "FPS cap": "FPS-Begrenzung",
+  "Show FPS counter": "FPS-Anzeige",
   "VSync": "VSync",
   "Display backend": "Anzeige-Backend",
   "Brain panel": "Gehirn-Panel",

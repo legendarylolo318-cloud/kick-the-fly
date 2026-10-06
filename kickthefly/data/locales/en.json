@@ -588,5 +588,7 @@
   "On": "On",
   "unbound": "unbound",
   "Lesion battle": "Lesion battle",
-  "No contraption yet: build and save one in Esc > Challenges > Contraption.": "No contraption yet: build and save one in Esc > Challenges > Contraption."
+  "No contraption yet: build and save one in Esc > Challenges > Contraption.": "No contraption yet: build and save one in Esc > Challenges > Contraption.",
+  "Show FPS counter": "Show FPS counter",
+  "Shows the frames per second in the top-right corner while you play. Off by default; it only reads the frame clock (F3 shows the full profiler).": "Shows the frames per second in the top-right corner while you play. Off by default; it only reads the frame clock (F3 shows the full profiler)."
 }

@@ -19,6 +19,7 @@ from __future__ import annotations
 import datetime as _dt
 import threading
 import time
+from collections import deque
 
 import numpy as np
 import pygame
@@ -38,6 +39,7 @@ class Extras:
     def __init__(self, game):
         self.g = game
         self.async_build = True                      # tests build the Neurodex table in the calling thread
+        self._fps_stamps: deque[float] = deque()      # Settings > Graphics > Show FPS counter: frame times of the last second
         # --- Neurodex
         self.progress: nd.Progress | None = None
         self.table: nd.TypeTable | None = None
@@ -489,12 +491,28 @@ class Extras:
             pygame.draw.line(card, (110, 190, 255) if ms < 1000 / 30 else (255, 150, 90), (10 + k, y0 + 44), (10 + k, y0 + 44 - hh))
         surf.blit(card, (8, 8))
 
+    def draw_fps(self, surf, wall: float) -> None:
+        """Settings > Graphics > Show FPS counter: frames per second over the last second, top right. Reads the frame clock only."""
+        stamps = self._fps_stamps
+        stamps.append(wall)
+        while stamps and wall - stamps[0] > 1.0:
+            stamps.popleft()
+        fps = (len(stamps) - 1) / (wall - stamps[0]) if len(stamps) > 1 and wall > stamps[0] else 0.0
+        img = self.g.f_small.render(f"{fps:.0f} FPS", True, (200, 235, 210))
+        pad = 6
+        box = pygame.Surface((img.get_width() + 2 * pad, img.get_height() + 2 * pad), pygame.SRCALPHA)
+        pygame.draw.rect(box, (8, 10, 16, 190), box.get_rect(), border_radius=6)
+        box.blit(img, (pad, pad))
+        surf.blit(box, (surf.get_width() - box.get_width() - 8, 8))
+
     def draw(self, surf, now: float) -> None:
         g = self.g
         wall = time.perf_counter()
         from kickthefly.core.profiler import PROF
         if PROF.on:
             self.draw_profiler(surf)
+        elif g.cfg["graphics.show_fps"]:
+            self.draw_fps(surf, wall)
         if getattr(getattr(g, "fly_eye", None), "on", False):
             self.draw_fly_eye(surf)
         if getattr(getattr(g, "sonify", None), "wanted", False):

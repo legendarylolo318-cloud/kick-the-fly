@@ -527,3 +527,18 @@ def test_discovery_resumes_after_the_step_counter_goes_back(game):
     simcore.drive(game.brain, game.x3.table.rows("LPLC2"), 0.5)
     run(game, 600)
     assert game.x3.progress.types("adult").get("LPLC2", {}).get("how") == "stimulated"
+
+
+def test_fps_counter_off_by_default_and_draws_top_right():
+    """Settings > Graphics > Show FPS counter (3.1.1): off by default; on, a one-second average in the top-right corner."""
+    assert config.Config(None)["graphics.show_fps"] is False
+    g = make_game(graphics__show_fps=True)
+    surf = pygame.Surface((k2.W, k2.H))
+    for k in range(31):                              # 30 frames 1/30 s apart, then one 2 s later: the old stamps drop out
+        g.x3.draw_fps(surf, 100.0 + k / 30)
+    assert len(g.x3._fps_stamps) == 31
+    surf.fill((0, 0, 0))
+    g.x3.draw_fps(surf, 103.0)
+    assert list(g.x3._fps_stamps) == [103.0]
+    assert surf.get_at((k2.W - 12, 12))[:3] != (0, 0, 0)   # the box is in the top-right corner
+    assert surf.get_at((12, k2.H - 12))[:3] == (0, 0, 0)
