@@ -7,7 +7,7 @@ backend is picked in Settings > Brain > Compute backend or with `--backend NAME`
 runs them on the CPU, so it does not count), then a PyTorch GPU, then Numba, then NumPy, moving on at any error; Settings > Brain shows the engine in use and
 the chain. Headless runs (`--validate`, protocols, bundles, replays, the selftest) keep the exact chain (PyTorch GPU, Numba, NumPy) so their numbers do not
 move; `KICK_THE_FLY_AUTO=exact` gives the game the same chain. Pick `cpu` or `numba` for spike-for-spike runs. gl is fastest for one brain; Numba is faster for
-8 to 16 brains on a CPU (table below).
+8 to 16 brains on a CPU (table below). Before 3.1.1 `gl` never started on Windows; see [Windows](#windows-311).
 
 A brain steps every 5 ms of brain time, so real time is 200 steps/s. "Paced" is whether a brain held to real time
 keeps up; "uncapped" is how fast it steps when it isn't held back, as a multiple of real time.
@@ -17,6 +17,44 @@ python kick_the_fly.py --headless --benchmark --backend NAME --flies 1 8 16 32 -
 ```
 
 Lab > Simulation benchmark runs the same thing in the game and reports the backend that actually ran.
+
+## Windows (3.1.1)
+
+Same PC as the Linux tables below (dual boot): RX 9070 XT (AMD driver 26.10.44, OpenGL 4.6 core), Core Ultra 7 270K Plus (24 threads),
+Windows 11 build 26340, Python 3.11.9, NumPy 2.4.6, Numba 0.68.0, ModernGL 5.12.0, from source. `--headless --benchmark --no-render-bench
+--sim-backend NAME --flies 1 8 16 32 --seconds 5`, paced x real time (uncapped steps/s for one brain). Linux is 2.10's table (Python 3.14.7, NumPy 2.5.3).
+
+**What was wrong.** ModernGL's standalone context on Windows (WGL) is exactly the version it asks for, 3.3 by default; Mesa on Linux hands back its
+maximum. So on Windows `gl` said "OpenGL 3.3 < 4.3", fell back to NumPy, and the game's `auto` never used the GPU. 3.1.1 asks for 4.6, then 4.3, on
+Windows only (`_create_gl_context` in `kickthefly/sim/connectome/backends.py`); the Linux order is untouched. Checked on this machine: 3.1.0 reports
+`OpenGL 3.3 < 4.3 (Compute shaders not supported)`, 3.1.1 `OpenGL 4.6: AMD Radeon RX 9070 XT`; `--selftest`'s gl check matches the CPU (0.0% total
+firing difference, r = 1.000).
+
+| brains | Windows `cpu` (= 3.1.0 `gl`, which fell back) | Windows `numba` | **Windows `gl`, 3.1.1** | Linux `cpu` | Linux `numba` | Linux `gl` |
+|---|---|---|---|---|---|---|
+| 1 | 1.00x / 618 steps/s | 1.00x / 849 | **1.00x / 858** (1.17 ms) | 1.00x / 829 | 1.00x / 942 | 1.00x / 1,040 |
+| 8 | 0.61x | 1.00x | **0.99x** (5.5 flies/dispatch) | 1.00x | 1.00x | 1.00x |
+| 16 | 0.16x | 0.43x | **0.66x** (11.5) | 0.94x | 1.00x | 1.00x (12.8) |
+| 32 | 0.04x | 0.10x | **0.27x** (8.0) | 0.37x | 0.78x | 0.86x (8.7) |
+
+These are the release review's own runs (2026-10-06); the handoff's runs on the same machine agree within 5% (gl 805 steps/s / 0.99x / 0.68x / 0.28x).
+
+**What still lags Linux, and why we think so.** Every engine, not only gl, falls off much earlier on Windows: NumPy at 16 brains keeps 0.16x against
+0.94x, Numba 0.43x against 1.00x. Something common to all of them costs more here, so it is not the GPU driver. Measured: the gl group's GIL-free wait
+works on Windows (`_GLFence` resolves `glFenceSync` / `glClientWaitSync` through `wglGetProcAddress`; it does not fall back to `ctx.finish()`), so
+that is ruled out. Not separated yet, and all on the list for a later pass: the Python version (3.11 here, 3.14 on Linux; the interpreter and its
+lock changed a lot in between), the NumPy/BLAS build, Windows thread scheduling across this CPU's P- and E-cores, and the 0.2 ms GIL switch interval
+on Windows' scheduler. Not measured at all: per-dispatch GPU timer queries, a wgpu or DirectX backend, PyTorch on AMD Windows (no ROCm wheels for
+Windows were installed), exe start-up cost, vsync/DWM effects in the game.
+
+**Settings you can try yourself.** These are optional changes to your own Windows; the game never makes them and we did not make them while
+measuring. Rerun the gl benchmark above after each one to see whether it helps on your machine:
+
+- Hardware-accelerated GPU scheduling on or off (Settings > System > Display > Graphics > Change default graphics settings).
+- Power plan or power mode: Best performance instead of Balanced.
+- AMD Software (Adrenalin): turn off overlays, Anti-Lag and other per-app features for `python.exe` / `KickTheFly.exe`.
+- The exe unpacks itself to `%TEMP%\_MEI*` at every start; real-time antivirus scanning of that folder slows start-up (only exclude it if you
+  understand the trade-off).
 
 ## The profiler and the frame profile (3.1.0)
 

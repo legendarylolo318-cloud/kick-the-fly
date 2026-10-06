@@ -1,5 +1,16 @@
 # Changelog
 
+## 3.1.1 (2026-10-06)
+
+- **Windows: the gl engine works.** On Windows ModernGL's WGL context is exactly the version asked for (3.3 by default),
+  so `gl` reported "OpenGL 3.3 < 4.3" and fell back to NumPy, and `auto` never used the GPU in the game. It now asks
+  for 4.6, then 4.3, on Windows only; Linux and macOS keep their order. RX 9070 XT, Windows 11: one gl brain 618 -> 858
+  steps/s uncapped, 8 brains 0.61x -> 0.99x of real time, 16 brains 0.16x -> 0.66x. Numbers and what still lags Linux:
+  [docs/performance.md](docs/performance.md#windows-311).
+- **Settings > Graphics > Show FPS counter** (GAME RULE, interface; off by default): a one-second average in the top
+  right of both games; F3's profiler takes precedence.
+- The simulation is unchanged (no simulation code touched; NumPy/Numba paths identical).
+
 ## 3.1.0 (2026-10-04)
 
 The whole release by feature: [docs/changelog.md](docs/changelog.md); the release review: [REVIEW.md](REVIEW.md).
