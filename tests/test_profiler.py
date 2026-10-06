@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import sys
 import time
 
 import pytest
@@ -209,6 +210,8 @@ def test_the_flag_parses():
 
 
 @needs_pack
+@pytest.mark.skipif(sys.platform == "win32", reason="--benchmark's frame table runs the game on SDL's offscreen video driver, which the Windows pygame "
+                    "build does not have (it says 'not run: ... offscreen not available' there; the error row is covered above)")
 def test_a_real_2d_scene_runs_and_reports_every_section():
     from kickthefly.lab import framebench as fb
 
