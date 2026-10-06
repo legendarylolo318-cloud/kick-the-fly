@@ -36,6 +36,13 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="3.1.1" date="2026-10-06">
+      <description>
+        <p>Windows: the OpenGL compute engine now runs on Windows GPUs (it silently fell back to the CPU before), so the
+        game's default engine uses the GPU there too. An optional FPS counter in Settings > Graphics. The simulation is
+        unchanged.</p>
+      </description>
+    </release>
     <release version="3.1.0" date="2026-10-04">
       <description>
         <p>The GPU by default in the game and a GPU-drawn brain view; a profiler overlay; activation and knockout screens and a
