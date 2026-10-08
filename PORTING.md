@@ -18,7 +18,7 @@ Where the Rust code lives:
 
 ## Status at the end of the "port foundation" step
 
-Done: section 2 (simulator core), the golden harness, the benchmark, the thread skeleton. Everything else is **not started**; sections 3-14
+Done: the simulator core (sections 2.1-2.2), the golden harness, the benchmark, the thread skeleton. Not verified: `cargo run --features dev` (dynamic linking) was not built here; the Windows build was not attempted. Everything else is **not started**; sections 3-14
 are the work list for the following steps. See "What could not be reproduced exactly" at the end of the report for the simulator.
 
 ---
@@ -53,8 +53,8 @@ Entry: `kick_the_fly.py` shim → `kickthefly/__main__.py:main` → `game/kick_t
 - [x] Slow global gain controller: `gain *= exp(gain_adapt*clip((target_p - frac)/target_p, -1, 1))`, clipped to bounds, `target_p = rate*dt/1000`.
 - [x] Noise bank: `standard_normal(n*16, f32) * noise_std` drawn once from `default_rng(seed)`, read at `rng.integers(0, size-n)` per step. Rust reimplements `SeedSequence` + PCG64 + the NumPy float32 ziggurat (`fly_sim::rng`).
 - [x] Sparse (≤10 % active, column gather) and dense (CSR) propagation paths: Rust uses a row-blocked CSC for sparse and CSR for dense, rayon-parallel.
-- [x] `dtype=float64` option (`KICK_THE_FLY_SIM_DTYPE`). *(f32 only in Rust; see report.)*
-- [ ] Individuality `D_post·W·D_pre` (`core/individuality.py:compute_fly_gains`: lognormal, σ 0.05/0.15, uses NumPy `normal` f64 ziggurat).
+- [ ] `dtype=float64` option (`KICK_THE_FLY_SIM_DTYPE`, `Settings > Brain > dtype`): the Rust sim is f32 only.
+- [~] Individuality `D_post·W·D_pre` (`core/individuality.py:compute_fly_gains`): `fly_sim::lif::Individuality`; the normals are bit-exact, the final f32 `exp` agrees to ~1e-6 (NumPy's SIMD exp varies by CPU), so runs with individuality on are statistically, not spike-for-spike, equal. No whole-run golden for it yet; personality cards (`compute_personality_card`) are not ported.
 - [x] `ActivityBuffer` (EMA rate τ=40 steps, 400-step raster, last-spike step): `sim.py:ActivityBuffer`.
 - [ ] Backends other than the reference: Numba/torch/GL are replaced by rayon + (later) a wgpu/compute path. `backends.py:{detect_available_backends,auto_chain,create_backend,GLBackend}`.
 - [ ] Max flies per backend (`kick_the_fly.py:get_max_flies`), multi-fly batching, brain in its own process (`core/brainproc.py`; the Rust design uses a thread, see section 14).
@@ -131,7 +131,7 @@ Entry: `kick_the_fly.py` shim → `kickthefly/__main__.py:main` → `game/kick_t
 ### 8.2 Validation (`lab/validation.py:TESTS`; 21 tests, expected **12 PASS / 9 FAIL**, held-out seeds 1000-1009, one-sided Wilcoxon p<0.01, ≥1.5× calm)
 - [ ] looming_escape, mdn_backward, sugar_feeding, antenna_grooming_circuit, adn_grooming_motor, mb_conditioning, epg_compass, epg_compass_wind, courtship_song, bitter_grn_to_dng28, co2_orn_to_pn, hot_trn_to_vp2pn, cold_trn_to_vp3pn, grooming_hierarchy, optomotor_turning, p1_courtship_song, or67d_to_da1pn, da1pn_to_lh_asp, foreleg_grn_to_p1, mb_extinction, mb_second_order (+ 2 larva tests: larva_noci_to_goro_rolling, larva_chordotonal_to_basin).
 - [ ] Assays (`lab/assays.py`): T-maze, looming, sugar, extinction, second order, plume tracking, orchard; statistics (`labstats.py`), Lab jobs in worker processes (`labjobs.py`).
-- [ ] Headless runs, protocol YAML (`lab/protocol.py`; 43 files in `protocols/`), playthrough bot (`lab/playthrough.py`), benchmark (`lab/benchmark.py`), Python API (`lab/api.py:Fly`) → Rust crate API + optional PyO3 later.
+- [ ] Headless runs, protocol YAML (`lab/protocol.py`; 42 files in `protocols/`), playthrough bot (`lab/playthrough.py`), benchmark (`lab/benchmark.py`), Python API (`lab/api.py:Fly`) → Rust crate API + optional PyO3 later.
 
 ## 9. Menus, settings and screens (`ui/`, `core/config.py`)
 
@@ -159,7 +159,7 @@ Entry: `kick_the_fly.py` shim → `kickthefly/__main__.py:main` → `game/kick_t
 | share codes `KTF1-…`, `.ktfshare` | `core/sharecode.py` | |
 | experiment bundles (zip) | `lab/bundle.py` | |
 | recordings CSV/npz + metadata JSON; NWB; TIFF | `lab/recorder.py`, `nwbexport.py`, `imaging.py` | |
-| protocols YAML (43), lecture YAML | `lab/protocol.py`, `protocols/` | |
+| protocols YAML (42), lecture YAML | `lab/protocol.py`, `protocols/` | |
 | `data/driver_lines.yaml`, `data/neurodex_facts.yaml`, `data/locales/*.json` | `data/__init__.py` | |
 | result CSV/JSON/SVG (validation, race, netsci, sensitivity, screens, autopsy) | `lab/*` | compare outputs with `docs/results/` |
 
@@ -175,7 +175,12 @@ Entry: `kick_the_fly.py` shim → `kickthefly/__main__.py:main` → `game/kick_t
 - [ ] Move the Python tree to `legacy-python/` **unchanged** (done at the end of the port task, see git history).
 
 ## 14. Architecture decisions for the Rust build
-- [x] Simulation on its own OS thread at a fixed 200 steps/s timestep (`crates/game/src/sim_thread.rs`); the render thread only reads the latest published snapshot (triple-buffered, never blocks the sim, never blocked by it) and sends commands over a bounded channel.
+- [x] Simulation on its own OS thread at a fixed 200 steps/s timestep (`crates/game/src/sim_thread.rs`); the render thread only reads the latest published snapshot (a one-slot mailbox with recycled buffers, `snapshot.rs`; locks are held only for a pointer move) and sends commands over a bounded channel.
 - [x] Dev builds use Bevy's `dynamic_linking` feature; release builds do not (`crates/game/Cargo.toml` feature `dev`).
 - [x] Exact version pins in `Cargo.toml` (`bevy = "=0.19.1"`, no third-party Bevy plugins yet).
 - [ ] UI toolkit, audio, gamepad and video-recording crates: choose and pin when their feature is ported.
+
+## 15. Layout after the Python move
+- `legacy-python/` holds the Python game unchanged (`kickthefly/`, `kick_the_fly.py`, `tools/`, `protocols/`, `tests/`, `requirements.txt`, `pytest.ini`, `watch_tests.sh`) plus `make_golden.py`. Python resolves `data/` and `protocols/` relative to its own folder, so to run it put (or symlink) the dataset at `legacy-python/data/`.
+- Left at the root and **not yet updated for Rust**: `build_appimage.sh`, `build_exe.ps1`, `.github/workflows/*`, `packaging/`, `README.md`, `docs/`. They still describe and build the Python game.
+- `tests/golden/` stays at the root (shared by `legacy-python/make_golden.py` and `crates/fly_sim/tests/golden.rs`).
