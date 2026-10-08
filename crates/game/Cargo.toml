@@ -1,0 +1,23 @@
+[package]
+name = "kick_the_fly"
+description = "Kick the Fly: the Bevy game around the fly_sim connectome simulation."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "kick_the_fly"
+path = "src/lib.rs"
+
+[[bin]]
+name = "kick_the_fly"
+path = "src/main.rs"
+
+[features]
+# `cargo run --features dev` links Bevy dynamically for fast rebuilds. Never enabled in release builds or by default.
+dev = ["bevy/dynamic_linking"]
+
+[dependencies]
+fly_sim.workspace = true
+bevy = { workspace = true, features = ["3d", "ui", "audio"] }
