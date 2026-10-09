@@ -14,6 +14,7 @@ pub mod brain;
 pub mod csr;
 pub mod groups;
 pub mod lif;
+pub mod neurodex;
 pub mod npy;
 pub mod pack;
 pub mod rng;

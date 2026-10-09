@@ -323,3 +323,90 @@ fn pain_matches_python() {
         assert_eq!(g.pain_neurons(level) as u64, case["neurons"].as_u64().unwrap(), "case {k} neurons");
     }
 }
+
+/// The Neurodex type table of the real pack (sampled entries, region progress, list filters) and the discovery rule on a deterministic
+/// scenario match `core/neurodex.py` (`tests/golden/make_neurodex.py`).
+#[test]
+fn neurodex_matches_python() {
+    use fly_sim::neurodex::{RawCsr, Tracker, TypeTable, WINDOW_STEPS};
+    let Some(pack) = pack() else { return };
+    let gold = load_json("neurodex.json");
+    let path = pack.path.clone().unwrap();
+    let mut npz = fly_sim::npy::Npz::read(std::io::BufReader::new(std::fs::File::open(&path).unwrap())).unwrap();
+    let (indptr, indices, data) = (npz.take("indptr").unwrap().into_i32().unwrap(), npz.take("indices").unwrap().into_i32().unwrap(), npz.take("data").unwrap().into_i16().unwrap());
+    let tab = TypeTable::build(&pack.labels, "adult", Some(RawCsr { indptr: &indptr, indices: &indices, data: &data }));
+    assert_eq!(tab.len() as u64, gold["n_types"].as_u64().unwrap());
+    let sha = sha256_hex(tab.names.join("\n").as_bytes());
+    assert_eq!(&sha[..16], gold["names_sha"].as_str().unwrap());
+    let step = (tab.len() / 60).max(1);
+    for (k, e) in gold["entries"].as_array().unwrap().iter().enumerate() {
+        let i = k * step;
+        let name = e["name"].as_str().unwrap();
+        assert_eq!(tab.names[i], name);
+        assert_eq!(tab.count[i] as u64, e["count"].as_u64().unwrap(), "{name} count");
+        assert_eq!(tab.superclass[i], e["superclass"].as_str().unwrap(), "{name} superclass");
+        assert_eq!(tab.region[i], e["region"].as_str().unwrap(), "{name} region");
+        let regs: Vec<(String, u64)> = e["regions"].as_array().unwrap().iter().map(|r| (r[0].as_str().unwrap().into(), r[1].as_u64().unwrap())).collect();
+        assert_eq!(tab.regions[i].iter().map(|(r, c)| (r.clone(), *c as u64)).collect::<Vec<_>>(), regs, "{name} regions");
+        assert_eq!(tab.nt[i], e["nt"].as_str().unwrap(), "{name} nt");
+        match e["nt_conf"].as_f64() {
+            Some(c) => assert!((tab.nt_conf[i] as f64 - c).abs() < 1e-5, "{name} conf"),
+            None => assert!(tab.nt_conf[i].is_nan(), "{name} conf"),
+        }
+        assert!((tab.nt_truth[i] as f64 - e["nt_truth"].as_f64().unwrap()).abs() < 1e-6, "{name} truth");
+        for (dir, key) in [("in", "inputs"), ("out", "outputs")] {
+            let want = e[key].as_array().unwrap();
+            let got = tab.top_partners(name, dir, 6);
+            assert_eq!(got.len(), want.len(), "{name} {dir}");
+            for (g, w) in got.iter().zip(want) {
+                assert_eq!(g.0, w[0].as_str().unwrap(), "{name} {dir} partner");
+                assert_eq!(g.1, w[1].as_i64().unwrap(), "{name} {dir} synapses");
+                assert!((g.2 - w[2].as_f64().unwrap()).abs() < 1e-9, "{name} {dir} share");
+            }
+        }
+    }
+    let known: std::collections::HashSet<String> = gold["known"].as_array().unwrap().iter().map(|n| n.as_str().unwrap().to_string()).collect();
+    let is_known = |n: &str| known.contains(n);
+    let rp: Vec<(String, u64, u64)> = gold["region_progress"].as_array().unwrap().iter().map(|r| (r[0].as_str().unwrap().into(), r[1].as_u64().unwrap(), r[2].as_u64().unwrap())).collect();
+    assert_eq!(tab.region_progress(&is_known).into_iter().map(|(r, a, b)| (r, a as u64, b as u64)).collect::<Vec<_>>(), rp);
+    assert_eq!(tab.region_names(), gold["region_names"].as_array().unwrap().iter().map(|r| r.as_str().unwrap().to_string()).collect::<Vec<_>>());
+    let want = |k: &str| -> Vec<usize> { gold["lists"][k].as_array().unwrap().iter().map(|i| i.as_u64().unwrap() as usize).collect() };
+    assert_eq!(tab.list_entries(&is_known, None, "", false, None), want("all"));
+    assert_eq!(tab.list_entries(&is_known, None, "", true, None), want("found"));
+    assert_eq!(tab.list_entries(&is_known, Some(&tab.region[5]), "", true, None), want("region_found"));
+    assert_eq!(tab.list_entries(&is_known, None, "DNp", true, None), want("query"));
+    assert_eq!(tab.list_entries(&is_known, None, "DNp", false, None), want("query_unknown"));
+    assert_eq!(tab.list_entries(&is_known, Some(&tab.region[100]), "", false, None), want("region"));
+
+    // the discovery rule
+    let chosen: Vec<usize> = gold["tracker"]["chosen"].as_array().unwrap().iter().map(|i| i.as_u64().unwrap() as usize).collect();
+    let mut trk = Tracker::new(&tab, &|_| false);
+    let mut found: Vec<(u32, String, String, f64)> = vec![];
+    for c in 0..400u32 {
+        let mut spikes: Vec<u32> = vec![];
+        for (j, &i) in chosen.iter().enumerate() {
+            let mut level = 1u32;
+            if j % 4 == 0 && (150..260).contains(&c) {
+                level = 12;
+            }
+            if j % 5 == 1 && (300..400).contains(&c) {
+                level = 8;
+            }
+            for &r in tab.rows(&tab.names[i]) {
+                let w = (level + (r * 7 + c * 13) % 3) / 3;
+                spikes.extend(std::iter::repeat_n(r, w as usize));
+            }
+        }
+        for f in trk.observe(&tab, 0, &spikes, 0.005, c < 60, (150..170).contains(&c), WINDOW_STEPS) {
+            found.push((c, f.name, f.how.to_string(), (f.ratio * 100.0).round() / 100.0));
+        }
+    }
+    let want_found = gold["tracker"]["found"].as_array().unwrap();
+    assert_eq!(found.len(), want_found.len(), "{found:?}");
+    for (g, w) in found.iter().zip(want_found) {
+        assert_eq!(g.0 as u64, w["check"].as_u64().unwrap());
+        assert_eq!(g.1, w["name"].as_str().unwrap());
+        assert_eq!(g.2, w["how"].as_str().unwrap());
+        assert!((g.3 - w["x"].as_f64().unwrap()).abs() < 0.011, "ratio {} vs {}", g.3, w["x"]);
+    }
+}

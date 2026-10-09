@@ -30,6 +30,14 @@ Memory file `kick-the-fly-bevy-port.md` has the build/verify tricks (`--shot`, B
   Needs sim-side data that is not ported yet: pain index (`Brain.pain_parts`), reward, memory (`core/memory.py`), reaction log. Window default there is 1280x760.
 - 3D scene look also differs from the pygame renderer (room, materials, lighting): decide how far to take it.
 
+## Done (fourth session)
+- HUD ported (see PORTING "HUD"): `ktf_ui::hud` + `crates/game/src/hud_canvas.rs`; pain index in `fly_sim::groups` (golden `tests/golden/pain.json`); history ring; layout `ktf_ui::layout`.
+- Rebindable hotkeys: `crates/game/src/actions.rs` (`Actions::just("big_view")`); controls/player/tools/brainview/flyeye/profiler/audio/help use it. Python semantics: P = pain level, Z pause,
+  [ ] slower/faster (0.1/0.25/0.5/1), . step. **Still on raw KeyCode**: arcade.rs (Rust-only menu), killcam, mic (F6), contraption (C), laser keys ; '.
+- Loadouts: `ktf_data::loadout` + editor page; `ActiveLoadout` resource drives the hotbar and selection.
+- Fonts: HUD uses FreeMono 13 + FreeSans (tables in `crates/ktf_ui/data/advances.json`, regenerate with `legacy-python/make_ui_metrics.py OUT.json advances.json`).
+- Run the game fullscreen for screenshots: `kick_the_fly --fullscreen --menu loadout --shot out.png --shot-frames 200`.
+
 ## Next, in this order
 1. **Leftovers of item 4**: `.ktfreplay` + experiment bundles (do them with the Lab headless runner, item 3), `pet.ktfsave` + `.bak` (`core/pet.py`), applying a loaded save to the Rust game's fly/body/timers
    (`object_state`/`restore_object` JSON in `flies[i].fly/slot`, `extra`) with Save/Load UI (`ui` load_state page), wire `scores.json` etc. Share-code import UI + deeper payload validation (protocol, contraption).

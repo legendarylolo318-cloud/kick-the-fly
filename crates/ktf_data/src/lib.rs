@@ -10,7 +10,10 @@
 
 pub mod config;
 pub mod loadout;
+pub mod neurodex_facts;
+pub mod notd;
 pub mod paths;
+pub mod pyrandom;
 pub mod savestate;
 pub mod sharecode;
 pub mod stores;
