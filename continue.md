@@ -17,10 +17,23 @@ Memory file `kick-the-fly-bevy-port.md` has the build/verify tricks (`--shot`, B
 - Python test env for regenerating fixtures: a venv with numpy scipy pygame-ce pytest pillow pyyaml pyarrow (pygame 2.6.1 does not work on Python 3.14; use pygame-ce).
 - `rustfmt.toml` (width 140) and the whole workspace is `cargo fmt` clean now.
 
+## Done (third session): the UI foundation
+- `crates/ktf_ui`: software canvas + the pygame `Menu` (see PORTING.md "GUI parity"): widgets, pages (`pages/`: whatsnew, share), Settings with all tabs incl. Help, page framework
+  (`Page` trait + `PageHost` JSON bridge: pages live in ktf_ui and are tested against pygame screenshots; the game answers queries/commands in `crates/game/src/menu_ui.rs:GameHost`).
+- Reference tooling: `legacy-python/make_ui_reference.py` (pygame screenshots of each screen), `make_ui_metrics.py` (font metrics/advances), `tests/ui_reference/*.png`, `crates/ktf_ui/tests/{reference,behavior,font_metrics}.rs`.
+  Python env: `python3 -m venv V; V/bin/pip install numpy scipy pygame-ce pytest pillow pyyaml pyarrow moderngl fonttools`; the Python 3D game runs for screenshots with
+  `ln -s ../data legacy-python/data` (remove it after) and `KICK_THE_FLY_HOME=<tmp> V/bin/python kick_the_fly.py --smoke 8 out.png` (opens a real window for ~10 s).
+- `tests/ui_reference/py_3d_hud_room.png` is the pygame 3D game's HUD: **this is the next big GUI target**: the Rust HUD (hud.rs, Bevy text) looks nothing like it.
+  Plan: draw the HUD like Python does, on a canvas (`ktf_ui::hud`): status card, health bar, hint box, PAIN / REWARD / MEMORY cards (kick_the_fly.py `_draw_hud`, `_draw_pain`,
+  `_draw_reward`, `_draw_memory`), hotbar with `draw_icon` (l.2077; 18 icons), crosshair, popups, science card, the right-hand brain panel (`_draw_brain`: title, LIVE dot, the brain view
+  image (existing `brainview` render, placed in the panel rect), TOUCH / DESCENDING NEURONS bars, WHOLE BRAIN trace, REACTIONS log). Window is W x H logical, PLAY_W = W - 280.
+  Needs sim-side data that is not ported yet: pain index (`Brain.pain_parts`), reward, memory (`core/memory.py`), reaction log. Window default there is 1280x760.
+- 3D scene look also differs from the pygame renderer (room, materials, lighting): decide how far to take it.
+
 ## Next, in this order
 1. **Leftovers of item 4**: `.ktfreplay` + experiment bundles (do them with the Lab headless runner, item 3), `pet.ktfsave` + `.bak` (`core/pet.py`), applying a loaded save to the Rust game's fly/body/timers
    (`object_state`/`restore_object` JSON in `flies[i].fly/slot`, `extra`) with Save/Load UI (`ui` load_state page), wire `scores.json` etc. Share-code import UI + deeper payload validation (protocol, contraption).
-2. **Item 1 + 2: the UI** (biggest). Read each pygame screen in `legacy-python/kickthefly/ui/*.py` before building it; bundle the same fonts/assets; run the Python game
+2. **Item 1 + 2: the UI** (biggest; foundation + pause/settings/help/whatsnew/share done, see above). Remaining pages: neurodex_ui, loadout_ui (+ core/loadout.py, hotbar), tutorial, arcade_ui + battle_ui, minipaper_ui, challenges, live_inputs, load_state/save_state, selftest, bugreport, crash, lab pages; then the HUD. Read each pygame screen in `legacy-python/kickthefly/ui/*.py` before building it; bundle the same fonts/assets; run the Python game
    (`cd legacy-python && python3 kick_the_fly.py`) to screenshot and compare. Order: menu framework (bevy_ui, custom theme) -> pause menu + Settings tabs (built from `schema.json`,
    writes `config.toml` through `ktf_data::config`) -> HUD/popups/science cards (default OFF) -> Play/Lab split -> Neurodex, neuron of the day, mini-papers, streamer. Tick section 16 as each is verified.
 3. **Item 3: Lab tools** (`legacy-python/kickthefly/lab/`): driver lines, thermogenetics, patch clamp, calcium imaging, pharmacology, rigs, netsci, bundles, sleep dep, sensitivity,

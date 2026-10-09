@@ -216,7 +216,7 @@ against the pygame version (screenshot pair, or the code read side by side). Any
 - [~] Menu framework (`ui/menu.py:Menu`): **ported** as `crates/ktf_ui` (software canvas + immediate-mode `Menu`, same widgets: button, toggle, segmented, slider with typed value, number/text field, chip, tooltip after 0.35 s, scrolling, clipping, key/pad capture, flash messages). Verified: 9 pygame screenshots (`tests/ui_reference/`, `legacy-python/make_ui_reference.py`) vs Rust renders, < 0.9 % of pixels differ clearly (glyph anti-aliasing); 6 interaction tests. Not yet: charts, `flow_buttons`/`button_row`/`subtitle` helpers (added with the pages that use them), gamepad navigation, UI scale / menu size U
 - [~] Fonts and sprites: `assets/fonts/FreeSans(.Bold).otf` = the font pygame's `SysFont("segoeui,dejavusans,...")` resolved to on the reference machine (Segoe UI exists only on Windows and cannot be bundled); glyph advances are pygame's hinted ones (`crates/ktf_ui/data/advances.json`), so every text width equals pygame's (330 strings checked). Icons/sprites: none used by the menus. Colors: `ktf_ui::theme`
 - [x] Pause menu (Esc): 12 buttons in the original order, labels, tips, Play/Lab/Pet title; screenshot pair identical (pause, pause_lab); Esc opens, frees the mouse and stops time and brain (`menu_ui.rs`); quit asks first (`confirm_quit`, screenshot pair)
-- [~] Settings: Graphics, Audio, Brain (+ENGINE panel lines supplied by the game), Controls (keys table, pad table in 3D), Accessibility: all 75 settings drawn from the same schema, each tab's screenshot compared with pygame's; changes applied live (volume, mute, FOV, mouse, immortal, fullscreen, sim speed, language) and saved to config.toml. Not yet: Help tab (`ui/help_ui.py`), live effect of graphics options (fps cap, vsync, resolution scale, ui scale...), ENGINE lines
+- [~] Settings (Help tab now ported, screenshot pair matches; its Replay-tutorial/Loadout-editor/Self-test/Report-a-bug buttons open pages that do not exist yet): Graphics, Audio, Brain (+ENGINE panel lines supplied by the game), Controls (keys table, pad table in 3D), Accessibility: all 75 settings drawn from the same schema, each tab's screenshot compared with pygame's; changes applied live (volume, mute, FOV, mouse, immortal, fullscreen, sim speed, language) and saved to config.toml. Not yet: Help tab (`ui/help_ui.py`), live effect of graphics options (fps cap, vsync, resolution scale, ui scale...), ENGINE lines
 - [ ] HUD: pain / reward meters, hit counter, hotbar + pages, hotkey help (H), science cards + source chips, tag chips, toasts, validation popups
 - [ ] Brain panel + big brain view (B), neuron inspector, search, stethoscope readout
 - [ ] Tutorial / first-run flow, What's New, loadout notice
@@ -253,8 +253,8 @@ against the pygame version (screenshot pair, or the code read side by side). Any
 - [ ] Menu page `neurodex`
 - [ ] Menu page `neuron_shapes_ask`
 - [ ] Menu page `selftest`
-- [ ] Menu page `share`
-- [ ] Menu page `whatsnew`
+- [x] Menu page `share`: both tabs (make a code for surgery/loadout/..., import with preview) ported with the real `sharecode` backend; 3 screenshot pairs (surgery, loadout code, import) match; Copy/Paste through the OS clipboard (`arboard`). The game applies only what this build has: apply returns "can't apply a <kind> code yet" for the rest
+- [x] Menu page `whatsnew`: screenshot pair matches; opened from Settings > Help (the show-once-after-upgrade trigger comes with the first-run flow)
 - [ ] Time controls UI (pause, slow-mo, single step), popups and overlays (death/autopsy, kill cam, photo mode, profiler F3, fly's-eye F4)
 - [ ] Mode split: Play stays simple; Lab-only stats only in Lab; "Real flies do this too" cards default OFF (`brain.science_popups` false)
 - [ ] Streamer mode panel, Mic panel (`live_inputs`)
