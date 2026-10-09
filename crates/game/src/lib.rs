@@ -23,6 +23,7 @@ pub mod controls;
 pub mod duel;
 pub mod environment;
 pub mod feedback;
+pub mod first_run;
 pub mod fly;
 pub mod fly_visuals;
 pub mod flyeye;
@@ -54,6 +55,7 @@ pub mod snapshot;
 pub mod synth;
 pub mod tools;
 pub mod tournament;
+pub mod tutorial_play;
 pub mod weather;
 pub mod weather_play;
 pub mod world;
@@ -142,7 +144,7 @@ impl Plugin for GamePlugin {
             ))
             .add_plugins(neurodex_play::DexPlugin)
             .add_plugins(menu_ui::MenuPlugin)
-            .add_plugins(actions::ActionsPlugin)
+            .add_plugins((actions::ActionsPlugin, tutorial_play::TutorialPlugin, first_run::FirstRunPlugin))
             .add_plugins((
                 hud_canvas::HudCanvasPlugin,
                 weather_play::WeatherPlugin,

@@ -129,6 +129,9 @@ pub struct ToolState {
     pub laser_on: Option<(usize, bool)>,
     /// Puppeteer: every tool but the laser is locked and nothing of yours touches the fly.
     pub puppet: bool,
+    /// How many times a tool was used (`Game.tool_uses`) and which one last (`last_tool_used`): the tutorial reads them.
+    pub uses: u32,
+    pub last_used: &'static str,
     swings: Vec<f32>,
     grabbed_decoy: Option<Entity>,
 }
@@ -148,6 +151,8 @@ impl Default for ToolState {
             laser_silence: false,
             laser_on: None,
             puppet: false,
+            uses: 0,
+            last_used: "",
             swings: Vec::new(),
             grabbed_decoy: None,
         }
@@ -343,6 +348,10 @@ fn use_tools(
     };
     let pressed = active && mouse.just_pressed(MouseButton::Left);
     let held = active && mouse.pressed(MouseButton::Left);
+    if pressed {
+        st.uses += 1;
+        st.last_used = TOOLS[st.selected].0;
+    }
 
     // the hand: grab on press, pin to the hold point while held, throw on release
     if name == "hand" {

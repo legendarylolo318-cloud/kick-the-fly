@@ -32,6 +32,11 @@ fn palette(cfg: &Config) -> Palette {
     }
 }
 
+/// The accent colour of the player's palette (selection, the tutorial card).
+pub fn select_color(cfg: &Config) -> Color {
+    palette(cfg).select
+}
+
 fn draw_tag(m: &Menu, cv: &mut Canvas, pos: (i32, i32), tag: &str, cfg: &Config) -> Rect {
     let f = m.fonts().small;
     let label = tr(tag);

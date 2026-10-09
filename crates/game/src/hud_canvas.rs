@@ -250,6 +250,7 @@ struct HudIn<'w, 's> {
     arcade: Res<'w, Arcade>,
     settings: Res<'w, crate::config::Settings>,
     dex: Res<'w, Dex>,
+    tut: Res<'w, crate::tutorial_play::Tutorial>,
     flies: Query<'w, 's, &'static Fly>,
 }
 
@@ -266,7 +267,7 @@ fn draw(
     mut node: Single<&mut ImageNode, With<HudNode>>,
     mut hits_out: ResMut<HudHitsRes>,
 ) {
-    let HudIn { time, real, snap, st, notes, tools, loadout, arena, cfg, view, tc, look, menu, arcade, settings, dex, flies } = i;
+    let HudIn { time, real, snap, st, notes, tools, loadout, arena, cfg, view, tc, look, menu, arcade, settings, dex, tut, flies } = i;
     let l = lay.0;
     let crisp = (l.scale.fract() == 0.0) && l.scale >= 1.0;
     if (hc.canvas.w, hc.canvas.h) != (l.hud_w, l.hud_h) || hc.crisp != crisp {
@@ -463,6 +464,7 @@ fn draw(
             plan_text: c.plan.text.clone(),
             look3d: look.captured,
         }),
+        tutorial: tutorial_view(&tut, &cfg.0, rnow as f32).filter(|_| !menu.0),
         ..Default::default()
     };
     let fonts = HudFonts::new(cfg.0.get_bool("access.larger_text"));
@@ -488,6 +490,7 @@ fn hud_clicks(
     link: Res<SimLink>,
     mut notes: ResMut<Notes>,
     real: Res<Time<Real>>,
+    mut tut: ResMut<crate::tutorial_play::Tutorial>,
 ) {
     if !buttons.just_pressed(MouseButton::Left) || look.captured || menu.0 {
         return;
@@ -497,7 +500,11 @@ fn hud_clicks(
     let pos = ((p.x * k) as i32, (p.y * k) as i32);
     let at = |r: Option<ktf_ui::Rect>| r.is_some_and(|r| r.contains(pos));
     let now = real.elapsed_secs();
-    if at(hits.0.notd_try) {
+    if tut.active && at(hits.0.tutorial_next) {
+        tut.request = Some("next");
+    } else if tut.active && at(hits.0.tutorial_skip) {
+        tut.request = Some("skip");
+    } else if at(hits.0.notd_try) {
         if let Some((c, _)) = dex.notd.take() {
             notes.push(now, crate::neurodex_play::apply(&c, &link), Tag::GameRule);
         }
@@ -508,6 +515,72 @@ fn hud_clicks(
     } else if at(hits.0.notd_close) {
         dex.notd = None;
     }
+}
+
+/// The tutorial card's text for the current step (`Tutorial._text`).
+fn tutorial_view(t: &crate::tutorial_play::Tutorial, cfg: &ktf_data::config::Config, now: f32) -> Option<ktf_ui::hud::TutorialView> {
+    use ktf_ui::i18n::{tr, tr_args};
+    if !t.active {
+        return None;
+    }
+    let step = t.step();
+    let (title, body) = match step {
+        "move" => (
+            tr("Move around"),
+            format!(
+                "{} {}",
+                tr_args(
+                    "Walk with {f}{l}{b}{r}.",
+                    &[
+                        ("f", &cfg.key_of("forward").to_uppercase()),
+                        ("l", &cfg.key_of("left").to_uppercase()),
+                        ("b", &cfg.key_of("back").to_uppercase()),
+                        ("r", &cfg.key_of("right").to_uppercase())
+                    ]
+                ),
+                tr("Click the room first to look around.")
+            ),
+        ),
+        "tool" => {
+            (tr("Use a tool"), tr("Click on the fly with the tool in your hand. The hand grabs and throws it, a gentle way to start."))
+        }
+        "brain" => (
+            tr("Watch its brain"),
+            tr(
+                "The panel is the fly's real brain, a simulation of the MaleCNS connectome. Neurons that fire glow. What you just did fired its touch neurons, and the neurons that react to them light up a moment later.",
+            ),
+        ),
+        "sugar" => (
+            tr("Sugar is a reward"),
+            tr(
+                "Sugar is in your hand. Click near the fly to drop some: it fires the taste neurons and the PAM reward neurons, then the fly walks over and eats.",
+            ),
+        ),
+        _ => (
+            tr("Choose your tools"),
+            tr_args(
+                "Press {key} to open the loadout editor: pick which tools are on the hotbar and in what order. Esc closes it. Hold {wheel} for the tool wheel, which reaches every tool.",
+                &[
+                    ("key", &ktf_ui::pages::loadout::key_label(cfg, "loadout")),
+                    ("wheel", &ktf_ui::pages::loadout::key_label(cfg, "tool_wheel")),
+                ],
+            ),
+        ),
+    };
+    let mut step_line = tr_args("Step {i} of {n}", &[("i", &(t.i + 1).to_string()), ("n", &crate::tutorial_play::STEPS.len().to_string())]);
+    if t.replay {
+        step_line += &format!("  ·  {}", tr("replay"));
+    }
+    let grow = if cfg.get_bool("access.reduced_flashing") { 0 } else { (1.0 + 1.5 * (1.0 + (now * 2.0).sin()) / 2.0) as i32 };
+    Some(ktf_ui::hud::TutorialView {
+        step_line,
+        title,
+        body,
+        next_label: format!("{}  (Enter)", tr("Next")),
+        skip_label: format!("{}  (Backspace)", tr("Skip tutorial")),
+        accent: ktf_ui::pages::loadout::select_color(cfg),
+        outline_panel: (step == "brain").then_some(grow),
+    })
 }
 
 fn keys(act: Res<crate::actions::Actions>, keys: Res<ButtonInput<KeyCode>>, mut st: ResMut<HudStats>) {

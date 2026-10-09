@@ -151,6 +151,23 @@ pub struct HudState {
     pub toasts_more: Option<String>,
     /// The Neuron of the Day card, while it is up.
     pub notd: Option<NotdView>,
+    /// The first-launch tutorial card.
+    pub tutorial: Option<TutorialView>,
+}
+
+/// The tutorial's card (`ui/tutorial.py:draw`).
+#[derive(Debug, Clone, Default)]
+pub struct TutorialView {
+    /// "Step 2 of 5" (and "  ·  replay")
+    pub step_line: String,
+    pub title: String,
+    pub body: String,
+    pub next_label: String,
+    pub skip_label: String,
+    /// The accent colour (the loadout palette's "select").
+    pub accent: Color,
+    /// Outline the brain panel (the brain step), with this extra line width (0 with reduced flashing).
+    pub outline_panel: Option<i32>,
 }
 
 /// What the launch card shows (`Extras.draw_notd`).
@@ -172,6 +189,8 @@ pub struct HudHits {
     pub notd_try: Option<Rect>,
     pub notd_off: Option<Rect>,
     pub notd_close: Option<Rect>,
+    pub tutorial_next: Option<Rect>,
+    pub tutorial_skip: Option<Rect>,
 }
 
 /// `draw_source_chip`: a REAL / RULE pill.
@@ -395,6 +414,11 @@ impl Hud<'_> {
         if let Some(n) = &st.notd {
             hits = self.notd(n);
         }
+        if let Some(t) = &st.tutorial {
+            let (n, k) = self.tutorial(t, st.panel.as_ref().is_some_and(|p| !p.big_view));
+            hits.tutorial_next = Some(n);
+            hits.tutorial_skip = Some(k);
+        }
         if let Some((label, user)) = &st.time_label {
             let w = self.f.bold.size(label);
             let bx = Rect::new(play_w / 2 - w / 2 - 11, 92 - 5, w + 22, self.f.bold.linesize + 10);
@@ -422,6 +446,38 @@ impl Hud<'_> {
             self.f.bold.draw_a(self.cv, t, r.x + 14, r.y + 4, [240, 243, 248], a);
             y += 34;
         }
+    }
+
+    /// `Tutorial.draw`: a card at the top of the play area, with Next and Skip buttons; returns their rectangles.
+    fn tutorial(&mut self, t: &TutorialView, panel_shown: bool) -> (Rect, Rect) {
+        let f = self.f;
+        let (w, pad) = (560, 14);
+        let lines = wrap_lines(&t.body, &f.text, w - 2 * pad);
+        let lh = f.text.linesize;
+        let h = 44 + lh * lines.len() as i32 + 56;
+        let card_r = Rect::new(self.lay.play_w / 2 - w / 2, 128, w, h);
+        card(self.cv, card_r, ([8, 10, 16], 236), 12);
+        self.cv.stroke_rect2(card_r, t.accent, 2, 12);
+        text(self.cv, &t.step_line, (card_r.x + pad, card_r.y + 8), LABEL, &f.small, "topleft");
+        text(self.cv, &t.title, (card_r.x + pad, card_r.y + 26), INK, &f.bold, "topleft");
+        let mut y = card_r.y + 50;
+        for ln in &lines {
+            text(self.cv, ln, (card_r.x + pad, y), TEXT, &f.text, "topleft");
+            y += lh;
+        }
+        let by = card_r.bottom() - 40;
+        let mut rects = vec![];
+        for (i, (label, skip)) in [(&t.next_label, false), (&t.skip_label, true)].into_iter().enumerate() {
+            let r = Rect::new(card_r.x + pad + i as i32 * 190, by, f.small.size(label) + 24, 30);
+            self.cv.fill_rect(r, if skip { [44, 50, 64] } else { [40, 110, 150] }, 8);
+            text(self.cv, label, r.center(), INK, &f.small, "center");
+            rects.push(r);
+        }
+        if let (Some(grow), true) = (t.outline_panel, panel_shown) {
+            let view = Rect::new(self.lay.play_w + 12, 54, 356, 193);
+            self.cv.stroke_rect2(Rect::new(view.x - 4, view.y - 4, view.w + 8, view.h + 8), t.accent, 3 + grow, 6);
+        }
+        (rects[0], rects[1])
     }
 
     /// `Extras.draw_notd`: the Neuron of the Day card, centred on the play area above where the science card goes.

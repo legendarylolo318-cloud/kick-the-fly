@@ -26,7 +26,8 @@ pub struct Dex {
     pub toasts: Vec<(String, f32)>,
     pub notd: Option<(Card, f32)>,
     started: bool,
-    notd_tried: bool,
+    /// The Neuron of the Day was decided for this launch (shown, or skipped because the tutorial is on).
+    pub notd_tried: bool,
 }
 
 /// UTC date as `date.toordinal()` (the Python game used the local date).
@@ -100,6 +101,7 @@ fn poll(
     mut sfx: MessageWriter<Sfx>,
     cfg: Res<UserConfig>,
     menu: Res<crate::menu_ui::MenuOpen>,
+    first: Res<crate::first_run::FirstRun>,
 ) {
     let now = real.elapsed_secs();
     for ev in link.0.drain_events() {
@@ -131,7 +133,7 @@ fn poll(
     }
     link.0.send(Command::DexEnabled(cfg.0.get_bool("brain.neurodex")));
     // the Neuron of the Day, once per launch, when the table is ready (never in a menu)
-    if !dex.notd_tried && cfg.0.get_bool("brain.neuron_of_day") && !menu.0 {
+    if !dex.notd_tried && first.0 == Some(crate::first_run::Launch::NeuronOfDay) && cfg.0.get_bool("brain.neuron_of_day") && !menu.0 {
         let table = dex.shared.lock().unwrap_or_else(PoisonError::into_inner).table.clone();
         if let Some(t) = table {
             dex.notd_tried = true;

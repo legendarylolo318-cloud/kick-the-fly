@@ -41,6 +41,10 @@ impl UserConfig {
     }
 }
 
+/// The name of the screen the menu shows ("" when closed), for systems that react to it (the tutorial's last step).
+#[derive(Resource, Default)]
+pub struct MenuScreen(pub String);
+
 /// Whether the menu is open (other systems may want to stand back).
 #[derive(Resource, Default)]
 pub struct MenuOpen(pub bool);
@@ -51,6 +55,7 @@ pub struct MenuStart(pub String);
 
 #[derive(Resource)]
 struct MenuUi {
+    opened_first: bool,
     menu: Menu,
     canvas: Canvas,
     image: Handle<Image>,
@@ -114,7 +119,13 @@ fn setup(
         tc.menu_paused = true;
         look.captured = false;
     }
-    commands.insert_resource(MenuUi { menu, canvas: Canvas { linear_light: true, ..Canvas::new(w as i32, h as i32) }, image, node });
+    commands.insert_resource(MenuUi {
+        opened_first: false,
+        menu,
+        canvas: Canvas { linear_light: true, ..Canvas::new(w as i32, h as i32) },
+        image,
+        node,
+    });
 }
 
 /// `pygame.key.name` of a key, for the key-binding screen and Esc/Enter/Backspace handling.
@@ -214,6 +225,9 @@ struct MenuCtx<'w> {
     open: ResMut<'w, MenuOpen>,
     loadout: ResMut<'w, crate::tools::ActiveLoadout>,
     tools: ResMut<'w, crate::tools::ToolState>,
+    screen: ResMut<'w, MenuScreen>,
+    tut: ResMut<'w, crate::tutorial_play::Tutorial>,
+    first: Res<'w, crate::first_run::FirstRun>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -234,7 +248,7 @@ fn input(
     lay: Res<HudLayout>,
     actions: Res<crate::actions::Actions>,
 ) {
-    let MenuCtx { mut look, mut tc, mut open, mut loadout, mut tools } = mc;
+    let MenuCtx { mut look, mut tc, mut open, mut loadout, mut tools, mut screen, mut tut, first } = mc;
     let was_open = ui.menu.is_open();
     let k = window.scale_factor() / lay.0.scale;
     let mouse = window.cursor_position().map_or((-1, -1), |p| ((p.x * k) as i32, (p.y * k) as i32));
@@ -266,7 +280,22 @@ fn input(
         key_events.clear();
         button_events.clear();
         wheel.clear();
-        if (actions.just("loadout") || (actions.just("neurodex") && !look.captured)) && !arcade.open {
+        if let (false, Some(l)) = (ui.opened_first, first.0) {
+            ui.opened_first = true;
+            let page = match l {
+                crate::first_run::Launch::LoadoutNotice => Some("loadout_notice"),
+                crate::first_run::Launch::WhatsNew => Some("whatsnew"),
+                crate::first_run::Launch::NeuronShapes => Some("neuron_shapes_ask"),
+                _ => None,
+            };
+            if let Some(p) = page {
+                ui.menu.show(p);
+                look.captured = false;
+                tc.menu_paused = true;
+                link.0.send(Command::Pause(true));
+                open.0 = true;
+            }
+        } else if (actions.just("loadout") || (actions.just("neurodex") && !look.captured)) && !arcade.open {
             ui.menu.show(if actions.just("loadout") { "loadout" } else { "neurodex" });
             look.captured = false;
             tc.menu_paused = true;
@@ -316,6 +345,7 @@ fn input(
                     ui.menu.flash(&format!("{label} mode"), ktf_ui::theme::GOOD, 4.0);
                 }
                 "click_sound" => {}
+                "tutorial_replay" => tut.request = Some("replay"),
                 a if a.starts_with("select_tool:") => {
                     let name = &a["select_tool:".len()..];
                     if let Some(i) = crate::tools::TOOLS.iter().position(|t| t.0 == name) {
@@ -343,6 +373,7 @@ fn input(
             }
         }
     }
+    screen.0 = ui.menu.screen.clone().unwrap_or_default();
     if was_open || ui.menu.is_open() {
         // the menu owns the input this frame: the game must not also react to the same keys and clicks
         keys.reset_all();
@@ -431,6 +462,7 @@ impl Plugin for MenuPlugin {
             app.insert_resource(UserConfig(Config::new(None)));
         }
         app.init_resource::<MenuOpen>()
+            .init_resource::<MenuScreen>()
             .add_systems(Startup, (setup, apply_config_at_start))
             .add_systems(PreUpdate, input.in_set(MenuInputSet).after(bevy::input::InputSystems))
             .add_systems(Update, draw);
