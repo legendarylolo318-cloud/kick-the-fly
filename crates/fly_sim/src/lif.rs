@@ -196,6 +196,11 @@ impl LifSim {
         &self.weights
     }
 
+    /// The weights, to change plastic synapses (the memory). `Arc::make_mut` on it copies the matrix once if the arcade's brains share it.
+    pub fn weights_mut(&mut self) -> &mut Arc<Weights> {
+        &mut self.weights
+    }
+
     /// Spikes of the latest step (ascending indices).
     pub fn spikes(&self) -> &[u32] {
         &self.active

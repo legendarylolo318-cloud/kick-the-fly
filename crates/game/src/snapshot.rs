@@ -44,6 +44,29 @@ pub struct BrainInfo {
     pub synapses: usize,
 }
 
+/// A conditioning run in progress (`Game.train`).
+#[derive(Debug, Clone, PartialEq)]
+pub struct TrainView {
+    pub scent: String,
+    pub kind: String,
+    pub trials: u32,
+    pub done: u32,
+    pub phase: String,
+}
+
+/// What the training screen and the MEMORY card show: the memory of each smell, how many synapses are weakened, the training log.
+#[derive(Debug, Clone, Default)]
+pub struct MemoryView {
+    /// (smell, fear, liking) for every smell with a stored Kenyon-cell pattern.
+    pub scores: Vec<(String, f32, f32)>,
+    pub weakened: f32,
+    pub synapses: usize,
+    pub log: std::collections::BTreeMap<String, Vec<fly_sim::memory::Trial>>,
+    pub naive_mbon: std::collections::BTreeMap<String, f64>,
+    pub path: String,
+    pub train: Option<TrainView>,
+}
+
 /// A copy of the sim's state for drawing. Plain data, cheap to hold on to.
 #[derive(Debug, Clone, Default)]
 pub struct Snapshot {
@@ -86,6 +109,8 @@ pub struct Snapshot {
     /// Whole-brain rate, spikes/s per neuron, the last 600 samples of 20 ms (12 s), oldest first (the WHOLE BRAIN trace).
     pub whole_trace: Vec<f32>,
     pub info: Option<Arc<BrainInfo>>,
+    /// What the mushroom body has learned (None when learning is off or the pack has no dopamine tables).
+    pub memory: Option<Arc<MemoryView>>,
     /// When the sim thread made this snapshot, to measure how stale the render side's view is.
     pub published_at: Option<Instant>,
 }

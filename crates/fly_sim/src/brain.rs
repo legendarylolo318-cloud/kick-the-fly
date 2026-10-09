@@ -77,6 +77,8 @@ pub struct Brain {
     /// Named groups, the poke queue and the rate trackers (`Brain.poke`, `level`, `hz`).
     pub groups: Groups,
     gain_adapt: f64,
+    /// Learning on the mushroom body synapses (`Brain.memory`), when the pack has the dopamine tables and it was switched on.
+    pub memory: Option<Box<crate::memory::Memory>>,
 }
 
 /// What a save keeps of a brain: the simulator, the group rate trackers and the step counter (`core/savestate.py:brain_state`).
@@ -123,7 +125,14 @@ impl Brain {
             scratch: vec![0.0; n],
             groups,
             gain_adapt,
+            memory: None,
         }
+    }
+
+    /// Switch learning on (`simcore.new_brain(memory=True)`); false when the pack has no dopamine/MBON tables.
+    pub fn enable_memory(&mut self) -> bool {
+        self.memory = crate::memory::Memory::new(&self.labels, self.sim.weights()).map(Box::new);
+        self.memory.is_some()
     }
 
     /// A warmed-up brain like `simcore.new_brain(seed, warmup=600)`.
@@ -286,6 +295,12 @@ impl Brain {
         }
         let calm = self.calm();
         self.groups.end_step(self.sim.spikes(), self.steps, calm);
+        if self.steps.is_multiple_of(crate::memory::UPDATE_STEPS) && self.memory.is_some() {
+            let calm_for_memory = calm && self.steps as i64 - self.groups.last_poke > crate::groups::CALM_STEPS as i64;
+            if let Some(m) = self.memory.as_mut() {
+                m.step(&mut self.sim, calm_for_memory);
+            }
+        }
         self.sim.spikes()
     }
 

@@ -153,6 +153,49 @@ pub struct HudState {
     pub notd: Option<NotdView>,
     /// The first-launch tutorial card.
     pub tutorial: Option<TutorialView>,
+    /// The training screen (T), while it is open.
+    pub training: Option<TrainingScreen>,
+}
+
+/// One smell of the training screen's list.
+#[derive(Debug, Clone, Default)]
+pub struct TrainRow {
+    pub name: String,
+    pub fear: f32,
+    pub like: f32,
+    /// Fear and liking trials so far.
+    pub trials: usize,
+}
+
+/// A conditioning run in progress.
+#[derive(Debug, Clone, Default)]
+pub struct TrainProgress {
+    pub kind: String,
+    pub scent: String,
+    pub done: u32,
+    pub trials: u32,
+    pub phase: String,
+    pub steps_per_s: f32,
+}
+
+/// The training screen (`Game._draw_training`).
+#[derive(Debug, Clone, Default)]
+pub struct TrainingScreen {
+    /// False: the pack has no dopamine tables ("Training needs the updated brain pack").
+    pub available: bool,
+    pub rows: Vec<TrainRow>,
+    pub selected: String,
+    /// (fear, liking) after each trial and test of the selected smell, the untrained rows left out.
+    pub curve: Vec<(f32, f32)>,
+    pub naive_hz: Option<f64>,
+    /// MBON response at the last logged test/trial of this smell.
+    pub last_hz: Option<f64>,
+    pub weakened: f32,
+    pub synapses: usize,
+    pub speed: f32,
+    pub wipe_armed: bool,
+    pub path: String,
+    pub train: Option<TrainProgress>,
 }
 
 /// The tutorial's card (`ui/tutorial.py:draw`).
@@ -191,6 +234,8 @@ pub struct HudHits {
     pub notd_close: Option<Rect>,
     pub tutorial_next: Option<Rect>,
     pub tutorial_skip: Option<Rect>,
+    /// The training screen's buttons: (rectangle, what, which smell for `select`).
+    pub train: Vec<(Rect, String, Option<String>)>,
 }
 
 /// `draw_source_chip`: a REAL / RULE pill.
@@ -419,11 +464,174 @@ impl Hud<'_> {
             hits.tutorial_next = Some(n);
             hits.tutorial_skip = Some(k);
         }
+        if let Some(t) = &st.training {
+            hits.train = self.training(t);
+        }
         if let Some((label, user)) = &st.time_label {
             let w = self.f.bold.size(label);
             let bx = Rect::new(play_w / 2 - w / 2 - 11, 92 - 5, w + 22, self.f.bold.linesize + 10);
             self.cv.fill_rect(bx, if *user { AMBER } else { ACCENT }, 8);
             text(self.cv, label, bx.center(), [20, 16, 8], &self.f.bold, "center");
+        }
+        hits
+    }
+
+    /// `Game._draw_training`: the smell list with fear and liking bars, the learning curve of the selected smell, the buttons.
+    fn training(&mut self, t: &TrainingScreen) -> Vec<(Rect, String, Option<String>)> {
+        let f = self.f;
+        let mut hits: Vec<(Rect, String, Option<String>)> = vec![];
+        self.cv.veil([4, 5, 8], 150);
+        let (play_w, h) = (890, 760); // the pygame module constants PLAY_W and H, not the window
+        let panel = Rect::new(40, 30, (play_w - 80).min(820), (h - 60).min(610));
+        self.cv.fill_rect(panel, [18, 21, 28], 16);
+        self.cv.stroke_rect(panel, BORDER, 16);
+        let (x, y) = (panel.x + 22, panel.y + 14);
+        text(self.cv, "TRAINING", (x, y), INK, &f.title, "topleft");
+        text(
+            self.cv,
+            "Pair a smell with a shock or with sugar. Dopamine then weakens the fly's real Kenyon cell to output neuron synapses.",
+            (x + 2, y + 46),
+            LABEL,
+            &f.small,
+            "topleft",
+        );
+        if !t.available {
+            text(self.cv, "Training needs the updated brain pack.", (x, y + 90), S_CRIT, &f.bold, "topleft");
+            return hits;
+        }
+        let (fear_c, like_c) = ([240, 150, 60], [255, 150, 190]);
+        let mut ly = y + 72;
+        text(self.cv, "SMELL", (x, ly), LABEL, &f.small, "topleft");
+        text(self.cv, "fear", (x + 150, ly), fear_c, &f.small, "topleft");
+        text(self.cv, "liking", (x + 225, ly), like_c, &f.small, "topleft");
+        text(self.cv, "trials", (x + 300, ly), LABEL, &f.small, "topleft");
+        ly += 18;
+        for r in &t.rows {
+            let rr = Rect::new(x - 6, ly - 3, 350, 22);
+            let sel = r.name == t.selected;
+            if sel {
+                self.cv.fill_rect(rr, [44, 50, 64], 6);
+            }
+            text(self.cv, &r.name, (x, ly), if sel { INK } else { TEXT }, if sel { &f.text } else { &f.small }, "topleft");
+            bar(self.cv, x + 150, ly + 4, 64, r.fear, fear_c, None);
+            bar(self.cv, x + 225, ly + 4, 64, r.like, like_c, None);
+            text(self.cv, &r.trials.to_string(), (x + 330, ly), LABEL, &f.small, "topright");
+            hits.push((rr, "select".into(), Some(r.name.clone())));
+            ly += 22;
+        }
+        // the learning curve
+        let (cx, cy, cw, ch) = (x + 380, y + 90, panel.right() - x - 380 - 22, 230);
+        self.cv.fill_rect(Rect::new(cx, cy, cw, ch), [12, 14, 20], 8);
+        text(self.cv, &format!("{}: memory after each trial", t.selected), (cx + 10, cy + 8), INK, &f.bold, "topleft");
+        let mut lx = cx + 12;
+        for (label, col) in [("fear", fear_c), ("liking", like_c)] {
+            self.cv.fill_rect(Rect::new(lx, cy + 35, 14, 4), col, 2);
+            lx = text(self.cv, label, (lx + 20, cy + 28), TEXT, &f.small, "topleft").right() + 16;
+        }
+        let (px0, py0, pw, ph) = (cx + 36, cy + 54, cw - 50, ch - 80);
+        for v in [0.0f32, 0.5, 1.0] {
+            let gy = py0 + ph - (v * ph as f32) as i32;
+            self.cv.line((px0, gy), (px0 + pw, gy), 1, [40, 44, 54], 255);
+            text(self.cv, &py_g(v), (px0 - 8, gy - 7), LABEL, &f.small, "topright");
+        }
+        if !t.curve.is_empty() {
+            let n = t.curve.len().max(2) as f32;
+            for (j, col) in [(0usize, fear_c), (1, like_c)] {
+                let pts: Vec<(i32, i32)> = t
+                    .curve
+                    .iter()
+                    .enumerate()
+                    .map(|(k, e)| {
+                        let v = if j == 0 { e.0 } else { e.1 };
+                        ((px0 as f32 + k as f32 * pw as f32 / (n - 1.0)) as i32, (py0 as f32 + ph as f32 - v * ph as f32) as i32)
+                    })
+                    .collect();
+                for w in pts.windows(2) {
+                    self.cv.line(w[0], w[1], 2, col, 255);
+                }
+                for p in &pts {
+                    self.cv.aa_circle((p.0 as f32, p.1 as f32), 3.0, col);
+                }
+            }
+            text(self.cv, &format!("{} trials and tests", t.curve.len()), (px0 + pw, py0 + ph + 6), LABEL, &f.small, "topright");
+        } else {
+            text(self.cv, "no trials yet", (px0 + pw / 2, py0 + ph / 2), DIM, &f.small, "center");
+        }
+        let sy = cy + ch + 12;
+        if let (Some(naive), Some(now)) = (t.naive_hz, t.last_hz) {
+            text(self.cv, "approach output neurons (MBONs) to this smell:", (cx, sy), TEXT, &f.small, "topleft");
+            text(self.cv, &format!("{naive:.1} spikes/s untrained  >  {now:.1} now"), (cx, sy + 16), INK, &f.small, "topleft");
+        }
+        text(
+            self.cv,
+            &format!("{:.1}% of {} Kenyon cell synapses weakened", t.weakened * 100.0, group3(t.synapses as u32)),
+            (cx, sy + 36),
+            LABEL,
+            &f.small,
+            "topleft",
+        );
+        // buttons
+        let by = panel.bottom() - 104;
+        let busy = t.train.is_some();
+        let buttons: [(String, &str, Color); 5] = [
+            ("TRAIN FEAR x10".into(), "fear", [170, 90, 40]),
+            ("TRAIN LIKING x10".into(), "like", [170, 70, 110]),
+            ("TEST".into(), "test", [60, 90, 140]),
+            (format!("SPEED x{}", py_g(t.speed)), "speed", [60, 64, 76]),
+            (
+                if t.wipe_armed { "WIPE MEMORY" } else { "wipe memory" }.into(),
+                "wipe",
+                if t.wipe_armed { [130, 40, 40] } else { [60, 40, 44] },
+            ),
+        ];
+        let mut bx = x;
+        for (label, what, col) in buttons {
+            let r = Rect::new(bx, by, f.bold.size(&label) + 24, 34);
+            let dim = busy && matches!(what, "fear" | "like" | "test" | "wipe");
+            self.cv.fill_rect(r, if dim { [col[0] / 2, col[1] / 2, col[2] / 2] } else { col }, 8);
+            text(self.cv, &label, r.center(), INK, &f.bold, "center");
+            hits.push((r, what.into(), None));
+            bx = r.right() + 10;
+        }
+        if let Some(tr) = &t.train {
+            let stop = Rect::new(panel.right() - 110, by, 88, 34);
+            self.cv.fill_rect(stop, [90, 90, 96], 8);
+            text(self.cv, "STOP", stop.center(), INK, &f.bold, "center");
+            hits.push((stop, "stop".into(), None));
+            let done = tr.done as f32 / tr.trials.max(1) as f32;
+            self.cv.fill_rect(Rect::new(x, by + 44, panel.w - 44, 10), [30, 36, 48], 5);
+            self.cv.fill_rect(Rect::new(x, by + 44, 8.max(((panel.w - 44) as f32 * done) as i32), 10), AMBER, 5);
+            text(
+                self.cv,
+                &format!(
+                    "{} training on {}: trial {}/{}   {}   brain {:.0} steps/s",
+                    tr.kind,
+                    tr.scent,
+                    (tr.done + 1).min(tr.trials),
+                    tr.trials,
+                    tr.phase,
+                    tr.steps_per_s
+                ),
+                (x, by + 60),
+                TEXT,
+                &f.small,
+                "topleft",
+            );
+        } else {
+            text(
+                self.cv,
+                "Kept across new flies and restarts, fades slowly (~30 min). Hurting it near a tool trains it too.",
+                (x, by + 44),
+                LABEL,
+                &f.small,
+                "topleft",
+            );
+            let mut where_: String = t.path.clone();
+            if where_.chars().count() > 80 {
+                let tail: String = where_.chars().rev().take(77).collect::<Vec<_>>().into_iter().rev().collect();
+                where_ = format!("...{tail}");
+            }
+            text(self.cv, &format!("saved in {where_}"), (x, by + 62), DIM, &f.small, "topleft");
         }
         hits
     }
@@ -851,6 +1059,11 @@ fn wrap_lines(text: &str, font: &Font, width: i32) -> Vec<String> {
     }
     lines.push(line);
     lines
+}
+
+/// Python's `{:g}` for the small numbers the screens print (0.5, 1, 2, 3).
+fn py_g(v: f32) -> String {
+    if v.fract() == 0.0 { format!("{}", v as i64) } else { format!("{v}") }
 }
 
 fn title_case(s: &str) -> String {

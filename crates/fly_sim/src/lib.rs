@@ -14,11 +14,13 @@ pub mod brain;
 pub mod csr;
 pub mod groups;
 pub mod lif;
+pub mod memory;
 pub mod neurodex;
 pub mod npy;
 pub mod pack;
 pub mod rng;
 pub mod synthetic;
+pub mod training;
 pub mod util;
 mod ziggurat_tables;
 

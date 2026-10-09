@@ -14,9 +14,10 @@ use fly_sim::brain::STIM_AMP;
 use fly_sim::csr::Weights;
 use fly_sim::lif::{LifParams, LifSim};
 use fly_sim::pack::{Labels, Pack};
+use fly_sim::training::{Kind, Outcome, Training};
 use fly_sim::{Brain, synthetic};
 
-use crate::snapshot::{BrainInfo, Mailbox, Phase, Snapshot};
+use crate::snapshot::{BrainInfo, Mailbox, MemoryView, Phase, Snapshot, TrainView};
 
 /// Brain steps behind real time that are dropped rather than caught up (Python: `due - done > 40`).
 const MAX_BACKLOG: u64 = 40;
@@ -45,11 +46,13 @@ pub struct SimConfig {
     pub warmup: usize,
     /// Publish a snapshot every this many steps (4 = 50 per second, like the Python brain view's history).
     pub publish_every: u64,
+    /// Where the fly's memory lives (`fly-memory.npz`): learning is on when this is set and the pack has the dopamine tables.
+    pub memory_dir: Option<std::path::PathBuf>,
 }
 
 impl SimConfig {
     pub fn new(source: Source) -> Self {
-        Self { source, seed: 1000, warmup: WARMUP_STEPS, publish_every: 4 }
+        Self { source, seed: 1000, warmup: WARMUP_STEPS, publish_every: 4, memory_dir: None }
     }
 }
 
@@ -98,6 +101,21 @@ pub enum Command {
     DexKnown(Vec<String>),
     /// `brain.neurodex` on/off.
     DexEnabled(bool),
+    /// `Memory.observe`: remember the Kenyon-cell pattern of a smell that is present now (the game sends it every 3rd frame).
+    Observe(String),
+    /// Start conditioning (`fear`, `like` or `test`) on a smell; `trials` 0 means 10.
+    Train {
+        kind: String,
+        scent: String,
+        trials: u32,
+    },
+    StopTrain,
+    /// Forget everything the fly learned (and save the empty memory).
+    WipeMemory,
+    /// A challenge borrows the memory: nothing is autosaved while it does (`Challenge.borrows_memory`).
+    MemoryBorrowed(bool),
+    /// Write `fly-memory.npz` now.
+    SaveMemory,
     /// Report the whole brain state (a save): the answer comes as [`SimEvent::State`].
     ExportState,
     /// Put a saved brain state back (a loaded save).
@@ -259,6 +277,10 @@ fn run(
     let dt = Duration::from_secs_f64(params.dt_ms / 1000.0);
     let info = Arc::new(brain_info(&labels, &weights));
     let mut brain = Brain::new(LifSim::new(weights, params, cfg.seed), labels);
+    let mut mem = MemState::new(cfg.memory_dir.clone());
+    if mem.dir.is_some() && brain.enable_memory() {
+        mem.load(&mut brain);
+    }
     brain.warmup(cfg.warmup);
 
     let mut state = LoopState { speed: 1.0, paused: false, pending_steps: 0 };
@@ -268,28 +290,31 @@ fn run(
     let mut dropped: u64 = 0;
     let mut driving = false;
     let mut dex = DexState { tracker: None, table: None, enabled: true };
-    publish(&mailbox, &brain, &source, &state, steps_per_s, dropped, driving, &info);
+    publish(&mailbox, &brain, &source, &state, steps_per_s, dropped, driving, &info, &mem);
 
     while !stop.load(Ordering::Relaxed) {
         let before = (state.speed, state.paused);
         loop {
             match rx.try_recv() {
-                Ok(Command::Shutdown) | Err(TryRecvError::Disconnected) => return,
-                Ok(cmd) => driving |= apply(&mut brain, &mut state, &mut dex, cfg.seed, &events, cmd),
+                Ok(Command::Shutdown) | Err(TryRecvError::Disconnected) => {
+                    mem.save_if_dirty(&mut brain);
+                    return;
+                }
+                Ok(cmd) => driving |= apply(&mut brain, &mut state, &mut dex, &mut mem, cfg.seed, &events, cmd),
                 Err(TryRecvError::Empty) => break,
             }
         }
         if (state.speed, state.paused) != before {
             t0 = Instant::now(); // re-anchor the clock when the speed changes, as Brain._loop does
             done = 0;
-            publish(&mailbox, &brain, &source, &state, steps_per_s, dropped, driving, &info);
+            publish(&mailbox, &brain, &source, &state, steps_per_s, dropped, driving, &info, &mem);
         }
         if state.pending_steps > 0 {
             for _ in 0..state.pending_steps {
                 brain.step();
             }
             state.pending_steps = 0;
-            publish(&mailbox, &brain, &source, &state, steps_per_s, dropped, driving, &info);
+            publish(&mailbox, &brain, &source, &state, steps_per_s, dropped, driving, &info, &mem);
         }
         if state.paused {
             thread::sleep(Duration::from_millis(2));
@@ -311,15 +336,17 @@ fn run(
         brain.step();
         done += 1;
         dex_check(&brain, &mut dex, &events);
+        mem.after_step(&mut brain);
         if rate_t.elapsed() >= Duration::from_secs(1) {
             steps_per_s = (brain.steps - rate_steps) as f32 / rate_t.elapsed().as_secs_f32();
             rate_t = Instant::now();
             rate_steps = brain.steps;
         }
         if brain.steps.is_multiple_of(cfg.publish_every) {
-            publish(&mailbox, &brain, &source, &state, steps_per_s, dropped, driving, &info);
+            publish(&mailbox, &brain, &source, &state, steps_per_s, dropped, driving, &info, &mem);
         }
     }
+    mem.save_if_dirty(&mut brain);
 }
 
 struct LoopState {
@@ -329,7 +356,15 @@ struct LoopState {
 }
 
 /// Returns true when the command turned a stimulus on.
-fn apply(brain: &mut Brain, state: &mut LoopState, dex: &mut DexState, seed: u64, events: &Sender<SimEvent>, cmd: Command) -> bool {
+fn apply(
+    brain: &mut Brain,
+    state: &mut LoopState,
+    dex: &mut DexState,
+    mem: &mut MemState,
+    seed: u64,
+    events: &Sender<SimEvent>,
+    cmd: Command,
+) -> bool {
     match cmd {
         Command::DriveSpec { spec, amp } => match brain.rows_of(&spec) {
             Ok(rows) => {
@@ -397,6 +432,45 @@ fn apply(brain: &mut Brain, state: &mut LoopState, dex: &mut DexState, seed: u64
             dex.enabled = on;
             false
         }
+        Command::Observe(scent) => {
+            if let Some(m) = brain.memory.as_mut() {
+                let rates = brain.sim.activity.rates();
+                m.observe(&scent, rates);
+            }
+            false
+        }
+        Command::Train { kind, scent, trials } => {
+            if mem.training.is_none()
+                && let Some(k) = Kind::parse(&kind)
+            {
+                mem.training = Training::start(brain, &scent, k, trials);
+            }
+            false
+        }
+        Command::StopTrain => {
+            if mem.training.take().is_some() {
+                mem.save(brain);
+            }
+            false
+        }
+        Command::WipeMemory => {
+            if mem.training.is_none()
+                && let Some(mut m) = brain.memory.take()
+            {
+                m.wipe(&mut brain.sim);
+                brain.memory = Some(m);
+                mem.save(brain);
+            }
+            false
+        }
+        Command::MemoryBorrowed(b) => {
+            mem.borrowed = b;
+            false
+        }
+        Command::SaveMemory => {
+            mem.save(brain);
+            false
+        }
         Command::ExportState => {
             let _ = events.send(SimEvent::State(Box::new(brain.export_state(seed))));
             false
@@ -439,6 +513,7 @@ fn publish(
     dropped: u64,
     driving: bool,
     info: &Arc<BrainInfo>,
+    mem: &MemState,
 ) {
     let sim = &brain.sim;
     mailbox.publish(Snapshot::default, |s| {
@@ -477,8 +552,154 @@ fn publish(
         if s.info.is_none() {
             s.info = Some(info.clone());
         }
+        s.memory.clone_from(&mem.view);
         s.published_at = Some(Instant::now());
     });
+}
+
+/// The fly's memory on the sim thread: its file, the training in progress, the autosave clock and the view the game reads.
+struct MemState {
+    dir: Option<std::path::PathBuf>,
+    last_save: Instant,
+    training: Option<Training>,
+    borrowed: bool,
+    view: Option<Arc<MemoryView>>,
+}
+
+fn unix_now() -> f64 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0.0, |d| d.as_secs_f64())
+}
+
+impl MemState {
+    fn new(dir: Option<std::path::PathBuf>) -> Self {
+        MemState { dir, last_save: Instant::now(), training: None, borrowed: false, view: None }
+    }
+
+    fn file(&self) -> Option<std::path::PathBuf> {
+        self.dir.as_ref().map(|d| d.join("fly-memory.npz"))
+    }
+
+    /// `Memory.load`: the saved weights, smell patterns and calm baselines of an earlier session, if they were made for this pack.
+    fn load(&mut self, brain: &mut Brain) {
+        let (Some(file), Some(mut m)) = (self.file(), brain.memory.take()) else { return };
+        if let Some(saved) = ktf_data::stores::FlyMemory::load(&file, &m.signature) {
+            let templates = saved.templates.clone();
+            if m.restore(&mut brain.sim, saved.w, saved.kc_calm, saved.dan_calm, templates) {
+                if let Some(o) = saved.naive_mbon.as_object() {
+                    m.naive_mbon = o.iter().filter_map(|(k, v)| v.as_f64().map(|x| (k.clone(), x))).collect();
+                }
+                if let Some(o) = saved.trials.as_object() {
+                    for (scent, rows) in o {
+                        let rows = rows.as_array().map(Vec::as_slice).unwrap_or_default();
+                        let parsed = rows
+                            .iter()
+                            .filter_map(|r| {
+                                let r = r.as_array()?;
+                                Some(fly_sim::memory::Trial {
+                                    time: r.first()?.as_f64()?,
+                                    kind: r.get(1)?.as_str()?.to_string(),
+                                    fear: r.get(2)?.as_f64()?,
+                                    like: r.get(3)?.as_f64()?,
+                                    mbon_hz: r.get(4).and_then(serde_json::Value::as_f64),
+                                })
+                            })
+                            .collect();
+                        m.log.insert(scent.clone(), parsed);
+                    }
+                }
+            }
+        }
+        brain.memory = Some(m);
+    }
+
+    fn save_if_dirty(&mut self, brain: &mut Brain) {
+        if brain.memory.as_ref().is_some_and(|m| m.dirty) {
+            self.save(brain);
+        }
+    }
+
+    /// `Memory.save`: `fly-memory.npz` and `training-log.json`. A full or read-only folder is a warning, never a hang.
+    fn save(&mut self, brain: &mut Brain) {
+        let (Some(file), Some(m)) = (self.file(), brain.memory.as_mut()) else { return };
+        if self.borrowed {
+            return;
+        }
+        let trials: serde_json::Map<String, serde_json::Value> = m
+            .log
+            .iter()
+            .map(|(k, rows)| {
+                (
+                    k.clone(),
+                    serde_json::Value::Array(rows.iter().map(|t| serde_json::json!([t.time, t.kind, t.fear, t.like, t.mbon_hz])).collect()),
+                )
+            })
+            .collect();
+        let saved = ktf_data::stores::FlyMemory {
+            signature: m.signature.to_vec(),
+            w: m.w.clone(),
+            templates: m.templates.clone(),
+            kc_calm: m.kc_calm.clone(),
+            dan_calm: m.dan_calm.clone(),
+            naive_mbon: serde_json::to_value(&m.naive_mbon).unwrap_or_default(),
+            trials: serde_json::Value::Object(trials),
+        };
+        match saved.save(&file) {
+            Ok(()) => m.dirty = false,
+            Err(e) => eprintln!("could not save the fly's memory to {}: {e}", file.display()),
+        }
+        self.last_save = Instant::now();
+    }
+
+    /// After every brain step: the conditioning protocol, the 30 s autosave, and the view the game reads (every 12 steps).
+    fn after_step(&mut self, brain: &mut Brain) {
+        if brain.memory.is_none() {
+            return;
+        }
+        if let Some(t) = self.training.as_mut()
+            && t.tick(brain, unix_now()) == Outcome::Done
+        {
+            self.training = None;
+            self.save(brain);
+        }
+        if brain.steps.is_multiple_of(600)
+            && self.last_save.elapsed() > Duration::from_secs(30)
+            && brain.memory.as_ref().is_some_and(|m| m.dirty)
+        {
+            self.save(brain);
+        }
+        if brain.steps.is_multiple_of(12) || self.view.is_none() {
+            self.rebuild_view(brain);
+        }
+    }
+
+    fn rebuild_view(&mut self, brain: &Brain) {
+        let Some(m) = brain.memory.as_ref() else { return };
+        let mut scores: Vec<(String, f32, f32)> = m
+            .templates
+            .keys()
+            .map(|k| {
+                let (f, l) = m.memory_of(k);
+                (k.clone(), f, l)
+            })
+            .collect();
+        scores.sort_by(|a, b| a.0.cmp(&b.0));
+        let train = self.training.as_ref().map(|t| TrainView {
+            scent: t.scent.clone(),
+            kind: t.kind.name().into(),
+            trials: t.trials,
+            done: t.done,
+            phase: t.phase.describe(t.kind),
+        });
+        self.view = Some(Arc::new(MemoryView {
+            scores,
+            weakened: m.weakened_share(),
+            synapses: m.w0.len(),
+            log: m.log.clone(),
+            naive_mbon: m.naive_mbon.clone(),
+            path: self.file().map(|p| p.parent().map(|d| d.to_string_lossy().into_owned()).unwrap_or_default()).unwrap_or_default(),
+            train,
+        }));
+    }
 }
 
 fn brain_info(labels: &Labels, weights: &Weights) -> BrainInfo {
@@ -574,7 +795,7 @@ mod tests {
     }
 
     fn cfg(n: usize) -> SimConfig {
-        SimConfig { source: Source::Synthetic { n }, seed: 1, warmup: 20, publish_every: 2 }
+        SimConfig { source: Source::Synthetic { n }, seed: 1, warmup: 20, publish_every: 2, memory_dir: None }
     }
 
     #[test]
