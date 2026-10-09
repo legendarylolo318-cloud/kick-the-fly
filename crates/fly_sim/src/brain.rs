@@ -79,7 +79,33 @@ pub struct Brain {
     gain_adapt: f64,
 }
 
+/// What a save keeps of a brain: the simulator, the group rate trackers and the step counter (`core/savestate.py:brain_state`).
+#[derive(Debug, Clone)]
+pub struct BrainState {
+    pub sim: crate::lif::SimState,
+    pub fast: Vec<f32>,
+    pub base: Vec<f32>,
+    pub steps: u64,
+}
+
 impl Brain {
+    /// `seed` is the one the simulator was made with.
+    pub fn export_state(&self, seed: u64) -> BrainState {
+        BrainState { sim: self.sim.export_state(seed), fast: self.groups.fast.clone(), base: self.groups.base.clone(), steps: self.steps }
+    }
+
+    /// Put a saved state back (the caller has checked that the save is for this brain pack).
+    pub fn import_state(&mut self, st: &BrainState) {
+        self.sim.import_state(&st.sim);
+        if st.fast.len() == self.groups.fast.len() && st.base.len() == self.groups.base.len() {
+            self.groups.fast.copy_from_slice(&st.fast);
+            self.groups.base.copy_from_slice(&st.base);
+        }
+        self.steps = st.steps;
+        self.groups.last_poke = -1_000_000_000;
+        self.groups.clear_pending();
+    }
+
     pub fn new(sim: LifSim, labels: Arc<Labels>) -> Self {
         let n = sim.n;
         let groups = Groups::new(&labels, n, sim.p.dt_ms, 0x6b69_636b);

@@ -26,6 +26,8 @@ pub const WARMUP_STEPS: usize = 600;
 /// What to simulate.
 #[derive(Debug, Clone)]
 pub enum Source {
+    /// The pack compiled into the program (feature `bundle-pack`).
+    Embedded,
     /// The brain pack file (`data/kick_brain.npz`).
     Pack(std::path::PathBuf),
     /// A random network of `n` neurons: for tests and for running without the dataset.
@@ -96,6 +98,10 @@ pub enum Command {
     DexKnown(Vec<String>),
     /// `brain.neurodex` on/off.
     DexEnabled(bool),
+    /// Report the whole brain state (a save): the answer comes as [`SimEvent::State`].
+    ExportState,
+    /// Put a saved brain state back (a loaded save).
+    ImportState(Box<fly_sim::brain::BrainState>),
     Shutdown,
 }
 
@@ -112,6 +118,8 @@ pub struct Shared {
 pub enum SimEvent {
     /// A type was discovered (`fly_sim::neurodex::Tracker`).
     Discovered(fly_sim::neurodex::Found),
+    /// The answer to [`Command::ExportState`].
+    State(Box<fly_sim::brain::BrainState>),
 }
 
 pub struct SimHandle {
@@ -185,8 +193,25 @@ fn publish_phase(mailbox: &Mailbox<Snapshot>, phase: Phase, source: &str, neuron
     });
 }
 
+/// The brain pack inside the program, when it was built with `--features bundle-pack`.
+pub fn embedded_pack() -> Option<&'static [u8]> {
+    #[cfg(feature = "bundle-pack")]
+    {
+        static PACK: &[u8] = include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../data/kick_brain.npz"));
+        Some(PACK)
+    }
+    #[cfg(not(feature = "bundle-pack"))]
+    {
+        None
+    }
+}
+
 fn load(cfg: &SimConfig) -> Result<(Arc<Weights>, Arc<Labels>, String), String> {
     match &cfg.source {
+        Source::Embedded => {
+            let pack = Pack::load_bytes(embedded_pack().ok_or("this build has no embedded brain pack")?).map_err(|e| e.to_string())?;
+            Ok((Arc::new(pack.weights), Arc::new(pack.labels), "embedded pack".to_string()))
+        }
         Source::Pack(path) => {
             let pack = Pack::load(path).map_err(|e| format!("{}: {e}", path.display()))?;
             let name = path.file_name().map_or_else(|| "pack".into(), |n| n.to_string_lossy().into_owned());
@@ -250,7 +275,7 @@ fn run(
         loop {
             match rx.try_recv() {
                 Ok(Command::Shutdown) | Err(TryRecvError::Disconnected) => return,
-                Ok(cmd) => driving |= apply(&mut brain, &mut state, &mut dex, cmd),
+                Ok(cmd) => driving |= apply(&mut brain, &mut state, &mut dex, cfg.seed, &events, cmd),
                 Err(TryRecvError::Empty) => break,
             }
         }
@@ -304,7 +329,7 @@ struct LoopState {
 }
 
 /// Returns true when the command turned a stimulus on.
-fn apply(brain: &mut Brain, state: &mut LoopState, dex: &mut DexState, cmd: Command) -> bool {
+fn apply(brain: &mut Brain, state: &mut LoopState, dex: &mut DexState, seed: u64, events: &Sender<SimEvent>, cmd: Command) -> bool {
     match cmd {
         Command::DriveSpec { spec, amp } => match brain.rows_of(&spec) {
             Ok(rows) => {
@@ -370,6 +395,14 @@ fn apply(brain: &mut Brain, state: &mut LoopState, dex: &mut DexState, cmd: Comm
         }
         Command::DexEnabled(on) => {
             dex.enabled = on;
+            false
+        }
+        Command::ExportState => {
+            let _ = events.send(SimEvent::State(Box::new(brain.export_state(seed))));
+            false
+        }
+        Command::ImportState(st) => {
+            brain.import_state(&st);
             false
         }
         Command::Shutdown => false,
@@ -471,6 +504,7 @@ fn brain_info(labels: &Labels, weights: &Weights) -> BrainInfo {
         population,
         group_names: g.names.clone(),
         population_names: pop_names,
+        synapses: weights.csr.nnz(),
     }
 }
 

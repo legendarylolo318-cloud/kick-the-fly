@@ -1,3 +1,4 @@
+#![cfg_attr(all(not(debug_assertions), target_os = "windows"), windows_subsystem = "windows")]
 //! `kick_the_fly [--pack FILE | --synthetic N] [--seed S] [--smoke SECONDS]`
 //!
 //! Opens the game window with the brain running on its own thread. `--smoke` runs the sim thread headless for a number of seconds
@@ -92,6 +93,7 @@ fn parse(args: impl Iterator<Item = String>) -> Result<Args, String> {
     }
     let source = source.unwrap_or_else(|| match pack::find_default() {
         Some(p) => Source::Pack(p),
+        None if kick_the_fly::sim_thread::embedded_pack().is_some() => Source::Embedded,
         None => {
             eprintln!("no brain pack found (data/kick_brain.npz); running a synthetic network. Use --pack FILE for the connectome.");
             Source::Synthetic { n: 20_000 }
@@ -100,7 +102,31 @@ fn parse(args: impl Iterator<Item = String>) -> Result<Args, String> {
     Ok(Args { source, seed, smoke, arena, shot, cam, script: tool.map(|t| (t, fire, hold)), rain, storm, day, kill_at, menu, fullscreen })
 }
 
+/// The release build on Windows has no console window (`windows_subsystem = "windows"`); when started from a terminal with arguments
+/// (`--help`, `--smoke`), attach to that terminal so the text shows (`core/platform_env.py:attach_console`).
+#[cfg(windows)]
+fn attach_console_for_cli() {
+    use std::os::windows::io::IntoRawHandle;
+
+    use windows_sys::Win32::System::Console::{ATTACH_PARENT_PROCESS, AttachConsole, STD_ERROR_HANDLE, STD_OUTPUT_HANDLE, SetStdHandle};
+    if std::env::args().len() < 2 {
+        return;
+    }
+    // SAFETY: plain Win32 calls with valid arguments; failure just leaves the process without a console
+    unsafe {
+        if AttachConsole(ATTACH_PARENT_PROCESS) != 0
+            && let Ok(out) = std::fs::OpenOptions::new().write(true).open("CONOUT$")
+        {
+            let h = out.into_raw_handle();
+            SetStdHandle(STD_OUTPUT_HANDLE, h as _);
+            SetStdHandle(STD_ERROR_HANDLE, h as _);
+        }
+    }
+}
+
 fn main() -> ExitCode {
+    #[cfg(windows)]
+    attach_console_for_cli();
     let args = match parse(std::env::args()) {
         Ok(a) => a,
         Err(msg) => {

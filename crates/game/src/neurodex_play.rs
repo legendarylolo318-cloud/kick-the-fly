@@ -56,20 +56,23 @@ fn start_build(mut dex: ResMut<Dex>, link: Res<SimLink>, pack: Res<PackPath>, cf
         .name("neurodex-table".into())
         .spawn(move || {
             let build = || -> Result<TypeTable, String> {
-                match &path {
-                    Some(p) => {
-                        let mut npz = fly_sim::npy::Npz::read(std::io::BufReader::new(std::fs::File::open(p).map_err(|e| e.to_string())?))
-                            .map_err(|e| e.to_string())?;
-                        let indptr = npz.take("indptr").and_then(|a| a.into_i32()).map_err(|e| e.to_string())?;
-                        let indices = npz.take("indices").and_then(|a| a.into_i32()).map_err(|e| e.to_string())?;
-                        let data = npz.take("data").and_then(|a| a.into_i16()).map_err(|e| e.to_string())?;
-                        Ok(TypeTable::build(
-                            &shared.labels,
-                            "adult",
-                            Some(fly_sim::neurodex::RawCsr { indptr: &indptr, indices: &indices, data: &data }),
-                        ))
-                    }
-                    None => Ok(TypeTable::build(&shared.labels, "adult", None)),
+                let read = |mut npz: fly_sim::npy::Npz| -> Result<TypeTable, String> {
+                    let indptr = npz.take("indptr").and_then(|a| a.into_i32()).map_err(|e| e.to_string())?;
+                    let indices = npz.take("indices").and_then(|a| a.into_i32()).map_err(|e| e.to_string())?;
+                    let data = npz.take("data").and_then(|a| a.into_i16()).map_err(|e| e.to_string())?;
+                    Ok(TypeTable::build(
+                        &shared.labels,
+                        "adult",
+                        Some(fly_sim::neurodex::RawCsr { indptr: &indptr, indices: &indices, data: &data }),
+                    ))
+                };
+                match (&path, crate::sim_thread::embedded_pack()) {
+                    (Some(p), _) => read(
+                        fly_sim::npy::Npz::read(std::io::BufReader::new(std::fs::File::open(p).map_err(|e| e.to_string())?))
+                            .map_err(|e| e.to_string())?,
+                    ),
+                    (None, Some(bytes)) => read(fly_sim::npy::Npz::read(std::io::Cursor::new(bytes)).map_err(|e| e.to_string())?),
+                    (None, None) => Ok(TypeTable::build(&shared.labels, "adult", None)),
                 }
             };
             match build() {
@@ -96,6 +99,7 @@ fn start_build(mut dex: ResMut<Dex>, link: Res<SimLink>, pack: Res<PackPath>, cf
 fn poll(
     mut dex: ResMut<Dex>,
     link: Res<SimLink>,
+    events: Res<crate::app::SimEvents>,
     real: Res<Time<Real>>,
     mut notes: ResMut<Notes>,
     mut sfx: MessageWriter<Sfx>,
@@ -104,8 +108,8 @@ fn poll(
     first: Res<crate::first_run::FirstRun>,
 ) {
     let now = real.elapsed_secs();
-    for ev in link.0.drain_events() {
-        let SimEvent::Discovered(f) = ev;
+    for ev in &events.0 {
+        let SimEvent::Discovered(f) = ev else { continue };
         let mut g = dex.shared.lock().unwrap_or_else(PoisonError::into_inner);
         let when = format!("{}T00:00:00", date_string());
         g.progress.mark("adult", &f.name, f.ratio, f.how, &when);

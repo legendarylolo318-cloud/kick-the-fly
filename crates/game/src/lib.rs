@@ -49,6 +49,7 @@ pub mod puppeteer;
 pub mod race;
 pub mod reactions;
 pub mod rng;
+pub mod savestate_play;
 pub mod senses;
 pub mod sim_thread;
 pub mod snapshot;
@@ -144,7 +145,12 @@ impl Plugin for GamePlugin {
             ))
             .add_plugins(neurodex_play::DexPlugin)
             .add_plugins(menu_ui::MenuPlugin)
-            .add_plugins((actions::ActionsPlugin, tutorial_play::TutorialPlugin, first_run::FirstRunPlugin))
+            .add_plugins((
+                actions::ActionsPlugin,
+                tutorial_play::TutorialPlugin,
+                first_run::FirstRunPlugin,
+                savestate_play::SaveStatePlugin,
+            ))
             .add_plugins((
                 hud_canvas::HudCanvasPlugin,
                 weather_play::WeatherPlugin,

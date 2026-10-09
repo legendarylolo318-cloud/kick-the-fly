@@ -1,0 +1,119 @@
+# Rust + Bevy build: formatting, clippy (warnings are errors), the unit and integration tests, the golden tests (the Rust simulator against the
+# Python reference outputs in tests/golden/) and the files-written-by-the-Python-game tests (tests/python_files/), on Linux and Windows. Then the
+# release builds: the Linux AppImage and the Windows .exe, uploaded as artifacts.
+#
+# The brain pack (data/kick_brain.npz) is not in git. It is built once from the public MaleCNS v1.0 connectome with the Python dev tool in
+# legacy-python/ (about 1.1 GB download) and cached; the golden tests need it and skip themselves without it.
+name: ci
+
+on:
+  push:
+    branches: [main, bevy-port]
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  brainpack:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        id: cache
+        with:
+          path: data/kick_brain.npz
+          key: brainpack-v2-${{ hashFiles('legacy-python/kickthefly/sim/connectome/loader.py', 'legacy-python/kickthefly/sim/brainpack.py') }}
+      - uses: actions/setup-python@v5
+        if: steps.cache.outputs.cache-hit != 'true'
+        with:
+          python-version: "3.11"
+      - name: Build the brain pack
+        if: steps.cache.outputs.cache-hit != 'true'
+        working-directory: legacy-python
+        run: |
+          python -m pip install numpy scipy pyarrow
+          python -m kickthefly.sim.connectome.loader build
+          python -m kickthefly.sim.brainpack build
+          mkdir -p ../data && cp data/kick_brain.npz ../data/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: brainpack
+          path: data/kick_brain.npz
+          retention-days: 3
+
+  check:
+    needs: brainpack
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: {name: brainpack, path: data}
+      - uses: dtolnay/rust-toolchain@stable
+        with: {components: "rustfmt, clippy"}
+      - uses: Swatinem/rust-cache@v2
+      - name: Linux build dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y pkg-config libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev libx11-dev libxi-dev libvulkan-dev
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Tests (unit, integration, Python-file compatibility)
+        run: cargo test --workspace --release
+      - name: Golden tests (simulator, pain, Neurodex against the Python reference)
+        run: cargo test -p fly_sim -p ktf_data --release -- --include-ignored
+
+  appimage:
+    needs: check
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: {name: brainpack, path: data}
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: sudo apt-get update && sudo apt-get install -y pkg-config libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev libx11-dev libxi-dev libvulkan-dev desktop-file-utils libfuse2
+      - run: ./build_appimage.sh
+      - name: Run the AppImage in a clean environment (no HOME, no XDG, no DISPLAY)
+        run: |
+          chmod +x dist/KickTheFly-x86_64.AppImage
+          env -i PATH=/usr/bin:/bin HOME=/nonexistent dist/KickTheFly-x86_64.AppImage --appimage-extract-and-run --smoke 3
+      - uses: actions/upload-artifact@v4
+        with:
+          name: KickTheFly-x86_64.AppImage
+          path: dist/KickTheFly-x86_64.AppImage
+
+  windows-exe:
+    needs: check
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: {name: brainpack, path: data}
+      - uses: dtolnay/rust-toolchain@stable
+        with: {targets: x86_64-pc-windows-msvc}
+      - uses: Swatinem/rust-cache@v2
+      - name: Release build (the brain pack is embedded: one file)
+        run: cargo build --release --target x86_64-pc-windows-msvc -p kick_the_fly --features bundle-pack
+      - name: Smoke test
+        run: target\x86_64-pc-windows-msvc\release\kick_the_fly.exe --smoke 3
+      - run: |
+          mkdir dist
+          copy target\x86_64-pc-windows-msvc\release\kick_the_fly.exe dist\KickTheFly.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: KickTheFly.exe
+          path: dist/KickTheFly.exe

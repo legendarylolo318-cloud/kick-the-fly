@@ -42,11 +42,20 @@ pub struct Pack {
     pub path: Option<PathBuf>,
 }
 
-/// Where the pack is looked for: `$KICK_THE_FLY_PACK`, then `data/kick_brain.npz` in the current directory and its parents.
+/// Where the pack is looked for: `$KICK_THE_FLY_PACK`, then next to the program (`kick_brain.npz`, `data/kick_brain.npz`, and the AppImage's
+/// `../share/kick-the-fly/kick_brain.npz`), then `data/kick_brain.npz` in the current directory and its parents.
 pub fn find_default() -> Option<PathBuf> {
     if let Ok(p) = std::env::var("KICK_THE_FLY_PACK") {
         let p = PathBuf::from(p);
         return p.exists().then_some(p);
+    }
+    if let Some(dir) = std::env::current_exe().ok().and_then(|e| e.parent().map(Path::to_path_buf)) {
+        for cand in [dir.join("kick_brain.npz"), dir.join("data").join("kick_brain.npz"), dir.join("../share/kick-the-fly/kick_brain.npz")]
+        {
+            if cand.exists() {
+                return Some(cand);
+            }
+        }
     }
     let mut dir = std::env::current_dir().ok()?;
     loop {
@@ -71,8 +80,18 @@ impl Pack {
         Self::load_inner(path.as_ref(), false, Weights::default_blocks())
     }
 
+    /// Load a pack held in memory (the Windows build embeds it, so the program is one file).
+    pub fn load_bytes(bytes: &[u8]) -> Result<Self, Error> {
+        let mut npz = Npz::read(std::io::Cursor::new(bytes))?;
+        Self::from_npz(&mut npz, None, true, Weights::default_blocks())
+    }
+
     fn load_inner(path: &Path, with_labels: bool, blocks: usize) -> Result<Self, Error> {
         let mut npz = Npz::read(BufReader::new(File::open(path)?))?;
+        Self::from_npz(&mut npz, Some(path.to_path_buf()), with_labels, blocks)
+    }
+
+    fn from_npz(npz: &mut Npz, path: Option<PathBuf>, with_labels: bool, blocks: usize) -> Result<Self, Error> {
         let indptr = npz.take("indptr")?.into_i32()?;
         let indices = npz.take("indices")?.into_i32()?;
         let counts = npz.take("data")?.into_i16()?;
@@ -96,8 +115,8 @@ impl Pack {
             data,
         };
         let weights = Weights::new(csr, blocks);
-        let labels = if with_labels { read_labels(&mut npz, n)? } else { Labels::default() };
-        Ok(Self { n, weights, labels, path: Some(path.to_path_buf()) })
+        let labels = if with_labels { read_labels(npz, n)? } else { Labels::default() };
+        Ok(Self { n, weights, labels, path })
     }
 
     /// SHA-256 of the pack file (replays and bundles record it).

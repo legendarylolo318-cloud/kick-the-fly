@@ -40,6 +40,8 @@ pub struct BrainInfo {
     pub region_names: Vec<String>,
     /// Cell type of each neuron (for the kill cam's "which neurons rose" list and the lesion picker).
     pub types: Vec<String>,
+    /// Synapses in the pack (a save checks it against the loading game).
+    pub synapses: usize,
 }
 
 /// A copy of the sim's state for drawing. Plain data, cheap to hold on to.

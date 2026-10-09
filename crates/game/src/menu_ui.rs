@@ -45,6 +45,10 @@ impl UserConfig {
 #[derive(Resource, Default)]
 pub struct MenuScreen(pub String);
 
+/// A line for the menu's flash message (green when good), from other systems (saving and loading).
+#[derive(Message, Debug, Clone)]
+pub struct MenuFlash(pub String, pub bool);
+
 /// Whether the menu is open (other systems may want to stand back).
 #[derive(Resource, Default)]
 pub struct MenuOpen(pub bool);
@@ -219,7 +223,7 @@ pub fn pygame_key_name(k: KeyCode) -> Option<&'static str> {
 
 /// The game state the menu's input system changes (bundled: a system takes at most 16 parameters).
 #[derive(bevy::ecs::system::SystemParam)]
-struct MenuCtx<'w> {
+struct MenuCtx<'w, 's> {
     look: ResMut<'w, MouseLook>,
     tc: ResMut<'w, TimeControl>,
     open: ResMut<'w, MenuOpen>,
@@ -228,6 +232,8 @@ struct MenuCtx<'w> {
     screen: ResMut<'w, MenuScreen>,
     tut: ResMut<'w, crate::tutorial_play::Tutorial>,
     first: Res<'w, crate::first_run::FirstRun>,
+    saves: ResMut<'w, crate::savestate_play::SaveLoad>,
+    flashes: MessageReader<'w, 's, MenuFlash>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -248,7 +254,10 @@ fn input(
     lay: Res<HudLayout>,
     actions: Res<crate::actions::Actions>,
 ) {
-    let MenuCtx { mut look, mut tc, mut open, mut loadout, mut tools, mut screen, mut tut, first } = mc;
+    let MenuCtx { mut look, mut tc, mut open, mut loadout, mut tools, mut screen, mut tut, first, mut saves, mut flashes } = mc;
+    for f in flashes.read() {
+        ui.menu.flash(&f.0, if f.1 { ktf_ui::theme::GOOD } else { ktf_ui::theme::BAD }, if f.1 { 4.0 } else { 6.0 });
+    }
     let was_open = ui.menu.is_open();
     let k = window.scale_factor() / lay.0.scale;
     let mouse = window.cursor_position().map_or((-1, -1), |p| ((p.x * k) as i32, (p.y * k) as i32));
@@ -346,6 +355,11 @@ fn input(
                 }
                 "click_sound" => {}
                 "tutorial_replay" => tut.request = Some("replay"),
+                "save_state" => crate::savestate_play::request_save(&mut saves, &link),
+                a if a.starts_with("load_state:") => {
+                    crate::savestate_play::request_load(&mut saves, &a["load_state:".len()..]);
+                    ui.menu.close();
+                }
                 a if a.starts_with("select_tool:") => {
                     let name = &a["select_tool:".len()..];
                     if let Some(i) = crate::tools::TOOLS.iter().position(|t| t.0 == name) {
@@ -412,6 +426,7 @@ fn draw(
     lay: Res<HudLayout>,
     loadout: Res<crate::tools::ActiveLoadout>,
     tools: Res<crate::tools::ToolState>,
+    saves: Res<crate::savestate_play::SaveLoad>,
 ) {
     let Ok((mut v, mut node)) = vis.single_mut() else { return };
     if !ui.menu.is_open() {
@@ -436,7 +451,7 @@ fn draw(
         true,
         mouse,
         time.elapsed_secs_f64(),
-        &mut GameHost::new(&loadout.0.tools, crate::tools::TOOLS[tools.selected].0),
+        &mut GameHost::new(&loadout.0.tools, crate::tools::TOOLS[tools.selected].0).with_saves(&saves.entries),
     );
     if let Some(mut img) = images.get_mut(&*image) {
         img.data = Some(canvas.px.clone());
@@ -461,7 +476,8 @@ impl Plugin for MenuPlugin {
         if !app.world().contains_resource::<UserConfig>() {
             app.insert_resource(UserConfig(Config::new(None)));
         }
-        app.init_resource::<MenuOpen>()
+        app.add_message::<MenuFlash>()
+            .init_resource::<MenuOpen>()
             .init_resource::<MenuScreen>()
             .add_systems(Startup, (setup, apply_config_at_start))
             .add_systems(PreUpdate, input.in_set(MenuInputSet).after(bevy::input::InputSystems))
@@ -475,11 +491,17 @@ impl Plugin for MenuPlugin {
 pub struct GameHost {
     loadout: Vec<String>,
     selected: String,
+    saves: Vec<Value>,
 }
 
 impl GameHost {
+    pub fn with_saves(mut self, saves: &[Value]) -> Self {
+        self.saves = saves.to_vec();
+        self
+    }
+
     pub fn new(loadout: &[String], selected: &str) -> Self {
-        GameHost { loadout: loadout.to_vec(), selected: selected.into() }
+        GameHost { loadout: loadout.to_vec(), selected: selected.into(), saves: vec![] }
     }
 }
 
@@ -511,6 +533,8 @@ impl PageHost for GameHost {
             "surgery_payload" => json!({"groups": {}, "types": {}}),
             "loadout_tools" => json!(self.loadout),
             "selected_tool" => json!(self.selected),
+            "saves" => Value::Array(self.saves.clone()),
+            "saves_dir" => json!(ktf_data::paths::get().saves_dir.to_string_lossy()),
             "lab_modified" => json!({}),
             "protocol_files" => json!([]),
             "challenge_keys" => json!([]),

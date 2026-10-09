@@ -17,6 +17,8 @@ path = "src/main.rs"
 [features]
 # `cargo run --features dev` links Bevy dynamically for fast rebuilds. Never enabled in release builds or by default.
 dev = ["bevy/dynamic_linking"]
+# The brain pack (data/kick_brain.npz, 39 MB) is compiled into the program, so the Windows release is one file. Needs the pack at build time.
+bundle-pack = []
 
 [dependencies]
 fly_sim.workspace = true
@@ -37,3 +39,6 @@ bevy = { workspace = true, features = ["debug"] }
 # plain ALSA. Windows uses WASAPI through cpal's default host.
 [target.'cfg(target_os = "linux")'.dependencies]
 cpal = { workspace = true, features = ["pulseaudio"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "=0.61.2", features = ["Win32_System_Console", "Win32_Foundation"] }

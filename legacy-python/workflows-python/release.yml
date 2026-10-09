@@ -1,0 +1,256 @@
+# Tag push (v*): build the brain pack, test on Linux and Windows, run checks.yml (gl on llvmpipe, the Flatpak build,
+# docs links, replay determinism), build the AppImage and the exe, then publish a release with both files and
+# SHA256SUMS. The release job only runs if every test, every check, the self-test and the full playthrough (2.13) and both
+# builds passed.
+# Run it by hand (workflow_dispatch) to test and build without publishing. Give it a release_tag (v3.1.0) on main and, once
+# everything above has passed, it creates that tag at the commit it ran on and publishes the release from it. It refuses to
+# move a tag that already has a release.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "publish this tag (v3.1.0) from main if everything passes; empty = test and build only"
+        default: ""
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  brainpack:
+    # data/ isn't in git: the pack is built from the public MaleCNS v1.0 connectome (~1.1 GB download) and cached
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        id: cache
+        with:
+          path: data/kick_brain.npz
+          key: brainpack-v2-${{ hashFiles('kickthefly/sim/connectome/loader.py', 'kickthefly/sim/brainpack.py') }}
+      - uses: actions/setup-python@v5
+        if: steps.cache.outputs.cache-hit != 'true'
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Build the brain pack
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          python -m pip install numpy scipy pyarrow
+          python -m kickthefly.sim.connectome.loader build
+          python -m kickthefly.sim.brainpack build
+          rm -f data/*.feather data/graph.pkl
+      - uses: actions/upload-artifact@v4
+        with:
+          name: brainpack
+          path: data/kick_brain.npz
+          retention-days: 3
+
+  test-linux:
+    needs: brainpack
+    runs-on: ubuntu-22.04
+    # the fast suite took 62 min on the 2.13 pull request and the validation suite ~28: 90 no longer fits both
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: {name: brainpack, path: data}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - run: python -m pip install -r requirements.txt pytest
+      # Two pytest processes, as in tests.yml: in one, the validation suite's 4 worker brains start while the fast
+      # suite's brains are still held, and on a 16 GB runner it ran more than twice as slow (2.9.0 hit the time limit).
+      - name: Tests
+        run: python -m pytest -m "not validation" -v -rs
+      - name: Validation suite
+        env:
+          KTF_VALIDATION_WORKERS: "4"
+          KTF_VALIDATION_OUT: data/validation_results.json
+        run: python -m pytest -m validation -v -rs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: validation-results
+          path: data/validation_results.json
+          retention-days: 7
+
+  test-windows:
+    needs: brainpack
+    runs-on: windows-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: {name: brainpack, path: data}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - run: python -m pip install -r requirements.txt pytest
+      - name: Tests
+        run: python -m pytest -m "not validation" -v -rs
+      - name: Self-test (0 or 3 pass)
+        shell: pwsh
+        run: |
+          python kick_the_fly.py --selftest --sim-backend cpu --out results/selftest.json
+          Write-Host "self-test exit code $LASTEXITCODE"
+          if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne 3) { throw "self-test failed" }
+          # GitHub's pwsh wrapper ends every step with `exit $LASTEXITCODE`, which would turn a 3 into a failed step
+          exit 0
+      - name: Validation suite
+        env:
+          KTF_VALIDATION_WORKERS: "4"
+        run: python -m pytest -m validation -v -rs
+
+  selftest-playthrough:
+    # 2.13: a release needs the self-test and the whole playthrough (every arena x tool, CPU) to pass. Exit code 3 of the
+    # self-test (warnings only: a runner has no sound card and no GPU) is a pass; 1 is not.
+    needs: brainpack
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: {name: brainpack, path: data}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+      - name: Self-test
+        run: |
+          rc=0
+          python kick_the_fly.py --selftest --sim-backend cpu --out results/selftest.json || rc=$?
+          echo "self-test exit code $rc"
+          [ "$rc" -eq 0 ] || [ "$rc" -eq 3 ]
+      - name: Playthrough bot, full
+        run: python kick_the_fly.py --headless --playthrough adult --sim-backend cpu --out results/playthrough
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: selftest-playthrough
+          path: results
+          retention-days: 7
+
+  build-appimage:
+    needs: [brainpack, test-linux]
+    runs-on: ubuntu-22.04          # old glibc, so the AppImage runs on most distros
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: {name: brainpack, path: data}
+      - uses: actions/download-artifact@v4
+        with: {name: validation-results, path: data}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Build
+        run: PYTHON=python ./build_appimage.sh
+      - name: Headless run of the AppImage without FUSE
+        run: |
+          chmod +x dist/KickTheFly-x86_64.AppImage
+          env -u DISPLAY -u WAYLAND_DISPLAY dist/KickTheFly-x86_64.AppImage --appimage-extract-and-run \
+            --headless --protocol protocols/smoke.yaml --out build/smoke-appimage
+          ls build/smoke-appimage/*/summary.json
+      - name: Self-test of the AppImage (0 or 3 pass)
+        run: |
+          rc=0
+          env -u DISPLAY -u WAYLAND_DISPLAY dist/KickTheFly-x86_64.AppImage --appimage-extract-and-run \
+            --selftest --sim-backend cpu --out build/selftest-appimage.json || rc=$?
+          echo "self-test exit code $rc"
+          [ "$rc" -eq 0 ] || [ "$rc" -eq 3 ]
+      - uses: actions/upload-artifact@v4
+        with:
+          name: appimage
+          path: dist/KickTheFly-x86_64.AppImage
+          retention-days: 7
+
+  build-exe:
+    needs: [brainpack, test-linux]
+    runs-on: windows-latest        # a real Windows build, never cross-built
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: {name: brainpack, path: data}
+      - uses: actions/download-artifact@v4
+        with: {name: validation-results, path: data}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Build (the script also runs the exe headless on the smoke protocol and checks exit code 0)
+        shell: pwsh
+        run: ./build_exe.ps1 -Python python
+      - name: Self-test of the exe (0 or 3 pass)
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath dist\KickTheFly.exe -ArgumentList '--selftest','--sim-backend','cpu','--out','build\selftest-exe.json' -Wait -PassThru
+          Write-Host "self-test exit code $($p.ExitCode)"
+          if ($p.ExitCode -ne 0 -and $p.ExitCode -ne 3) { throw "self-test failed" }
+      - name: Version in the exe's file properties
+        shell: pwsh
+        run: (Get-Item dist\KickTheFly.exe).VersionInfo | Format-List ProductName, ProductVersion, FileVersion
+      - uses: actions/upload-artifact@v4
+        with:
+          name: exe
+          path: dist/KickTheFly.exe
+          retention-days: 7
+
+  checks:
+    uses: ./.github/workflows/checks.yml
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v') || (github.ref == 'refs/heads/main' && github.event.inputs.release_tag != '')
+    needs: [test-linux, test-windows, checks, selftest-playthrough, build-appimage, build-exe]
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: {name: appimage, path: release}
+      - uses: actions/download-artifact@v4
+        with: {name: exe, path: release}
+      - name: Checksums
+        working-directory: release
+        run: |
+          sha256sum KickTheFly-x86_64.AppImage KickTheFly.exe > SHA256SUMS
+          cat SHA256SUMS
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.inputs.release_tag }}
+        run: |
+          tag="$GITHUB_REF_NAME"
+          if [ -n "$RELEASE_TAG" ]; then
+            tag="$RELEASE_TAG"
+            case "$tag" in v[0-9]*) ;; *) echo "release_tag must look like v3.1.0: $tag"; exit 1;; esac
+            if gh release view "$tag" >/dev/null 2>&1; then echo "$tag already has a release; not moving its tag"; exit 1; fi
+            # a tag from an earlier failed run may point at an older commit: this commit is the one that passed
+            git tag -f "$tag" "$GITHUB_SHA"
+            git push -f origin "refs/tags/$tag"
+          fi
+          # The release title is RELEASE_NOTES.md's first line ("# Kick the Fly X.Y.Z: ..."), so it can't go stale
+          title="$(head -n1 RELEASE_NOTES.md | sed 's/^# *//')"
+          # A tag with a suffix (v3.0.0-rc.1) is a prerelease of that version: the notes are the version's, the title says which rc
+          ver="${tag#v}"; core="${ver%%-*}"; pre=""
+          if [ "$ver" != "$core" ]; then pre="${ver#*-}"; fi
+          case "$title" in "Kick the Fly ${core}:"*) ;; *) echo "RELEASE_NOTES.md is not for ${tag}: $title"; exit 1;; esac
+          flags=()
+          if [ -n "$pre" ]; then
+            title="Kick the Fly ${core} (${pre}):${title#"Kick the Fly ${core}:"}"
+            flags=(--prerelease)
+          fi
+          files="release/KickTheFly-x86_64.AppImage release/KickTheFly.exe release/SHA256SUMS"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" $files --clobber
+          else
+            gh release create "$tag" $files --title "$title" --notes-file RELEASE_NOTES.md "${flags[@]}"
+          fi
