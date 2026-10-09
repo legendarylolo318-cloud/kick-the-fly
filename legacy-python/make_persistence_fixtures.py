@@ -22,7 +22,10 @@ from kickthefly.core import sharecode as sc  # noqa: E402
 
 
 def schema() -> dict:
+    from kickthefly.game import kick_the_fly as k2
+
     return {
+        "toolbar": [list(t) for t in k2.TOOLS],
         "schema_version": C.SCHEMA_VERSION,
         "settings": [{"key": s.key, "tab": s.tab, "label": s.label, "kind": s.kind, "default": s.default, "tip": s.tip,
                       "options": list(s.options), "labels": list(s.labels), "lo": s.lo, "hi": s.hi, "step": s.step,

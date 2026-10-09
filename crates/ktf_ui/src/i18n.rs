@@ -65,3 +65,12 @@ pub fn tr(text: &str) -> String {
     let s = state().read().unwrap();
     s.catalog.get(text).or_else(|| s.fallback.get(text)).cloned().unwrap_or_else(|| text.to_string())
 }
+
+/// `tr(text, **kwargs)`: translate, then fill the `{name}` placeholders.
+pub fn tr_args(text: &str, args: &[(&str, &str)]) -> String {
+    let mut s = tr(text);
+    for (k, v) in args {
+        s = s.replace(&format!("{{{k}}}"), v);
+    }
+    s
+}

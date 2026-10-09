@@ -52,6 +52,8 @@ pub struct Schema {
     pub tools: Vec<String>,
     pub max_saved_loadouts: usize,
     pub loadout: LoadoutSchema,
+    /// `kick_the_fly.py:TOOLS`: (name, hotbar label, one-line hint)
+    pub toolbar: Vec<(String, String, String)>,
 }
 
 /// `core/loadout.py` data: the catalog (labels, descriptions, tags), the presets and their texts.

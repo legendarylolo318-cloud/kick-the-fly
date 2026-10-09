@@ -16,15 +16,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import pygame  # noqa: E402
 
 from kickthefly.core import config  # noqa: E402
+from kickthefly.core import loadout as loadout_mod  # noqa: E402
 from kickthefly.ui import menu as M  # noqa: E402
-from kickthefly.ui import share_ui, whatsnew_ui  # noqa: E402
+from kickthefly.ui import loadout_ui, share_ui, whatsnew_ui  # noqa: E402
 
-INSTALL = [whatsnew_ui, share_ui]
+INSTALL = [whatsnew_ui, share_ui, loadout_ui]
 
 BG = (60, 70, 80)
 
 
-def render(screen, tab, out, w=1280, h=720, three_d=True, mutate=None, prep=None):
+def render(screen, tab, out, w=1280, h=720, three_d=True, mutate=None, prep=None, loadout_override=None):
     pygame.init()
     cfg = config.Config()
     if mutate:
@@ -32,7 +33,8 @@ def render(screen, tab, out, w=1280, h=720, three_d=True, mutate=None, prep=None
     from kickthefly.game import kick_the_fly as k
 
     host = SimpleNamespace(cfg=cfg, three_d=three_d, set_setting=lambda *a, **k: None, menu_action=lambda *a: None, flies=[], pad=None,
-                           surgery_modes=[0] * len(k.SURGERY), type_ops={}, lab_params={}, loadout=SimpleNamespace(tools=["hand", "swatter", "bomb"]))
+                           surgery_modes=[0] * len(k.SURGERY), type_ops={}, lab_params={}, loadout=loadout_mod.resolve(cfg), tool_name=lambda: "hand", is_larva=False)
+    host.loadout.tools = host.loadout.tools if not loadout_override else loadout_override
     m = M.Menu(host)
     for mod in INSTALL:
         mod.install(m)
@@ -57,6 +59,8 @@ if __name__ == "__main__":
     render("pause", "Graphics", out / "pause_lab.png", mutate=lambda c: c.set("brain.mode", "lab"))
     render("settings", "Graphics", out / "settings_graphics_big.png", mutate=lambda c: c.set("access.larger_text", True))
     render("whatsnew", "Graphics", out / "page_whatsnew.png")
+    render("loadout", "Graphics", out / "page_loadout_base.png")
+    render("loadout", "Graphics", out / "page_loadout_all.png", mutate=lambda c: c.set("controls.loadout_preset", "all"))
     render("share", "Graphics", out / "page_share_surgery.png")
     render("share", "Graphics", out / "page_share_loadout.png", prep=lambda m: setattr(share_ui._state(m), "kind", "loadout"))
     render("share", "Graphics", out / "page_share_import.png", prep=lambda m: setattr(share_ui._state(m), "tab", "import"))

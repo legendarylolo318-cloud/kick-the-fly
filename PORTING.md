@@ -248,8 +248,8 @@ against the pygame version (screenshot pair, or the code read side by side). Any
 - [ ] Menu page `lab_wiring`
 - [ ] Menu page `live_inputs`
 - [ ] Menu page `load_state`
-- [ ] Menu page `loadout`
-- [ ] Menu page `loadout_notice`
+- [x] Menu page `loadout` (the editor, Q): presets, saved loadouts, hotbar with drag to reorder/drop/remove, card grid by category with tags and 'Drives:' lines, footer; screenshot pairs (Base and All presets) match; click/drag/save/load/preset behaviour tested; `core/loadout.py` ported to `ktf_data::loadout` and verified on 48 preset/mode/brain builds + 11 editing operations against Python. The hotbar in the game is the loadout now (Base by default, rebindable slot keys, pages with - and =, wheel steps through it)
+- [~] Menu page `loadout_notice`: ported (`LoadoutNotice`), not shown yet because the migrated-config trigger (first_run flags) is not wired
 - [ ] Menu page `neurodex`
 - [ ] Menu page `neuron_shapes_ask`
 - [ ] Menu page `selftest`

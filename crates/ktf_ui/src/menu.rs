@@ -51,6 +51,8 @@ pub enum Effect {
     SettingChanged { key: Option<String>, save: bool },
     /// Key bindings changed (`host.set_setting("keys", None)`).
     KeysChanged,
+    /// The config changed in a way the pages made (loadouts, ...): write it to disk.
+    SaveConfig,
 }
 
 /// One button of [`Menu::button_row`].
@@ -150,10 +152,34 @@ enum EditTarget {
 
 #[derive(Debug, Clone)]
 enum Kind {
-    Button { click: Act },
-    Slider { track: Rect, lo: f64, hi: f64, step: f64, key: String },
-    Edit { text: String, target: EditTarget, alpha: bool, limit: usize, compact: bool },
+    Button {
+        click: Act,
+    },
+    Slider {
+        track: Rect,
+        lo: f64,
+        hi: f64,
+        step: f64,
+        key: String,
+    },
+    Edit {
+        text: String,
+        target: EditTarget,
+        alpha: bool,
+        limit: usize,
+        compact: bool,
+    },
     Label,
+    /// A card that can be clicked, or dragged onto a `Drop` (`kind "dragsrc"`). `payload` travels with the drag.
+    DragSrc {
+        payload: String,
+        click: Option<Act>,
+        release_outside: Option<String>,
+    },
+    /// Where a dragged card can land; the page gets `custom("drop:<name>", Some(payload))`.
+    Drop {
+        name: String,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -175,6 +201,18 @@ struct Drag {
     hi: f64,
     step: f64,
     key: String,
+}
+
+/// A card being dragged (`Menu.item_drag`).
+#[derive(Debug, Clone)]
+pub struct ItemDrag {
+    pub payload: String,
+    pub start: (i32, i32),
+    pub pos: (i32, i32),
+    pub moved: bool,
+    click: Option<Act>,
+    release_outside: Option<String>,
+    enabled: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -223,6 +261,7 @@ pub struct Menu {
     hits: Vec<Hit>,
     pressed: Option<String>,
     drag: Option<Drag>,
+    item_drag: Option<ItemDrag>,
     edit: Option<Edit>,
     pub capture: Option<String>,
     message: Option<(String, f64, Color)>,
@@ -320,6 +359,7 @@ impl Menu {
             hits: vec![],
             pressed: None,
             drag: None,
+            item_drag: None,
             edit: None,
             capture: None,
             message: None,
@@ -439,6 +479,56 @@ impl Menu {
         self.pages.insert(name.into(), page);
     }
 
+    /// A card that clicks (`click`) or drags (`payload` goes to the `Drop` it is released on, or to `release_outside` when it lands on none).
+    /// Register the matching `Drop` of the same rectangle first: the press goes to the later one.
+    pub fn register_drag_src(
+        &mut self,
+        rect: Rect,
+        id: &str,
+        payload: &str,
+        click: Option<Act>,
+        tip: Option<&str>,
+        release_outside: Option<&str>,
+    ) {
+        self.register(
+            rect,
+            Kind::DragSrc { payload: payload.into(), click, release_outside: release_outside.map(String::from) },
+            id,
+            true,
+            tip,
+        );
+    }
+
+    /// A place a dragged card can land: the page gets `custom("drop:<name>", Some(payload))`.
+    pub fn register_drop(&mut self, rect: Rect, id: &str, name: &str) {
+        self.register(rect, Kind::Drop { name: name.into() }, id, true, None);
+    }
+
+    /// A hover-only region with a tooltip (`kind "label"`).
+    pub fn register_label(&mut self, rect: Rect, id: &str, tip: &str) {
+        self.register(rect, Kind::Label, id, true, Some(tip));
+    }
+
+    /// The card being dragged, if it has moved far enough to count as a drag.
+    pub fn dragging(&self) -> Option<&ItemDrag> {
+        self.item_drag.as_ref().filter(|d| d.moved)
+    }
+
+    /// `host.set_setting(key, value)` for pages: validate, store in `cfg`, and tell the host (it applies the change and saves when `save`).
+    pub fn set_setting(&mut self, cfg: &mut Config, key: &str, value: &Value, save: bool) {
+        self.set_setting_inner(cfg, key, value, save);
+    }
+
+    /// Ask the host to write the config file.
+    pub fn save_config(&mut self) {
+        self.fx.push(Effect::SaveConfig);
+    }
+
+    /// Ask the host to do something (`host.menu_action(name)`): "select_tool:hand", ...
+    pub fn action(&mut self, name: &str) {
+        self.fx.push(Effect::Action(name.into()));
+    }
+
     pub fn mouse(&self) -> (i32, i32) {
         self.mouse
     }
@@ -505,6 +595,11 @@ impl Menu {
                     Kind::Edit { text, target, alpha, limit, compact } => {
                         self.edit = Some(Edit { id: h.id, text, target, fresh: true, alpha, limit, compact });
                     }
+                    Kind::DragSrc { payload, click, release_outside } => {
+                        self.item_drag =
+                            Some(ItemDrag { payload, start: *pos, pos: *pos, moved: false, click, release_outside, enabled: h.enabled });
+                        self.pressed = Some(h.id);
+                    }
                     _ => self.pressed = Some(h.id),
                 }
                 true
@@ -512,10 +607,34 @@ impl Menu {
             UiEvent::Motion { pos } => {
                 if self.drag.is_some() {
                     self.drag_to(pos.0, cfg);
+                } else if let Some(d) = self.item_drag.as_mut() {
+                    d.pos = *pos;
+                    if (pos.0 - d.start.0).abs() + (pos.1 - d.start.1).abs() > 8 {
+                        d.moved = true;
+                    }
                 }
                 true
             }
             UiEvent::MouseUp { pos } => {
+                if let Some(d) = self.item_drag.take() {
+                    self.pressed = None;
+                    if !d.moved {
+                        if let (Some(click), true) = (d.click, d.enabled) {
+                            self.fx.push(Effect::Action("click_sound".into()));
+                            self.run(click, cfg, three_d);
+                        }
+                        return true;
+                    }
+                    let target = self.hits.iter().rev().find(|h| matches!(h.kind, Kind::Drop { .. }) && h.rect.contains(*pos)).cloned();
+                    match (target, d.release_outside) {
+                        (Some(Hit { kind: Kind::Drop { name }, .. }), _) => {
+                            self.customs.push_back((format!("drop:{name}"), Some(d.payload)))
+                        }
+                        (None, Some(out)) => self.customs.push_back((out, Some(d.payload))),
+                        _ => {}
+                    }
+                    return true;
+                }
                 if let Some(d) = self.drag.take() {
                     self.fx.push(Effect::SettingChanged { key: None, save: true });
                     let _ = d;
@@ -559,7 +678,7 @@ impl Menu {
     fn run(&mut self, act: Act, cfg: &mut Config, _three_d: bool) {
         match act {
             Act::Action(a) => self.fx.push(Effect::Action(a)),
-            Act::Set { key, value, save } => self.set_setting(cfg, &key, &value, save),
+            Act::Set { key, value, save } => self.set_setting_inner(cfg, &key, &value, save),
             Act::ApplySave => self.fx.push(Effect::SettingChanged { key: None, save: true }),
             Act::Tab(t) => self.tab = t,
             Act::Capture(c) => self.capture = Some(c),
@@ -575,7 +694,7 @@ impl Menu {
                 self.rng ^= self.rng >> 7;
                 self.rng ^= self.rng << 17;
                 let v = 1 + (self.rng % (2u64.pow(31) - 2)) as i64;
-                self.set_setting(cfg, &key, &Value::from(v), true);
+                self.set_setting_inner(cfg, &key, &Value::from(v), true);
             }
             Act::Custom(name) => self.customs.push_back((name, None)),
             Act::Nothing => {}
@@ -583,7 +702,7 @@ impl Menu {
     }
 
     /// `host.set_setting(key, value)`: validate and store in `cfg`; the host applies it live and saves.
-    fn set_setting(&mut self, cfg: &mut Config, key: &str, value: &Value, save: bool) {
+    fn set_setting_inner(&mut self, cfg: &mut Config, key: &str, value: &Value, save: bool) {
         match cfg.set(key, value) {
             Ok(_) => self.fx.push(Effect::SettingChanged { key: Some(key.into()), save }),
             Err(e) => self.flash(&e, BAD, 4.0),
@@ -716,7 +835,7 @@ impl Menu {
                 Ok(v) => {
                     let v = if pct { v / 100.0 } else { v };
                     let value = if int { Value::from(v.round_ties_even() as i64) } else { Value::from(v) };
-                    self.set_setting(cfg, &key, &value, false);
+                    self.set_setting_inner(cfg, &key, &value, false);
                     self.fx.push(Effect::SettingChanged { key: None, save: true });
                 }
                 Err(_) => self.flash("not a number", BAD, 4.0),
@@ -731,7 +850,7 @@ impl Menu {
         if d.step != 0.0 {
             v = (v / d.step).round_ties_even() * d.step;
         }
-        self.set_setting(cfg, &d.key, &Value::from(v), false);
+        self.set_setting_inner(cfg, &d.key, &Value::from(v), false);
     }
 }
 

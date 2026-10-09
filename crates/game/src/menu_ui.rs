@@ -205,6 +205,16 @@ pub fn pygame_key_name(k: KeyCode) -> Option<&'static str> {
     })
 }
 
+/// The game state the menu's input system changes (bundled: a system takes at most 16 parameters).
+#[derive(bevy::ecs::system::SystemParam)]
+struct MenuCtx<'w> {
+    look: ResMut<'w, MouseLook>,
+    tc: ResMut<'w, TimeControl>,
+    open: ResMut<'w, MenuOpen>,
+    loadout: ResMut<'w, crate::tools::ActiveLoadout>,
+    tools: ResMut<'w, crate::tools::ToolState>,
+}
+
 #[allow(clippy::too_many_arguments)]
 fn input(
     mut ui: ResMut<MenuUi>,
@@ -215,15 +225,15 @@ fn input(
     mut button_events: MessageReader<MouseButtonInput>,
     mut wheel: MessageReader<MouseWheel>,
     mut window: Single<&mut Window, With<PrimaryWindow>>,
-    mut look: ResMut<MouseLook>,
-    mut tc: ResMut<TimeControl>,
-    mut open: ResMut<MenuOpen>,
+    mc: MenuCtx,
     mut settings: ResMut<Settings>,
     arcade: Res<crate::arcade::Arcade>,
     link: Res<SimLink>,
     mut exit: MessageWriter<AppExit>,
     lay: Res<HudLayout>,
+    actions: Res<crate::actions::Actions>,
 ) {
+    let MenuCtx { mut look, mut tc, mut open, mut loadout, mut tools } = mc;
     let was_open = ui.menu.is_open();
     let k = window.scale_factor() / lay.0.scale;
     let mouse = window.cursor_position().map_or((-1, -1), |p| ((p.x * k) as i32, (p.y * k) as i32));
@@ -255,7 +265,13 @@ fn input(
         key_events.clear();
         button_events.clear();
         wheel.clear();
-        if keys.just_pressed(KeyCode::Escape) && !arcade.open {
+        if actions.just("loadout") && !arcade.open {
+            ui.menu.show("loadout");
+            look.captured = false;
+            tc.menu_paused = true;
+            link.0.send(Command::Pause(true));
+            open.0 = true;
+        } else if keys.just_pressed(KeyCode::Escape) && !arcade.open {
             ui.menu.show("pause");
             look.captured = false;
             tc.menu_paused = true;
@@ -264,9 +280,10 @@ fn input(
         }
     }
     let three_d = true;
+    let mut host = GameHost::new(&loadout.0.tools, crate::tools::TOOLS[tools.selected].0);
     let mut effects = vec![];
     for ev in events {
-        let (_, fx) = ui.menu.handle(&ev, &mut cfg.0, three_d, &mut GameHost);
+        let (_, fx) = ui.menu.handle(&ev, &mut cfg.0, three_d, &mut host);
         effects.extend(fx);
     }
     for fx in effects {
@@ -298,6 +315,14 @@ fn input(
                     ui.menu.flash(&format!("{label} mode"), ktf_ui::theme::GOOD, 4.0);
                 }
                 "click_sound" => {}
+                a if a.starts_with("select_tool:") => {
+                    let name = &a["select_tool:".len()..];
+                    if let Some(i) = crate::tools::TOOLS.iter().position(|t| t.0 == name) {
+                        tools.selected = i;
+                        loadout.0.show(name);
+                        tools.page = loadout.0.page;
+                    }
+                }
                 // the pause menu's buttons open the page of the same name (Python: `menu_action`); minipapers is the Lab's page
                 "minipapers" if ui.menu.has_page("lab_minipapers") => ui.menu.show("lab_minipapers"),
                 name if ui.menu.has_page(name) => ui.menu.show(name),
@@ -312,7 +337,7 @@ fn input(
                     cfg.0.save(env!("CARGO_PKG_VERSION"));
                 }
             }
-            Effect::KeysChanged => {
+            Effect::KeysChanged | Effect::SaveConfig => {
                 cfg.0.save(env!("CARGO_PKG_VERSION"));
             }
         }
@@ -353,6 +378,8 @@ fn draw(
     mut vis: Query<(&mut Visibility, &mut ImageNode), With<MenuNode>>,
     time: Res<Time<Real>>,
     lay: Res<HudLayout>,
+    loadout: Res<crate::tools::ActiveLoadout>,
+    tools: Res<crate::tools::ToolState>,
 ) {
     let Ok((mut v, mut node)) = vis.single_mut() else { return };
     if !ui.menu.is_open() {
@@ -371,7 +398,14 @@ fn draw(
     let mouse = window.cursor_position().map_or((-1, -1), |p| ((p.x * k) as i32, (p.y * k) as i32));
     let MenuUi { menu, canvas, image, .. } = &mut *ui;
     canvas.clear();
-    menu.draw(canvas, &mut cfg.0, true, mouse, time.elapsed_secs_f64(), &mut GameHost);
+    menu.draw(
+        canvas,
+        &mut cfg.0,
+        true,
+        mouse,
+        time.elapsed_secs_f64(),
+        &mut GameHost::new(&loadout.0.tools, crate::tools::TOOLS[tools.selected].0),
+    );
     if let Some(mut img) = images.get_mut(&*image) {
         img.data = Some(canvas.px.clone());
     }
@@ -405,7 +439,16 @@ impl Plugin for MenuPlugin {
 
 /// What the menu pages ask of the game (`ktf_ui::PageHost`): the facts the share page validates against, the clipboard, and applying a code.
 /// Only what this build has is answered; the rest comes back as null or an error that says so.
-pub struct GameHost;
+pub struct GameHost {
+    loadout: Vec<String>,
+    selected: String,
+}
+
+impl GameHost {
+    pub fn new(loadout: &[String], selected: &str) -> Self {
+        GameHost { loadout: loadout.to_vec(), selected: selected.into() }
+    }
+}
 
 fn stamp() -> String {
     // UTC date and time as YYYYMMDD-HHMMSS (the Python game used local time)
@@ -433,7 +476,8 @@ impl PageHost for GameHost {
                 "arenas": crate::world::ARENAS, "contraption_slots_used": 0,
             }),
             "surgery_payload" => json!({"groups": {}, "types": {}}),
-            "loadout_tools" => json!(schema.tools.iter().take(10).collect::<Vec<_>>()),
+            "loadout_tools" => json!(self.loadout),
+            "selected_tool" => json!(self.selected),
             "lab_modified" => json!({}),
             "protocol_files" => json!([]),
             "challenge_keys" => json!([]),

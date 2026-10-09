@@ -1,4 +1,96 @@
 {
+ "toolbar": [
+  [
+   "hand",
+   "HAND",
+   "drag the fly and throw it"
+  ],
+  [
+   "flick",
+   "FLICK",
+   "click near the fly"
+  ],
+  [
+   "swatter",
+   "SWAT",
+   "click on the fly"
+  ],
+  [
+   "bomb",
+   "BOMB",
+   "click to drop a bomb, 1.5 s fuse"
+  ],
+  [
+   "torch",
+   "TORCH",
+   "hold: burns it, maxes out pain"
+  ],
+  [
+   "cleaner",
+   "CLEANER",
+   "hold: brake cleaner dissolves it"
+  ],
+  [
+   "zapper",
+   "ZAP",
+   "click: electric shock through its body"
+  ],
+  [
+   "freeze",
+   "FREEZE",
+   "hold: freezes it solid, then smash the ice"
+  ],
+  [
+   "spider",
+   "SPIDER",
+   "click: drop a spider that hunts it"
+  ],
+  [
+   "sugar",
+   "SUGAR",
+   "click: drop sugar to reward it"
+  ],
+  [
+   "alcohol",
+   "ALCOHOL",
+   "click: drop alcohol, sweet PAM reward but escalating drunkenness"
+  ],
+  [
+   "laser",
+   "LASER",
+   "targeted laser: hold/click to stimulate or silence cell types in real time"
+  ],
+  [
+   "cva",
+   "CVA",
+   "puffs cVA pheromone: activates Or67d/DA1 glomerulus"
+  ],
+  [
+   "decoy",
+   "DECOY",
+   "spawns a decoy female target to evoke courtship"
+  ],
+  [
+   "fruit",
+   "FRUIT",
+   "click: drop ripe fruit, eaten like sugar (as in the orchard)"
+  ],
+  [
+   "frog",
+   "FROG",
+   "click: put down a frog; its tongue is very fast"
+  ],
+  [
+   "dragonfly",
+   "DRAGONFLY",
+   "click: a dragonfly chases flying flies from above"
+  ],
+  [
+   "mantis",
+   "MANTIS",
+   "click: a mantis creeps up slowly, then strikes"
+  ]
+ ],
  "schema_version": 3,
  "settings": [
   {

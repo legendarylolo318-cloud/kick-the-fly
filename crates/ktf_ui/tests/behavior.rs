@@ -13,6 +13,7 @@ struct Rig {
 impl Rig {
     fn new(screen: &str) -> Self {
         let mut m = Menu::new("test");
+        ktf_ui::pages::install(&mut m);
         m.show(screen);
         let mut r = Rig { m, cfg: Config::new(None), cv: Canvas::new(1280, 720), t: 0.0 };
         r.frame();
@@ -137,4 +138,44 @@ fn wheel_scrolls_within_limits() {
     r.frame();
     assert!(r.m.center_of("key:forward").is_some());
     let _ = json!(null);
+}
+
+#[test]
+fn loadout_editor_click_and_drag() {
+    let mut r = Rig::new("loadout");
+    assert_eq!(r.cfg.get_str("controls.loadout_preset"), "auto");
+    // click a card: equips the bomb, the preset becomes custom, the config is to be saved
+    let fx = r.click("lo-card:bomb");
+    assert!(fx.contains(&Effect::SaveConfig));
+    assert_eq!(r.cfg.get_str("controls.loadout_preset"), "custom");
+    assert_eq!(r.cfg.custom_loadout, ["hand", "swatter", "torch", "freeze", "sugar", "bomb"]);
+    // click it again: unequipped
+    r.click("lo-card:bomb");
+    assert_eq!(r.cfg.custom_loadout, ["hand", "swatter", "torch", "freeze", "sugar"]);
+    // the hand can't be removed
+    r.click("lo-slot:0");
+    // drag the sugar (slot 4) onto slot 1: reordered, the hand stays first
+    let from = r.m.center_of("lo-slot:4").unwrap();
+    let to = r.m.center_of("lo-drop:1").unwrap();
+    r.send(UiEvent::MouseDown { pos: from });
+    r.send(UiEvent::Motion { pos: (from.0 - 30, from.1 - 20) });
+    r.send(UiEvent::Motion { pos: to });
+    r.send(UiEvent::MouseUp { pos: to });
+    assert_eq!(r.cfg.custom_loadout, ["hand", "sugar", "swatter", "torch", "freeze"]);
+    // drag the torch (now slot 3) off the hotbar: removed
+    let from = r.m.center_of("lo-slot:3").unwrap();
+    r.send(UiEvent::MouseDown { pos: from });
+    r.send(UiEvent::Motion { pos: (from.0, from.1 + 200) });
+    r.send(UiEvent::MouseUp { pos: (from.0, from.1 + 200) });
+    assert_eq!(r.cfg.custom_loadout, ["hand", "sugar", "swatter", "freeze"]);
+    // save under a name, then load it back after changing
+    r.click("lo:save");
+    assert_eq!(r.cfg.saved_loadouts.len(), 1);
+    r.click("lo-card:flick");
+    assert!(r.cfg.custom_loadout.contains(&"flick".to_string()));
+    r.click("lo-saved:0");
+    assert_eq!(r.cfg.custom_loadout, ["hand", "sugar", "swatter", "freeze"]);
+    // a preset button
+    r.click("lo-preset:chaos");
+    assert_eq!(r.cfg.get_str("controls.loadout_preset"), "chaos");
 }

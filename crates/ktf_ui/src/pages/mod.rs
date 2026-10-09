@@ -2,10 +2,13 @@
 
 use crate::menu::Menu;
 
+pub mod loadout;
 pub mod share;
 pub mod whatsnew;
 
 pub fn install(menu: &mut Menu) {
+    menu.register_page("loadout", Box::<loadout::LoadoutPage>::default());
+    menu.register_page("loadout_notice", Box::<loadout::LoadoutNotice>::default());
     menu.register_page("share", Box::<share::SharePage>::default());
     menu.register_page("whatsnew", Box::new(whatsnew::WhatsNew));
 }

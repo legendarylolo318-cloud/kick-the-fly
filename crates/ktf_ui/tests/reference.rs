@@ -27,7 +27,8 @@ impl PageHost for Mock {
     fn query(&self, key: &str) -> serde_json::Value {
         match key {
             "surgery_payload" => serde_json::json!({"groups": {}, "types": {}}),
-            "loadout_tools" => serde_json::json!(["hand", "swatter", "bomb"]),
+            "loadout_tools" => serde_json::json!(["hand", "swatter", "torch", "freeze", "sugar"]),
+            "selected_tool" => serde_json::json!("hand"),
             "lab_modified" => serde_json::json!({}),
             _ => serde_json::Value::Null,
         }
@@ -134,4 +135,16 @@ fn share_page_tabs() {
     compare("page_share_surgery.png", &draw("share", "Graphics", true, |_| {}), 0.009);
     compare("page_share_loadout.png", &draw_with("share", "Graphics", true, |_| {}, |m, f| click(m, f, "share-kind:loadout")), 0.009);
     compare("page_share_import.png", &draw_with("share", "Graphics", true, |_| {}, |m, f| click(m, f, "share-tab:import")), 0.009);
+}
+
+#[test]
+fn loadout_editor_page() {
+    compare("page_loadout_base.png", &draw("loadout", "Graphics", true, |_| {}), 0.009);
+    compare(
+        "page_loadout_all.png",
+        &draw("loadout", "Graphics", true, |c| {
+            c.set("controls.loadout_preset", &serde_json::json!("all")).unwrap();
+        }),
+        0.009,
+    );
 }
