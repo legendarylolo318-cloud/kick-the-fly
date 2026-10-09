@@ -51,7 +51,7 @@ fn lock<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
 }
 
 /// The hosts to try, best first: PulseAudio (also what PipeWire serves), then the platform default, then the rest.
-fn host_order() -> Vec<cpal::HostId> {
+pub(crate) fn host_order() -> Vec<cpal::HostId> {
     let mut ids = cpal::available_hosts();
     let rank = |id: &cpal::HostId| -> u8 {
         let n = format!("{id:?}").to_lowercase();
@@ -65,6 +65,24 @@ fn host_order() -> Vec<cpal::HostId> {
     };
     ids.sort_by_key(rank);
     ids
+}
+
+/// Whether an input device exists, WITHOUT opening it (`mic.availability`): the self-test never listens.
+pub fn availability() -> (bool, String) {
+    let mut why = vec![];
+    for id in host_order() {
+        match cpal::host_from_id(id) {
+            Ok(h) => match h.default_input_device() {
+                Some(d) => {
+                    let name = d.description().map_or_else(|_| "unnamed device".into(), |n| n.to_string());
+                    return (true, format!("an input device exists ({id:?}: {name})"));
+                }
+                None => why.push(format!("{id:?}: no input device")),
+            },
+            Err(e) => why.push(format!("{id:?}: {e}")),
+        }
+    }
+    (false, if why.is_empty() { "no audio host".into() } else { why.join("; ") })
 }
 
 /// Open the first input device that works. Returns the running stream and a description, or the reason none did.

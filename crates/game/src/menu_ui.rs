@@ -540,17 +540,16 @@ impl PageHost for GameHost {
             "challenge_keys" => json!([]),
             "clipboard_get" => json!(arboard::Clipboard::new().and_then(|mut c| c.get_text()).unwrap_or_default()),
             "now_stamp" => json!(stamp()),
-            _ => Value::Null,
+            _ => crate::crash::diag_query(key).unwrap_or(Value::Null),
         }
     }
 
     fn command(&mut self, cmd: &str, args: Value) -> Value {
         use serde_json::json;
         match cmd {
-            "clipboard_put" => json!(arboard::Clipboard::new().and_then(|mut c| c.set_text(args.as_str().unwrap_or(""))).is_ok()),
             "share_apply" => json!({"error": format!("this build can't apply a {} code yet", args["kind"].as_str().unwrap_or("?"))}),
             "protocol_payload" => json!({"error": "protocols are not part of this build yet"}),
-            _ => Value::Null,
+            _ => crate::crash::diag_command(cmd, &args).unwrap_or(Value::Null),
         }
     }
 }

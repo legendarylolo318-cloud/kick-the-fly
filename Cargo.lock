@@ -2958,6 +2958,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aa9a19cbb55df58761df49b23516a86d432839add4af60fc256da840f66ed35b"
 
 [[package]]
+name = "fs4"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7e72ed92b67c146290f88e9c89d60ca163ea417a446f61ffd7b72df3e7f1dfd5"
+dependencies = [
+ "rustix 1.1.5",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
 name = "futures"
 version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3767,9 +3777,12 @@ dependencies = [
  "bytemuck",
  "cpal 0.18.2",
  "fly_sim",
+ "fs4",
  "ktf_data",
  "ktf_ui",
  "serde_json",
+ "sha2",
+ "wgpu",
  "windows-sys 0.61.2",
 ]
 

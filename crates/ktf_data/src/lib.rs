@@ -9,6 +9,7 @@
 //! No Bevy here: the crate builds and tests in seconds, and the game and the Lab use it the same way.
 
 pub mod config;
+pub mod diag;
 pub mod loadout;
 pub mod neurodex_facts;
 pub mod notd;

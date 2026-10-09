@@ -27,6 +27,10 @@ struct Args {
     kill_at: Option<f32>,
     menu: Option<String>,
     fullscreen: bool,
+    selftest: bool,
+    bugreport: bool,
+    out: Option<PathBuf>,
+    crash_screen: Option<Vec<PathBuf>>,
 }
 
 const USAGE: &str = "usage: kick_the_fly [--pack FILE | --synthetic N] [--seed S] [--smoke SECONDS]\n\
@@ -40,7 +44,9 @@ const USAGE: &str = "usage: kick_the_fly [--pack FILE | --synthetic N] [--seed S
   --fullscreen     start borderless fullscreen (a tiling compositor otherwise opens half-size windows)\n\
   --menu SCREEN[:TAB]  open a menu screen at start (pause, confirm_quit, settings:Audio), for screenshots\n\
   --tool NAME [--fire S] [--hold S]  select a tool and press the left button at S seconds for HOLD seconds\n\
-  --shot FILE [N]  save a screenshot after N frames (default 90) and exit";
+  --shot FILE [N]  save a screenshot after N frames (default 90) and exit\n\
+  --selftest [--out FILE.json]  check this install (brain pack, simulator, GPU, audio, folders, disk, memory, a 10 s run); exit 0 all pass, 1 any FAIL, 3 warnings\n\
+  --bugreport [--out DIR]  print what a bug report would contain (nothing is sent) and write DIR/bugreport.md";
 
 fn parse(args: impl Iterator<Item = String>) -> Result<Args, String> {
     let mut args = args.skip(1);
@@ -50,7 +56,12 @@ fn parse(args: impl Iterator<Item = String>) -> Result<Args, String> {
     let mut kill_at = None;
     let mut menu = None;
     let mut fullscreen = false;
+    let (mut selftest, mut bugreport, mut out, mut crash_screen) = (false, false, None, None);
     while let Some(a) = args.next() {
+        if a == "--crash-screen" {
+            crash_screen = Some(args.by_ref().map(PathBuf::from).collect());
+            break;
+        }
         let mut value = |what: &str| args.next().ok_or_else(|| format!("{a} needs {what}"));
         match a.as_str() {
             "--pack" => source = Some(Source::Pack(PathBuf::from(value("a file")?))),
@@ -65,6 +76,9 @@ fn parse(args: impl Iterator<Item = String>) -> Result<Args, String> {
             "--rain" => rain = value("0..1")?.parse().map_err(|_| "bad rain")?,
             "--storm" => storm = true,
             "--fullscreen" => fullscreen = true,
+            "--selftest" => selftest = true,
+            "--bugreport" => bugreport = true,
+            "--out" => out = Some(PathBuf::from(value("a file or folder")?)),
             "--menu" => menu = Some(value("a screen, e.g. pause or settings:Audio")?),
             "--kill-at" => kill_at = Some(value("seconds")?.parse::<f32>().map_err(|_| "bad seconds")?),
             "--day" => day = value("seconds per day")?.parse().map_err(|_| "bad day length")?,
@@ -99,7 +113,25 @@ fn parse(args: impl Iterator<Item = String>) -> Result<Args, String> {
             Source::Synthetic { n: 20_000 }
         }
     });
-    Ok(Args { source, seed, smoke, arena, shot, cam, script: tool.map(|t| (t, fire, hold)), rain, storm, day, kill_at, menu, fullscreen })
+    Ok(Args {
+        source,
+        seed,
+        smoke,
+        arena,
+        shot,
+        cam,
+        script: tool.map(|t| (t, fire, hold)),
+        rain,
+        storm,
+        day,
+        kill_at,
+        menu,
+        fullscreen,
+        selftest,
+        bugreport,
+        out,
+        crash_screen,
+    })
 }
 
 /// The release build on Windows has no console window (`windows_subsystem = "windows"`); when started from a terminal with arguments
@@ -134,6 +166,16 @@ fn main() -> ExitCode {
             return ExitCode::from(1);
         }
     };
+    if let Some(files) = args.crash_screen {
+        return kick_the_fly::crash::run_crash_screen(files);
+    }
+    kick_the_fly::selftest::set_pack_path(if let Source::Pack(p) = &args.source { Some(p.clone()) } else { None });
+    if args.selftest {
+        return ExitCode::from(kick_the_fly::selftest::main(args.out.as_deref()) as u8);
+    }
+    if args.bugreport {
+        return ExitCode::from(kick_the_fly::crash::bugreport_main(args.out.as_deref()) as u8);
+    }
     let pack_path = if let Source::Pack(p) = &args.source { Some(p.clone()) } else { None };
     let mut config = SimConfig::new(args.source);
     config.seed = args.seed;
@@ -160,6 +202,10 @@ fn main() -> ExitCode {
         };
     }
 
+    kick_the_fly::crash::open_log();
+    kick_the_fly::crash::install_panic_hook(true);
+    ktf_data::diag::set_info("seed", args.seed.to_string());
+    ktf_data::diag::set_info("video_driver", if std::env::var_os("WAYLAND_DISPLAY").is_some() { "wayland" } else { "x11 or native" });
     let mut app = App::new();
     app.insert_resource(kick_the_fly::sim_thread::PackPath(pack_path));
     let mut full = args.fullscreen;
@@ -179,7 +225,9 @@ fn main() -> ExitCode {
         bevy::window::WindowMode::Windowed
     };
     app.add_plugins(
-        DefaultPlugins.set(WindowPlugin { primary_window: Some(Window { title: "Kick the Fly".into(), mode, ..default() }), ..default() }),
+        DefaultPlugins
+            .set(WindowPlugin { primary_window: Some(Window { title: "Kick the Fly".into(), mode, ..default() }), ..default() })
+            .set(bevy::log::LogPlugin { custom_layer: kick_the_fly::crash::log_layer, ..default() }),
     )
     .add_plugins((SimPlugin { config }, kick_the_fly::GamePlugin));
     if let Some(name) = &args.arena {

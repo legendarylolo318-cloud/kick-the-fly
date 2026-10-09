@@ -30,6 +30,9 @@ avian3d.workspace = true
 serde_json.workspace = true
 bytemuck.workspace = true
 cpal.workspace = true
+sha2.workspace = true
+fs4 = "=1.1.0"
+wgpu = { version = "=29.0.4", default-features = false }
 
 [dev-dependencies]
 # system names in panics while testing
@@ -41,4 +44,4 @@ bevy = { workspace = true, features = ["debug"] }
 cpal = { workspace = true, features = ["pulseaudio"] }
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "=0.61.2", features = ["Win32_System_Console", "Win32_Foundation"] }
+windows-sys = { version = "=0.61.2", features = ["Win32_System_Console", "Win32_Foundation", "Win32_System_SystemInformation"] }

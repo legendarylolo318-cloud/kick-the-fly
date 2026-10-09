@@ -20,6 +20,7 @@ pub mod capture;
 pub mod config;
 pub mod contraption;
 pub mod controls;
+pub mod crash;
 pub mod duel;
 pub mod environment;
 pub mod feedback;
@@ -50,6 +51,7 @@ pub mod race;
 pub mod reactions;
 pub mod rng;
 pub mod savestate_play;
+pub mod selftest;
 pub mod senses;
 pub mod sim_thread;
 pub mod snapshot;
@@ -146,6 +148,7 @@ impl Plugin for GamePlugin {
             .add_plugins(neurodex_play::DexPlugin)
             .add_plugins(menu_ui::MenuPlugin)
             .add_plugins((
+                crash::CrashPlugin,
                 actions::ActionsPlugin,
                 tutorial_play::TutorialPlugin,
                 first_run::FirstRunPlugin,

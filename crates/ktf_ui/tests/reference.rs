@@ -78,17 +78,22 @@ fn click(m: &mut Menu, frame: &mut dyn FnMut(&mut Menu, Option<UiEvent>), id: &s
 
 /// Share of pixels that differ clearly (any channel by more than 60) and the largest such share in any 80-px band of rows.
 fn compare(name: &str, ours: &[u8], max_share: f64) {
+    compare_size(name, ours, max_share, (1280, 720));
+}
+
+fn compare_size(name: &str, ours: &[u8], max_share: f64, size: (u32, u32)) {
     let (theirs, w, h) = reference(name);
-    assert_eq!((w, h), (1280, 720));
+    assert_eq!((w, h), size);
     let mut bad = 0usize;
     let mut bands = vec![0usize; (h as usize).div_ceil(80)];
     for (i, (a, b)) in ours.as_chunks::<3>().0.iter().zip(theirs.as_chunks::<3>().0.iter()).enumerate() {
         if a.iter().zip(b).any(|(x, y)| (*x as i32 - *y as i32).abs() > 60) {
             bad += 1;
-            bands[i / 1280 / 80] += 1;
+            bands[i / w as usize / 80] += 1;
         }
     }
     let share = bad as f64 / (w * h) as f64;
+    eprintln!("{name}: {:.3}% differ", share * 100.0);
     assert!(
         share < max_share,
         "{name}: {:.3}% of pixels differ clearly (limit {:.3}%); per 80-row band: {bands:?}",
@@ -186,4 +191,87 @@ fn neurodex_panel() {
     let Some(a) = dex_shot("DNp01", true) else { return };
     compare("page_neurodex.png", &a, 0.012);
     compare("page_neurodex_unknown.png", &dex_shot("DNp02", false).unwrap(), 0.012);
+}
+
+/// The self-test, bug report and crash pages (`make_ui_reference.py` writes the fixture both sides draw).
+struct DiagMock(serde_json::Value);
+impl PageHost for DiagMock {
+    fn query(&self, key: &str) -> serde_json::Value {
+        match key {
+            "selftest" => self.0["selftest"].clone(),
+            "crash_paths" => {
+                serde_json::json!(["/home/user/.local/state/kick-the-fly/KickTheFly-crash.txt", "/opt/kick/KickTheFly-crash.txt"])
+            }
+            _ => serde_json::Value::Null,
+        }
+    }
+    fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+        serde_json::Value::Null
+    }
+}
+
+fn diag_fixture() -> serde_json::Value {
+    let p = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/ui_reference/diag_fixture.json");
+    serde_json::from_slice(&std::fs::read(p).unwrap()).unwrap()
+}
+
+fn diag_items(fx: &serde_json::Value) -> Vec<ktf_data::diag::Item> {
+    fx["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|i| ktf_data::diag::Item {
+            id: ["summary", "selftest", "log", "crash"].into_iter().find(|n| *n == i["id"].as_str().unwrap()).unwrap(),
+            title: i["title"].as_str().unwrap().into(),
+            text: i["text"].as_str().unwrap().into(),
+            long: i["long"].as_bool().unwrap(),
+            include: i["include"].as_bool().unwrap(),
+        })
+        .collect()
+}
+
+fn diag_shot(screen: &str, size: (i32, i32), prep: impl Fn(&mut Menu)) -> Vec<u8> {
+    let fx = diag_fixture();
+    let mut host = DiagMock(fx);
+    let mut cfg = Config::new(None);
+    let mut m = Menu::new("3.1.1");
+    ktf_ui::pages::install(&mut m);
+    m.register_page("crash", Box::new(ktf_ui::pages::diag::CrashPage));
+    prep(&mut m);
+    m.show(screen);
+    let mut cv = Canvas::new(size.0, size.1);
+    m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut host);
+    cv.to_rgb_over(BG)
+}
+
+#[test]
+fn selftest_page() {
+    compare("page_selftest.png", &diag_shot("selftest", (1280, 720), |_| {}), 0.009);
+}
+
+#[test]
+fn bugreport_page() {
+    let fx = diag_fixture();
+    let note = "The fly froze when I used the bomb";
+    for (name, sel, note, saved) in [
+        ("page_bugreport_summary.png", 0, note, None),
+        ("page_bugreport_log.png", 2, note, None),
+        ("page_bugreport_copied.png", 4, note, None),
+        (
+            "page_bugreport_saved.png",
+            3,
+            "",
+            Some("/home/user/.local/state/kick-the-fly/bugreports/kickthefly-bugreport-20261009-120000.txt"),
+        ),
+    ] {
+        let shot = diag_shot("bugreport", (1280, 720), |m| {
+            m.page_mut::<ktf_ui::pages::diag::BugReportPage>("bugreport").unwrap().preset(diag_items(&fx), sel, note, saved);
+        });
+        compare(name, &shot, 0.012);
+    }
+}
+
+#[test]
+fn crash_page() {
+    compare_size("page_crash.png", &diag_shot("crash", (900, 620), |_| {}), 0.009, (900, 620));
 }
