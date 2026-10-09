@@ -5,7 +5,8 @@
 //! it into the slot while holding a lock for the length of a pointer move; the render thread takes whatever is newest, and hands the
 //! buffer it is done with back to the pool. A frame that arrives while the renderer is busy simply replaces the older one.
 
-use std::sync::{Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::time::Instant;
 
 /// Where the sim thread is in its life.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -19,6 +20,26 @@ pub enum Phase {
     Paused,
     /// The pack could not be loaded; the message says why. The thread keeps answering commands and exits on shutdown.
     Failed(String),
+}
+
+/// What never changes while a brain runs: positions and labels for the brain views, and the names of the group readouts.
+#[derive(Debug, Clone, Default)]
+pub struct BrainInfo {
+    /// Cell-body position per neuron (NaN where the dataset has none).
+    pub soma: Vec<[f32; 3]>,
+    /// Where each neuron is drawn, normalised to about [-1, 1] (x right, y up, z depth). A neuron without a cell body in the data sits at
+    /// the synapse-weighted centre of its partners (`BrainView.__init__`'s `A`); NaN when it has no placed partner either.
+    pub layout: Vec<[f32; 3]>,
+    /// Population index (0..9, `fly_sim::groups` POPS order) per neuron, or 255 for none.
+    pub population: Vec<u8>,
+    /// Names of the entries of [`Snapshot::levels`] and [`Snapshot::hz`].
+    pub group_names: Vec<String>,
+    pub population_names: Vec<String>,
+    /// The neuropil region of each neuron (index into `region_names`), for the sonification's voices.
+    pub region_id: Vec<u8>,
+    pub region_names: Vec<String>,
+    /// Cell type of each neuron (for the kill cam's "which neurons rose" list and the lesion picker).
+    pub types: Vec<String>,
 }
 
 /// A copy of the sim's state for drawing. Plain data, cheap to hold on to.
@@ -47,6 +68,12 @@ pub struct Snapshot {
     pub driving: bool,
     pub dead: bool,
     pub speed: f32,
+    /// Per group (`BrainInfo::group_names`): firing in Hz per neuron, and as a multiple of the calm baseline.
+    pub hz: Vec<f32>,
+    pub levels: Vec<f32>,
+    pub info: Option<Arc<BrainInfo>>,
+    /// When the sim thread made this snapshot, to measure how stale the render side's view is.
+    pub published_at: Option<Instant>,
 }
 
 /// One-slot latest-value box with buffer recycling. See the module docs.

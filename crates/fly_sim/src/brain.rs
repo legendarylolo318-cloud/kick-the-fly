@@ -6,6 +6,7 @@
 
 use std::sync::Arc;
 
+use crate::groups::Groups;
 use crate::lif::{LifParams, LifSim};
 use crate::pack::Labels;
 use crate::Error;
@@ -26,6 +27,13 @@ pub fn rows_of(labels: &Labels, n: usize, spec: &str) -> Result<Vec<u32>, Error>
     let pick = |names: &[String], pred: &dyn Fn(&str) -> bool| -> Vec<u32> {
         names.iter().enumerate().filter(|(_, t)| pred(t)).map(|(i, _)| i as u32).collect()
     };
+    if kind == "side" {
+        // `side:R:DNa01,DNa02`: those types, on one side of the brain (the instance name ends `_R` or `_L`)
+        let (side, types) = arg.split_once(':').ok_or_else(|| Error::Spec(format!("'{spec}': side:<L|R>:<types>")))?;
+        let suffix = format!("_{side}");
+        let items: Vec<&str> = types.split(',').collect();
+        return Ok((0..n as u32).filter(|&i| items.contains(&labels.types[i as usize].as_str()) && labels.instance.get(i as usize).is_some_and(|x| x.ends_with(&suffix))).collect());
+    }
     let items: Vec<&str> = arg.split(',').collect();
     match kind {
         "type" => Ok(pick(&labels.types, &|t| items.contains(&t))),
@@ -62,11 +70,16 @@ pub struct Brain {
     /// Brain steps taken.
     pub steps: u64,
     scratch: Vec<f32>,
+    /// Named groups, the poke queue and the rate trackers (`Brain.poke`, `level`, `hz`).
+    pub groups: Groups,
+    gain_adapt: f64,
 }
 
 impl Brain {
     pub fn new(sim: LifSim, labels: Arc<Labels>) -> Self {
         let n = sim.n;
+        let groups = Groups::new(&labels, n, sim.p.dt_ms, 0x6b69_636b);
+        let gain_adapt = sim.p.gain_adapt;
         Self {
             sim,
             labels,
@@ -78,6 +91,8 @@ impl Brain {
             death_step: None,
             steps: 0,
             scratch: vec![0.0; n],
+            groups,
+            gain_adapt,
         }
     }
 
@@ -135,44 +150,102 @@ impl Brain {
         self.sim.p.gain_adapt = 0.0;
     }
 
-    /// One brain step (`Brain._step`, without the group trackers): returns the spikes.
+    /// `Brain.revive`: bring a dead brain back (the gain controller adapts again).
+    pub fn revive(&mut self) {
+        if self.death_step.take().is_some() {
+            self.sim.p.gain_adapt = self.gain_adapt;
+        }
+    }
+
+    /// True while nothing but the sensory pokes drives the brain: the baseline only learns then.
+    fn calm(&self) -> bool {
+        self.death_step.is_none() && self.sedation == 0.0 && !self.surgery && !self.driving
+    }
+
+    /// `Brain.poke` on this brain.
+    pub fn poke(&mut self, region: &str, side: Option<char>, strength: f32) {
+        if self.dead() {
+            return;
+        }
+        let step = self.steps;
+        self.groups.poke(region, side, strength, None, step);
+    }
+
+    /// `Brain.poke` with an explicit share of the region's neurons recruited.
+    pub fn poke_recruit(&mut self, region: &str, side: Option<char>, strength: f32, recruit: Option<f32>) {
+        if self.dead() {
+            return;
+        }
+        let step = self.steps;
+        self.groups.poke(region, side, strength, recruit, step);
+    }
+
+    /// `Brain.level`.
+    pub fn level(&self, name: &str) -> f32 {
+        self.groups.level(name)
+    }
+
+    /// `Brain.hz`.
+    pub fn hz(&self, name: &str) -> f32 {
+        self.groups.hz(name)
+    }
+
+    /// One brain step (`Brain._step`): queued pokes, held currents, the step itself, then the group rate trackers.
     pub fn step(&mut self) -> &[u32] {
         self.steps += 1;
         if let Some(d) = self.death_step {
             let ramp = (((self.steps - 1 - d) as f64 / DEATH_RAMP_STEPS as f64).clamp(0.0, 1.0)).max(f64::from(self.sedation)).min(1.0);
             let level = INHIB * ramp as f32;
             self.scratch.fill(level);
-            return self.sim.step(Some(&self.scratch));
+            self.groups.clear_pending();
+            self.sim.step(Some(&self.scratch));
+            let calm = false;
+            self.groups.end_step(self.sim.spikes(), self.steps, calm);
+            return self.sim.spikes();
         }
-        let any = self.sedation > 0.0 || self.surgery || self.driving;
+        let poked = self.groups.has_pending();
+        let any = self.sedation > 0.0 || self.surgery || self.driving || poked;
         if !any {
-            return self.sim.step(None);
-        }
-        self.scratch.fill(0.0);
-        if self.sedation > 0.0 {
-            let s = INHIB * self.sedation;
-            for x in &mut self.scratch {
-                *x += s;
+            self.sim.step(None);
+        } else {
+            self.scratch.fill(0.0);
+            if poked {
+                let cur = self.groups.begin_step();
+                for (x, c) in self.scratch.iter_mut().zip(cur) {
+                    *x += c;
+                }
+                self.groups.end_pokes();
             }
-        }
-        if self.surgery {
-            for (x, o) in self.scratch.iter_mut().zip(&self.override_cur) {
-                *x += o;
+            if self.sedation > 0.0 {
+                let s = INHIB * self.sedation;
+                for x in &mut self.scratch {
+                    *x += s;
+                }
             }
-        }
-        if self.driving {
-            for (x, d) in self.scratch.iter_mut().zip(&self.drive_cur) {
-                *x += d;
+            if self.surgery {
+                for (x, o) in self.scratch.iter_mut().zip(&self.override_cur) {
+                    *x += o;
+                }
             }
+            if self.driving {
+                for (x, d) in self.scratch.iter_mut().zip(&self.drive_cur) {
+                    *x += d;
+                }
+            }
+            self.sim.step(Some(&self.scratch));
         }
-        self.sim.step(Some(&self.scratch))
+        let calm = self.calm();
+        self.groups.end_step(self.sim.spikes(), self.steps, calm);
+        self.sim.spikes()
     }
 
     /// Run `steps` calm steps (the game warms a new brain up for 600).
     pub fn warmup(&mut self, steps: usize) {
+        let k = self.groups.set_base_tau_steps(60.0); // let the baseline settle quickly
         for _ in 0..steps {
             self.step();
         }
+        self.groups.restore_base_k(k);
     }
 }
 
@@ -197,6 +270,7 @@ mod tests {
         assert_eq!(rows_of(&l, 5, "prefix:KC").unwrap(), vec![2, 3]);
         assert_eq!(rows_of(&l, 5, "superclass:cb_intrinsic").unwrap(), vec![2, 3]);
         assert_eq!(rows_of(&l, 5, "rows:4,1").unwrap(), vec![4, 1]);
+        assert!(rows_of(&l, 5, "side:R:DNp01").unwrap().is_empty(), "no instance names in this fixture");
         assert!(rows_of(&l, 5, "rows:9").is_err());
         assert!(rows_of(&l, 5, "bogus").is_err());
         assert!(rows_of(&l, 5, "nope:x").is_err());

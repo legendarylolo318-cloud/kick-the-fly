@@ -6,7 +6,7 @@
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, PoisonError};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
@@ -16,7 +16,7 @@ use fly_sim::lif::{LifParams, LifSim};
 use fly_sim::pack::{Labels, Pack};
 use fly_sim::{synthetic, Brain};
 
-use crate::snapshot::{Mailbox, Phase, Snapshot};
+use crate::snapshot::{BrainInfo, Mailbox, Phase, Snapshot};
 
 /// Brain steps behind real time that are dropped rather than caught up (Python: `due - done > 40`).
 const MAX_BACKLOG: u64 = 40;
@@ -60,11 +60,29 @@ pub enum Command {
     /// While paused, run this many steps.
     StepOnce(u32),
     Kill,
+    /// Bring a dead brain back (R).
+    Revive,
+    /// `Brain.poke`: a touch/scent/heat... pulse on a region (`head`, `body`, `legs`, `wing`, `scent:sugar`, `heat`, `reward`...).
+    Poke { region: String, side: Option<char>, strength: f32 },
+    /// Brain surgery on the neurons of a spec: -1 silence, 0 release, +1 stimulate.
+    Surgery { spec: String, mode: i8 },
+    /// 0..1 share of the death inhibition (solvent, cold, venom).
+    Sedation(f32),
+    /// Pain level 0..2 (normal, more, max).
+    PainLevel(usize),
     Shutdown,
 }
 
 /// The render side's handle to the sim thread. Dropping it shuts the thread down and waits for it.
+/// The loaded connectome, shared with the arcade's background brains (tournaments, races, lesion battles) so they do not load it again.
+#[derive(Clone)]
+pub struct Shared {
+    pub weights: Arc<Weights>,
+    pub labels: Arc<Labels>,
+}
+
 pub struct SimHandle {
+    pub shared: Arc<Mutex<Option<Shared>>>,
     tx: Sender<Command>,
     pub mailbox: Arc<Mailbox<Snapshot>>,
     stop: Arc<AtomicBool>,
@@ -103,14 +121,15 @@ pub fn spawn(cfg: SimConfig) -> SimHandle {
     let (tx, rx) = mpsc::channel();
     let mailbox = Arc::new(Mailbox::<Snapshot>::default());
     let stop = Arc::new(AtomicBool::new(false));
+    let shared = Arc::new(Mutex::new(None));
     let join = {
-        let (mailbox, stop) = (mailbox.clone(), stop.clone());
+        let (mailbox, stop, shared) = (mailbox.clone(), stop.clone(), shared.clone());
         thread::Builder::new()
             .name("fly-sim".into())
-            .spawn(move || run(cfg, rx, mailbox, stop))
+            .spawn(move || run(cfg, rx, mailbox, stop, shared))
             .expect("could not start the sim thread")
     };
-    SimHandle { tx, mailbox, stop, join: Some(join) }
+    SimHandle { shared, tx, mailbox, stop, join: Some(join) }
 }
 
 fn publish_phase(mailbox: &Mailbox<Snapshot>, phase: Phase, source: &str, neurons: usize) {
@@ -140,7 +159,7 @@ fn load(cfg: &SimConfig) -> Result<(Arc<Weights>, Arc<Labels>, String), String> 
     }
 }
 
-fn run(cfg: SimConfig, rx: Receiver<Command>, mailbox: Arc<Mailbox<Snapshot>>, stop: Arc<AtomicBool>) {
+fn run(cfg: SimConfig, rx: Receiver<Command>, mailbox: Arc<Mailbox<Snapshot>>, stop: Arc<AtomicBool>, shared: Arc<Mutex<Option<Shared>>>) {
     publish_phase(&mailbox, Phase::Loading, "", 0);
     let (weights, labels, source) = match load(&cfg) {
         Ok(v) => v,
@@ -157,9 +176,11 @@ fn run(cfg: SimConfig, rx: Receiver<Command>, mailbox: Arc<Mailbox<Snapshot>>, s
         }
     };
     let n = weights.n();
+    *shared.lock().unwrap_or_else(PoisonError::into_inner) = Some(Shared { weights: weights.clone(), labels: labels.clone() });
     publish_phase(&mailbox, Phase::WarmingUp, &source, n);
     let params = LifParams::default();
     let dt = Duration::from_secs_f64(params.dt_ms / 1000.0);
+    let info = Arc::new(brain_info(&labels, &weights));
     let mut brain = Brain::new(LifSim::new(weights, params, cfg.seed), labels);
     brain.warmup(cfg.warmup);
 
@@ -169,7 +190,7 @@ fn run(cfg: SimConfig, rx: Receiver<Command>, mailbox: Arc<Mailbox<Snapshot>>, s
     let (mut rate_t, mut rate_steps, mut steps_per_s) = (Instant::now(), brain.steps, 0.0f32);
     let mut dropped: u64 = 0;
     let mut driving = false;
-    publish(&mailbox, &brain, &source, &state, steps_per_s, dropped, driving);
+    publish(&mailbox, &brain, &source, &state, steps_per_s, dropped, driving, &info);
 
     while !stop.load(Ordering::Relaxed) {
         let before = (state.speed, state.paused);
@@ -183,14 +204,14 @@ fn run(cfg: SimConfig, rx: Receiver<Command>, mailbox: Arc<Mailbox<Snapshot>>, s
         if (state.speed, state.paused) != before {
             t0 = Instant::now(); // re-anchor the clock when the speed changes, as Brain._loop does
             done = 0;
-            publish(&mailbox, &brain, &source, &state, steps_per_s, dropped, driving);
+            publish(&mailbox, &brain, &source, &state, steps_per_s, dropped, driving, &info);
         }
         if state.pending_steps > 0 {
             for _ in 0..state.pending_steps {
                 brain.step();
             }
             state.pending_steps = 0;
-            publish(&mailbox, &brain, &source, &state, steps_per_s, dropped, driving);
+            publish(&mailbox, &brain, &source, &state, steps_per_s, dropped, driving, &info);
         }
         if state.paused {
             thread::sleep(Duration::from_millis(2));
@@ -217,7 +238,7 @@ fn run(cfg: SimConfig, rx: Receiver<Command>, mailbox: Arc<Mailbox<Snapshot>>, s
             rate_steps = brain.steps;
         }
         if brain.steps.is_multiple_of(cfg.publish_every) {
-            publish(&mailbox, &brain, &source, &state, steps_per_s, dropped, driving);
+            publish(&mailbox, &brain, &source, &state, steps_per_s, dropped, driving, &info);
         }
     }
 }
@@ -258,11 +279,34 @@ fn apply(brain: &mut Brain, state: &mut LoopState, cmd: Command) -> bool {
             brain.kill();
             false
         }
+        Command::Revive => {
+            brain.revive();
+            false
+        }
+        Command::Poke { region, side, strength } => {
+            brain.poke(&region, side, strength);
+            false
+        }
+        Command::Surgery { spec, mode } => {
+            if let Ok(rows) = brain.rows_of(&spec) {
+                brain.set_surgery(&rows, mode);
+            }
+            false
+        }
+        Command::Sedation(s) => {
+            brain.sedation = s.clamp(0.0, 1.0);
+            false
+        }
+        Command::PainLevel(l) => {
+            brain.groups.set_pain_level(l);
+            false
+        }
         Command::Shutdown => false,
     }
 }
 
-fn publish(mailbox: &Mailbox<Snapshot>, brain: &Brain, source: &str, state: &LoopState, steps_per_s: f32, dropped: u64, driving: bool) {
+#[allow(clippy::too_many_arguments)]
+fn publish(mailbox: &Mailbox<Snapshot>, brain: &Brain, source: &str, state: &LoopState, steps_per_s: f32, dropped: u64, driving: bool, info: &Arc<BrainInfo>) {
     let sim = &brain.sim;
     mailbox.publish(Snapshot::default, |s| {
         s.phase = if state.paused { Phase::Paused } else { Phase::Running };
@@ -282,7 +326,76 @@ fn publish(mailbox: &Mailbox<Snapshot>, brain: &Brain, source: &str, state: &Loo
         s.driving = driving;
         s.dead = brain.dead();
         s.speed = state.speed;
+        s.hz.clear();
+        s.hz.extend_from_slice(&brain.groups.fast);
+        s.levels.clear();
+        s.levels.extend(brain.groups.names.iter().map(|n| brain.groups.level(n)));
+        if s.info.is_none() {
+            s.info = Some(info.clone());
+        }
+        s.published_at = Some(Instant::now());
     });
+}
+
+fn brain_info(labels: &Labels, weights: &Weights) -> BrainInfo {
+    let n = labels.types.len();
+    let pop_names: Vec<String> = fly_sim::groups::population_names().iter().map(|s| (*s).to_string()).collect();
+    let population = (0..n)
+        .map(|i| {
+            let sc = labels.superclass.get(i).map_or("", String::as_str);
+            fly_sim::groups::population_of(sc).map_or(255, |p| p as u8)
+        })
+        .collect();
+    // group names come from a throwaway Groups so the snapshot's `levels` order is documented in one place
+    let g = fly_sim::groups::Groups::new(labels, n, 5.0, 0);
+    let mut region_names: Vec<String> = labels.region.iter().cloned().collect::<std::collections::BTreeSet<_>>().into_iter().collect();
+    region_names.truncate(250);
+    let region_id = labels.region.iter().map(|r| region_names.iter().position(|n| n == r).map_or(255, |i| i as u8)).collect();
+    BrainInfo { types: labels.types.clone(), region_id, region_names, layout: layout(labels, weights), soma: labels.soma.clone(), population, group_names: g.names.clone(), population_names: pop_names }
+}
+
+/// Drawing positions: the real cell body where the dataset has one, else the synapse-weighted centre of the placed partners (Python
+/// `BrainView.__init__`: `A = (|W| + |W|^T) @ (S * has) / total`). Normalised so the brain spans about [-1, 1] across; y is up.
+pub fn layout(labels: &Labels, weights: &Weights) -> Vec<[f32; 3]> {
+    let n = weights.n();
+    if labels.soma.len() != n {
+        return vec![[f32::NAN; 3]; n];
+    }
+    let has: Vec<bool> = labels.soma.iter().map(|s| s[0].is_finite()).collect();
+    let mut sum = vec![[0.0f64; 3]; n];
+    let mut tot = vec![0.0f64; n];
+    for i in 0..n {
+        let (cols, data) = weights.csr.row(i);
+        for (&j, &w) in cols.iter().zip(data) {
+            let (j, w) = (j as usize, f64::from(w.abs()));
+            if has[j] {
+                tot[i] += w;
+                for (acc, v) in sum[i].iter_mut().zip(labels.soma[j]) {
+                    *acc += w * f64::from(v);
+                }
+            }
+            if has[i] {
+                tot[j] += w;
+                for (acc, v) in sum[j].iter_mut().zip(labels.soma[i]) {
+                    *acc += w * f64::from(v);
+                }
+            }
+        }
+    }
+    // MaleCNS coordinates: x 0..96,000, y 0..70,000 (down), z 0..135,000 (depth); the Python front view is centred on (48,000, 28,000, 30,000)
+    let (cx, cy, cz, sc) = (48_000.0f32, 35_000.0f32, 65_000.0f32, 1.0f32 / 48_000.0);
+    (0..n)
+        .map(|i| {
+            let p = if has[i] {
+                labels.soma[i]
+            } else if tot[i] > 0.0 {
+                [(sum[i][0] / tot[i]) as f32, (sum[i][1] / tot[i]) as f32, (sum[i][2] / tot[i]) as f32]
+            } else {
+                return [f32::NAN; 3];
+            };
+            [(p[0] - cx) * sc, (cy - p[1]) * sc, (p[2] - cz) * sc]
+        })
+        .collect()
 }
 
 /// The current of a held stimulus, re-exported so the game does not need to reach into `fly_sim`.

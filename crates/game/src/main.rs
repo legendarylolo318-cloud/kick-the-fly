@@ -8,7 +8,7 @@ use std::process::ExitCode;
 
 use bevy::prelude::*;
 use fly_sim::pack;
-use kick_the_fly::app::{HudPlugin, SimPlugin};
+use kick_the_fly::app::SimPlugin;
 use kick_the_fly::run_smoke;
 use kick_the_fly::sim_thread::{SimConfig, Source};
 
@@ -16,17 +16,33 @@ struct Args {
     source: Source,
     seed: u64,
     smoke: Option<f64>,
+    arena: Option<String>,
+    shot: Option<(PathBuf, u32)>,
+    cam: Option<(bevy::math::Vec3, bevy::math::Vec3)>,
+    script: Option<(usize, f32, f32)>,
+    rain: f32,
+    storm: bool,
+    day: f32,
+    kill_at: Option<f32>,
 }
 
 const USAGE: &str = "usage: kick_the_fly [--pack FILE | --synthetic N] [--seed S] [--smoke SECONDS]\n\
   --pack FILE      brain pack (default: $KICK_THE_FLY_PACK, else data/kick_brain.npz found upward from here)\n\
   --synthetic N    a random N-neuron network instead of the connectome (also what runs when no pack is found)\n\
   --seed S         noise seed (default 1000)\n\
-  --smoke SECONDS  no window: run the brain thread for SECONDS and report steps per second";
+  --smoke SECONDS  no window: run the brain thread for SECONDS and report steps per second\n\
+  --arena NAME     start in this arena (room fan flypaper pool lamp escaperoom field orchard thermo kitchen)\n\
+  --cam x,y,z,tx,ty,tz  fixed camera (screenshots)\n\
+  --rain F --storm --day S   weather (outdoor arenas) and day/night cycle length\n\
+  --tool NAME [--fire S] [--hold S]  select a tool and press the left button at S seconds for HOLD seconds\n\
+  --shot FILE [N]  save a screenshot after N frames (default 90) and exit";
 
 fn parse(args: impl Iterator<Item = String>) -> Result<Args, String> {
     let mut args = args.skip(1);
-    let (mut source, mut seed, mut smoke) = (None, 1000u64, None);
+    let (mut source, mut seed, mut smoke, mut arena, mut shot, mut cam) = (None, 1000u64, None, None, None, None);
+    let (mut tool, mut fire, mut hold) = (None, 1.0f32, 0.2f32);
+    let (mut rain, mut storm, mut day) = (0.0f32, false, 0.0f32);
+    let mut kill_at = None;
     while let Some(a) = args.next() {
         let mut value = |what: &str| args.next().ok_or_else(|| format!("{a} needs {what}"));
         match a.as_str() {
@@ -34,6 +50,34 @@ fn parse(args: impl Iterator<Item = String>) -> Result<Args, String> {
             "--synthetic" => source = Some(Source::Synthetic { n: value("a neuron count")?.parse().map_err(|_| "bad neuron count")? }),
             "--seed" => seed = value("a number")?.parse().map_err(|_| "bad seed")?,
             "--smoke" => smoke = Some(value("seconds")?.parse::<f64>().map_err(|_| "bad number of seconds")?),
+            "--arena" => arena = Some(value("an arena name")?),
+            "--shot" => {
+                let file = PathBuf::from(value("a file")?);
+                shot = Some((file, 90));
+            }
+            "--rain" => rain = value("0..1")?.parse().map_err(|_| "bad rain")?,
+            "--storm" => storm = true,
+            "--kill-at" => kill_at = Some(value("seconds")?.parse::<f32>().map_err(|_| "bad seconds")?),
+            "--day" => day = value("seconds per day")?.parse().map_err(|_| "bad day length")?,
+            "--tool" => {
+                let name = value("a tool name")?;
+                tool = Some(kick_the_fly::tools::TOOLS.iter().position(|t| t.0 == name).ok_or("unknown tool")?);
+            }
+            "--fire" => fire = value("seconds")?.parse().map_err(|_| "bad seconds")?,
+            "--hold" => hold = value("seconds")?.parse().map_err(|_| "bad seconds")?,
+            "--cam" => {
+                let v: Vec<f32> = value("six numbers: eye x y z, target x y z")?.split(',').filter_map(|x| x.trim().parse().ok()).collect();
+                if v.len() != 6 {
+                    return Err("--cam wants x,y,z,tx,ty,tz".into());
+                }
+                cam = Some((bevy::math::Vec3::new(v[0], v[1], v[2]), bevy::math::Vec3::new(v[3], v[4], v[5])));
+            }
+            "--shot-frames" => {
+                let n: u32 = value("a number")?.parse().map_err(|_| "bad frame count")?;
+                if let Some(s) = shot.as_mut() {
+                    s.1 = n;
+                }
+            }
             "-h" | "--help" => return Err(USAGE.into()),
             other => return Err(format!("unknown argument {other}\n{USAGE}")),
         }
@@ -45,7 +89,7 @@ fn parse(args: impl Iterator<Item = String>) -> Result<Args, String> {
             Source::Synthetic { n: 20_000 }
         }
     });
-    Ok(Args { source, seed, smoke })
+    Ok(Args { source, seed, smoke, arena, shot, cam, script: tool.map(|t| (t, fire, hold)), rain, storm, day, kill_at })
 }
 
 fn main() -> ExitCode {
@@ -75,12 +119,38 @@ fn main() -> ExitCode {
         };
     }
 
-    App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window { title: "Kick the Fly".into(), ..default() }),
-            ..default()
-        }))
-        .add_plugins((SimPlugin { config }, HudPlugin))
-        .run();
+    let mut app = App::new();
+    app.add_plugins(DefaultPlugins.set(WindowPlugin { primary_window: Some(Window { title: "Kick the Fly".into(), ..default() }), ..default() }))
+        .add_plugins((SimPlugin { config }, kick_the_fly::GamePlugin));
+    if let Some(name) = &args.arena {
+        match kick_the_fly::world::ARENAS.iter().position(|a| a == name) {
+            Some(i) => {
+                app.insert_resource(kick_the_fly::config::Arena(i));
+            }
+            None => {
+                eprintln!("unknown arena {name}");
+                return ExitCode::from(1);
+            }
+        }
+    }
+    {
+        let mut st = app.world_mut().resource_mut::<kick_the_fly::config::Settings>();
+        st.rain = args.rain;
+        st.storm = args.storm;
+        st.day_night_s = args.day;
+    }
+    if let Some(t) = args.kill_at {
+        app.add_plugins(kick_the_fly::capture::KillAtPlugin(t));
+    }
+    if let Some((tool, fire_at, hold_s)) = args.script {
+        app.add_plugins(kick_the_fly::capture::ScriptPlugin(kick_the_fly::capture::Script { tool, fire_at, hold_s }));
+    }
+    if let Some((eye, target)) = args.cam {
+        app.insert_resource(kick_the_fly::player::CameraOverride(eye, target));
+    }
+    if let Some((path, frames)) = args.shot {
+        app.add_plugins(kick_the_fly::capture::CapturePlugin(kick_the_fly::capture::CaptureRequest { path, after_frames: frames, wait_after: 20 }));
+    }
+    app.run();
     ExitCode::SUCCESS
 }

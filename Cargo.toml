@@ -14,6 +14,11 @@ repository = "https://github.com/legendarylolo318-cloud/kick-the-fly"
 [workspace.dependencies]
 # Bevy 0.19.1 is the latest stable (0.20 is still a release candidate). The game picks its feature set; dynamic linking is a dev-only feature.
 bevy = { version = "=0.19.1", default-features = false }
+# Physics: avian3d 0.7 is built for Bevy 0.19 (bevy_rapier3d 0.36 is too; avian is ECS-native and has the joints and spatial queries we use).
+avian3d = { version = "=0.7.0", default-features = false, features = ["3d", "f32", "parry-f32", "default-collider", "xpbd_joints", "parallel"] }
+# Microphone input for Johnston's organ. `pulseaudio` is the native PulseAudio protocol (also served by PipeWire); ALSA is the fallback.
+cpal = { version = "=0.18.2" }
+bytemuck = "=1.25.2"
 rayon = "=1.12.0"
 zip = { version = "=8.6.0", default-features = false, features = ["deflate"] }
 sha2 = "=0.11.0"

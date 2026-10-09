@@ -12,6 +12,7 @@
 pub mod activity;
 pub mod brain;
 pub mod csr;
+pub mod groups;
 pub mod lif;
 pub mod npy;
 pub mod pack;

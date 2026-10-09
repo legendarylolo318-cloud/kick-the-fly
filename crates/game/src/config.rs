@@ -1,0 +1,62 @@
+//! Game-wide settings and the shared clock/arena state the plugins read. Python: `core/config.py` (the subset the ported features use).
+//! The settings file (`config.toml`, schema v3) is not ported yet: these are in-memory defaults.
+
+use bevy::prelude::*;
+
+use crate::world::ARENAS;
+
+/// Which arena is loaded (index into [`ARENAS`]).
+#[derive(Resource, Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct Arena(pub usize);
+
+impl Arena {
+    pub fn name(&self) -> &'static str {
+        ARENAS[self.0 % ARENAS.len()]
+    }
+}
+
+/// Written when the player asks for another arena (`E`); the arena plugin rebuilds the scenery.
+#[derive(Message, Debug, Clone, Copy)]
+pub struct SwitchArena(pub usize);
+
+#[derive(Resource, Debug, Clone)]
+pub struct Settings {
+    pub master_volume: f32,
+    pub mute: bool,
+    /// Accessibility: no strobing lightning, no flashes.
+    pub reduced_flashing: bool,
+    /// Length of the day/night cycle in seconds (0 = off, the Lab's fixed sun).
+    pub day_night_s: f32,
+    pub mouse_sensitivity: f32,
+    pub fov_deg: f32,
+    pub show_profiler: bool,
+    pub immortal: bool,
+    /// Rain 0..1, gusts per second, storm on: the Lab's `weather.*` parameters (outdoor arenas).
+    pub rain: f32,
+    pub gust_hz: f32,
+    pub storm: bool,
+    pub wind_speed: f32,
+    pub wind_dir_deg: f32,
+    pub killcam: bool,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            master_volume: 0.7,
+            mute: false,
+            reduced_flashing: false,
+            day_night_s: 0.0,
+            mouse_sensitivity: 0.0024,
+            fov_deg: 70.0,
+            show_profiler: std::env::var_os("KTF_PROFILER").is_some(),
+            immortal: false,
+            rain: 0.0,
+            gust_hz: 0.0,
+            storm: false,
+            wind_speed: 0.0,
+            wind_dir_deg: 180.0,
+            killcam: true,
+        }
+    }
+}

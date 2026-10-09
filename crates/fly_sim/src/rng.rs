@@ -276,4 +276,40 @@ impl Generator {
         }
         low + (m >> 64) as u64
     }
+
+    /// `Generator.random_interval(max)`: uniform on `0..=max` by masked rejection (what `shuffle` and `permutation` use).
+    fn random_interval(&mut self, max: u64) -> u64 {
+        if max == 0 {
+            return 0;
+        }
+        let mut mask = max;
+        mask |= mask >> 1;
+        mask |= mask >> 2;
+        mask |= mask >> 4;
+        mask |= mask >> 8;
+        mask |= mask >> 16;
+        mask |= mask >> 32;
+        if max <= 0xFFFF_FFFF {
+            loop {
+                let v = u64::from(self.bits.next_u32()) & mask;
+                if v <= max {
+                    return v;
+                }
+            }
+        }
+        loop {
+            let v = self.bits.next_u64() & mask;
+            if v <= max {
+                return v;
+            }
+        }
+    }
+
+    /// `rng.shuffle(x)` for a 1-D array: Fisher-Yates from the back with `random_interval`, as NumPy does.
+    pub fn shuffle<T>(&mut self, x: &mut [T]) {
+        for i in (1..x.len()).rev() {
+            let j = self.random_interval(i as u64) as usize;
+            x.swap(i, j);
+        }
+    }
 }

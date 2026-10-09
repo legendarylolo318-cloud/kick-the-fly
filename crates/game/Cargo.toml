@@ -20,4 +20,17 @@ dev = ["bevy/dynamic_linking"]
 
 [dependencies]
 fly_sim.workspace = true
-bevy = { workspace = true, features = ["3d", "ui", "audio"] }
+bevy = { workspace = true, features = ["3d", "ui", "audio", "wav", "x11", "wayland", "multi_threaded", "bevy_dev_tools", "png"] }
+avian3d.workspace = true
+serde_json.workspace = true
+bytemuck.workspace = true
+cpal.workspace = true
+
+[dev-dependencies]
+# system names in panics while testing
+bevy = { workspace = true, features = ["debug"] }
+
+# PulseAudio's native protocol (served by PipeWire too) first, ALSA as the fallback: so the microphone works on PipeWire, PulseAudio and
+# plain ALSA. Windows uses WASAPI through cpal's default host.
+[target.'cfg(target_os = "linux")'.dependencies]
+cpal = { workspace = true, features = ["pulseaudio"] }

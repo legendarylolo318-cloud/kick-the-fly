@@ -272,3 +272,29 @@ fn scenario_reward_and_surgery() {
 fn scenario_death_ramp() {
     run_scenario("death_ramp");
 }
+
+/// The named groups (what "walk", "loom", "turn_l" ... mean) and the scent deals match the NumPy code of `Brain.__init__`
+/// (`tests/golden/make_groups.py`): same sizes, same rows (SHA-256 of the row lists), including the glomerulus permutations.
+#[test]
+fn groups_match_python() {
+    let Some(pack) = pack() else { return };
+    let gold = load_json("groups.json");
+    let g = fly_sim::groups::Groups::new(&pack.labels, pack.n, 5.0, 1);
+    assert_eq!(gold["n"].as_u64().unwrap() as usize, pack.n);
+    for (name, size) in gold["sizes"].as_object().unwrap() {
+        assert_eq!(g.size(name) as u64, size.as_u64().unwrap().max(1), "size of group {name}");
+    }
+    for (key, sha) in gold["sense_sha"].as_object().unwrap() {
+        let (region, side) = match key.rsplit_once('_') {
+            Some((r, "L")) => (r, Some('L')),
+            Some((r, "R")) => (r, Some('R')),
+            _ => (key.as_str(), None),
+        };
+        assert_eq!(sha16_u32(g.sense(region, side)), sha.as_str().unwrap(), "rows of {key}");
+    }
+    for (tool, sha) in gold["scent_sha"].as_object().unwrap() {
+        let rows = g.sense(&format!("scent:{tool}"), None);
+        assert_eq!(rows.len() as u64, gold["scent_len"][tool].as_u64().unwrap(), "scent {tool}");
+        assert_eq!(sha16_u32(rows), sha.as_str().unwrap(), "scent rows of {tool}");
+    }
+}
