@@ -16,6 +16,15 @@ Where the Rust code lives:
 | `crates/game` | Bevy app: render thread + dedicated sim thread, snapshot exchange; one plugin per feature (see `GamePlugin` in `lib.rs`): `arena`, `environment`, `fly`, `fly_visuals`, `tools`, `predator_play`, `weather_play`, `gpu`, `brainview`, `flyeye`, `killcam_play`, `arcade`, `contraption`, `audio`, `mic`, `profiler`, `hud`, `controls`; pure logic with tests: `anim`, `predators`, `weather`, `world`, `kitchen`, `reactions`, `duel`, `race`, `points`, `tournament`, `puppeteer`, `lesion`, `killcam`, `synth`, `mic_analysis`, `paths` |
 | `tests/golden/` | reference outputs written by `legacy-python/make_golden.py` |
 
+## Status at the end of the "persistence" step
+
+Added `crates/ktf_data` (no Bevy, fast tests): `config` (config.toml v3), `sharecode` (KTF1 codes), `paths` (per-OS folders through the `directories` crate, same layout as
+Python). The game reads `config.toml` at startup (`Settings::from_config`: master volume, mute, reduced flashing, mouse sensitivity, invert-Y, FOV, immortal, kill cam) and
+keeps `scores.json`/`arcade_points.json` in the Python data folder. Real files written by `legacy-python/make_persistence_fixtures.py` are in `tests/python_files/`
+(regenerate with that script; it also writes `crates/ktf_data/data/schema.json`, the 75-setting schema the Settings menu will be built from).
+**Still to do for persistence**: `.ktfsave`, `.ktfreplay`, pet save, `fly-memory.npz`, `neurodex.json`, `contraptions.json`, `lesion_loadouts.json`, bundles (see `continue.md`).
+README has the Rust build instructions (section 7 of the task).
+
 ## Status at the end of the "game port" step (GPU rendering, physics, predators, weather, audio, profiler)
 
 Added: the whole `crates/game` feature set (modules below), the sim-side group readouts (`fly_sim::groups`, golden-tested against NumPy), `Generator::shuffle`
@@ -163,13 +172,13 @@ Entry: `kick_the_fly.py` shim → `kickthefly/__main__.py:main` → `game/kick_t
 | Format | Python | Notes |
 |---|---|---|
 | `kick_brain.npz`, `kick_larva_brain.npz` | `sim/brainpack.py` | **loaded by Rust** |
-| `config.toml` (schema v3) | `core/config.py` | |
+| `config.toml` (schema v3) | `core/config.py` | **loaded and written by Rust** (`ktf_data::config`): all 75 settings, keys, pad, loadouts, first_run, migrations, clamping, `.bad` copy; tests load 6 real/hand files and compare to Python's values, and rewriting a Python file gives the same text |
 | `.ktfsave` (zip: npz arrays + JSON header, format `kick-the-fly-save` v1) | `core/savestate.py` | includes numpy RNG state: needs the Rust PCG64 state import/export (`fly_sim::rng` has the pieces) |
 | `.ktfreplay` (zip, per-step spike SHA-256) | `core/replay.py` | |
 | pet `pet.ktfsave` + `.bak` | `core/pet.py` | |
 | memory `fly-memory.npz` + `training-log.json` | `core/memory.py` | fixtures in `tests/fixtures/` |
 | `neurodex.json`, `scores.json`, `contraptions.json`, `lesion_loadouts.json` | `core/neurodex.py`, `lab/challenges.py`, `game/contraption.py`, `game/lesion_battle.py` | |
-| share codes `KTF1-…`, `.ktfshare` | `core/sharecode.py` | |
+| share codes `KTF1-…`, `.ktfshare` | `core/sharecode.py` | **read and written by Rust** (`ktf_data::sharecode`): all 6 kinds, validate/preview, refusal texts equal to Python's; tests decode real Python codes + a file, and Python decodes Rust's. Protocol/contraption payloads get a container check only (per-part ranges and protocol schema: with their features) |
 | experiment bundles (zip) | `lab/bundle.py` | |
 | recordings CSV/npz + metadata JSON; NWB; TIFF | `lab/recorder.py`, `nwbexport.py`, `imaging.py` | |
 | protocols YAML (42), lecture YAML | `lab/protocol.py`, `protocols/` | |
@@ -197,3 +206,60 @@ Entry: `kick_the_fly.py` shim → `kickthefly/__main__.py:main` → `game/kick_t
 - `legacy-python/` holds the Python game unchanged (`kickthefly/`, `kick_the_fly.py`, `tools/`, `protocols/`, `tests/`, `requirements.txt`, `pytest.ini`, `watch_tests.sh`) plus `make_golden.py`. Python resolves `data/` and `protocols/` relative to its own folder, so to run it put (or symlink) the dataset at `legacy-python/data/`.
 - Left at the root and **not yet updated for Rust**: `build_appimage.sh`, `build_exe.ps1`, `.github/workflows/*`, `packaging/`, `README.md`, `docs/`. They still describe and build the Python game.
 - `tests/golden/` stays at the root (shared by `legacy-python/make_golden.py` and `crates/fly_sim/tests/golden.rs`).
+
+## 16. GUI parity (Rust must look and act like pygame)
+
+Rule: before building a screen, run or read its pygame version (`legacy-python/kickthefly/ui/*.py`, `lab/*.py`) and replicate layout, labels, colors, fonts,
+hotkeys and timing; do not redesign. If `bevy_egui` can't match, use `bevy_ui` with custom styling. Tick a box only when the note says how it was checked
+against the pygame version (screenshot pair, or the code read side by side). Anything that can't match exactly gets a written reason below it.
+
+- [ ] Menu framework (`ui/menu.py:Menu`: pages, buttons, sliders, charts, tooltips, gamepad navigation, UI scale / menu size U)
+- [ ] Fonts and sprites: bundle the same font files and icon assets (`legacy-python/kickthefly/data/`, `assets`), colors from `ui/theme*`
+- [ ] Pause menu (Esc) and its navigation order
+- [ ] Settings: Graphics tab (17), Audio (11), Brain (35 + tags Connectome / Game rule), Controls (8 + rebinding table + pad), Accessibility (4), Help (replay tutorial, self-test)
+- [ ] HUD: pain / reward meters, hit counter, hotbar + pages, hotkey help (H), science cards + source chips, tag chips, toasts, validation popups
+- [ ] Brain panel + big brain view (B), neuron inspector, search, stethoscope readout
+- [ ] Tutorial / first-run flow, What's New, loadout notice
+- [ ] Menu page `arcade`
+- [ ] Menu page `bugreport`
+- [ ] Menu page `challenges`
+- [ ] Menu page `crash`
+- [ ] Menu page `lab`
+- [ ] Menu page `lab_assays`
+- [ ] Menu page `lab_assumptions`
+- [ ] Menu page `lab_asymmetry`
+- [ ] Menu page `lab_autopsy`
+- [ ] Menu page `lab_benchmark`
+- [ ] Menu page `lab_clamp`
+- [ ] Menu page `lab_classroom`
+- [ ] Menu page `lab_critical`
+- [ ] Menu page `lab_diff`
+- [ ] Menu page `lab_export`
+- [ ] Menu page `lab_laser`
+- [ ] Menu page `lab_minipapers`
+- [ ] Menu page `lab_netsci`
+- [ ] Menu page `lab_params`
+- [ ] Menu page `lab_protocols`
+- [ ] Menu page `lab_psych`
+- [ ] Menu page `lab_rigs`
+- [ ] Menu page `lab_sensitivity`
+- [ ] Menu page `lab_sleepdep`
+- [ ] Menu page `lab_validation`
+- [ ] Menu page `lab_wiring`
+- [ ] Menu page `live_inputs`
+- [ ] Menu page `load_state`
+- [ ] Menu page `loadout`
+- [ ] Menu page `loadout_notice`
+- [ ] Menu page `neurodex`
+- [ ] Menu page `neuron_shapes_ask`
+- [ ] Menu page `selftest`
+- [ ] Menu page `share`
+- [ ] Menu page `whatsnew`
+- [ ] Time controls UI (pause, slow-mo, single step), popups and overlays (death/autopsy, kill cam, photo mode, profiler F3, fly's-eye F4)
+- [ ] Mode split: Play stays simple; Lab-only stats only in Lab; "Real flies do this too" cards default OFF (`brain.science_popups` false)
+- [ ] Streamer mode panel, Mic panel (`live_inputs`)
+- [ ] Neurodex, Neuron of the Day, guided mini-papers
+- [ ] Transitions and animations (menu open/close, fades, flashes honoring `reduced_flashing`)
+
+### Cannot be matched exactly
+(none yet: write each item here with the reason and how it differs)

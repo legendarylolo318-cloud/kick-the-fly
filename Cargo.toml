@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/fly_sim", "crates/game"]
+members = ["crates/fly_sim", "crates/ktf_data", "crates/game"]
 
 [workspace.package]
 version = "4.0.0-dev"
@@ -24,6 +24,10 @@ zip = { version = "=8.6.0", default-features = false, features = ["deflate"] }
 sha2 = "=0.11.0"
 serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = "=1.0.151"
+toml = { version = "=1.1.8", default-features = false, features = ["parse", "serde", "std"] }
+directories = "=6.0.0"
+flate2 = { version = "=1.1.10", default-features = false, features = ["rust_backend"] }
+ktf_data = { path = "crates/ktf_data" }
 criterion = { version = "=0.8.2", default-features = false, features = ["cargo_bench_support", "rayon"] }
 fly_sim = { path = "crates/fly_sim" }
 

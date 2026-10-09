@@ -21,6 +21,42 @@ brain responding. Recorded with the in-game video recorder (Shift+R).*
 Each release lists `SHA256SUMS`. The 3D game needs OpenGL 3.3; without it the game says why and starts the 2D version (`--2d`). Run
 `--selftest` (or Settings > Help) to check an install; it explains how to fix whatever it finds and changes nothing.
 
+## Build from source (Rust + Bevy)
+
+The game is being ported from Python/pygame to Rust and [Bevy](https://bevyengine.org/) on the `bevy-port` branch; the Python game is kept
+unchanged in `legacy-python/` for reference. [PORTING.md](PORTING.md) is the parity checklist.
+
+**Toolchain.** Rust 1.95 or newer (the repo pins it in `Cargo.toml`), through `rustup`:
+
+| OS | Install |
+|---|---|
+| **Arch Linux** | `sudo pacman -S rustup && rustup default stable` |
+| Debian / Ubuntu | `sudo apt install build-essential pkg-config libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev libx11-dev`, then [rustup.rs](https://rustup.rs) |
+| Windows | [rustup.rs](https://rustup.rs) with the MSVC build tools (`x86_64-pc-windows-msvc`) |
+
+**Graphics (Vulkan).** Bevy draws through wgpu, which needs a Vulkan driver (OpenGL is only a fallback). On Arch install the loader plus the driver for your GPU:
+
+```bash
+sudo pacman -S vulkan-icd-loader vulkan-radeon      # AMD
+sudo pacman -S vulkan-icd-loader nvidia-utils       # NVIDIA (proprietary driver)
+sudo pacman -S vulkan-icd-loader vulkan-intel       # Intel
+```
+
+`vulkaninfo --summary` (package `vulkan-tools`) should list your GPU. Audio uses ALSA, PulseAudio or PipeWire; the microphone needs one of them.
+
+**Run and test.**
+
+```bash
+cargo run --release -p kick_the_fly          # the game (needs data/kick_brain.npz, else a synthetic network runs)
+cargo run -p kick_the_fly --features dev     # fast rebuilds: Bevy linked dynamically (never for release)
+cargo test --workspace                       # unit tests, the simulator golden tests, the Python-file compatibility tests
+cargo fmt --check && cargo clippy --workspace --all-targets -- -D warnings
+```
+
+The first build compiles Bevy (about five minutes); a release build with fat LTO takes ten or more. `H` in the game lists the keys. Settings, saves
+and share codes from the Python game are read as they are (`config.toml`, `.ktfshare`, `KTF1-…` codes; see `crates/ktf_data` and
+`tests/python_files/`); they live in the same folders.
+
 ## New in 3.0
 
 <table>
@@ -148,11 +184,26 @@ context are bundled), so a machine with an OpenGL 4.3 GPU gets it without instal
 
 ## Repository
 
+The Python game (everything below lives in `legacy-python/` on this branch):
+
 ```
 kick_the_fly.py      launcher: python kick_the_fly.py ... (python -m kickthefly runs the same game)
 kickthefly/          the package: core/ (settings, saves, paths, version), sim/ (connectome, brain pack, LIF simulator),
                      game/ (2D game, 3D room, tools, arenas, rigs), ui/ (menus), lab/ (validation, assays, protocols, Lab pages), data/
 tests/ protocols/ docs/ packaging/ tools/
+```
+
+On the `bevy-port` branch the layout is:
+
+```
+crates/fly_sim/      the LIF connectome simulator (pure Rust, golden-tested against the Python reference)
+crates/ktf_data/     config.toml, share codes and per-OS folders, compatible with the Python game's files
+crates/game/         the Bevy game
+legacy-python/       the Python game, unchanged (with make_golden.py and make_persistence_fixtures.py)
+tests/golden/  tests/python_files/    reference outputs and real files written by the Python game
+```
+
+```
 data/                not in git: the connectome download and the brain pack (built from source, bundled in the exe and AppImage)
 ```
 

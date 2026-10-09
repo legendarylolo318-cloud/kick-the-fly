@@ -1,5 +1,5 @@
 //! Game-wide settings and the shared clock/arena state the plugins read. Python: `core/config.py` (the subset the ported features use).
-//! The settings file (`config.toml`, schema v3) is not ported yet: these are in-memory defaults.
+//! `Settings::from_config` reads the player's `config.toml` (schema v3, shared with the Python game, see `ktf_data::config`).
 
 use bevy::prelude::*;
 
@@ -28,6 +28,7 @@ pub struct Settings {
     /// Length of the day/night cycle in seconds (0 = off, the Lab's fixed sun).
     pub day_night_s: f32,
     pub mouse_sensitivity: f32,
+    pub invert_y: bool,
     pub fov_deg: f32,
     pub show_profiler: bool,
     pub immortal: bool,
@@ -48,6 +49,7 @@ impl Default for Settings {
             reduced_flashing: false,
             day_night_s: 0.0,
             mouse_sensitivity: 0.0024,
+            invert_y: false,
             fov_deg: 70.0,
             show_profiler: std::env::var_os("KTF_PROFILER").is_some(),
             immortal: false,
@@ -57,6 +59,26 @@ impl Default for Settings {
             wind_speed: 0.0,
             wind_dir_deg: 180.0,
             killcam: true,
+        }
+    }
+}
+
+impl Settings {
+    /// Radians per pixel at sensitivity 1.0 (Python: 0.0024).
+    pub const BASE_SENSITIVITY: f32 = 0.0024;
+
+    /// The values the ported features read, taken from the player's config (the rest of the file is kept as is by `ktf_data`).
+    pub fn from_config(c: &ktf_data::config::Config) -> Self {
+        Self {
+            master_volume: c.get_f32("audio.master"),
+            mute: c.get_bool("audio.mute"),
+            reduced_flashing: c.get_bool("access.reduced_flashing"),
+            mouse_sensitivity: Self::BASE_SENSITIVITY * c.get_f32("controls.mouse_sensitivity"),
+            invert_y: c.get_bool("controls.invert_y"),
+            fov_deg: c.get_f32("controls.fov"),
+            immortal: c.get_bool("brain.immortal"),
+            killcam: c.get_bool("brain.killcam"),
+            ..Self::default()
         }
     }
 }

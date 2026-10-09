@@ -1,0 +1,9 @@
+{
+ "kind": "lab",
+ "payload": {
+  "params": {
+   "noise_std": 0.07,
+   "syn_gain": 5.5
+  }
+ }
+}

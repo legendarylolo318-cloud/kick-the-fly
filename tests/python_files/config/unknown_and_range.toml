@@ -1,0 +1,14 @@
+schema_version = 3
+future_thing = 1
+[graphics]
+fps_cap = 77
+resolution_scale = 9.0
+new_key = "x"
+[audio]
+master = -4
+[keys]
+forward = "UP"
+sprint = "escape"
+foo = "bar"
+[future]
+x = 1

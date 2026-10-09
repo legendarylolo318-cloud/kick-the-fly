@@ -3,29 +3,10 @@
 
 use std::path::PathBuf;
 
+/// The folder of `scores.json`, `arcade_points.json` and the rest of the player's data: the same one the Python game used
+/// (`ktf_data::paths`, which follows the platform's conventions through the `directories` crate).
 pub fn data_dir() -> PathBuf {
-    if let Some(p) = std::env::var_os("KICK_THE_FLY_HOME") {
-        return PathBuf::from(p);
-    }
-    #[cfg(target_os = "windows")]
-    {
-        if let Some(p) = std::env::var_os("APPDATA") {
-            return PathBuf::from(p).join("kick-the-fly");
-        }
-    }
-    #[cfg(target_os = "macos")]
-    {
-        if let Some(h) = std::env::var_os("HOME") {
-            return PathBuf::from(h).join("Library/Application Support/kick-the-fly");
-        }
-    }
-    if let Some(x) = std::env::var_os("XDG_DATA_HOME") {
-        return PathBuf::from(x).join("kick-the-fly");
-    }
-    if let Some(h) = std::env::var_os("HOME") {
-        return PathBuf::from(h).join(".local/share/kick-the-fly");
-    }
-    PathBuf::from(".kick-the-fly")
+    ktf_data::paths::get().data_dir
 }
 
 /// The best scores (puppeteer stars and the like), `scores.json`: `{ "<key>": <number> }`.
@@ -36,7 +17,10 @@ pub struct Scores {
 
 impl Scores {
     pub fn open(path: PathBuf) -> Self {
-        let map = std::fs::read_to_string(&path).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default();
+        let map = std::fs::read_to_string(&path)
+            .ok()
+            .and_then(|t| serde_json::from_str(&t).ok())
+            .unwrap_or_default();
         Self { path, map }
     }
 
@@ -46,14 +30,21 @@ impl Scores {
 
     /// Keep the better of the old and new value (`high`: bigger is better). Returns whether it improved.
     pub fn record(&mut self, key: &str, value: f64, high: bool) -> bool {
-        let better = self.map.get(key).is_none_or(|old| if high { value > *old } else { value < *old });
+        let better = self
+            .map
+            .get(key)
+            .is_none_or(|old| if high { value > *old } else { value < *old });
         if better {
             self.map.insert(key.to_string(), value);
             if let Some(dir) = self.path.parent() {
                 let _ = std::fs::create_dir_all(dir);
             }
             let tmp = self.path.with_extension("tmp");
-            if serde_json::to_string_pretty(&self.map).ok().and_then(|t| std::fs::write(&tmp, t).ok()).is_some() {
+            if serde_json::to_string_pretty(&self.map)
+                .ok()
+                .and_then(|t| std::fs::write(&tmp, t).ok())
+                .is_some()
+            {
                 let _ = std::fs::rename(&tmp, &self.path);
             }
         }
@@ -83,11 +74,11 @@ mod tests {
 
     #[test]
     fn the_home_variable_wins() {
-        // not set here in CI; when it is, it is used verbatim
+        // not set here in CI; when it is, its data folder is used
         if let Some(p) = std::env::var_os("KICK_THE_FLY_HOME") {
-            assert_eq!(data_dir(), PathBuf::from(p));
+            assert_eq!(data_dir(), PathBuf::from(p).join("data"));
         } else {
-            assert!(data_dir().ends_with("kick-the-fly") || data_dir().ends_with(".kick-the-fly"));
+            assert!(data_dir().ends_with("kickthefly") || data_dir().ends_with("Kick the Fly"));
         }
     }
 }

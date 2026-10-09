@@ -1,0 +1,14 @@
+{
+ "kind": "loadout",
+ "payload": {
+  "name": "My kit",
+  "tools": [
+   "hand",
+   "flick",
+   "swatter",
+   "bomb",
+   "zapper",
+   "torch"
+  ]
+ }
+}

@@ -1,0 +1,29 @@
+{
+ "kind": "contraption",
+ "payload": {
+  "name": "Domino run",
+  "parts": [
+   {
+    "k": "marble",
+    "x": -100,
+    "y": 200
+   },
+   {
+    "a": 20,
+    "k": "ramp",
+    "x": 0,
+    "y": 100
+   },
+   {
+    "k": "domino",
+    "x": 80,
+    "y": 60
+   },
+   {
+    "k": "fly",
+    "x": 150,
+    "y": 40
+   }
+  ]
+ }
+}

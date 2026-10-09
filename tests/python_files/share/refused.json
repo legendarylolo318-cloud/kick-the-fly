@@ -1,0 +1,34 @@
+{
+ "empty": {
+  "text": "",
+  "error": "nothing to import: paste a share code"
+ },
+ "not_a_code": {
+  "text": "hello world",
+  "error": "that doesn't look like a share code (they start with KTF1-)"
+ },
+ "newer": {
+  "text": "KTF9-LDT-041AP-NPA9F-64TND-JABSA-TN68S-RP53M-JH5B4-WZKS9-ATS8M-NPA93-64P0F-JTDS3-54XKG-5T72Y-B2954-PM4CG-JPA9Z-6R4MJ-N142R-AR3Y9-5Z52W-G6ABP-2T03A-Q212J",
+  "error": "this code was made by a newer version (code format 9; this one reads up to 1): update Kick the Fly to import it"
+ },
+ "unknown_kind": {
+  "text": "KTF1-ZZZ-041AP-NPA9F-64TND-JABSA-TN68S-RP53M-JH5B4-WZKS9-ATS8M-NPA93-64P0F-JTDS3-54XKG-5T72Y-B2954-PM4CG-JPA9Z-6R4MJ-N142R-AR3Y9-5Z52W-G6ABP-2T03A-Q212J",
+  "error": "unknown kind 'ZZZ' in the code"
+ },
+ "short": {
+  "text": "KTF1-LDT-0A",
+  "error": "the code is too short: part of it is missing"
+ },
+ "bad_char": {
+  "text": "KTF1-LDT-041!P-NPA9F-64TND-JABSA-TN68S-RP53M-JH5B4-WZKS9-ATS8M-NPA93-64P0F-JTDS3-54XKG-5T72Y-B2954-PM4CG-JPA9Z-6R4MJ-N142R-AR3Y9-5Z52W-G6ABP-2T03A-Q212J",
+  "error": "the code has characters that aren't part of a share code"
+ },
+ "checksum": {
+  "text": "KTF1-LDT-041AP-NPA9F-64TND-JABSA-TN68S-RP53M-JH5B4-WZKS9-ATS8M-NPA93-64P0F-JTDS3-54XKG-5T72Y-B2954-PM4CG-JPA9Z-6R4MJ-N142R-AR3Y9-5Z52W-G6ABP-2T03A-Q2120",
+  "error": "the code is damaged (its checksum doesn't match): a character was mistyped or part is missing"
+ },
+ "kind_mismatch": {
+  "text": "KTF1-SRG-041AP-NPA9F-64TND-JABSA-TN68S-RP53M-JH5B4-WZKS9-ATS8M-NPA93-64P0F-JTDS3-54XKG-5T72Y-B2954-PM4CG-JPA9Z-6R4MJ-N142R-AR3Y9-5Z52W-G6ABP-2T03A-Q212J",
+  "error": "the code's header doesn't match its contents"
+ }
+}
