@@ -24,9 +24,22 @@ use crate::hud_canvas::HudLayout;
 use crate::player::MouseLook;
 use crate::sim_thread::Command;
 
+/// Set of the menu's input system: hotkeys read after it, so a menu that is open has already cleared the keys.
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct MenuInputSet;
+
 /// The player's `config.toml` (all 75 settings, keys, loadouts): the one the Python game wrote.
 #[derive(Resource)]
 pub struct UserConfig(pub Config);
+
+impl UserConfig {
+    /// `Game.set_setting(key, value)` for a hotkey: store (validated) and write the config file.
+    pub fn set_and_save(&mut self, key: &str, value: Value) {
+        if self.0.set(key, &value).is_ok() {
+            self.0.save(env!("CARGO_PKG_VERSION"));
+        }
+    }
+}
 
 /// Whether the menu is open (other systems may want to stand back).
 #[derive(Resource, Default)]
@@ -322,6 +335,9 @@ fn apply_live(key: &str, cfg: &Config, window: &mut Window, tc: &mut TimeControl
             tc.speed = cfg.get_f32(key);
             link.0.send(Command::SetSpeed(tc.speed));
         }
+        "brain.pain_level" => {
+            link.0.send(Command::PainLevel(cfg.get_i64(key).clamp(0, 2) as usize));
+        }
         "access.language" => {
             ktf_ui::i18n::set_language(cfg.get_str(key));
         }
@@ -362,6 +378,16 @@ fn draw(
     *v = Visibility::Visible;
 }
 
+/// What the player's config says about the brain at start: the pain level and the simulation speed.
+fn apply_config_at_start(cfg: Res<UserConfig>, link: Res<SimLink>, mut tc: ResMut<TimeControl>) {
+    link.0.send(Command::PainLevel(cfg.0.get_i64("brain.pain_level").clamp(0, 2) as usize));
+    let speed = cfg.0.get_f32("brain.sim_speed");
+    if (speed - 1.0).abs() > 1e-6 {
+        tc.speed = speed;
+        link.0.send(Command::SetSpeed(speed));
+    }
+}
+
 pub struct MenuPlugin;
 
 impl Plugin for MenuPlugin {
@@ -370,8 +396,8 @@ impl Plugin for MenuPlugin {
             app.insert_resource(UserConfig(Config::new(None)));
         }
         app.init_resource::<MenuOpen>()
-            .add_systems(Startup, setup)
-            .add_systems(PreUpdate, input.after(bevy::input::InputSystems))
+            .add_systems(Startup, (setup, apply_config_at_start))
+            .add_systems(PreUpdate, input.in_set(MenuInputSet).after(bevy::input::InputSystems))
             .add_systems(Update, draw);
         let _ = |ui: &MenuUi| ui.node;
     }

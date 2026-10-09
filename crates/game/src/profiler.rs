@@ -70,8 +70,8 @@ fn setup(mut commands: Commands) {
     ));
 }
 
-fn toggle(keys: Res<ButtonInput<KeyCode>>, mut settings: ResMut<Settings>) {
-    if keys.just_pressed(KeyCode::F3) {
+fn toggle(act: Res<crate::actions::Actions>, mut settings: ResMut<Settings>) {
+    if act.just("profiler") {
         settings.show_profiler = !settings.show_profiler;
     }
 }

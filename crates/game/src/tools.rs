@@ -13,11 +13,13 @@ use bevy::ecs::system::SystemParam;
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 
+use crate::actions::Actions;
 use crate::app::{LatestSnapshot, SimLink};
 use crate::config::{Arena, Settings};
 use crate::feedback::{Notes, Popup, Sfx, Shake, Tag};
 use crate::fly::{Fly, FlyDamage, FlyHit, FlyPart, MAX_HEALTH, Part};
 use crate::fx::{Fx, Kind};
+use crate::menu_ui::UserConfig;
 use crate::player::{Aim, MouseLook, Player};
 use crate::rng::Rng;
 use crate::senses::{ScentSource, Scents, Threats};
@@ -228,7 +230,46 @@ pub fn tool_tip(aim: &Aim) -> Vec3 {
 }
 
 // --- selection ----------------------------------------------------------------------------------------------------------------------
-fn select(keys: Res<ButtonInput<KeyCode>>, mut wheel: MessageReader<MouseWheel>, mut st: ResMut<ToolState>, look: Res<MouseLook>) {
+/// The hotbar: the player's loadout (`core/loadout.py`) resolved for the current mode and preset (`Game.loadout`).
+#[derive(Resource)]
+pub struct ActiveLoadout(pub ktf_data::loadout::Loadout);
+
+impl Default for ActiveLoadout {
+    fn default() -> Self {
+        Self(ktf_data::loadout::build("auto", &[], false, false, "play"))
+    }
+}
+
+/// Keep the loadout in step with Settings (mode, Settings > Controls > Tool loadout, the custom slots): rebuilt when what it depends on
+/// changes, keeping the page the player was on.
+fn sync_loadout(cfg: Res<UserConfig>, mut lo: ResMut<ActiveLoadout>, mut sig: Local<Option<(String, String, bool, Vec<String>)>>) {
+    let now = (
+        cfg.0.get_str("controls.loadout_preset").to_string(),
+        cfg.0.get_str("brain.mode").to_string(),
+        cfg.0.larva(),
+        cfg.0.custom_loadout.clone(),
+    );
+    if sig.as_ref() == Some(&now) {
+        return;
+    }
+    let page = lo.0.page;
+    lo.0 = ktf_data::loadout::resolve(&cfg.0);
+    lo.0.page = page.min(lo.0.n_pages() - 1);
+    *sig = Some(now);
+}
+
+fn tool_index(name: &str) -> usize {
+    TOOLS.iter().position(|t| t.0 == name).unwrap_or(0)
+}
+
+fn select(
+    act: Res<Actions>,
+    mut wheel: MessageReader<MouseWheel>,
+    mut st: ResMut<ToolState>,
+    mut lo: ResMut<ActiveLoadout>,
+    look: Res<MouseLook>,
+    keys: Res<ButtonInput<KeyCode>>,
+) {
     if !look.captured {
         return;
     }
@@ -242,38 +283,31 @@ fn select(keys: Res<ButtonInput<KeyCode>>, mut wheel: MessageReader<MouseWheel>,
         }
         return;
     }
-    let digits = [
-        KeyCode::Digit1,
-        KeyCode::Digit2,
-        KeyCode::Digit3,
-        KeyCode::Digit4,
-        KeyCode::Digit5,
-        KeyCode::Digit6,
-        KeyCode::Digit7,
-        KeyCode::Digit8,
-        KeyCode::Digit9,
-        KeyCode::Digit0,
-    ];
-    for (i, k) in digits.iter().enumerate() {
-        if keys.just_pressed(*k) {
-            st.selected = (st.page * 10 + i).min(TOOLS.len() - 1);
+    // slot1..slot10 are the rebindable keys 1-9, 0: the tool in that slot on the page showing (`Game.select_slot`)
+    for i in 0..10 {
+        if act.just(&format!("slot{}", i + 1))
+            && let Some(name) = lo.0.slot_tool(i)
+        {
+            st.selected = tool_index(name);
         }
     }
-    if keys.just_pressed(KeyCode::Equal) {
-        st.page = (st.page + 1) % TOOLS.len().div_ceil(10);
+    if act.just("page_prev") && lo.0.turn_page(-1) {
+        st.page = lo.0.page;
     }
-    if keys.just_pressed(KeyCode::Minus) {
-        st.page = (st.page + TOOLS.len().div_ceil(10) - 1) % TOOLS.len().div_ceil(10);
+    if act.just("page_next") && lo.0.turn_page(1) {
+        st.page = lo.0.page;
     }
     for w in wheel.read() {
-        let n = TOOLS.len();
-        st.selected = if w.y > 0.0 { (st.selected + n - 1) % n } else { (st.selected + 1) % n };
-        st.page = st.selected / 10;
+        // the wheel steps through the loadout, wrapping (`Game.cycle_tool`)
+        let cur = TOOLS[st.selected].0;
+        let name = lo.0.neighbor(cur, if w.y > 0.0 { -1 } else { 1 }).to_string();
+        st.selected = tool_index(&name);
+        lo.0.show(&name);
     }
-    if keys.just_pressed(KeyCode::Semicolon) {
+    if keys.just_pressed(KeyCode::Semicolon) && TOOLS[st.selected].0 == "laser" {
         st.laser_target = (st.laser_target + 1) % LASER_TARGETS.len();
     }
-    if keys.just_pressed(KeyCode::Quote) {
+    if keys.just_pressed(KeyCode::Quote) && TOOLS[st.selected].0 == "laser" {
         st.laser_silence = !st.laser_silence;
     }
 }
@@ -1125,8 +1159,9 @@ pub struct ToolsPlugin;
 impl Plugin for ToolsPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ToolState>()
+            .init_resource::<ActiveLoadout>()
             .add_message::<SpawnPredator>()
-            .add_systems(Update, select)
+            .add_systems(Update, (sync_loadout, select).chain())
             .add_systems(FixedUpdate, (use_tools, continuous, bombs, treats, decoys_and_puffs, kick, slow_effects).chain());
     }
 }

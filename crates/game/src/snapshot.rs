@@ -77,6 +77,8 @@ pub struct Snapshot {
     pub pain_parts: [f32; 5],
     /// How many real neurons the pain index listens to at this pain level.
     pub pain_neurons: u32,
+    /// The same count at each pain level 0, 1, 2 (for the P key's note).
+    pub pain_neurons_all: [u32; 3],
     /// Pain level 0..2.
     pub pain_level: u8,
     /// Whole-brain rate, spikes/s per neuron, the last 600 samples of 20 ms (12 s), oldest first (the WHOLE BRAIN trace).

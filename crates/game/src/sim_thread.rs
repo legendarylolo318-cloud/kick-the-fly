@@ -357,6 +357,7 @@ fn publish(
         s.pain_parts = brain.groups.pain_parts(level);
         s.pain_neurons = brain.groups.pain_neurons(level) as u32;
         s.pain_level = level as u8;
+        s.pain_neurons_all = [0, 1, 2].map(|l| brain.groups.pain_neurons(l) as u32);
         s.whole_trace.clear();
         if let Some(c) = brain.groups.col("whole brain") {
             let n = brain.groups.hist_n;

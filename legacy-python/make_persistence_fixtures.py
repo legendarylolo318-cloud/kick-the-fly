@@ -34,6 +34,13 @@ def schema() -> dict:
         "overlap_ok": [sorted(p) for p in C.OVERLAP_OK],
         "first_run": C.FIRST_RUN_DEFAULTS,
         "tools": list(lo.BY_NAME), "max_saved_loadouts": lo.MAX_SAVED,
+        "loadout": {
+            "catalog": [{"name": t.name, "label": t.label, "category": t.category, "desc": t.desc, "neurons": t.neurons, "tag": t.tag,
+                         "lab_only": t.lab_only, "larva": t.larva, "larva_note": t.larva_note} for t in lo.CATALOG],
+            "tool_names": list(lo.TOOL_NAMES), "presets": {k: list(v) for k, v in lo.PRESETS.items()},
+            "preset_labels": lo.PRESET_LABELS, "preset_tips": lo.PRESET_TIPS, "choices": list(lo.CHOICES),
+            "mode_default": lo.MODE_DEFAULT, "categories": list(lo.CATEGORIES), "page_size": lo.PAGE_SIZE,
+        },
     }
 
 
@@ -161,6 +168,21 @@ def main() -> None:
         c = C.Config.load(p)
         (cfgdir / (p.stem + ".expect.json")).write_text(json.dumps(dump_cfg(c), indent=1, sort_keys=True) + "\n")
     stores(out / "stores")
+    # loadout behaviour: every preset in every mode/brain, and the editing operations, for the Rust port to reproduce
+    cases = []
+    for preset in lo.CHOICES:
+        for mode in ("play", "lab", "pet"):
+            for larva in (False, True):
+                l = lo.build(preset, ["swatter", "laser", "bomb", "nope", "swatter", "frog", "mantis", "dragonfly", "fruit", "cva", "decoy", "alcohol"],
+                             lab=mode == "lab", larva=larva, mode=mode)
+                cases.append(dict(preset=preset, mode=mode, larva=larva, tools=l.tools, pages=l.n_pages, name=l.preset))
+    l = lo.Loadout(list(lo.TOOL_NAMES), lab=True)
+    ops = [dict(op="start", tools=list(l.tools), page=l.page)]
+    for op, arg in (("turn_page", 1), ("turn_page", 1), ("turn_page", -1), ("unequip", "swatter"), ("move", ("torch", 1)), ("show", "mantis"),
+                    ("equip", "swatter"), ("move", ("hand", 5)), ("unequip", "hand"), ("neighbor", ("mantis", 1)), ("neighbor", ("zzz", -1))):
+        r = getattr(l, op)(*arg) if isinstance(arg, tuple) else getattr(l, op)(arg)
+        ops.append(dict(op=op, arg=arg, result=r, tools=list(l.tools), page=l.page))
+    (out / "loadout.json").write_text(json.dumps(dict(builds=cases, ops=ops), indent=0))
     print("wrote", sch, "and", out)
 
 

@@ -9,6 +9,7 @@
 // Bevy systems take many parameters and queries have long types; that is how ECS code reads, so these two lints are off crate-wide.
 #![allow(clippy::too_many_arguments, clippy::type_complexity)]
 
+pub mod actions;
 pub mod anim;
 pub mod app;
 pub mod arcade;
@@ -139,6 +140,7 @@ impl Plugin for GamePlugin {
                 senses::SensesPlugin,
             ))
             .add_plugins(menu_ui::MenuPlugin)
+            .add_plugins(actions::ActionsPlugin)
             .add_plugins((
                 hud_canvas::HudCanvasPlugin,
                 weather_play::WeatherPlugin,

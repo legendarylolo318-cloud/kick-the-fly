@@ -22,7 +22,7 @@ use crate::fly::{Fly, FlyDied, FlyHit, MAX_HEALTH, ResetFly};
 use crate::menu_ui::{MenuOpen, UserConfig};
 use crate::player::{MouseLook, PlayerCamera};
 use crate::sim_thread::Command;
-use crate::tools::{LASER_TARGETS, TOOLS, ToolState};
+use crate::tools::{ActiveLoadout, LASER_TARGETS, TOOLS, ToolState};
 
 /// Where the HUD sits in the window: recomputed every frame from the window size and the settings.
 #[derive(Resource, Clone, Copy)]
@@ -235,6 +235,7 @@ struct HudIn<'w, 's> {
     st: Res<'w, HudStats>,
     notes: Res<'w, Notes>,
     tools: Res<'w, ToolState>,
+    loadout: Res<'w, ActiveLoadout>,
     arena: Res<'w, Arena>,
     cfg: Res<'w, UserConfig>,
     view: Res<'w, BrainView>,
@@ -258,7 +259,7 @@ fn draw(
     mut images: ResMut<Assets<Image>>,
     mut node: Single<&mut ImageNode, With<HudNode>>,
 ) {
-    let HudIn { time, real, snap, st, notes, tools, arena, cfg, view, tc, look, menu, arcade, settings, flies } = i;
+    let HudIn { time, real, snap, st, notes, tools, loadout, arena, cfg, view, tc, look, menu, arcade, settings, flies } = i;
     let l = lay.0;
     let crisp = (l.scale.fract() == 0.0) && l.scale >= 1.0;
     if (hc.canvas.w, hc.canvas.h) != (l.hud_w, l.hud_h) || hc.crisp != crisp {
@@ -304,14 +305,29 @@ fn draw(
         .collect();
     let fly = flies.iter().next();
     let (health, dead) = fly.map_or((0.0, true), |f| (f.health, f.dead()));
-    let slots: Vec<ToolSlot> = (0..10)
-        .filter_map(|i| {
-            let idx = tools.page * 10 + i;
-            TOOLS.get(idx).map(|t| ToolSlot { name: t.0.into(), label: t.1.into(), key: cfg.0.key_of(&format!("slot{}", i + 1)).into() })
+    // the hotbar: the loadout's page of ten (`Game._draw_toolbar`), keys from the rebindable slot actions
+    let slots: Vec<ToolSlot> = loadout
+        .0
+        .page_tools()
+        .iter()
+        .enumerate()
+        .filter_map(|(k, name)| {
+            TOOLS.iter().find(|t| t.0 == name).map(|t| ToolSlot {
+                name: t.0.into(),
+                label: t.1.into(),
+                key: cfg.0.key_of(&format!("slot{}", k + 1)).into(),
+            })
         })
         .collect();
     let sel = TOOLS[tools.selected];
-    let slot_key = cfg.0.key_of(&format!("slot{}", tools.selected % 10 + 1)).to_uppercase();
+    // the key shown in the line above the bar: its slot, or "page N" on another page of a long loadout, or "wheel" when it is on no page
+    let key_label = match loadout.0.slot_of(sel.0) {
+        Some(slot) => cfg.0.key_of(&format!("slot{}", slot + 1)).to_uppercase(),
+        None => match loadout.0.tools.iter().position(|t| t == sel.0) {
+            Some(i) => format!("PAGE {}", i / 10 + 1),
+            None => "WHEEL".into(),
+        },
+    };
     let hint = if sel.0 == "laser" {
         format!("{}  [{}  {}]", sel.2, LASER_TARGETS[tools.laser_target].0, if tools.laser_silence { "SILENCE" } else { "ACTIVATE" })
     } else {
@@ -383,9 +399,9 @@ fn draw(
         memory: vec![],
         tools: slots,
         tool_name: sel.0.into(),
-        tool_line: format!("{slot_key}  {}: {hint}", sel.1),
-        page: tools.page,
-        pages: TOOLS.len().div_ceil(10),
+        tool_line: format!("{key_label}  {}: {hint}", sel.1),
+        page: loadout.0.page,
+        pages: loadout.0.n_pages(),
         look: look.captured,
         free_mouse_key: cfg.0.key_of("free_mouse").into(),
         overlay_open: st.help || view.big || arcade.open,
@@ -423,8 +439,8 @@ fn draw(
     }
 }
 
-fn keys(keys: Res<ButtonInput<KeyCode>>, mut st: ResMut<HudStats>) {
-    if keys.just_pressed(KeyCode::KeyH) {
+fn keys(act: Res<crate::actions::Actions>, keys: Res<ButtonInput<KeyCode>>, mut st: ResMut<HudStats>) {
+    if act.just("help") {
         st.help = !st.help;
     }
     if keys.just_pressed(KeyCode::Escape) && st.help {

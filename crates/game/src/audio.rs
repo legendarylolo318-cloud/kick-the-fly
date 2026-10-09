@@ -153,8 +153,8 @@ fn buzz(settings: Res<Settings>, flies: Query<&Fly>, mut sink: Single<&mut Audio
 }
 
 /// F5 turns the sonification on and off.
-fn toggle(keys: Res<ButtonInput<KeyCode>>, mut son: ResMut<Sonifier>, mut notes: ResMut<Notes>, time: Res<Time<Real>>) {
-    if keys.just_pressed(KeyCode::F5) {
+fn toggle(act: Res<crate::actions::Actions>, mut son: ResMut<Sonifier>, mut notes: ResMut<Notes>, time: Res<Time<Real>>) {
+    if act.just("sonify") {
         son.on = !son.on;
         let msg = if son.on { "SONIFY   the brain's regions as voices on one scale (F5 to stop)" } else { "SONIFY   off" };
         notes.push(time.elapsed_secs(), msg, Tag::GameRule);

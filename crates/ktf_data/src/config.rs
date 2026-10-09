@@ -51,6 +51,35 @@ pub struct Schema {
     pub first_run: BTreeMap<String, bool>,
     pub tools: Vec<String>,
     pub max_saved_loadouts: usize,
+    pub loadout: LoadoutSchema,
+}
+
+/// `core/loadout.py` data: the catalog (labels, descriptions, tags), the presets and their texts.
+#[derive(Debug, Clone, Deserialize)]
+pub struct LoadoutSchema {
+    pub catalog: Vec<ToolInfo>,
+    pub tool_names: Vec<String>,
+    pub presets: std::collections::BTreeMap<String, Vec<String>>,
+    pub preset_labels: std::collections::BTreeMap<String, String>,
+    pub preset_tips: std::collections::BTreeMap<String, String>,
+    pub choices: Vec<String>,
+    pub mode_default: std::collections::BTreeMap<String, String>,
+    pub categories: Vec<String>,
+    pub page_size: usize,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ToolInfo {
+    pub name: String,
+    pub label: String,
+    pub category: String,
+    pub desc: String,
+    pub neurons: String,
+    /// "CONNECTOME" or "GAME RULE"
+    pub tag: String,
+    pub lab_only: bool,
+    pub larva: bool,
+    pub larva_note: String,
 }
 
 pub fn schema() -> &'static Schema {

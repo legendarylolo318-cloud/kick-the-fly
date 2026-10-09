@@ -102,7 +102,7 @@ fn spawn_player(mut commands: Commands, settings: Res<Settings>) {
 #[allow(clippy::too_many_arguments)]
 fn walk(
     time: Res<Time<Real>>,
-    keys: Res<ButtonInput<KeyCode>>,
+    act: Res<crate::actions::Actions>,
     motion: Res<AccumulatedMouseMotion>,
     look: Res<MouseLook>,
     settings: Res<Settings>,
@@ -117,16 +117,15 @@ fn walk(
         p.yaw += motion.delta.x * settings.mouse_sensitivity;
         p.pitch = (p.pitch - motion.delta.y * settings.mouse_sensitivity * if settings.invert_y { -1.0 } else { 1.0 }).clamp(-1.45, 1.45);
     }
-    let axis = |a: KeyCode, b: KeyCode| f32::from(u8::from(keys.pressed(a))) - f32::from(u8::from(keys.pressed(b)));
-    let (fwd_in, side_in) =
-        if look.captured { (axis(KeyCode::KeyW, KeyCode::KeyS), axis(KeyCode::KeyD, KeyCode::KeyA)) } else { (0.0, 0.0) };
+    let axis = |a: &str, b: &str| f32::from(u8::from(act.held(a))) - f32::from(u8::from(act.held(b)));
+    let (fwd_in, side_in) = if look.captured { (axis("forward", "back"), axis("right", "left")) } else { (0.0, 0.0) };
     let fh = Vec2::new(p.yaw.cos(), p.yaw.sin());
     let rh = Vec2::new(-p.yaw.sin(), p.yaw.cos());
     let want = fh * fwd_in + rh * side_in;
-    let crouch = keys.pressed(KeyCode::ControlLeft) && look.captured;
+    let crouch = act.held("crouch") && look.captured;
     let speed = if crouch {
         CROUCH
-    } else if keys.pressed(KeyCode::ShiftLeft) {
+    } else if act.held("sprint") {
         SPRINT
     } else {
         WALK
@@ -174,8 +173,8 @@ fn update_camera(
     }
 }
 
-fn cursor(keys: Res<ButtonInput<KeyCode>>, mut look: ResMut<MouseLook>, mut opts: Single<&mut CursorOptions, With<PrimaryWindow>>) {
-    if keys.just_pressed(KeyCode::Tab) {
+fn cursor(act: Res<crate::actions::Actions>, mut look: ResMut<MouseLook>, mut opts: Single<&mut CursorOptions, With<PrimaryWindow>>) {
+    if act.just("free_mouse") {
         look.captured = !look.captured;
     }
     let (grab, visible) = if look.captured { (CursorGrabMode::Locked, false) } else { (CursorGrabMode::None, true) };

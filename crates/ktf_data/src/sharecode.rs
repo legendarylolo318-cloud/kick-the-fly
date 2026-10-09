@@ -55,6 +55,11 @@ fn refuse<T>(s: impl Into<String>) -> Result<T, ShareError> {
     Err(ShareError::Refused(s.into()))
 }
 
+/// `{:,}`
+pub fn group_thousands(n: usize) -> String {
+    group_digits(n)
+}
+
 fn group_digits(n: usize) -> String {
     let s = n.to_string();
     let mut out = String::new();

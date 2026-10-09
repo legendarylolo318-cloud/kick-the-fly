@@ -245,6 +245,7 @@ fn update_activity(
 
 #[allow(clippy::too_many_arguments)]
 fn control(
+    act: Res<crate::actions::Actions>,
     keys: Res<ButtonInput<KeyCode>>,
     mouse: Res<ButtonInput<MouseButton>>,
     motion: Res<AccumulatedMouseMotion>,
@@ -252,10 +253,10 @@ fn control(
     mut view: ResMut<BrainView>,
     time: Res<Time>,
 ) {
-    if keys.just_pressed(KeyCode::KeyB) {
+    if act.just("big_view") {
         view.big = !view.big;
     }
-    if keys.just_pressed(KeyCode::KeyV) {
+    if act.just("panel") {
         view.mode = view.mode.next();
     }
     if view.big && !look.captured && mouse.pressed(MouseButton::Left) {

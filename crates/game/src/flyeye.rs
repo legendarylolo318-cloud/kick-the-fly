@@ -82,7 +82,7 @@ fn setup(mut eye: ResMut<FlyEye>, mut commands: Commands, mut images: ResMut<Ass
 }
 
 fn update(
-    keys: Res<ButtonInput<KeyCode>>,
+    act: Res<crate::actions::Actions>,
     time: Res<Time<Real>>,
     mut eye: ResMut<FlyEye>,
     flies: Query<&Fly>,
@@ -91,7 +91,7 @@ fn update(
     mut screen: Single<(&EyeScreen, &mut Node)>,
     mut mats: ResMut<Assets<EyeMaterial>>,
 ) {
-    if keys.just_pressed(KeyCode::F4) {
+    if act.just("fly_eye") {
         eye.on = !eye.on;
     }
     let target = if eye.on { 1.0 } else { 0.0 };

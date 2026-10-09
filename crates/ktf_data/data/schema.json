@@ -1949,5 +1949,347 @@
   "decoy",
   "laser"
  ],
- "max_saved_loadouts": 5
+ "max_saved_loadouts": 5,
+ "loadout": {
+  "catalog": [
+   {
+    "name": "hand",
+    "label": "HAND",
+    "category": "Touch",
+    "desc": "Grab the fly and throw it.",
+    "neurons": "Touch neurons where you grab it: head BM_* + JO-*, body SNta*, legs SNpp*, wings WG*.",
+    "tag": "CONNECTOME",
+    "lab_only": false,
+    "larva": true,
+    "larva_note": ""
+   },
+   {
+    "name": "flick",
+    "label": "FLICK",
+    "category": "Touch",
+    "desc": "Flick it away with a fingertip.",
+    "neurons": "Touch neurons near the flick (head, body, legs, wings). The flight that follows is game physics.",
+    "tag": "CONNECTOME",
+    "lab_only": false,
+    "larva": true,
+    "larva_note": ""
+   },
+   {
+    "name": "swatter",
+    "label": "SWATTER",
+    "category": "Touch",
+    "desc": "Swat it. Hard, and it remembers.",
+    "neurons": "Touch neurons of the body parts hit (a strong hit fires more of them), plus looming detectors LPLC2 and LC4 as it swings in.",
+    "tag": "CONNECTOME",
+    "lab_only": false,
+    "larva": true,
+    "larva_note": ""
+   },
+   {
+    "name": "bomb",
+    "label": "BOMB",
+    "category": "Touch",
+    "desc": "Drop a bomb with a 1.5 s fuse.",
+    "neurons": "Looming detectors LPLC2 and LC4 as it falls; touch neurons from the blast.",
+    "tag": "CONNECTOME",
+    "lab_only": false,
+    "larva": false,
+    "larva_note": "the larva has no looming detectors in this model"
+   },
+   {
+    "name": "zapper",
+    "label": "ZAPPER",
+    "category": "Touch",
+    "desc": "An electric shock through its body.",
+    "neurons": "Every touch neuron (real) plus current into a random 30% of all neurons for 40 ms (game rule).",
+    "tag": "GAME RULE",
+    "lab_only": false,
+    "larva": true,
+    "larva_note": ""
+   },
+   {
+    "name": "torch",
+    "label": "BLOWTORCH",
+    "category": "Thermal",
+    "desc": "Hold to burn it; maxes out pain.",
+    "neurons": "Every touch neuron and the heat cells TRN_VP2 at full strength; pain is a game estimate.",
+    "tag": "CONNECTOME",
+    "lab_only": false,
+    "larva": true,
+    "larva_note": ""
+   },
+   {
+    "name": "freeze",
+    "label": "FREEZE SPRAY",
+    "category": "Thermal",
+    "desc": "Hold to freeze it solid, then smash the ice.",
+    "neurons": "Cold cells TRN_VP3 and a little touch. Cooling damps the brain and the shatter are game rules.",
+    "tag": "CONNECTOME",
+    "lab_only": false,
+    "larva": true,
+    "larva_note": ""
+   },
+   {
+    "name": "cleaner",
+    "label": "BRAKE CLEANER",
+    "category": "Chemical",
+    "desc": "Hold: the solvent dissolves it.",
+    "neurons": "Smell neurons (ORN_*, 2,635) and taste neurons (leg, labellar, pharyngeal GRNs) at full strength; the growing inhibition is a game rule.",
+    "tag": "GAME RULE",
+    "lab_only": false,
+    "larva": true,
+    "larva_note": ""
+   },
+   {
+    "name": "alcohol",
+    "label": "ALCOHOL",
+    "category": "Chemical",
+    "desc": "Drop fermented fruit: sweet reward, escalating drunkenness.",
+    "neurons": "Sugar-pathway taste neurons and PAM reward neurons, and the fermentation glomeruli DM1, DM2, DP1m. The drunkenness is a game rule.",
+    "tag": "GAME RULE",
+    "lab_only": false,
+    "larva": false,
+    "larva_note": "the larval brain has no DM1/DM2/DP1m glomeruli"
+   },
+   {
+    "name": "cva",
+    "label": "cVA",
+    "category": "Chemical",
+    "desc": "Puff cVA pheromone.",
+    "neurons": "Or67d ORNs of the DA1 glomerulus, then DA1 projection neurons and the lateral horn (validated). The cloud is a game rule.",
+    "tag": "CONNECTOME",
+    "lab_only": false,
+    "larva": false,
+    "larva_note": "no DA1 glomerulus in the larval brain"
+   },
+   {
+    "name": "sugar",
+    "label": "SUGAR",
+    "category": "Reward",
+    "desc": "Drop sugar to reward it.",
+    "neurons": "Sugar-pathway taste neurons (30) and the PAM reward neurons (316), which the fly then walks over and eats. The walking and eating are game rules.",
+    "tag": "CONNECTOME",
+    "lab_only": false,
+    "larva": true,
+    "larva_note": ""
+   },
+   {
+    "name": "fruit",
+    "label": "FRUIT",
+    "category": "Reward",
+    "desc": "Drop a piece of ripe fruit, like the orchard's.",
+    "neurons": "Exactly as sugar does: sugar-pathway taste neurons and PAM reward neurons. The fruit is a game rule.",
+    "tag": "CONNECTOME",
+    "lab_only": false,
+    "larva": true,
+    "larva_note": ""
+   },
+   {
+    "name": "spider",
+    "label": "SPIDER",
+    "category": "Creatures",
+    "desc": "Drop a spider that hunts it.",
+    "neurons": "Bites hit body and leg touch neurons; looming detectors as it closes in. The hunting and the venom are game rules.",
+    "tag": "GAME RULE",
+    "lab_only": false,
+    "larva": false,
+    "larva_note": "the larva has no looming detectors in this model"
+   },
+   {
+    "name": "frog",
+    "label": "FROG",
+    "category": "Creatures",
+    "desc": "Put down a frog: a very fast tongue strike.",
+    "neurons": "Looming detectors LPLC2/LC4 (and so DNp01) as it hops closer and the tongue shoots out; a capture fires body, head and leg touch neurons. The frog's behaviour is a game rule.",
+    "tag": "GAME RULE",
+    "lab_only": false,
+    "larva": false,
+    "larva_note": "the larva has no looming detectors in this model"
+   },
+   {
+    "name": "dragonfly",
+    "label": "DRAGONFLY",
+    "category": "Creatures",
+    "desc": "Release a dragonfly that chases flying flies from above.",
+    "neurons": "Looming detectors LPLC2/LC4 as it dives; a grab fires leg, wing and body touch neurons. It only hunts a fly that is in the air. The chase is a game rule.",
+    "tag": "GAME RULE",
+    "lab_only": false,
+    "larva": false,
+    "larva_note": "the larva has no looming detectors in this model"
+   },
+   {
+    "name": "mantis",
+    "label": "MANTIS",
+    "category": "Creatures",
+    "desc": "Put down a mantis that creeps up, then strikes.",
+    "neurons": "Looming detectors LPLC2/LC4: the slow creep stays below the looming threshold, the strike does not; a capture fires body and leg touch neurons. The creep and strike are game rules.",
+    "tag": "GAME RULE",
+    "lab_only": false,
+    "larva": false,
+    "larva_note": "the larva has no looming detectors in this model"
+   },
+   {
+    "name": "decoy",
+    "label": "DECOY",
+    "category": "Creatures",
+    "desc": "Drop a decoy female to evoke courtship.",
+    "neurons": "Foreleg contact drives the 64 foreleg gustatory neurons LgLG5-8 (putative ppk23/ppk25). COURTSHIP is a game rule.",
+    "tag": "GAME RULE",
+    "lab_only": false,
+    "larva": false,
+    "larva_note": "no LgLG5-8 neurons in the larval brain"
+   },
+   {
+    "name": "laser",
+    "label": "LASER",
+    "category": "Lab",
+    "desc": "Stimulate or silence chosen cell types in real time.",
+    "neurons": "Whatever cell types you aim it at (optogenetics-style current), so it is Lab mode only.",
+    "tag": "CONNECTOME",
+    "lab_only": true,
+    "larva": false,
+    "larva_note": "its cell types are the adult's"
+   }
+  ],
+  "tool_names": [
+   "hand",
+   "flick",
+   "swatter",
+   "bomb",
+   "torch",
+   "cleaner",
+   "zapper",
+   "freeze",
+   "spider",
+   "sugar",
+   "alcohol",
+   "laser",
+   "cva",
+   "decoy",
+   "fruit",
+   "frog",
+   "dragonfly",
+   "mantis"
+  ],
+  "presets": {
+   "base": [
+    "hand",
+    "swatter",
+    "torch",
+    "freeze",
+    "sugar"
+   ],
+   "chaos": [
+    "hand",
+    "bomb",
+    "torch",
+    "cleaner",
+    "zapper",
+    "spider",
+    "alcohol",
+    "frog",
+    "mantis"
+   ],
+   "chemist": [
+    "hand",
+    "cleaner",
+    "alcohol",
+    "cva",
+    "sugar",
+    "freeze"
+   ],
+   "lab": [
+    "hand",
+    "flick",
+    "swatter",
+    "bomb",
+    "torch",
+    "cleaner",
+    "zapper",
+    "freeze",
+    "spider",
+    "sugar",
+    "alcohol",
+    "laser",
+    "cva",
+    "decoy",
+    "fruit",
+    "frog",
+    "dragonfly",
+    "mantis"
+   ],
+   "all": [
+    "hand",
+    "flick",
+    "swatter",
+    "bomb",
+    "torch",
+    "cleaner",
+    "zapper",
+    "freeze",
+    "spider",
+    "sugar",
+    "alcohol",
+    "laser",
+    "cva",
+    "decoy",
+    "fruit",
+    "frog",
+    "dragonfly",
+    "mantis"
+   ],
+   "pet": [
+    "hand",
+    "swatter",
+    "torch",
+    "freeze",
+    "sugar",
+    "fruit"
+   ]
+  },
+  "preset_labels": {
+   "auto": "Auto",
+   "base": "Base",
+   "chaos": "Chaos",
+   "chemist": "Chemist",
+   "lab": "Lab",
+   "all": "All",
+   "pet": "Pet",
+   "custom": "Custom"
+  },
+  "preset_tips": {
+   "auto": "Base in Play, Lab in Lab mode, Pet in Pet mode.",
+   "base": "Hand, swatter, blowtorch, freeze spray, sugar.",
+   "chaos": "Bomb, blowtorch, brake cleaner, zapper, spider, alcohol, frog, mantis.",
+   "chemist": "Brake cleaner, alcohol, cVA, sugar, freeze spray.",
+   "lab": "Every tool, including the laser.",
+   "all": "Every tool the mode allows (the laser only in Lab mode).",
+   "pet": "Gentle tools for a pet: hand, swatter, blowtorch, freeze spray, sugar and fruit.",
+   "custom": "Your own loadout, made in the editor."
+  },
+  "choices": [
+   "auto",
+   "base",
+   "chaos",
+   "chemist",
+   "lab",
+   "all",
+   "pet",
+   "custom"
+  ],
+  "mode_default": {
+   "play": "base",
+   "lab": "lab",
+   "pet": "pet"
+  },
+  "categories": [
+   "Touch",
+   "Thermal",
+   "Chemical",
+   "Reward",
+   "Creatures",
+   "Lab"
+  ],
+  "page_size": 10
+ }
 }
