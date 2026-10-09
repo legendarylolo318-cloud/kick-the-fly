@@ -52,7 +52,7 @@ pub const HELP: &[(&str, &str)] = &[
     ("K", "kill the fly (the kill cam replays its last seconds)"),
     ("H", "this help"),
     ("F12", "save a screenshot"),
-    ("Esc", "close a panel, then quit"),
+    ("Esc", "pause menu: settings, save, quit"),
 ];
 
 fn setup(mut commands: Commands) {

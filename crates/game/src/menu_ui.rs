@@ -1,0 +1,367 @@
+//! The pause menu and Settings in the game: `ktf_ui::Menu` (the pygame menu ported onto a software canvas) shown as a full-window image.
+//!
+//! Esc opens it (and frees the mouse, and stops game time and the brain, like Python's `clock.menu_paused`); while it is open it gets
+//! every key and mouse event and the game's own input is cleared, so typing a setting never resets the fly. Settings changes are applied
+//! live and saved to the player's `config.toml`, the same file the Python game used.
+
+use bevy::app::AppExit;
+use bevy::asset::RenderAssetUsages;
+use bevy::input::ButtonState;
+use bevy::input::keyboard::KeyboardInput;
+use bevy::input::mouse::{MouseButtonInput, MouseScrollUnit, MouseWheel};
+use bevy::prelude::*;
+use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
+use bevy::window::{MonitorSelection, PrimaryWindow, WindowMode};
+use ktf_data::config::Config;
+use ktf_ui::{Canvas, Effect, Menu, UiEvent};
+use serde_json::Value;
+
+use crate::app::SimLink;
+use crate::config::Settings;
+use crate::controls::TimeControl;
+use crate::player::MouseLook;
+use crate::sim_thread::Command;
+
+/// The player's `config.toml` (all 75 settings, keys, loadouts): the one the Python game wrote.
+#[derive(Resource)]
+pub struct UserConfig(pub Config);
+
+/// Whether the menu is open (other systems may want to stand back).
+#[derive(Resource, Default)]
+pub struct MenuOpen(pub bool);
+
+/// `--menu pause` / `--menu settings:Audio`: open this screen at start (screenshots).
+#[derive(Resource)]
+pub struct MenuStart(pub String);
+
+#[derive(Resource)]
+struct MenuUi {
+    menu: Menu,
+    canvas: Canvas,
+    image: Handle<Image>,
+    node: Entity,
+}
+
+#[derive(Component)]
+struct MenuNode;
+
+fn new_image(w: u32, h: u32) -> Image {
+    Image::new(
+        Extent3d { width: w, height: h, depth_or_array_layers: 1 },
+        TextureDimension::D2,
+        vec![0; (w * h * 4) as usize],
+        TextureFormat::Rgba8UnormSrgb,
+        RenderAssetUsages::default(),
+    )
+}
+
+fn setup(
+    mut commands: Commands,
+    mut images: ResMut<Assets<Image>>,
+    window: Single<&Window, With<PrimaryWindow>>,
+    cfg: Res<UserConfig>,
+    start: Option<Res<MenuStart>>,
+    mut open: ResMut<MenuOpen>,
+    mut tc: ResMut<TimeControl>,
+    mut look: ResMut<MouseLook>,
+) {
+    ktf_ui::i18n::set_language(cfg.0.get_str("access.language"));
+    let (w, h) = (window.width().max(1.0) as u32, window.height().max(1.0) as u32);
+    let image = images.add(new_image(w, h));
+    let node = commands
+        .spawn((
+            MenuNode,
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Px(0.0),
+                top: Val::Px(0.0),
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                ..default()
+            },
+            ImageNode::new(image.clone()),
+            GlobalZIndex(1000),
+            Visibility::Hidden,
+        ))
+        .id();
+    let mut menu = Menu::new(env!("CARGO_PKG_VERSION"));
+    menu.veil_alpha = 240; // pygame blends the veil in sRGB space, Bevy in linear light: this alpha gives the same darkness
+    if let Some(s) = start {
+        let (screen, tab) = s.0.split_once(':').unwrap_or((s.0.as_str(), ""));
+        menu.show(screen);
+        if !tab.is_empty() {
+            menu.tab = tab.into();
+        }
+        open.0 = true;
+        tc.menu_paused = true;
+        look.captured = false;
+    }
+    commands.insert_resource(MenuUi { menu, canvas: Canvas::new(w as i32, h as i32), image, node });
+}
+
+/// `pygame.key.name` of a key, for the key-binding screen and Esc/Enter/Backspace handling.
+pub fn pygame_key_name(k: KeyCode) -> Option<&'static str> {
+    use KeyCode::*;
+    Some(match k {
+        KeyA => "a",
+        KeyB => "b",
+        KeyC => "c",
+        KeyD => "d",
+        KeyE => "e",
+        KeyF => "f",
+        KeyG => "g",
+        KeyH => "h",
+        KeyI => "i",
+        KeyJ => "j",
+        KeyK => "k",
+        KeyL => "l",
+        KeyM => "m",
+        KeyN => "n",
+        KeyO => "o",
+        KeyP => "p",
+        KeyQ => "q",
+        KeyR => "r",
+        KeyS => "s",
+        KeyT => "t",
+        KeyU => "u",
+        KeyV => "v",
+        KeyW => "w",
+        KeyX => "x",
+        KeyY => "y",
+        KeyZ => "z",
+        Digit0 => "0",
+        Digit1 => "1",
+        Digit2 => "2",
+        Digit3 => "3",
+        Digit4 => "4",
+        Digit5 => "5",
+        Digit6 => "6",
+        Digit7 => "7",
+        Digit8 => "8",
+        Digit9 => "9",
+        F1 => "f1",
+        F2 => "f2",
+        F3 => "f3",
+        F4 => "f4",
+        F5 => "f5",
+        F6 => "f6",
+        F7 => "f7",
+        F8 => "f8",
+        F9 => "f9",
+        F10 => "f10",
+        F11 => "f11",
+        F12 => "f12",
+        Escape => "escape",
+        Enter => "return",
+        NumpadEnter => "enter",
+        Backspace => "backspace",
+        Delete => "delete",
+        Tab => "tab",
+        Space => "space",
+        ShiftLeft => "left shift",
+        ShiftRight => "right shift",
+        ControlLeft => "left ctrl",
+        ControlRight => "right ctrl",
+        AltLeft => "left alt",
+        AltRight => "right alt",
+        ArrowUp => "up",
+        ArrowDown => "down",
+        ArrowLeft => "left",
+        ArrowRight => "right",
+        Minus => "-",
+        Equal => "=",
+        BracketLeft => "[",
+        BracketRight => "]",
+        Semicolon => ";",
+        Quote => "'",
+        Comma => ",",
+        Period => ".",
+        Slash => "/",
+        Backquote => "`",
+        Backslash => "\\",
+        Home => "home",
+        End => "end",
+        PageUp => "page up",
+        PageDown => "page down",
+        Insert => "insert",
+        _ => return None,
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn input(
+    mut ui: ResMut<MenuUi>,
+    mut cfg: ResMut<UserConfig>,
+    mut keys: ResMut<ButtonInput<KeyCode>>,
+    mut buttons: ResMut<ButtonInput<MouseButton>>,
+    mut key_events: MessageReader<KeyboardInput>,
+    mut button_events: MessageReader<MouseButtonInput>,
+    mut wheel: MessageReader<MouseWheel>,
+    mut window: Single<&mut Window, With<PrimaryWindow>>,
+    mut look: ResMut<MouseLook>,
+    mut tc: ResMut<TimeControl>,
+    mut open: ResMut<MenuOpen>,
+    mut settings: ResMut<Settings>,
+    arcade: Res<crate::arcade::Arcade>,
+    link: Res<SimLink>,
+    mut exit: MessageWriter<AppExit>,
+) {
+    let was_open = ui.menu.is_open();
+    let mouse = window.cursor_position().map_or((-1, -1), |p| (p.x as i32, p.y as i32));
+    let mut events: Vec<UiEvent> = vec![];
+    if was_open {
+        events.push(UiEvent::Motion { pos: mouse });
+        for e in key_events.read() {
+            if e.state != ButtonState::Pressed {
+                continue;
+            }
+            let name = pygame_key_name(e.key_code).map(String::from).unwrap_or_default();
+            let ch = e.text.as_ref().and_then(|t| t.chars().next()).filter(|c| !c.is_control());
+            let ctrl = keys.pressed(KeyCode::ControlLeft) || keys.pressed(KeyCode::ControlRight);
+            events.push(UiEvent::KeyDown { name, ch, ctrl });
+        }
+        for e in button_events.read() {
+            if e.button == MouseButton::Left {
+                events.push(if e.state == ButtonState::Pressed {
+                    UiEvent::MouseDown { pos: mouse }
+                } else {
+                    UiEvent::MouseUp { pos: mouse }
+                });
+            }
+        }
+        for w in wheel.read() {
+            events.push(UiEvent::Wheel { y: if w.unit == MouseScrollUnit::Line { w.y } else { w.y / 20.0 } });
+        }
+    } else {
+        key_events.clear();
+        button_events.clear();
+        wheel.clear();
+        if keys.just_pressed(KeyCode::Escape) && !arcade.open {
+            ui.menu.show("pause");
+            look.captured = false;
+            tc.menu_paused = true;
+            link.0.send(Command::Pause(true));
+            open.0 = true;
+        }
+    }
+    let three_d = true;
+    let mut effects = vec![];
+    for ev in events {
+        let (_, fx) = ui.menu.handle(&ev, &mut cfg.0, three_d);
+        effects.extend(fx);
+    }
+    for fx in effects {
+        match fx {
+            Effect::Action(a) => match a.as_str() {
+                "resume" => ui.menu.close(),
+                "closed" => {
+                    open.0 = false;
+                    tc.menu_paused = false;
+                    link.0.send(Command::Pause(tc.paused));
+                    look.captured = true;
+                }
+                "settings" => ui.menu.show("settings"),
+                "quit" => ui.menu.show("confirm_quit"),
+                "quit_now" => {
+                    cfg.0.save(env!("CARGO_PKG_VERSION"));
+                    exit.write(AppExit::Success);
+                }
+                "toggle_mode" => {
+                    let next = match cfg.0.get_str("brain.mode") {
+                        "play" => "lab",
+                        "lab" => "pet",
+                        _ => "play",
+                    };
+                    let _ = cfg.0.set("brain.mode", &Value::from(next));
+                    cfg.0.save(env!("CARGO_PKG_VERSION"));
+                    let mut label = next.to_string();
+                    label[..1].make_ascii_uppercase();
+                    ui.menu.flash(&format!("{label} mode"), ktf_ui::theme::GOOD, 4.0);
+                }
+                "click_sound" => {}
+                _ => ui.menu.flash("coming soon", ktf_ui::theme::AMBER, 4.0),
+            },
+            Effect::SettingChanged { key, save } => {
+                settings.apply_config(&cfg.0);
+                if let Some(k) = key.as_deref() {
+                    apply_live(k, &cfg.0, &mut window, &mut tc, &link);
+                }
+                if save {
+                    cfg.0.save(env!("CARGO_PKG_VERSION"));
+                }
+            }
+            Effect::KeysChanged => {
+                cfg.0.save(env!("CARGO_PKG_VERSION"));
+            }
+        }
+    }
+    if was_open || ui.menu.is_open() {
+        // the menu owns the input this frame: the game must not also react to the same keys and clicks
+        keys.reset_all();
+        buttons.reset_all();
+    }
+}
+
+/// A setting changed in the menu: do what it means right away.
+fn apply_live(key: &str, cfg: &Config, window: &mut Window, tc: &mut TimeControl, link: &SimLink) {
+    match key {
+        "graphics.fullscreen" => {
+            window.mode =
+                if cfg.get_bool(key) { WindowMode::BorderlessFullscreen(MonitorSelection::Current) } else { WindowMode::Windowed };
+        }
+        "brain.sim_speed" => {
+            tc.speed = cfg.get_f32(key);
+            link.0.send(Command::SetSpeed(tc.speed));
+        }
+        "access.language" => {
+            ktf_ui::i18n::set_language(cfg.get_str(key));
+        }
+        _ => {}
+    }
+}
+
+fn draw(
+    mut ui: ResMut<MenuUi>,
+    cfg: Res<UserConfig>,
+    window: Single<&Window, With<PrimaryWindow>>,
+    mut images: ResMut<Assets<Image>>,
+    mut vis: Query<(&mut Visibility, &mut ImageNode), With<MenuNode>>,
+    time: Res<Time<Real>>,
+) {
+    let Ok((mut v, mut node)) = vis.single_mut() else { return };
+    if !ui.menu.is_open() {
+        if *v != Visibility::Hidden {
+            *v = Visibility::Hidden;
+        }
+        return;
+    }
+    let (w, h) = (window.width().max(1.0) as i32, window.height().max(1.0) as i32);
+    if (ui.canvas.w, ui.canvas.h) != (w, h) {
+        ui.canvas = Canvas::new(w, h);
+        ui.image = images.add(new_image(w as u32, h as u32));
+        node.image = ui.image.clone();
+    }
+    let mouse = window.cursor_position().map_or((-1, -1), |p| (p.x as i32, p.y as i32));
+    let MenuUi { menu, canvas, image, .. } = &mut *ui;
+    canvas.clear();
+    menu.draw(canvas, &cfg.0, true, mouse, time.elapsed_secs_f64());
+    if let Some(mut img) = images.get_mut(&*image) {
+        img.data = Some(canvas.px.clone());
+    }
+    *v = Visibility::Visible;
+}
+
+pub struct MenuPlugin;
+
+impl Plugin for MenuPlugin {
+    fn build(&self, app: &mut App) {
+        if !app.world().contains_resource::<UserConfig>() {
+            app.insert_resource(UserConfig(Config::new(None)));
+        }
+        app.init_resource::<MenuOpen>()
+            .add_systems(Startup, setup)
+            .add_systems(PreUpdate, input.after(bevy::input::InputSystems))
+            .add_systems(Update, draw);
+        let _ = |ui: &MenuUi| ui.node;
+    }
+}

@@ -3767,6 +3767,7 @@ dependencies = [
  "cpal 0.18.2",
  "fly_sim",
  "ktf_data",
+ "ktf_ui",
  "serde_json",
 ]
 
@@ -3782,6 +3783,16 @@ dependencies = [
  "sha2",
  "toml",
  "zip",
+]
+
+[[package]]
+name = "ktf_ui"
+version = "4.0.0-dev"
+dependencies = [
+ "ab_glyph",
+ "ktf_data",
+ "png",
+ "serde_json",
 ]
 
 [[package]]

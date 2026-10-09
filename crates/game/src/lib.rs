@@ -32,6 +32,7 @@ pub mod killcam;
 pub mod killcam_play;
 pub mod kitchen;
 pub mod lesion;
+pub mod menu_ui;
 pub mod mic;
 pub mod mic_analysis;
 pub mod paths;
@@ -137,6 +138,7 @@ impl Plugin for GamePlugin {
                 fx::FxPlugin,
                 senses::SensesPlugin,
             ))
+            .add_plugins(menu_ui::MenuPlugin)
             .add_plugins((
                 hud::HudPlugin,
                 weather_play::WeatherPlugin,

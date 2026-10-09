@@ -2,7 +2,6 @@
 //! Python: `Game3D.handle3d` and `Game.time_action`. Time controls scale Bevy's virtual clock (so physics, predators and weather slow
 //! together) and the brain's own speed (so what you watch is what it computes).
 
-use bevy::app::AppExit;
 use bevy::prelude::*;
 use bevy::render::view::screenshot::{Screenshot, save_to_disk};
 use bevy::window::{PrimaryWindow, WindowMode};
@@ -10,7 +9,6 @@ use bevy::window::{PrimaryWindow, WindowMode};
 use crate::app::{LatestSnapshot, SimLink};
 use crate::config::{Arena, Settings, SwitchArena};
 use crate::fly::ResetFly;
-use crate::player::MouseLook;
 use crate::sim_thread::Command;
 use crate::snapshot::Phase;
 use crate::world::ARENAS;
@@ -19,11 +17,13 @@ use crate::world::ARENAS;
 pub struct TimeControl {
     pub speed: f32,
     pub paused: bool,
+    /// The pause menu is open (Python: `clock.menu_paused`): game time and the brain stand still.
+    pub menu_paused: bool,
 }
 
 impl Default for TimeControl {
     fn default() -> Self {
-        Self { speed: 1.0, paused: false }
+        Self { speed: 1.0, paused: false, menu_paused: false }
     }
 }
 
@@ -38,12 +38,8 @@ fn keys(
     arena: Res<Arena>,
     mut switch: MessageWriter<SwitchArena>,
     mut reset: MessageWriter<ResetFly>,
-    mut look: ResMut<MouseLook>,
     mut window: Single<&mut Window, With<PrimaryWindow>>,
     mut commands: Commands,
-    mut exit: MessageWriter<AppExit>,
-    mut esc_at: Local<f32>,
-    time: Res<Time<Real>>,
 ) {
     let brain_paused = snap.0.as_deref().is_some_and(|s| matches!(s.phase, Phase::Paused));
     let speed_now = snap.0.as_deref().map_or(1.0, |s| s.speed);
@@ -72,7 +68,7 @@ fn keys(
     if keys.just_pressed(KeyCode::ArrowDown) {
         link.0.send(Command::SetSpeed((speed_now / 2.0).max(0.1)));
     }
-    virt.set_relative_speed(if tc.paused { 0.0 } else { tc.speed });
+    virt.set_relative_speed(if tc.paused || tc.menu_paused { 0.0 } else { tc.speed });
     if keys.just_pressed(KeyCode::KeyK) {
         link.0.send(Command::Kill);
     }
@@ -100,18 +96,6 @@ fn keys(
         let path =
             format!("kick-the-fly-{}.png", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs()));
         commands.spawn(Screenshot::primary_window()).observe(save_to_disk(path));
-    }
-    if keys.just_pressed(KeyCode::Escape) {
-        // the first Esc frees the mouse; a second one within two seconds quits
-        let now = time.elapsed_secs();
-        if look.captured {
-            look.captured = false;
-            *esc_at = now;
-        } else if now - *esc_at < 2.0 {
-            exit.write(AppExit::Success);
-        } else {
-            *esc_at = now;
-        }
     }
     let _ = ARENAS;
 }

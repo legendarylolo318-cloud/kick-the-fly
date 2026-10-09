@@ -24,6 +24,7 @@ struct Args {
     storm: bool,
     day: f32,
     kill_at: Option<f32>,
+    menu: Option<String>,
 }
 
 const USAGE: &str = "usage: kick_the_fly [--pack FILE | --synthetic N] [--seed S] [--smoke SECONDS]\n\
@@ -34,6 +35,7 @@ const USAGE: &str = "usage: kick_the_fly [--pack FILE | --synthetic N] [--seed S
   --arena NAME     start in this arena (room fan flypaper pool lamp escaperoom field orchard thermo kitchen)\n\
   --cam x,y,z,tx,ty,tz  fixed camera (screenshots)\n\
   --rain F --storm --day S   weather (outdoor arenas) and day/night cycle length\n\
+  --menu SCREEN[:TAB]  open a menu screen at start (pause, confirm_quit, settings:Audio), for screenshots\n\
   --tool NAME [--fire S] [--hold S]  select a tool and press the left button at S seconds for HOLD seconds\n\
   --shot FILE [N]  save a screenshot after N frames (default 90) and exit";
 
@@ -43,6 +45,7 @@ fn parse(args: impl Iterator<Item = String>) -> Result<Args, String> {
     let (mut tool, mut fire, mut hold) = (None, 1.0f32, 0.2f32);
     let (mut rain, mut storm, mut day) = (0.0f32, false, 0.0f32);
     let mut kill_at = None;
+    let mut menu = None;
     while let Some(a) = args.next() {
         let mut value = |what: &str| args.next().ok_or_else(|| format!("{a} needs {what}"));
         match a.as_str() {
@@ -57,6 +60,7 @@ fn parse(args: impl Iterator<Item = String>) -> Result<Args, String> {
             }
             "--rain" => rain = value("0..1")?.parse().map_err(|_| "bad rain")?,
             "--storm" => storm = true,
+            "--menu" => menu = Some(value("a screen, e.g. pause or settings:Audio")?),
             "--kill-at" => kill_at = Some(value("seconds")?.parse::<f32>().map_err(|_| "bad seconds")?),
             "--day" => day = value("seconds per day")?.parse().map_err(|_| "bad day length")?,
             "--tool" => {
@@ -89,7 +93,7 @@ fn parse(args: impl Iterator<Item = String>) -> Result<Args, String> {
             Source::Synthetic { n: 20_000 }
         }
     });
-    Ok(Args { source, seed, smoke, arena, shot, cam, script: tool.map(|t| (t, fire, hold)), rain, storm, day, kill_at })
+    Ok(Args { source, seed, smoke, arena, shot, cam, script: tool.map(|t| (t, fire, hold)), rain, storm, day, kill_at, menu })
 }
 
 fn main() -> ExitCode {
@@ -133,6 +137,7 @@ fn main() -> ExitCode {
             eprintln!("config: {w}");
         }
         app.insert_resource(kick_the_fly::config::Settings::from_config(&cfg));
+        app.insert_resource(kick_the_fly::menu_ui::UserConfig(cfg));
     }
     app.add_plugins(
         DefaultPlugins.set(WindowPlugin { primary_window: Some(Window { title: "Kick the Fly".into(), ..default() }), ..default() }),
@@ -154,6 +159,9 @@ fn main() -> ExitCode {
         st.rain = args.rain;
         st.storm = args.storm;
         st.day_night_s = args.day;
+    }
+    if let Some(m) = &args.menu {
+        app.insert_resource(kick_the_fly::menu_ui::MenuStart(m.clone()));
     }
     if let Some(t) = args.kill_at {
         app.add_plugins(kick_the_fly::capture::KillAtPlugin(t));

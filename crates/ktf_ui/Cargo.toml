@@ -1,0 +1,15 @@
+[package]
+name = "ktf_ui"
+description = "Kick the Fly: the pygame menus ported line by line onto a software canvas (no Bevy, so the layout is testable and comparable to the original's screenshots)."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+ktf_data.workspace = true
+ab_glyph.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+png.workspace = true

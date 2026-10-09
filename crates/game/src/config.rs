@@ -69,16 +69,20 @@ impl Settings {
 
     /// The values the ported features read, taken from the player's config (the rest of the file is kept as is by `ktf_data`).
     pub fn from_config(c: &ktf_data::config::Config) -> Self {
-        Self {
-            master_volume: c.get_f32("audio.master"),
-            mute: c.get_bool("audio.mute"),
-            reduced_flashing: c.get_bool("access.reduced_flashing"),
-            mouse_sensitivity: Self::BASE_SENSITIVITY * c.get_f32("controls.mouse_sensitivity"),
-            invert_y: c.get_bool("controls.invert_y"),
-            fov_deg: c.get_f32("controls.fov"),
-            immortal: c.get_bool("brain.immortal"),
-            killcam: c.get_bool("brain.killcam"),
-            ..Self::default()
-        }
+        let mut s = Self::default();
+        s.apply_config(c);
+        s
+    }
+
+    /// Copy the settings the game reads live out of the config (after the menu changed one, or at start).
+    pub fn apply_config(&mut self, c: &ktf_data::config::Config) {
+        self.master_volume = c.get_f32("audio.master");
+        self.mute = c.get_bool("audio.mute");
+        self.reduced_flashing = c.get_bool("access.reduced_flashing");
+        self.mouse_sensitivity = Self::BASE_SENSITIVITY * c.get_f32("controls.mouse_sensitivity");
+        self.invert_y = c.get_bool("controls.invert_y");
+        self.fov_deg = c.get_f32("controls.fov");
+        self.immortal = c.get_bool("brain.immortal");
+        self.killcam = c.get_bool("brain.killcam");
     }
 }

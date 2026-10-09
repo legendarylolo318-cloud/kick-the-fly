@@ -213,10 +213,10 @@ Rule: before building a screen, run or read its pygame version (`legacy-python/k
 hotkeys and timing; do not redesign. If `bevy_egui` can't match, use `bevy_ui` with custom styling. Tick a box only when the note says how it was checked
 against the pygame version (screenshot pair, or the code read side by side). Anything that can't match exactly gets a written reason below it.
 
-- [ ] Menu framework (`ui/menu.py:Menu`: pages, buttons, sliders, charts, tooltips, gamepad navigation, UI scale / menu size U)
-- [ ] Fonts and sprites: bundle the same font files and icon assets (`legacy-python/kickthefly/data/`, `assets`), colors from `ui/theme*`
-- [ ] Pause menu (Esc) and its navigation order
-- [ ] Settings: Graphics tab (17), Audio (11), Brain (35 + tags Connectome / Game rule), Controls (8 + rebinding table + pad), Accessibility (4), Help (replay tutorial, self-test)
+- [~] Menu framework (`ui/menu.py:Menu`): **ported** as `crates/ktf_ui` (software canvas + immediate-mode `Menu`, same widgets: button, toggle, segmented, slider with typed value, number/text field, chip, tooltip after 0.35 s, scrolling, clipping, key/pad capture, flash messages). Verified: 9 pygame screenshots (`tests/ui_reference/`, `legacy-python/make_ui_reference.py`) vs Rust renders, < 0.9 % of pixels differ clearly (glyph anti-aliasing); 6 interaction tests. Not yet: charts, `flow_buttons`/`button_row`/`subtitle` helpers (added with the pages that use them), gamepad navigation, UI scale / menu size U
+- [~] Fonts and sprites: `assets/fonts/FreeSans(.Bold).otf` = the font pygame's `SysFont("segoeui,dejavusans,...")` resolved to on the reference machine (Segoe UI exists only on Windows and cannot be bundled); glyph advances are pygame's hinted ones (`crates/ktf_ui/data/advances.json`), so every text width equals pygame's (330 strings checked). Icons/sprites: none used by the menus. Colors: `ktf_ui::theme`
+- [x] Pause menu (Esc): 12 buttons in the original order, labels, tips, Play/Lab/Pet title; screenshot pair identical (pause, pause_lab); Esc opens, frees the mouse and stops time and brain (`menu_ui.rs`); quit asks first (`confirm_quit`, screenshot pair)
+- [~] Settings: Graphics, Audio, Brain (+ENGINE panel lines supplied by the game), Controls (keys table, pad table in 3D), Accessibility: all 75 settings drawn from the same schema, each tab's screenshot compared with pygame's; changes applied live (volume, mute, FOV, mouse, immortal, fullscreen, sim speed, language) and saved to config.toml. Not yet: Help tab (`ui/help_ui.py`), live effect of graphics options (fps cap, vsync, resolution scale, ui scale...), ENGINE lines
 - [ ] HUD: pain / reward meters, hit counter, hotbar + pages, hotkey help (H), science cards + source chips, tag chips, toasts, validation popups
 - [ ] Brain panel + big brain view (B), neuron inspector, search, stethoscope readout
 - [ ] Tutorial / first-run flow, What's New, loadout notice
@@ -262,4 +262,7 @@ against the pygame version (screenshot pair, or the code read side by side). Any
 - [ ] Transitions and animations (menu open/close, fades, flashes honoring `reduced_flashing`)
 
 ### Cannot be matched exactly
-(none yet: write each item here with the reason and how it differs)
+- **Text rasterization**: pygame renders hinted glyphs with FreeType; `ab_glyph` renders unhinted outlines. Widths and positions are identical (pygame's advances are a lookup table), edges differ by anti-aliasing (a few percent of text pixels).
+- **Font**: Python used the first installed of Segoe UI, DejaVu Sans, Liberation Sans, Arial: the look depended on the OS. The Rust game bundles GNU FreeSans (what that list resolved to on the reference Linux machine) so all OSes look like it. FreeSans is GPL-3.0+ with the GNU font exception: **check this is acceptable for redistribution before a release**; swapping in DejaVu (permissive) changes only `assets/fonts/` and `crates/ktf_ui/data/advances.json` (regenerate with `legacy-python/make_ui_metrics.py`).
+- **Veil**: pygame blends the dark veil in sRGB space, Bevy in linear light; the in-game veil alpha is 240 instead of 196 so the room is as dark as in pygame (measured within 3 levels).
+- **Window**: the menu canvas is the window's logical size (Python: the fixed HUD surface scaled to the window), so layout is identical at 1280x720 and reflows like Python's at other sizes only approximately.
