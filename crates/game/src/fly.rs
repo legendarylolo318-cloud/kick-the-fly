@@ -117,7 +117,14 @@ impl Fly {
 
     /// Can it take off right now? (`can_fly` in the reaction block.)
     pub fn can_fly(&self) -> bool {
-        self.grabbed.is_none() && !self.wrapped && self.frost < 0.5 && self.melt < 0.3 && self.venom < 0.5 && self.wet <= 0.0 && self.stuck.len() < 2 && !self.dead()
+        self.grabbed.is_none()
+            && !self.wrapped
+            && self.frost < 0.5
+            && self.melt < 0.3
+            && self.venom < 0.5
+            && self.wet <= 0.0
+            && self.stuck.len() < 2
+            && !self.dead()
     }
 
     pub fn flying(&self, now: f32) -> bool {
@@ -164,10 +171,15 @@ impl Fly {
         let w = world::spec(if outdoor { "field" } else { "room" });
         if outdoor {
             let t = match away {
-                None => Vec3::new(self.rng.uniform(-w.rx + 1.0, w.rx - 1.0), self.rng.uniform(1.0, 4.0), self.rng.uniform(-w.rz + 1.0, w.rz - 1.0)),
+                None => Vec3::new(
+                    self.rng.uniform(-w.rx + 1.0, w.rx - 1.0),
+                    self.rng.uniform(1.0, 4.0),
+                    self.rng.uniform(-w.rz + 1.0, w.rz - 1.0),
+                ),
                 Some(a) => thorax + a * self.rng.uniform(4.0, 12.0) + Vec3::Y * self.rng.uniform(1.5, 5.0),
             };
-            self.fly_target = t.clamp(Vec3::new(-w.fly_rx + 1.0, 0.5, -w.fly_rz + 1.0), Vec3::new(w.fly_rx - 1.0, w.fly_ry - 1.0, w.fly_rz - 1.0));
+            self.fly_target =
+                t.clamp(Vec3::new(-w.fly_rx + 1.0, 0.5, -w.fly_rz + 1.0), Vec3::new(w.fly_rx - 1.0, w.fly_ry - 1.0, w.fly_rz - 1.0));
             return;
         }
         let (rx, rz) = (world::RX, world::RZ);
@@ -176,7 +188,8 @@ impl Fly {
         for _ in 0..12 {
             t = match away {
                 None => Vec3::new(self.rng.uniform(-rx + 0.8, rx - 0.8), self.rng.uniform(0.8, 2.4), self.rng.uniform(-rz + 0.8, rz - 0.8)),
-                Some(a) => (thorax + a * self.rng.uniform(1.3, 2.3) + Vec3::Y * self.rng.uniform(0.5, 1.4)).clamp(Vec3::new(-rx + 0.7, 0.8, -rz + 0.7), Vec3::new(rx - 0.7, 2.4, rz - 0.7)),
+                Some(a) => (thorax + a * self.rng.uniform(1.3, 2.3) + Vec3::Y * self.rng.uniform(0.5, 1.4))
+                    .clamp(Vec3::new(-rx + 0.7, 0.8, -rz + 0.7), Vec3::new(rx - 0.7, 2.4, rz - 0.7)),
             };
             if !boxes.iter().any(|b| b.contains(t, 0.4)) {
                 break;
@@ -236,15 +249,43 @@ pub struct FlyLook {
     pub eye: Handle<StandardMaterial>,
 }
 
-pub fn spawn_fly(commands: &mut Commands, meshes: &mut Assets<Mesh>, materials: &mut Assets<StandardMaterial>, pos: Vec3, yaw: f32, seed: u64) -> Entity {
-    let body = materials.add(StandardMaterial { base_color: Color::srgb(0.16, 0.13, 0.11), perceptual_roughness: 0.45, metallic: 0.1, ..default() });
-    let eye = materials.add(StandardMaterial { base_color: Color::srgb(0.75, 0.08, 0.06), perceptual_roughness: 0.2, emissive: LinearRgba::rgb(0.25, 0.02, 0.01), ..default() });
-    let wing = materials.add(StandardMaterial { base_color: Color::srgba(0.85, 0.9, 1.0, 0.35), alpha_mode: AlphaMode::Blend, perceptual_roughness: 0.1, double_sided: true, cull_mode: None, ..default() });
+pub fn spawn_fly(
+    commands: &mut Commands,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+    pos: Vec3,
+    yaw: f32,
+    seed: u64,
+) -> Entity {
+    let body = materials.add(StandardMaterial {
+        base_color: Color::srgb(0.16, 0.13, 0.11),
+        perceptual_roughness: 0.45,
+        metallic: 0.1,
+        ..default()
+    });
+    let eye = materials.add(StandardMaterial {
+        base_color: Color::srgb(0.75, 0.08, 0.06),
+        perceptual_roughness: 0.2,
+        emissive: LinearRgba::rgb(0.25, 0.02, 0.01),
+        ..default()
+    });
+    let wing = materials.add(StandardMaterial {
+        base_color: Color::srgba(0.85, 0.9, 1.0, 0.35),
+        alpha_mode: AlphaMode::Blend,
+        perceptual_roughness: 0.1,
+        double_sided: true,
+        cull_mode: None,
+        ..default()
+    });
     let rot = Quat::from_rotation_y(-yaw);
     let sphere = meshes.add(Sphere::new(1.0).mesh().uv(20, 14));
     let eye_mesh = meshes.add(Sphere::new(1.0).mesh().uv(12, 8));
     let root = commands.spawn((Transform::from_translation(pos), Visibility::default())).id();
-    let specs = [(Part::Head, HEAD_R, HEAD_OFF, 0.35, Vec3::new(1.0, 0.95, 1.1)), (Part::Thorax, THX_R, Vec3::ZERO, 0.9, Vec3::new(1.15, 1.0, 1.0)), (Part::Abdomen, ABD_R, ABD_OFF, 0.7, Vec3::new(1.45, 0.95, 0.95))];
+    let specs = [
+        (Part::Head, HEAD_R, HEAD_OFF, 0.35, Vec3::new(1.0, 0.95, 1.1)),
+        (Part::Thorax, THX_R, Vec3::ZERO, 0.9, Vec3::new(1.15, 1.0, 1.0)),
+        (Part::Abdomen, ABD_R, ABD_OFF, 0.7, Vec3::new(1.45, 0.95, 0.95)),
+    ];
     let mut parts = [Entity::PLACEHOLDER; 3];
     for (part, r, off, mass, scale) in specs {
         let at = pos + rot * off;
@@ -268,7 +309,12 @@ pub fn spawn_fly(commands: &mut Commands, meshes: &mut Assets<Mesh>, materials: 
                 c.spawn((Mesh3d(sphere.clone()), MeshMaterial3d(body.clone()), Transform::from_scale(scale * r)));
                 if part == Part::Head {
                     for side in [-1.0f32, 1.0] {
-                        c.spawn((Mesh3d(eye_mesh.clone()), MeshMaterial3d(eye.clone()), Transform::from_translation(Vec3::new(0.35 * r, 0.25 * r, side * 0.7 * r)).with_scale(Vec3::new(0.55, 0.7, 0.45) * r)));
+                        c.spawn((
+                            Mesh3d(eye_mesh.clone()),
+                            MeshMaterial3d(eye.clone()),
+                            Transform::from_translation(Vec3::new(0.35 * r, 0.25 * r, side * 0.7 * r))
+                                .with_scale(Vec3::new(0.55, 0.7, 0.45) * r),
+                        ));
                     }
                 }
             })
@@ -282,7 +328,13 @@ pub fn spawn_fly(commands: &mut Commands, meshes: &mut Assets<Mesh>, materials: 
         let anchor = off.normalize() * (THX_R * 0.9);
         let local = Vec3::new(-(off.length() - THX_R * 0.9), 0.0, 0.0);
         let _ = local;
-        joints_spawned.push(commands.spawn(SphericalJoint::new(thx, e).with_local_anchor1(anchor).with_local_anchor2(anchor - off).with_point_compliance(0.000_01)).id());
+        joints_spawned.push(
+            commands
+                .spawn(
+                    SphericalJoint::new(thx, e).with_local_anchor1(anchor).with_local_anchor2(anchor - off).with_point_compliance(0.000_01),
+                )
+                .id(),
+        );
     }
     commands.entity(root).insert((
         Fly {
@@ -370,7 +422,14 @@ fn brain_reactions(
         let Ok(thx) = transforms.get(thx_e).map(|t| t.translation) else { continue };
         let lv = Levels { names: &info.group_names, values: &s.levels };
         f.power = lv.get("fly");
-        let body = Body { can_fly: f.can_fly(), free: f.grabbed.is_none() && now >= f.react.escape_until, grabbed: f.grabbed.is_some(), asleep_ok: true, eating: now < f.react.eating_until, duel_focus: false };
+        let body = Body {
+            can_fly: f.can_fly(),
+            free: f.grabbed.is_none() && now >= f.react.escape_until,
+            grabbed: f.grabbed.is_some(),
+            asleep_ok: true,
+            eating: now < f.react.eating_until,
+            duel_focus: false,
+        };
         let mut rs = f.react.clone();
         let mut rng = Rng::new((now * 1000.0) as u64 ^ e.to_bits());
         let out = reactions::decide(&lv, &mut rs, body, now, &mut rng);
@@ -497,7 +556,13 @@ pub fn control(
         // walking intent
         let walking = now < f.react.walk_until;
         let backing = now < f.react.back_until;
-        let speed = if backing { -1.7 * S * 60.0 } else if walking { (if f.run { 5.0 } else { 2.3 }) * S * 60.0 } else { 0.0 };
+        let speed = if backing {
+            -1.7 * S * 60.0
+        } else if walking {
+            (if f.run { 5.0 } else { 2.3 }) * S * 60.0
+        } else {
+            0.0
+        };
         let mut v_cmd = speed;
         if v_cmd != 0.0 && !flying {
             let ahead = thx + f.fwd() * v_cmd * 0.2;
@@ -506,12 +571,19 @@ pub fn control(
                 v_cmd = 0.0;
             }
         }
-        f.action = if backing { "back up" } else if walking { if f.run { "run" } else { "walk" } } else { "idle" };
+        f.action = if backing {
+            "back up"
+        } else if walking {
+            if f.run { "run" } else { "walk" }
+        } else {
+            "idle"
+        };
         if v_cmd != 0.0 {
             f.phase += 0.12 * v_cmd.abs() / (S * 60.0) * dt * 60.0;
         }
         let max_turn = if flying { 0.15 } else { 0.09 } * dt * 60.0;
-        f.yaw = if flying { f.yaw + wrap(f.yaw_target - f.yaw) * 0.15 } else { f.yaw + wrap(f.yaw_target - f.yaw).clamp(-max_turn, max_turn) };
+        f.yaw =
+            if flying { f.yaw + wrap(f.yaw_target - f.yaw) * 0.15 } else { f.yaw + wrap(f.yaw_target - f.yaw).clamp(-max_turn, max_turn) };
         if f.inebriation > 0.0 && !f.dead() {
             let drift = 0.04 * f.inebriation * (now * 2.7).sin();
             f.yaw += drift;
@@ -702,7 +774,11 @@ fn impacts(
             let s = ((sp - 9.0) / 35.0).clamp(0.05, 1.0);
             hits.write(FlyHit { fly: e, part: Part::Thorax, strength: s });
             if sp > 18.0 {
-                dmg.write(FlyDamage { fly: e, amount: ((sp - 18.0) * 0.35).min(8.0), source: if t.translation.y < 0.3 { "the floor" } else { "the wall" } });
+                dmg.write(FlyDamage {
+                    fly: e,
+                    amount: ((sp - 18.0) * 0.35).min(8.0),
+                    source: if t.translation.y < 0.3 { "the floor" } else { "the wall" },
+                });
             }
             if sp > 24.0 {
                 sfx.write(Sfx::vol("bonk", 0.4 + 0.6 * s));
@@ -792,7 +868,10 @@ fn debug_dump(time: Res<Time<Virtual>>, flies: Query<&Fly>, parts: Query<(&FlyPa
     *last = time.elapsed_secs();
     for (p, t, v) in &parts {
         if let Ok(f) = flies.get(p.fly) {
-            eprintln!("{:?} pos {:.3?} vel {:.2?} strength {:.2} flying {} yaw {:.2}", p.part, t.translation, v.0, f.strength, f.flying_now, f.yaw);
+            eprintln!(
+                "{:?} pos {:.3?} vel {:.2?} strength {:.2} flying {} yaw {:.2}",
+                p.part, t.translation, v.0, f.strength, f.flying_now, f.yaw
+            );
         }
     }
 }
@@ -804,7 +883,15 @@ pub struct ResetFly {
     pub place: Option<(f32, f32)>,
 }
 
-fn reset_fly(mut commands: Commands, mut msgs: MessageReader<ResetFly>, flies: Query<(Entity, &Fly, Option<&crate::fly_visuals::FlyVisuals>)>, link: Res<SimLink>, mut meshes: ResMut<Assets<Mesh>>, mut materials: ResMut<Assets<StandardMaterial>>, mut seed: Local<u64>) {
+fn reset_fly(
+    mut commands: Commands,
+    mut msgs: MessageReader<ResetFly>,
+    flies: Query<(Entity, &Fly, Option<&crate::fly_visuals::FlyVisuals>)>,
+    link: Res<SimLink>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut seed: Local<u64>,
+) {
     let Some(req) = msgs.read().last().copied() else {
         return;
     };
@@ -834,7 +921,9 @@ pub struct FlyPlugin;
 
 impl Plugin for FlyPlugin {
     fn build(&self, app: &mut App) {
-        app.add_message::<ReactionFired>().add_message::<ResetFly>().add_message::<FlyHit>()
+        app.add_message::<ReactionFired>()
+            .add_message::<ResetFly>()
+            .add_message::<FlyHit>()
             .add_message::<FlyDamage>()
             .add_message::<FlyDied>()
             .add_systems(Startup, spawn_primary_fly)

@@ -9,8 +9,8 @@
 //! The spider and the three predators are in `predator_play.rs`; the tools only ask for them with a [`SpawnPredator`] message.
 
 use avian3d::prelude::*;
-use bevy::input::mouse::MouseWheel;
 use bevy::ecs::system::SystemParam;
+use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 
 use crate::app::{LatestSnapshot, SimLink};
@@ -133,7 +133,22 @@ pub struct ToolState {
 
 impl Default for ToolState {
     fn default() -> Self {
-        Self { selected: 0, page: 0, hold_dist: 1.2, holding: false, throw_t: -9.0, swing_t: -9.0, zap_ready: 0.0, kick_t: -9.0, laser_target: 2, laser_silence: false, laser_on: None, puppet: false, swings: Vec::new(), grabbed_decoy: None }
+        Self {
+            selected: 0,
+            page: 0,
+            hold_dist: 1.2,
+            holding: false,
+            throw_t: -9.0,
+            swing_t: -9.0,
+            zap_ready: 0.0,
+            kick_t: -9.0,
+            laser_target: 2,
+            laser_silence: false,
+            laser_on: None,
+            puppet: false,
+            swings: Vec::new(),
+            grabbed_decoy: None,
+        }
     }
 }
 
@@ -172,7 +187,14 @@ struct Puff {
 
 // --- aiming helpers ---------------------------------------------------------------------------------------------------------------
 /// Which part of which fly the aim ray passes nearest to: `(fly, part, distance along the ray, miss distance)`.
-pub fn nearest_to_ray(parts: &Query<(&FlyPart, &Transform, Entity)>, flies: &Query<(Entity, &mut Fly)>, eye: Vec3, dir: Vec3, reach: f32, max_perp: f32) -> Option<(Entity, Part, f32, f32)> {
+pub fn nearest_to_ray(
+    parts: &Query<(&FlyPart, &Transform, Entity)>,
+    flies: &Query<(Entity, &mut Fly)>,
+    eye: Vec3,
+    dir: Vec3,
+    reach: f32,
+    max_perp: f32,
+) -> Option<(Entity, Part, f32, f32)> {
     let mut best: Option<(Entity, Part, f32, f32)> = None;
     for (p, t, _) in parts.iter() {
         if flies.get(p.fly).is_ok_and(|(_, f)| f.gone()) {
@@ -195,7 +217,8 @@ pub fn nearest_to_ray(parts: &Query<(&FlyPart, &Transform, Entity)>, flies: &Que
 
 /// The point on the floor the aim ray hits (or two metres ahead when looking up).
 pub fn floor_point(aim: &Aim, bounds: (f32, f32)) -> Vec3 {
-    let pt = if aim.dir.y < -0.05 { aim.eye + aim.dir * (-aim.eye.y / aim.dir.y) } else { aim.eye + Vec3::new(aim.dir.x, 0.0, aim.dir.z) * 2.0 };
+    let pt =
+        if aim.dir.y < -0.05 { aim.eye + aim.dir * (-aim.eye.y / aim.dir.y) } else { aim.eye + Vec3::new(aim.dir.x, 0.0, aim.dir.z) * 2.0 };
     Vec3::new(pt.x.clamp(-bounds.0 + 0.4, bounds.0 - 0.4), 0.0, pt.z.clamp(-bounds.1 + 0.4, bounds.1 - 0.4))
 }
 
@@ -219,7 +242,18 @@ fn select(keys: Res<ButtonInput<KeyCode>>, mut wheel: MessageReader<MouseWheel>,
         }
         return;
     }
-    let digits = [KeyCode::Digit1, KeyCode::Digit2, KeyCode::Digit3, KeyCode::Digit4, KeyCode::Digit5, KeyCode::Digit6, KeyCode::Digit7, KeyCode::Digit8, KeyCode::Digit9, KeyCode::Digit0];
+    let digits = [
+        KeyCode::Digit1,
+        KeyCode::Digit2,
+        KeyCode::Digit3,
+        KeyCode::Digit4,
+        KeyCode::Digit5,
+        KeyCode::Digit6,
+        KeyCode::Digit7,
+        KeyCode::Digit8,
+        KeyCode::Digit9,
+        KeyCode::Digit0,
+    ];
     for (i, k) in digits.iter().enumerate() {
         if keys.just_pressed(*k) {
             st.selected = (st.page * 10 + i).min(TOOLS.len() - 1);
@@ -377,7 +411,12 @@ fn use_tools(
                         Friction::new(0.6),
                         LinearVelocity(dir * 6.0 + Vec3::Y * 1.5),
                         Mesh3d(gfx.meshes.add(Sphere::new(0.08).mesh().uv(16, 10))),
-                        MeshMaterial3d(gfx.materials.add(StandardMaterial { base_color: Color::srgb(0.08, 0.08, 0.1), emissive: LinearRgba::rgb(0.6, 0.1, 0.0), perceptual_roughness: 0.4, ..default() })),
+                        MeshMaterial3d(gfx.materials.add(StandardMaterial {
+                            base_color: Color::srgb(0.08, 0.08, 0.1),
+                            emissive: LinearRgba::rgb(0.6, 0.1, 0.0),
+                            perceptual_roughness: 0.4,
+                            ..default()
+                        })),
                         Transform::from_translation(tip),
                     ));
                     fb.sfx.write(Sfx::new("drop"));
@@ -419,13 +458,24 @@ fn use_tools(
                             fb.shake.strength = 0.015;
                             if !f.dead() {
                                 // every touch neuron fires at once, plus a random 30% of the whole brain for 40 ms (`poke("all", 0)`)
-                                for (region, side) in [("head", None), ("body", None), ("legs", Some('L')), ("legs", Some('R')), ("wing", Some('L')), ("wing", Some('R'))] {
+                                for (region, side) in [
+                                    ("head", None),
+                                    ("body", None),
+                                    ("legs", Some('L')),
+                                    ("legs", Some('R')),
+                                    ("wing", Some('L')),
+                                    ("wing", Some('R')),
+                                ] {
                                     link.0.send(Command::Poke { region: region.into(), side, strength: 1.0 });
                                 }
                                 link.0.send(Command::Poke { region: "all".into(), side: None, strength: 0.0 });
                                 f.stun(now, 1.0);
                                 ff.dmg.write(FlyDamage { fly: e, amount: 16.0, source: "the zapper" });
-                                fb.popups.write(Popup::new(thx + Vec3::Y * 0.45, ["BZZZT!", "ZAP!", "KRZZT!"][rng.index(3)], (200, 235, 255)));
+                                fb.popups.write(Popup::new(
+                                    thx + Vec3::Y * 0.45,
+                                    ["BZZZT!", "ZAP!", "KRZZT!"][rng.index(3)],
+                                    (200, 235, 255),
+                                ));
                             }
                         }
                     }
@@ -451,7 +501,12 @@ fn use_tools(
                         Friction::new(1.0),
                         LinearVelocity(dir * 4.2 + Vec3::Y * 1.2),
                         Mesh3d(gfx.meshes.add(Sphere::new(r).mesh().uv(12, 8))),
-                        MeshMaterial3d(gfx.materials.add(StandardMaterial { base_color: col, perceptual_roughness: 0.5, emissive: if name == "alcohol" { LinearRgba::rgb(0.5, 0.35, 0.05) } else { LinearRgba::BLACK }, ..default() })),
+                        MeshMaterial3d(gfx.materials.add(StandardMaterial {
+                            base_color: col,
+                            perceptual_roughness: 0.5,
+                            emissive: if name == "alcohol" { LinearRgba::rgb(0.5, 0.35, 0.05) } else { LinearRgba::BLACK },
+                            ..default()
+                        })),
                         Transform::from_translation(tip),
                     ));
                     fb.sfx.write(Sfx::new(if name == "alcohol" { "drop" } else { "pop" }));
@@ -471,22 +526,40 @@ fn use_tools(
                 }
             }
             "decoy" if now - st.throw_t > 0.3 => {
-                {
-                    st.throw_t = now;
-                    if decoys.iter().count() < 3 {
-                        fb.sfx.write(Sfx::new("drop"));
-                        fb.popups.write(Popup::new(tip, "DECOY FEMALE", (200, 180, 220)));
-                        let body = gfx.materials.add(StandardMaterial { base_color: Color::srgb(0.55, 0.42, 0.3), perceptual_roughness: 0.5, ..default() });
-                        commands
-                            .spawn((Decoy, RigidBody::Dynamic, Collider::cuboid(0.34, 0.18, 0.16), LinearVelocity(dir * 4.2 + Vec3::Y * 1.2), Transform::from_translation(tip).with_rotation(Quat::from_rotation_y(-(aim.dir.z.atan2(aim.dir.x)) + std::f32::consts::PI)), Visibility::default()))
-                            .with_children(|c| {
-                                c.spawn((Mesh3d(gfx.meshes.add(Sphere::new(1.0).mesh().uv(14, 10))), MeshMaterial3d(body.clone()), Transform::from_scale(Vec3::new(0.16, 0.07, 0.07))));
-                                c.spawn((Mesh3d(gfx.meshes.add(Sphere::new(1.0).mesh().uv(14, 10))), MeshMaterial3d(body), Transform::from_translation(Vec3::new(-0.2, 0.0, 0.0)).with_scale(Vec3::new(0.18, 0.08, 0.08))));
-                            });
-                    } else {
-                        fb.popups.write(Popup::new(tip, "MAX 3 DECOYS", (200, 180, 220)));
-                        fb.notes.push(now, "DECOY    limit reached (max 3)", Tag::GameRule);
-                    }
+                st.throw_t = now;
+                if decoys.iter().count() < 3 {
+                    fb.sfx.write(Sfx::new("drop"));
+                    fb.popups.write(Popup::new(tip, "DECOY FEMALE", (200, 180, 220)));
+                    let body = gfx.materials.add(StandardMaterial {
+                        base_color: Color::srgb(0.55, 0.42, 0.3),
+                        perceptual_roughness: 0.5,
+                        ..default()
+                    });
+                    commands
+                        .spawn((
+                            Decoy,
+                            RigidBody::Dynamic,
+                            Collider::cuboid(0.34, 0.18, 0.16),
+                            LinearVelocity(dir * 4.2 + Vec3::Y * 1.2),
+                            Transform::from_translation(tip)
+                                .with_rotation(Quat::from_rotation_y(-(aim.dir.z.atan2(aim.dir.x)) + std::f32::consts::PI)),
+                            Visibility::default(),
+                        ))
+                        .with_children(|c| {
+                            c.spawn((
+                                Mesh3d(gfx.meshes.add(Sphere::new(1.0).mesh().uv(14, 10))),
+                                MeshMaterial3d(body.clone()),
+                                Transform::from_scale(Vec3::new(0.16, 0.07, 0.07)),
+                            ));
+                            c.spawn((
+                                Mesh3d(gfx.meshes.add(Sphere::new(1.0).mesh().uv(14, 10))),
+                                MeshMaterial3d(body),
+                                Transform::from_translation(Vec3::new(-0.2, 0.0, 0.0)).with_scale(Vec3::new(0.18, 0.08, 0.08)),
+                            ));
+                        });
+                } else {
+                    fb.popups.write(Popup::new(tip, "MAX 3 DECOYS", (200, 180, 220)));
+                    fb.notes.push(now, "DECOY    limit reached (max 3)", Tag::GameRule);
                 }
             }
             _ => {}
@@ -542,9 +615,14 @@ fn continuous(
         fb.shake.strength = 0.02;
         fb.sfx.write(Sfx::new("whack"));
         let dh = Vec3::new(dir.x, 0.0, dir.z).normalize_or_zero();
-        let snapshot: Vec<(Entity, bool, bool)> = flies.iter().map(|(e, f)| (e, f.gone(), f.frozen_at.is_some() && f.shattered_at.is_none())).collect();
+        let snapshot: Vec<(Entity, bool, bool)> =
+            flies.iter().map(|(e, f)| (e, f.gone(), f.frozen_at.is_some() && f.shattered_at.is_none())).collect();
         for (fly_e, gone, frozen) in snapshot {
-            let near: Vec<Part> = parts.iter().filter(|(p, t, _)| p.fly == fly_e && (t.translation - center).length() < 0.8).map(|(p, _, _)| p.part).collect();
+            let near: Vec<Part> = parts
+                .iter()
+                .filter(|(p, t, _)| p.fly == fly_e && (t.translation - center).length() < 0.8)
+                .map(|(p, _, _)| p.part)
+                .collect();
             if near.is_empty() || gone {
                 continue;
             }
@@ -615,7 +693,15 @@ fn continuous(
                     if dead {
                         continue;
                     }
-                    for (region, side) in [("head", None), ("body", None), ("legs", Some('L')), ("legs", Some('R')), ("wing", Some('L')), ("wing", Some('R')), ("heat", None)] {
+                    for (region, side) in [
+                        ("head", None),
+                        ("body", None),
+                        ("legs", Some('L')),
+                        ("legs", Some('R')),
+                        ("wing", Some('L')),
+                        ("wing", Some('R')),
+                        ("heat", None),
+                    ] {
                         link.0.send(Command::Poke { region: region.into(), side, strength: 1.0 });
                     }
                     ff.dmg.write(FlyDamage { fly: e, amount: 0.35, source: "the blowtorch" });
@@ -645,7 +731,14 @@ fn continuous(
                         ff.dmg.write(FlyDamage { fly: e, amount: 0.12, source: "brake cleaner" });
                     } else {
                         link.0.send(Command::Poke { region: "cold".into(), side: None, strength: 1.0 });
-                        for (region, side) in [("head", None), ("body", None), ("legs", Some('L')), ("legs", Some('R')), ("wing", Some('L')), ("wing", Some('R'))] {
+                        for (region, side) in [
+                            ("head", None),
+                            ("body", None),
+                            ("legs", Some('L')),
+                            ("legs", Some('R')),
+                            ("wing", Some('L')),
+                            ("wing", Some('R')),
+                        ] {
                             link.0.send(Command::Poke { region: region.into(), side, strength: 0.35 });
                         }
                         ff.dmg.write(FlyDamage { fly: e, amount: 0.1, source: "freezing" });
@@ -653,7 +746,11 @@ fn continuous(
                     if f.rng.chance(0.02)
                         && let Ok((_, t, _)) = parts.get(f.parts[Part::Head.index()])
                     {
-                        let (words, col) = if name == "cleaner" { (["FSSSSH!", "MELTING!", "IT BURNS!"], (170, 230, 255)) } else { (["SO COLD!", "BRRRR!", "ICING!"], (190, 230, 255)) };
+                        let (words, col) = if name == "cleaner" {
+                            (["FSSSSH!", "MELTING!", "IT BURNS!"], (170, 230, 255))
+                        } else {
+                            (["SO COLD!", "BRRRR!", "ICING!"], (190, 230, 255))
+                        };
                         fb.popups.write(Popup::new(t.translation + Vec3::Y * 0.4, words[f.rng.index(3)], col));
                     }
                 }
@@ -671,7 +768,8 @@ fn continuous(
                 let _ = sil;
             }
             if let Some((t, sil)) = want {
-                link.0.send(Command::DriveSpec { spec: laser_spec(t, st.puppet).into(), amp: if sil { LASER_SILENCE } else { LASER_STIM } });
+                link.0
+                    .send(Command::DriveSpec { spec: laser_spec(t, st.puppet).into(), amp: if sil { LASER_SILENCE } else { LASER_STIM } });
             }
             st.laser_on = want;
         }
@@ -686,7 +784,15 @@ fn continuous(
     }
 }
 
-pub fn shatter_fly(flies: &mut Query<(Entity, &mut Fly)>, parts: &Query<(&FlyPart, &Transform, Entity)>, e: Entity, now: f32, fx: &mut Fx, popups: &mut MessageWriter<Popup>, sfx: &mut MessageWriter<Sfx>) {
+pub fn shatter_fly(
+    flies: &mut Query<(Entity, &mut Fly)>,
+    parts: &Query<(&FlyPart, &Transform, Entity)>,
+    e: Entity,
+    now: f32,
+    fx: &mut Fx,
+    popups: &mut MessageWriter<Popup>,
+    sfx: &mut MessageWriter<Sfx>,
+) {
     let Ok((_, mut f)) = flies.get_mut(e) else { return };
     f.shattered_at = Some(now);
     let at = parts.get(f.parts[Part::Thorax.index()]).map(|(_, t, _)| t.translation).unwrap_or(Vec3::ZERO);
@@ -722,7 +828,8 @@ fn bombs(
         fb.sfx.write(Sfx::new("boom"));
         fx.explosion(pos, now);
         let radius = 330.0 * S;
-        let snapshot: Vec<(Entity, bool, bool, [Entity; 3])> = flies.iter().map(|(e, f)| (e, f.gone(), f.frozen_at.is_some() && f.shattered_at.is_none(), f.parts)).collect();
+        let snapshot: Vec<(Entity, bool, bool, [Entity; 3])> =
+            flies.iter().map(|(e, f)| (e, f.gone(), f.frozen_at.is_some() && f.shattered_at.is_none(), f.parts)).collect();
         for (fly_e, gone, frozen, fparts) in snapshot {
             if gone {
                 continue;
@@ -772,7 +879,13 @@ fn treats(
 ) {
     let now = virt.elapsed_secs();
     for (_, t, tf, _) in treats.iter() {
-        scents.0.push(ScentSource { pos: tf.translation, scent: if t.kind == "alcohol" { "alcohol" } else { "sugar" }, range: 2.4, strength: if t.kind == "alcohol" { 0.35 } else { 0.3 }, flat: true });
+        scents.0.push(ScentSource {
+            pos: tf.translation,
+            scent: if t.kind == "alcohol" { "alcohol" } else { "sugar" },
+            range: 2.4,
+            strength: if t.kind == "alcohol" { 0.35 } else { 0.3 },
+            flat: true,
+        });
     }
     for (_, mut f) in &mut flies {
         if f.dead() || f.wrapped || f.frozen_at.is_some() || f.grabbed.is_some() {
@@ -780,7 +893,11 @@ fn treats(
         }
         let Ok(head) = parts.get(f.parts[Part::Head.index()]).map(|(_, t)| t.translation) else { continue };
         let Ok(thx) = parts.get(f.parts[Part::Thorax.index()]).map(|(_, t)| t.translation) else { continue };
-        let nearest = treats.iter().min_by(|a, b| Vec2::new(a.2.translation.x - thx.x, a.2.translation.z - thx.z).length().total_cmp(&Vec2::new(b.2.translation.x - thx.x, b.2.translation.z - thx.z).length()));
+        let nearest = treats.iter().min_by(|a, b| {
+            Vec2::new(a.2.translation.x - thx.x, a.2.translation.z - thx.z)
+                .length()
+                .total_cmp(&Vec2::new(b.2.translation.x - thx.x, b.2.translation.z - thx.z).length())
+        });
         let Some((te, _, tt, tv)) = nearest else { continue };
         let landed = tv.0.length() < 0.2;
         let dxz = Vec2::new(tt.translation.x - head.x, tt.translation.z - head.z);
@@ -799,9 +916,21 @@ fn treats(
         let Ok((_, mut treat, _, _)) = treats.get_mut(te) else { continue };
         if now >= f.react.eating_until {
             let words = if treat.kind == "alcohol" { ["SIP...", "GLUG!", "*HIC*"] } else { ["YUM!", "SWEET!", "NOM NOM"] };
-            fb.popups.write(Popup::new(head + Vec3::Y * 0.4, words[f.rng.index(3)], if treat.kind == "alcohol" { (255, 140, 210) } else { (255, 160, 190) }));
+            fb.popups.write(Popup::new(
+                head + Vec3::Y * 0.4,
+                words[f.rng.index(3)],
+                if treat.kind == "alcohol" { (255, 140, 210) } else { (255, 160, 190) },
+            ));
             fb.sfx.write(Sfx::new("yum"));
-            fb.notes.push(now, if treat.kind == "alcohol" { "ALCOHOL  drinking: sweet + PAM reward [GAME RULE: inebriation]" } else { "EATING   sugar: taste + PAM reward" }, if treat.kind == "alcohol" { Tag::GameRule } else { Tag::Connectome });
+            fb.notes.push(
+                now,
+                if treat.kind == "alcohol" {
+                    "ALCOHOL  drinking: sweet + PAM reward [GAME RULE: inebriation]"
+                } else {
+                    "EATING   sugar: taste + PAM reward"
+                },
+                if treat.kind == "alcohol" { Tag::GameRule } else { Tag::Connectome },
+            );
         }
         f.react.eating_until = now + 0.4;
         treat.left -= 1.0 / 240.0;
@@ -820,7 +949,16 @@ fn treats(
 
 // --- decoys, cVA puffs, the player's body --------------------------------------------------------------------------------------------
 #[allow(clippy::type_complexity)]
-fn decoys_and_puffs(mut fb: Fb, mut commands: Commands, virt: Res<Time<Virtual>>, puffs: Query<(Entity, &Puff)>, decoys: Query<&Transform, (With<Decoy>, Without<FlyPart>)>, mut flies: Query<&mut Fly>, parts: Query<&Transform, With<FlyPart>>, link: Res<SimLink>) {
+fn decoys_and_puffs(
+    mut fb: Fb,
+    mut commands: Commands,
+    virt: Res<Time<Virtual>>,
+    puffs: Query<(Entity, &Puff)>,
+    decoys: Query<&Transform, (With<Decoy>, Without<FlyPart>)>,
+    mut flies: Query<&mut Fly>,
+    parts: Query<&Transform, With<FlyPart>>,
+    link: Res<SimLink>,
+) {
     let now = virt.elapsed_secs();
     for (e, p) in &puffs {
         if now > p.until {
@@ -947,7 +1085,9 @@ fn slow_effects(
             if !f.dead() {
                 ff.dmg.write(FlyDamage { fly: e, amount: 0.25 * f.soak, source: "brake cleaner" });
                 let s = 0.5 * f.soak;
-                for (region, side) in [("head", None), ("body", None), ("legs", Some('L')), ("legs", Some('R')), ("wing", Some('L')), ("wing", Some('R'))] {
+                for (region, side) in
+                    [("head", None), ("body", None), ("legs", Some('L')), ("legs", Some('R')), ("wing", Some('L')), ("wing", Some('R'))]
+                {
                     link.0.send(Command::Poke { region: region.into(), side, strength: s });
                 }
             }
@@ -984,6 +1124,9 @@ pub struct ToolsPlugin;
 
 impl Plugin for ToolsPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<ToolState>().add_message::<SpawnPredator>().add_systems(Update, select).add_systems(FixedUpdate, (use_tools, continuous, bombs, treats, decoys_and_puffs, kick, slow_effects).chain());
+        app.init_resource::<ToolState>()
+            .add_message::<SpawnPredator>()
+            .add_systems(Update, select)
+            .add_systems(FixedUpdate, (use_tools, continuous, bombs, treats, decoys_and_puffs, kick, slow_effects).chain());
     }
 }

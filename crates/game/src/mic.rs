@@ -26,7 +26,11 @@ use crate::sim_thread::Command;
 pub enum MicStatus {
     Off,
     Starting,
-    On { host: String, device: String, rate: u32 },
+    On {
+        host: String,
+        device: String,
+        rate: u32,
+    },
     /// Why it could not be used, in plain words.
     Unavailable(String),
 }
@@ -95,9 +99,21 @@ fn open(shared: &Arc<Shared>, sensitivity: f32) -> Result<(cpal::Stream, String,
         let err = |e: cpal::Error| eprintln!("microphone stream error: {e}");
         let config = cfg.config();
         let built = match fmt {
-            cpal::SampleFormat::F32 => device.build_input_stream(config, move |d: &[f32], _: &cpal::InputCallbackInfo| mono_f32(d, channels, &mut feed), err, None),
-            cpal::SampleFormat::I16 => device.build_input_stream(config, move |d: &[i16], _: &cpal::InputCallbackInfo| mono_conv(d, channels, |s| f32::from(s) / 32768.0, &mut feed), err, None),
-            cpal::SampleFormat::U16 => device.build_input_stream(config, move |d: &[u16], _: &cpal::InputCallbackInfo| mono_conv(d, channels, |s| (f32::from(s) - 32768.0) / 32768.0, &mut feed), err, None),
+            cpal::SampleFormat::F32 => {
+                device.build_input_stream(config, move |d: &[f32], _: &cpal::InputCallbackInfo| mono_f32(d, channels, &mut feed), err, None)
+            }
+            cpal::SampleFormat::I16 => device.build_input_stream(
+                config,
+                move |d: &[i16], _: &cpal::InputCallbackInfo| mono_conv(d, channels, |s| f32::from(s) / 32768.0, &mut feed),
+                err,
+                None,
+            ),
+            cpal::SampleFormat::U16 => device.build_input_stream(
+                config,
+                move |d: &[u16], _: &cpal::InputCallbackInfo| mono_conv(d, channels, |s| (f32::from(s) - 32768.0) / 32768.0, &mut feed),
+                err,
+                None,
+            ),
             other => {
                 why.push(format!("{id:?}: unsupported sample format {other:?}"));
                 continue;
@@ -114,7 +130,11 @@ fn open(shared: &Arc<Shared>, sensitivity: f32) -> Result<(cpal::Stream, String,
             Err(e) => why.push(format!("{id:?}: could not open the device ({e})")),
         }
     }
-    Err(if why.is_empty() { "this system reports no audio capture host".into() } else { format!("no microphone could be opened: {}", why.join("; ")) })
+    Err(if why.is_empty() {
+        "this system reports no audio capture host".into()
+    } else {
+        format!("no microphone could be opened: {}", why.join("; "))
+    })
 }
 
 fn mono_f32(data: &[f32], channels: usize, feed: &mut impl FnMut(&[f32])) {
@@ -134,7 +154,11 @@ fn mono_conv<T: Copy>(data: &[T], channels: usize, conv: impl Fn(T) -> f32, feed
 impl MicHandle {
     /// Start capturing. Returns at once; [`MicHandle::status`] says when (and whether) it opened.
     pub fn start(sensitivity: f32) -> Self {
-        let shared = Arc::new(Shared { reading: Mutex::new(Reading::default()), status: Mutex::new(MicStatus::Starting), stop: AtomicBool::new(false) });
+        let shared = Arc::new(Shared {
+            reading: Mutex::new(Reading::default()),
+            status: Mutex::new(MicStatus::Starting),
+            stop: AtomicBool::new(false),
+        });
         let sh = shared.clone();
         let (tx, _rx): (Sender<()>, _) = mpsc::channel();
         let join = thread::Builder::new()

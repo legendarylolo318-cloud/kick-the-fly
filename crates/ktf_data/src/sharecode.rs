@@ -18,18 +18,10 @@ pub const MAX_PAYLOAD_BYTES: usize = 256 * 1024;
 pub const FILE_SUFFIX: &str = ".ktfshare";
 const GROUP: usize = 5;
 const CROCKFORD: &[u8; 32] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
-const KINDS: [(&str, &str); 6] = [
-    ("surgery", "SRG"),
-    ("loadout", "LDT"),
-    ("protocol", "PRT"),
-    ("challenge", "CHL"),
-    ("lab", "LAB"),
-    ("contraption", "CTN"),
-];
+const KINDS: [(&str, &str); 6] =
+    [("surgery", "SRG"), ("loadout", "LDT"), ("protocol", "PRT"), ("challenge", "CHL"), ("lab", "LAB"), ("contraption", "CTN")];
 /// The part kinds a contraption may hold (`game/contraption.py:KINDS`).
-const CONTRAPTION_KINDS: [&str; 11] = [
-    "marble", "ramp", "spring", "domino", "fan", "lamp", "sugar", "tool", "button", "timer", "fly",
-];
+const CONTRAPTION_KINDS: [&str; 11] = ["marble", "ramp", "spring", "domino", "fan", "lamp", "sugar", "tool", "button", "timer", "fly"];
 const MAX_PARTS: usize = 24;
 
 /// A code that can't be used; `Display` is the reason shown to the player (the same words as Python's).
@@ -96,10 +88,7 @@ fn kind_byte(kind: &str) -> Option<u8> {
     KINDS.iter().position(|k| k.0 == kind).map(|i| i as u8 + 1)
 }
 fn byte_kind(b: u8) -> Option<&'static str> {
-    (b as usize)
-        .checked_sub(1)
-        .and_then(|i| KINDS.get(i))
-        .map(|k| k.0)
+    (b as usize).checked_sub(1).and_then(|i| KINDS.get(i)).map(|k| k.0)
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -166,8 +155,7 @@ fn to_b32(data: &[u8]) -> String {
 }
 
 fn from_b32(text: &str) -> Result<Vec<u8>, ShareError> {
-    let bad =
-        || ShareError::Refused("the code has characters that aren't part of a share code".into());
+    let bad = || ShareError::Refused("the code has characters that aren't part of a share code".into());
     // RFC 4648 base32 (as Python's b32decode, padded) only exists for lengths that are 0, 2, 4, 5 or 7 mod 8
     if matches!(text.len() % 8, 1 | 3 | 6) {
         return Err(bad());
@@ -205,18 +193,12 @@ pub fn encode(kind: &str, payload: &Value, limit: Option<usize>) -> Result<Strin
     let sum = checksum(&data);
     data.extend(sum);
     let body = to_b32(&data);
-    let groups: Vec<&str> = (0..body.len())
-        .step_by(GROUP)
-        .map(|i| &body[i..(i + GROUP).min(body.len())])
-        .collect();
+    let groups: Vec<&str> = (0..body.len()).step_by(GROUP).map(|i| &body[i..(i + GROUP).min(body.len())]).collect();
     let text = format!("KTF{VERSION}-{tag}-{}", groups.join("-"));
     if let Some(l) = limit
         && text.len() > l
     {
-        return Err(ShareError::TooLarge {
-            kind: kind.into(),
-            chars: text.len(),
-        });
+        return Err(ShareError::TooLarge { kind: kind.into(), chars: text.len() });
     }
     Ok(text)
 }
@@ -228,9 +210,7 @@ pub fn decode(text: &str) -> Result<Code, ShareError> {
     if s.is_empty() {
         return refuse("nothing to import: paste a share code");
     }
-    let not_code = || {
-        ShareError::Refused("that doesn't look like a share code (they start with KTF1-)".into())
-    };
+    let not_code = || ShareError::Refused("that doesn't look like a share code (they start with KTF1-)".into());
     let rest = s.strip_prefix("KTF").ok_or_else(not_code)?;
     let digits = rest.chars().take_while(|c| c.is_ascii_digit()).count();
     if !(1..=3).contains(&digits) {
@@ -238,12 +218,7 @@ pub fn decode(text: &str) -> Result<Code, ShareError> {
     }
     let version: u32 = rest[..digits].parse().map_err(|_| not_code())?;
     let rest = rest[digits..].strip_prefix('-').ok_or_else(not_code)?;
-    let (kind3, body) = (
-        rest.get(..3).ok_or_else(not_code)?,
-        rest.get(3..)
-            .and_then(|b| b.strip_prefix('-'))
-            .ok_or_else(not_code)?,
-    );
+    let (kind3, body) = (rest.get(..3).ok_or_else(not_code)?, rest.get(3..).and_then(|b| b.strip_prefix('-')).ok_or_else(not_code)?);
     if !kind3.bytes().all(|b| b.is_ascii_uppercase()) || body.is_empty() {
         return Err(not_code());
     }
@@ -273,9 +248,7 @@ pub fn decode(text: &str) -> Result<Code, ShareError> {
     }
     let (data, check) = raw.split_at(raw.len() - 4);
     if checksum(data) != check {
-        return refuse(
-            "the code is damaged (its checksum doesn't match): a character was mistyped or part is missing",
-        );
+        return refuse("the code is damaged (its checksum doesn't match): a character was mistyped or part is missing");
     }
     if data[0] as u32 != version || byte_kind(data[1]) != Some(kind) {
         return refuse("the code's header doesn't match its contents");
@@ -288,11 +261,7 @@ pub fn decode(text: &str) -> Result<Code, ShareError> {
     if !payload.is_object() {
         return refuse("the code's contents are not what a share code carries");
     }
-    Ok(Code {
-        version: version as u8,
-        kind: kind.into(),
-        payload,
-    })
+    Ok(Code { version: version as u8, kind: kind.into(), payload })
 }
 
 /// Write a code of any length to `folder/<stem>.ktfshare` (never overwriting: a number is added).
@@ -307,16 +276,8 @@ pub fn export_file(code_text: &str, folder: &Path, stem: &str) -> std::io::Resul
             clean.push('-');
         }
     }
-    let clean: String = clean
-        .trim_matches(|c| c == '-' || c == '.')
-        .chars()
-        .take(40)
-        .collect();
-    let clean = if clean.is_empty() {
-        "share".to_string()
-    } else {
-        clean
-    };
+    let clean: String = clean.trim_matches(|c| c == '-' || c == '.').chars().take(40).collect();
+    let clean = if clean.is_empty() { "share".to_string() } else { clean };
     let mut p = folder.join(format!("{clean}{FILE_SUFFIX}"));
     let mut k = 2;
     while p.exists() {
@@ -328,18 +289,12 @@ pub fn export_file(code_text: &str, folder: &Path, stem: &str) -> std::io::Resul
 }
 
 /// `(Some(code), None)` when it fits, else `(None, Some(path of the exported file))`.
-pub fn encode_or_file(
-    kind: &str,
-    payload: &Value,
-    folder: &Path,
-    stem: &str,
-) -> Result<(Option<String>, Option<PathBuf>), ShareError> {
+pub fn encode_or_file(kind: &str, payload: &Value, folder: &Path, stem: &str) -> Result<(Option<String>, Option<PathBuf>), ShareError> {
     match encode(kind, payload, Some(MAX_CODE_CHARS)) {
         Ok(t) => Ok((Some(t), None)),
         Err(ShareError::TooLarge { .. }) => {
             let text = encode(kind, payload, None)?;
-            let p = export_file(&text, folder, stem)
-                .map_err(|e| ShareError::Refused(format!("can't write the file: {e}")))?;
+            let p = export_file(&text, folder, stem).map_err(|e| ShareError::Refused(format!("can't write the file: {e}")))?;
             Ok((None, Some(p)))
         }
         Err(e) => Err(e),
@@ -349,20 +304,12 @@ pub fn encode_or_file(
 /// What Esc > Share > Import does with its text box: a pasted code, or the path of a `.ktfshare` file.
 pub fn read_any(text_or_path: &str) -> Result<Code, ShareError> {
     let s = text_or_path.trim().trim_matches('"');
-    if !s.is_empty() && !s.contains('\n') && s.len() < 1024 && !s.to_uppercase().starts_with("KTF")
-    {
+    if !s.is_empty() && !s.contains('\n') && s.len() < 1024 && !s.to_uppercase().starts_with("KTF") {
         let p = PathBuf::from(s);
-        if p.extension()
-            .is_some_and(|e| format!(".{}", e.to_string_lossy().to_lowercase()) == FILE_SUFFIX)
-        {
+        if p.extension().is_some_and(|e| format!(".{}", e.to_string_lossy().to_lowercase()) == FILE_SUFFIX) {
             return match std::fs::read(&p) {
                 Ok(b) => decode(&String::from_utf8_lossy(&b)),
-                Err(e) => refuse(format!(
-                    "can't read {}: {e}",
-                    p.file_name()
-                        .map(|n| n.to_string_lossy())
-                        .unwrap_or_default()
-                )),
+                Err(e) => refuse(format!("can't read {}: {e}", p.file_name().map(|n| n.to_string_lossy()).unwrap_or_default())),
             };
         }
     }
@@ -373,39 +320,21 @@ pub fn read_any(text_or_path: &str) -> Result<Code, ShareError> {
 
 /// One line of printable text, as the loadout editor's text box allows.
 pub fn clean_name(name: &str, limit: usize) -> String {
-    let s: String = name
-        .chars()
-        .map(|c| if c.is_control() { ' ' } else { c })
-        .collect();
-    s.split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
-        .chars()
-        .take(limit)
-        .collect()
+    let s: String = name.chars().map(|c| if c.is_control() { ' ' } else { c }).collect();
+    s.split_whitespace().collect::<Vec<_>>().join(" ").chars().take(limit).collect()
 }
 
 fn is_pm1(v: &Value) -> bool {
     v.as_f64().is_some_and(|x| x == 1.0 || x == -1.0)
 }
 fn is_mode_map(v: &Value) -> bool {
-    v.as_object()
-        .is_some_and(|m| m.iter().all(|(k, v)| !k.is_empty() && is_pm1(v)))
+    v.as_object().is_some_and(|m| m.iter().all(|(k, v)| !k.is_empty() && is_pm1(v)))
 }
 fn extra_keys(m: &Map<String, Value>, allowed: &[&str]) -> Vec<String> {
-    m.keys()
-        .filter(|k| !allowed.contains(&k.as_str()))
-        .cloned()
-        .collect()
+    m.keys().filter(|k| !allowed.contains(&k.as_str())).cloned().collect()
 }
 fn py_list(v: &[String]) -> String {
-    format!(
-        "[{}]",
-        v.iter()
-            .map(|s| format!("'{s}'"))
-            .collect::<Vec<_>>()
-            .join(", ")
-    )
+    format!("[{}]", v.iter().map(|s| format!("'{s}'")).collect::<Vec<_>>().join(", "))
 }
 fn len_of(v: Option<&Value>) -> usize {
     v.and_then(|v| v.as_object()).map_or(0, |m| m.len())
@@ -422,18 +351,11 @@ pub fn check_payload(kind: &str, p: &Value) -> Option<String> {
         "surgery" => {
             let extra = extra_keys(m, &["groups", "types"]);
             if !extra.is_empty() {
-                return Some(format!(
-                    "unknown fields in a surgery code: {}",
-                    py_list(&extra)
-                ));
+                return Some(format!("unknown fields in a surgery code: {}", py_list(&extra)));
             }
             let empty = Value::Object(Map::new());
-            if !(is_mode_map(m.get("groups").unwrap_or(&empty))
-                && is_mode_map(m.get("types").unwrap_or(&empty)))
-            {
-                return Some(
-                    "a surgery code's switches must each be -1 (silence) or 1 (stimulate)".into(),
-                );
+            if !(is_mode_map(m.get("groups").unwrap_or(&empty)) && is_mode_map(m.get("types").unwrap_or(&empty))) {
+                return Some("a surgery code's switches must each be -1 (silence) or 1 (stimulate)".into());
             }
             let (g, t) = (len_of(m.get("groups")), len_of(m.get("types")));
             if g == 0 && t == 0 {
@@ -446,10 +368,7 @@ pub fn check_payload(kind: &str, p: &Value) -> Option<String> {
         "loadout" => {
             let extra = extra_keys(m, &["name", "tools"]);
             if !extra.is_empty() {
-                return Some(format!(
-                    "unknown fields in a loadout code: {}",
-                    py_list(&extra)
-                ));
+                return Some(format!("unknown fields in a loadout code: {}", py_list(&extra)));
             }
             let tools_ok = m
                 .get("tools")
@@ -471,19 +390,14 @@ pub fn check_payload(kind: &str, p: &Value) -> Option<String> {
             }
         }
         "protocol" => {
-            if !extra_keys(m, &["protocol"]).is_empty()
-                || !m.get("protocol").is_some_and(|p| p.is_object())
-            {
+            if !extra_keys(m, &["protocol"]).is_empty() || !m.get("protocol").is_some_and(|p| p.is_object()) {
                 return Some("a protocol code carries one protocol".into());
             }
         }
         "challenge" => {
             let extra = extra_keys(m, &["challenge", "seed", "arena", "surgery", "params"]);
             if !extra.is_empty() {
-                return Some(format!(
-                    "unknown fields in a challenge code: {}",
-                    py_list(&extra)
-                ));
+                return Some(format!("unknown fields in a challenge code: {}", py_list(&extra)));
             }
             if !m.get("challenge").is_some_and(|c| c.is_string()) {
                 return Some("a challenge code names its challenge".into());
@@ -512,16 +426,9 @@ pub fn check_payload(kind: &str, p: &Value) -> Option<String> {
         "contraption" => {
             let extra = extra_keys(m, &["name", "parts"]);
             if !extra.is_empty() {
-                return Some(format!(
-                    "unknown fields in a contraption: {}",
-                    py_list(&extra)
-                ));
+                return Some(format!("unknown fields in a contraption: {}", py_list(&extra)));
             }
-            let Some(parts) = m
-                .get("parts")
-                .and_then(|p| p.as_array())
-                .filter(|p| !p.is_empty())
-            else {
+            let Some(parts) = m.get("parts").and_then(|p| p.as_array()).filter(|p| !p.is_empty()) else {
                 return Some("a contraption needs at least one part".into());
             };
             match m.get("name") {
@@ -533,26 +440,18 @@ pub fn check_payload(kind: &str, p: &Value) -> Option<String> {
                 return Some(format!("a contraption has at most {MAX_PARTS} parts"));
             }
             for (i, r) in parts.iter().enumerate() {
-                if !r
-                    .get("k")
-                    .and_then(|k| k.as_str())
-                    .is_some_and(|k| CONTRAPTION_KINDS.contains(&k))
-                {
+                if !r.get("k").and_then(|k| k.as_str()).is_some_and(|k| CONTRAPTION_KINDS.contains(&k)) {
                     return Some(format!("part {}: not a part this version has", i + 1));
                 }
             }
         }
         "lab" => {
-            let params = m
-                .get("params")
-                .and_then(|p| p.as_object())
-                .filter(|p| !p.is_empty());
+            let params = m.get("params").and_then(|p| p.as_object()).filter(|p| !p.is_empty());
             if !extra_keys(m, &["params"]).is_empty() || params.is_none() {
                 return Some("a Lab code carries a list of parameter values".into());
             }
             for (k, v) in params.into_iter().flatten() {
-                let ok =
-                    v.as_f64().is_some_and(|x| x.is_finite() && x.abs() <= 1e9) && v.is_number();
+                let ok = v.as_f64().is_some_and(|x| x.is_finite() && x.abs() <= 1e9) && v.is_number();
                 if !ok {
                     return Some(format!("parameter '{k}' must be a number"));
                 }
@@ -589,12 +488,7 @@ pub struct Context {
 
 fn unknown_of(map: Option<&Value>, known: &Option<Vec<String>>) -> Vec<String> {
     match (map.and_then(|m| m.as_object()), known) {
-        (Some(m), Some(k)) => m
-            .keys()
-            .filter(|x| !k.contains(x))
-            .take(5)
-            .cloned()
-            .collect(),
+        (Some(m), Some(k)) => m.keys().filter(|x| !k.contains(x)).take(5).cloned().collect(),
         _ => vec![],
     }
 }
@@ -602,22 +496,12 @@ fn unknown_of(map: Option<&Value>, known: &Option<Vec<String>>) -> Vec<String> {
 fn validate_surgery(p: &Value, ctx: &Context) -> Option<String> {
     let u = unknown_of(p.get("groups"), &ctx.surgery_labels);
     if !u.is_empty() {
-        return Some(format!(
-            "this surgery switches things this version doesn't have: {}",
-            u[..u.len().min(3)].join(", ")
-        ));
+        return Some(format!("this surgery switches things this version doesn't have: {}", u[..u.len().min(3)].join(", ")));
     }
     let u = unknown_of(p.get("types"), &ctx.type_names);
     if !u.is_empty() {
-        let brain = if ctx.brain.is_empty() {
-            "adult"
-        } else {
-            &ctx.brain
-        };
-        return Some(format!(
-            "this surgery names cell types that aren't in the {brain} brain you are running: {}",
-            u.join(", ")
-        ));
+        let brain = if ctx.brain.is_empty() { "adult" } else { &ctx.brain };
+        return Some(format!("this surgery names cell types that aren't in the {brain} brain you are running: {}", u.join(", ")));
     }
     None
 }
@@ -630,12 +514,7 @@ fn validate_params(params: &Value, ctx: &Context) -> Option<String> {
         };
         let x = v.as_f64().unwrap_or(f64::NAN);
         if !(lo <= x && x <= hi) {
-            return Some(format!(
-                "Lab parameter '{name}' = {} is outside {} to {}",
-                g(x),
-                g(lo),
-                g(hi)
-            ));
+            return Some(format!("Lab parameter '{name}' = {} is outside {} to {}", g(x), g(lo), g(hi)));
         }
     }
     None
@@ -650,21 +529,13 @@ pub fn g(x: f64) -> String {
     if !(-5..6).contains(&exp) {
         let s = format!("{:.5e}", x);
         let (m, e) = s.split_once('e').unwrap();
-        let m = if m.contains('.') {
-            m.trim_end_matches('0').trim_end_matches('.')
-        } else {
-            m
-        };
+        let m = if m.contains('.') { m.trim_end_matches('0').trim_end_matches('.') } else { m };
         let e: i32 = e.parse().unwrap();
         return format!("{m}e{}{:02}", if e < 0 { '-' } else { '+' }, e.abs());
     }
     let decimals = (5 - exp).max(0) as usize;
     let s = format!("{:.*}", decimals, x);
-    if s.contains('.') {
-        s.trim_end_matches('0').trim_end_matches('.').to_string()
-    } else {
-        s
-    }
+    if s.contains('.') { s.trim_end_matches('0').trim_end_matches('.').to_string() } else { s }
 }
 
 /// A reason this code can't be imported here (unknown tool, cell type, parameter, out-of-range value...), or None.
@@ -686,38 +557,21 @@ pub fn validate(code: &Code, ctx: &Context) -> Option<String> {
                     .take(5)
                     .collect();
                 if !unknown.is_empty() {
-                    return Some(format!(
-                        "this loadout uses tools this version doesn't have: {}",
-                        unknown.join(", ")
-                    ));
+                    return Some(format!("this loadout uses tools this version doesn't have: {}", unknown.join(", ")));
                 }
             }
         }
         "lab" => return validate_params(&p["params"], ctx),
         "protocol" => {
-            let name = p["protocol"]
-                .get("name")
-                .cloned()
-                .unwrap_or(Value::String("shared-protocol".into()));
-            let ok = name.as_str().is_some_and(|n| {
-                n == clean_name(n, 60)
-                    && !n.contains('/')
-                    && !n.contains('\\')
-                    && !n.starts_with('.')
-            });
+            let name = p["protocol"].get("name").cloned().unwrap_or(Value::String("shared-protocol".into()));
+            let ok = name.as_str().is_some_and(|n| n == clean_name(n, 60) && !n.contains('/') && !n.contains('\\') && !n.starts_with('.'));
             if !ok {
-                return Some(
-                    "the protocol's name must be plain text without path separators".into(),
-                );
+                return Some("the protocol's name must be plain text without path separators".into());
             }
         }
         "challenge" => {
             let name = p["challenge"].as_str().unwrap_or("");
-            if ctx
-                .challenges
-                .as_ref()
-                .is_some_and(|c| !c.iter().any(|x| x == name))
-            {
+            if ctx.challenges.as_ref().is_some_and(|c| !c.iter().any(|x| x == name)) {
                 return Some(format!("unknown challenge '{name}'"));
             }
             if let (Some(arenas), Some(a)) = (&ctx.arenas, p.get("arena").and_then(|a| a.as_str()))
@@ -747,43 +601,24 @@ pub struct Preview {
 }
 
 fn mode(v: &Value) -> &'static str {
-    if v.as_f64().unwrap_or(0.0) < 0.0 {
-        "silence"
-    } else {
-        "stimulate"
-    }
+    if v.as_f64().unwrap_or(0.0) < 0.0 { "silence" } else { "stimulate" }
 }
 fn capitalize(s: &str) -> String {
     let mut c = s.chars();
-    c.next()
-        .map(|f| f.to_uppercase().collect::<String>() + c.as_str())
-        .unwrap_or_default()
+    c.next().map(|f| f.to_uppercase().collect::<String>() + c.as_str()).unwrap_or_default()
 }
 
 fn surgery_lines(p: &Value, ctx: &Context) -> Vec<String> {
     let mut lines = vec![];
-    for (label, m) in p
-        .get("groups")
-        .and_then(|g| g.as_object())
-        .into_iter()
-        .flatten()
-    {
+    for (label, m) in p.get("groups").and_then(|g| g.as_object()).into_iter().flatten() {
         lines.push(format!("{}: {label}", capitalize(mode(m))));
     }
-    for (t, m) in p
-        .get("types")
-        .and_then(|g| g.as_object())
-        .into_iter()
-        .flatten()
-    {
+    for (t, m) in p.get("types").and_then(|g| g.as_object()).into_iter().flatten() {
         lines.push(format!("{} every {t} neuron", capitalize(mode(m))));
     }
     let now = ctx.current_surgery_switches;
     if now > 0 {
-        lines.push(format!(
-            "Replaces the surgery now active ({now} switch{})",
-            if now != 1 { "es" } else { "" }
-        ));
+        lines.push(format!("Replaces the surgery now active ({now} switch{})", if now != 1 { "es" } else { "" }));
     }
     lines
 }
@@ -813,42 +648,24 @@ pub fn preview(code: &Code, ctx: &Context) -> Preview {
     match code.kind.as_str() {
         "surgery" => lines.extend(surgery_lines(p, ctx)),
         "loadout" => {
-            let name = p
-                .get("name")
-                .and_then(|n| n.as_str())
-                .filter(|n| !n.is_empty())
-                .unwrap_or("Shared loadout");
+            let name = p.get("name").and_then(|n| n.as_str()).filter(|n| !n.is_empty()).unwrap_or("Shared loadout");
             let mut tools: Vec<String> = vec!["hand".into()];
-            for t in p["tools"]
-                .as_array()
-                .into_iter()
-                .flatten()
-                .filter_map(|t| t.as_str())
-            {
+            for t in p["tools"].as_array().into_iter().flatten().filter_map(|t| t.as_str()) {
                 if !tools.iter().any(|x| x == t) {
                     tools.push(t.into());
                 }
             }
             lines.push(format!("Hotbar becomes: {}", tools.join(", ")));
             if ctx.current_loadout_len > 0 {
-                lines.push(format!(
-                    "Replaces the custom loadout ({} tools) and selects the Custom preset",
-                    ctx.current_loadout_len
-                ));
+                lines.push(format!("Replaces the custom loadout ({} tools) and selects the Custom preset", ctx.current_loadout_len));
             }
-            let max = if ctx.max_saved_loadouts == 0 {
-                5
-            } else {
-                ctx.max_saved_loadouts
-            };
+            let max = if ctx.max_saved_loadouts == 0 { 5 } else { ctx.max_saved_loadouts };
             if ctx.saved_loadouts.iter().any(|s| s == name) {
                 lines.push(format!("Replaces your saved loadout '{name}'"));
             } else if ctx.saved_loadouts.len() < max {
                 lines.push(format!("Saves it as '{name}'"));
             } else {
-                warns.push(format!(
-                    "All {max} loadout slots are full, so it won't be saved by name; it still becomes your custom loadout"
-                ));
+                warns.push(format!("All {max} loadout slots are full, so it won't be saved by name; it still becomes your custom loadout"));
             }
             if ctx.larva {
                 warns.push("Tools with no larval sensory mapping stay hidden in larva mode".into());
@@ -864,11 +681,7 @@ pub fn preview(code: &Code, ctx: &Context) -> Preview {
                     None => kinds.push((k, 1)),
                 }
             }
-            let name = p
-                .get("name")
-                .and_then(|n| n.as_str())
-                .filter(|n| !n.is_empty())
-                .unwrap_or("shared");
+            let name = p.get("name").and_then(|n| n.as_str()).filter(|n| !n.is_empty()).unwrap_or("shared");
             let list: Vec<String> = kinds.iter().map(|(k, n)| format!("{n} x {k}")).collect();
             lines.push(format!("Contraption '{name}': {}", list.join(", ")));
             let mut tools: Vec<&str> = p["parts"]
@@ -881,53 +694,29 @@ pub fn preview(code: &Code, ctx: &Context) -> Preview {
             tools.sort();
             tools.dedup();
             if !tools.is_empty() {
-                lines.push(format!(
-                    "It fires: {} (at the fly's own risk: these are the game's tools)",
-                    tools.join(", ")
-                ));
+                lines.push(format!("It fires: {} (at the fly's own risk: these are the game's tools)", tools.join(", ")));
             }
             if ctx.contraption_slots_used < 8 {
-                lines.push(
-                    "Saves it into the first free contraption slot (it does not run it)".into(),
-                );
+                lines.push("Saves it into the first free contraption slot (it does not run it)".into());
             } else {
-                warns.push("All 8 contraption slots are full, so it won't be saved; paste the code in the builder to open it without saving".into());
+                warns.push(
+                    "All 8 contraption slots are full, so it won't be saved; paste the code in the builder to open it without saving"
+                        .into(),
+                );
             }
         }
         "protocol" => {
             let pr = &p["protocol"];
-            let nm = pr
-                .get("name")
-                .and_then(|n| n.as_str())
-                .unwrap_or("shared-protocol");
-            lines.push(format!(
-                "Adds the protocol '{nm}' to your protocols folder (it does not run it)"
-            ));
+            let nm = pr.get("name").and_then(|n| n.as_str()).unwrap_or("shared-protocol");
+            lines.push(format!("Adds the protocol '{nm}' to your protocols folder (it does not run it)"));
             let what = match pr.get("assay") {
-                Some(a) => format!(
-                    "Assay {}",
-                    a.as_str()
-                        .map(String::from)
-                        .unwrap_or_else(|| a.to_string())
-                ),
+                Some(a) => format!("Assay {}", a.as_str().map(String::from).unwrap_or_else(|| a.to_string())),
                 None => "Stimulus protocol".into(),
             };
-            let seeds = pr
-                .get("seeds")
-                .or_else(|| pr.get("seed"))
-                .map(|s| s.to_string())
-                .unwrap_or_else(|| "default".into());
+            let seeds = pr.get("seeds").or_else(|| pr.get("seed")).map(|s| s.to_string()).unwrap_or_else(|| "default".into());
             lines.push(format!("{what}; seeds {seeds}"));
-            if let Some(s) = pr
-                .get("surgery")
-                .and_then(|s| s.as_object())
-                .filter(|s| !s.is_empty())
-            {
-                let items: Vec<String> = s
-                    .iter()
-                    .take(6)
-                    .map(|(k, m)| format!("{k} {}", mode(m)))
-                    .collect();
+            if let Some(s) = pr.get("surgery").and_then(|s| s.as_object()).filter(|s| !s.is_empty()) {
+                let items: Vec<String> = s.iter().take(6).map(|(k, m)| format!("{k} {}", mode(m))).collect();
                 lines.push(format!("Its surgery: {}", items.join(", ")));
             }
             if ctx.protocol_names.iter().any(|n| n == nm) {
@@ -935,10 +724,7 @@ pub fn preview(code: &Code, ctx: &Context) -> Preview {
             }
         }
         "challenge" => {
-            lines.push(format!(
-                "Starts the challenge '{}' now",
-                p["challenge"].as_str().unwrap_or("")
-            ));
+            lines.push(format!("Starts the challenge '{}' now", p["challenge"].as_str().unwrap_or("")));
             if let Some(s) = p.get("seed") {
                 lines.push(format!("Sets the random seed to {s}"));
             }
@@ -955,13 +741,7 @@ pub fn preview(code: &Code, ctx: &Context) -> Preview {
         _ => {}
     }
     if matches!(code.kind.as_str(), "surgery" | "challenge") && ctx.larva {
-        warns.push(
-            "Cell types are matched by name; larval brains share few of the adult's names".into(),
-        );
+        warns.push("Cell types are matched by name; larval brains share few of the adult's names".into());
     }
-    Preview {
-        title,
-        lines,
-        warnings: warns,
-    }
+    Preview { title, lines, warnings: warns }
 }

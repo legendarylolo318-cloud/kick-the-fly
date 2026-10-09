@@ -10,8 +10,8 @@ use bevy::camera::RenderTarget;
 use bevy::prelude::*;
 use bevy::render::render_resource::{AsBindGroup, ShaderType, TextureFormat};
 use bevy::shader::ShaderRef;
-use bevy::ui_render::ui_material::{MaterialNode, UiMaterial};
 use bevy::ui_render::UiMaterialPlugin;
+use bevy::ui_render::ui_material::{MaterialNode, UiMaterial};
 
 use crate::fly::{Fly, FlyPart, Part};
 use crate::player::PlayerCamera;
@@ -64,7 +64,21 @@ fn setup(mut eye: ResMut<FlyEye>, mut commands: Commands, mut images: ResMut<Ass
         Transform::default(),
     ));
     let m = mats.add(EyeMaterial { params: EyeParams { cells: 34.0, time: 0.0, fade: 0.0, pad: 0.0 }, view: image });
-    commands.spawn((EyeScreen(m.clone()), MaterialNode(m), Node { position_type: PositionType::Absolute, left: px(0), top: px(0), width: percent(100), height: percent(100), display: Display::None, ..default() }, ZIndex(50), BackgroundColor(Color::NONE)));
+    commands.spawn((
+        EyeScreen(m.clone()),
+        MaterialNode(m),
+        Node {
+            position_type: PositionType::Absolute,
+            left: px(0),
+            top: px(0),
+            width: percent(100),
+            height: percent(100),
+            display: Display::None,
+            ..default()
+        },
+        ZIndex(50),
+        BackgroundColor(Color::NONE),
+    ));
 }
 
 fn update(
@@ -105,6 +119,9 @@ pub struct FlyEyePlugin;
 impl Plugin for FlyEyePlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "shaders/eye.wgsl");
-        app.add_plugins(UiMaterialPlugin::<EyeMaterial>::default()).init_resource::<FlyEye>().add_systems(Startup, setup).add_systems(Update, update);
+        app.add_plugins(UiMaterialPlugin::<EyeMaterial>::default())
+            .init_resource::<FlyEye>()
+            .add_systems(Startup, setup)
+            .add_systems(Update, update);
     }
 }

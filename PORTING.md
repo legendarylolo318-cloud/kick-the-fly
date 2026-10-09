@@ -22,7 +22,7 @@ Added `crates/ktf_data` (no Bevy, fast tests): `config` (config.toml v3), `share
 Python). The game reads `config.toml` at startup (`Settings::from_config`: master volume, mute, reduced flashing, mouse sensitivity, invert-Y, FOV, immortal, kill cam) and
 keeps `scores.json`/`arcade_points.json` in the Python data folder. Real files written by `legacy-python/make_persistence_fixtures.py` are in `tests/python_files/`
 (regenerate with that script; it also writes `crates/ktf_data/data/schema.json`, the 75-setting schema the Settings menu will be built from).
-**Still to do for persistence**: `.ktfsave`, `.ktfreplay`, pet save, `fly-memory.npz`, `neurodex.json`, `contraptions.json`, `lesion_loadouts.json`, bundles (see `continue.md`).
+Second persistence step: `.ktfsave` container + simulator-state import/export, `fly-memory.npz`, `neurodex.json`, `contraptions.json`, `lesion_loadouts.json` (fixtures in `tests/python_files/{savestate,stores}`; recipes in `legacy-python/make_persistence_fixtures.py` and `make_savestate_fixture.py`). **Still to do**: `.ktfreplay` and experiment bundles (with the Lab headless runner), `pet.ktfsave`, applying a loaded save to the game's bodies (see `continue.md`).
 README has the Rust build instructions (section 7 of the task).
 
 ## Status at the end of the "game port" step (GPU rendering, physics, predators, weather, audio, profiler)
@@ -173,11 +173,11 @@ Entry: `kick_the_fly.py` shim → `kickthefly/__main__.py:main` → `game/kick_t
 |---|---|---|
 | `kick_brain.npz`, `kick_larva_brain.npz` | `sim/brainpack.py` | **loaded by Rust** |
 | `config.toml` (schema v3) | `core/config.py` | **loaded and written by Rust** (`ktf_data::config`): all 75 settings, keys, pad, loadouts, first_run, migrations, clamping, `.bad` copy; tests load 6 real/hand files and compare to Python's values, and rewriting a Python file gives the same text |
-| `.ktfsave` (zip: npz arrays + JSON header, format `kick-the-fly-save` v1) | `core/savestate.py` | includes numpy RNG state: needs the Rust PCG64 state import/export (`fly_sim::rng` has the pieces) |
+| `.ktfsave` (zip: npz arrays + JSON header, format `kick-the-fly-save` v1) | `core/savestate.py` | **read and written by Rust** (`ktf_data::savestate`): header, compatibility texts, lossless rewrite (Python reads it back), 128-bit PCG64 state. `LifSim::import_state` continues a real Python save **spike-for-spike** (60 steps hashed against Python's raster). Not yet: restoring bodies/timers (`flies[i].fly/slot`, `extra`) into the Rust fly, the Load/Save menu |
 | `.ktfreplay` (zip, per-step spike SHA-256) | `core/replay.py` | |
 | pet `pet.ktfsave` + `.bak` | `core/pet.py` | |
-| memory `fly-memory.npz` + `training-log.json` | `core/memory.py` | fixtures in `tests/fixtures/` |
-| `neurodex.json`, `scores.json`, `contraptions.json`, `lesion_loadouts.json` | `core/neurodex.py`, `lab/challenges.py`, `game/contraption.py`, `game/lesion_battle.py` | |
+| memory `fly-memory.npz` + `training-log.json` | `core/memory.py` | **read and written** (`ktf_data::stores::FlyMemory`), v2.5.0 fixture loads; the plasticity itself (Memory.step) is not ported |
+| `neurodex.json`, `scores.json`, `contraptions.json`, `lesion_loadouts.json` | `core/neurodex.py`, `lab/challenges.py`, `game/contraption.py`, `game/lesion_battle.py` | **all four read/written** (`ktf_data::stores`, `game::paths::Scores`) incl. Python's tolerance (`.bad`, newer-version read-only, bad entries skipped) |
 | share codes `KTF1-…`, `.ktfshare` | `core/sharecode.py` | **read and written by Rust** (`ktf_data::sharecode`): all 6 kinds, validate/preview, refusal texts equal to Python's; tests decode real Python codes + a file, and Python decodes Rust's. Protocol/contraption payloads get a container check only (per-part ranges and protocol schema: with their features) |
 | experiment bundles (zip) | `lab/bundle.py` | |
 | recordings CSV/npz + metadata JSON; NWB; TIFF | `lab/recorder.py`, `nwbexport.py`, `imaging.py` | |

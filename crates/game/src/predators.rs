@@ -53,12 +53,54 @@ pub struct Spec {
 }
 
 pub const SPECS: [Spec; 3] = [
-    Spec { kind: "frog", label: "FROG", body_r: 0.45, tip_r: 0.12, reach: 1.8, trigger: 1.5, aim_s: 0.30, strike_s: 0.07, retract_s: 0.12, recover_s: 1.8, max_strikes: 3, capture_r: 0.28, speed: 1.4,
-        note: "sits still, hops closer, then a tongue that takes 0.07 s to reach where the fly was when it aimed" },
-    Spec { kind: "dragonfly", label: "DRAGONFLY", body_r: 0.20, tip_r: 0.0, reach: 0.0, trigger: 5.0, aim_s: 0.0, strike_s: 0.0, retract_s: 0.0, recover_s: 0.0, max_strikes: 1, capture_r: 0.30, speed: 4.0,
-        note: "patrols high up and chases a flying fly from above; a walking fly is not prey" },
-    Spec { kind: "mantis", label: "MANTIS", body_r: 0.35, tip_r: 0.09, reach: 0.9, trigger: 0.8, aim_s: 0.20, strike_s: 0.06, retract_s: 0.15, recover_s: 2.0, max_strikes: 2, capture_r: 0.22, speed: 0.10,
-        note: "creeps up at 10 cm/s, freezing now and then, then strikes with a forelimb in 0.06 s" },
+    Spec {
+        kind: "frog",
+        label: "FROG",
+        body_r: 0.45,
+        tip_r: 0.12,
+        reach: 1.8,
+        trigger: 1.5,
+        aim_s: 0.30,
+        strike_s: 0.07,
+        retract_s: 0.12,
+        recover_s: 1.8,
+        max_strikes: 3,
+        capture_r: 0.28,
+        speed: 1.4,
+        note: "sits still, hops closer, then a tongue that takes 0.07 s to reach where the fly was when it aimed",
+    },
+    Spec {
+        kind: "dragonfly",
+        label: "DRAGONFLY",
+        body_r: 0.20,
+        tip_r: 0.0,
+        reach: 0.0,
+        trigger: 5.0,
+        aim_s: 0.0,
+        strike_s: 0.0,
+        retract_s: 0.0,
+        recover_s: 0.0,
+        max_strikes: 1,
+        capture_r: 0.30,
+        speed: 4.0,
+        note: "patrols high up and chases a flying fly from above; a walking fly is not prey",
+    },
+    Spec {
+        kind: "mantis",
+        label: "MANTIS",
+        body_r: 0.35,
+        tip_r: 0.09,
+        reach: 0.9,
+        trigger: 0.8,
+        aim_s: 0.20,
+        strike_s: 0.06,
+        retract_s: 0.15,
+        recover_s: 2.0,
+        max_strikes: 2,
+        capture_r: 0.22,
+        speed: 0.10,
+        note: "creeps up at 10 cm/s, freezing now and then, then strikes with a forelimb in 0.06 s",
+    },
 ];
 
 pub fn spec(kind: &str) -> Option<&'static Spec> {
@@ -374,10 +416,7 @@ impl Predator {
     }
 
     fn nearest(&self, live: &[Target], flying_only: bool) -> Option<(Target, f32)> {
-        live.iter()
-            .filter(|t| !flying_only || t.flying)
-            .map(|t| (*t, (t.p - self.p).length()))
-            .min_by(|a, b| a.1.total_cmp(&b.1))
+        live.iter().filter(|t| !flying_only || t.flying).map(|t| (*t, (t.p - self.p).length())).min_by(|a, b| a.1.total_cmp(&b.1))
     }
 
     fn horizontal(&self, t: &Target) -> (f32, Vec3) {

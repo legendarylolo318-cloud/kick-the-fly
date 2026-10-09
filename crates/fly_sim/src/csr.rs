@@ -140,13 +140,7 @@ mod tests {
 
     fn tiny() -> Csr {
         // 3x3: row0: [0]=1 [2]=2 ; row1: [1]=3 ; row2: [0]=4 [1]=5 [2]=6
-        Csr {
-            n_rows: 3,
-            n_cols: 3,
-            indptr: vec![0, 2, 3, 6],
-            indices: vec![0, 2, 1, 0, 1, 2],
-            data: vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
-        }
+        Csr { n_rows: 3, n_cols: 3, indptr: vec![0, 2, 3, 6], indices: vec![0, 2, 1, 0, 1, 2], data: vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0] }
     }
 
     #[test]

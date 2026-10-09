@@ -17,10 +17,7 @@ pub struct Scores {
 
 impl Scores {
     pub fn open(path: PathBuf) -> Self {
-        let map = std::fs::read_to_string(&path)
-            .ok()
-            .and_then(|t| serde_json::from_str(&t).ok())
-            .unwrap_or_default();
+        let map = std::fs::read_to_string(&path).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default();
         Self { path, map }
     }
 
@@ -30,21 +27,14 @@ impl Scores {
 
     /// Keep the better of the old and new value (`high`: bigger is better). Returns whether it improved.
     pub fn record(&mut self, key: &str, value: f64, high: bool) -> bool {
-        let better = self
-            .map
-            .get(key)
-            .is_none_or(|old| if high { value > *old } else { value < *old });
+        let better = self.map.get(key).is_none_or(|old| if high { value > *old } else { value < *old });
         if better {
             self.map.insert(key.to_string(), value);
             if let Some(dir) = self.path.parent() {
                 let _ = std::fs::create_dir_all(dir);
             }
             let tmp = self.path.with_extension("tmp");
-            if serde_json::to_string_pretty(&self.map)
-                .ok()
-                .and_then(|t| std::fs::write(&tmp, t).ok())
-                .is_some()
-            {
+            if serde_json::to_string_pretty(&self.map).ok().and_then(|t| std::fs::write(&tmp, t).ok()).is_some() {
                 let _ = std::fs::rename(&tmp, &self.path);
             }
         }

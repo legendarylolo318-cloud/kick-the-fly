@@ -77,8 +77,24 @@ pub fn population_of(superclass: &str) -> Option<usize> {
 
 /// `TOOL_NAMES`, in the order the scent glomeruli are dealt out.
 pub const TOOL_NAMES: [&str; 18] = [
-    "hand", "flick", "swatter", "bomb", "torch", "cleaner", "zapper", "freeze", "spider", "sugar", "alcohol", "laser", "cva", "decoy", "fruit",
-    "frog", "dragonfly", "mantis",
+    "hand",
+    "flick",
+    "swatter",
+    "bomb",
+    "torch",
+    "cleaner",
+    "zapper",
+    "freeze",
+    "spider",
+    "sugar",
+    "alcohol",
+    "laser",
+    "cva",
+    "decoy",
+    "fruit",
+    "frog",
+    "dragonfly",
+    "mantis",
 ];
 
 /// `PAIN_LEVELS`: share of a region's neurons a light touch recruits, and how hard the rest of the body's sensors join.
@@ -127,7 +143,11 @@ impl Groups {
         let side_of = |i: usize| -> Option<char> {
             let inst = labels.instance.get(i).map_or("", String::as_str);
             let b = inst.as_bytes();
-            if b.len() >= 2 && b[b.len() - 2] == b'_' && (b[b.len() - 1] == b'L' || b[b.len() - 1] == b'R') { Some(b[b.len() - 1] as char) } else { None }
+            if b.len() >= 2 && b[b.len() - 2] == b'_' && (b[b.len() - 1] == b'L' || b[b.len() - 1] == b'R') {
+                Some(b[b.len() - 1] as char)
+            } else {
+                None
+            }
         };
         let mut det_id = vec![-1i32; n];
         let mut names: Vec<String> = Vec::new();
@@ -157,7 +177,10 @@ impl Groups {
             for s in ['L', 'R'] {
                 let side_rows: Vec<u32> = rows.iter().copied().filter(|&r| side_of(r as usize) == Some(s)).collect();
                 // a side with too few neurons (the pack has no instance sides for it) falls back to the whole region
-                sense.insert((region.to_string(), Some(s)), if side_rows.len() as f32 > 0.2 * rows.len() as f32 { side_rows } else { rows.clone() });
+                sense.insert(
+                    (region.to_string(), Some(s)),
+                    if side_rows.len() as f32 > 0.2 * rows.len() as f32 { side_rows } else { rows.clone() },
+                );
             }
             sense.insert((region.to_string(), None), rows);
         }
@@ -166,7 +189,13 @@ impl Groups {
             add_detail(name, m, &mut det_id, &mut names, &mut sizes);
         }
         let is = |tys: &[&str]| -> Vec<bool> { mask_of(&|i| tys.contains(&types(i))) };
-        add_detail("groom", mask_of(&|i| sc(i) == "descending_neuron" && ["DNg62", "DNge078"].contains(&types(i))), &mut det_id, &mut names, &mut sizes);
+        add_detail(
+            "groom",
+            mask_of(&|i| sc(i) == "descending_neuron" && ["DNg62", "DNge078"].contains(&types(i))),
+            &mut det_id,
+            &mut names,
+            &mut sizes,
+        );
         add_detail("proboscis", is(&["MN9"]), &mut det_id, &mut names, &mut sizes);
         add_detail("song", mask_of(&|i| sc(i) == "vnc_motor" && types(i) == "ps1 MN"), &mut det_id, &mut names, &mut sizes);
         add_detail(
@@ -176,11 +205,29 @@ impl Groups {
             &mut names,
             &mut sizes,
         );
-        let sleep = add_detail("sleep", mask_of(&|i| types(i).starts_with("FB6") || types(i).starts_with("FB7")), &mut det_id, &mut names, &mut sizes);
+        let sleep = add_detail(
+            "sleep",
+            mask_of(&|i| types(i).starts_with("FB6") || types(i).starts_with("FB7")),
+            &mut det_id,
+            &mut names,
+            &mut sizes,
+        );
         sense.insert(("sleep".into(), None), sleep);
         add_detail("co2", is(&["V_ilPN", "V_l2PN"]), &mut det_id, &mut names, &mut sizes);
-        add_detail("hot_pn", is(&["VP2_adPN", "VP2_l2PN", "VP2+_adPN", "VP1m+VP2_lvPN1", "VP1m+VP2_lvPN2"]), &mut det_id, &mut names, &mut sizes);
-        add_detail("cold_pn", is(&["VP3+_l2PN", "VP3+_vPN", "VP1l+VP3_ilPN", "VP3+VP1l_ivPN", "VP5+VP3_l2PN"]), &mut det_id, &mut names, &mut sizes);
+        add_detail(
+            "hot_pn",
+            is(&["VP2_adPN", "VP2_l2PN", "VP2+_adPN", "VP1m+VP2_lvPN1", "VP1m+VP2_lvPN2"]),
+            &mut det_id,
+            &mut names,
+            &mut sizes,
+        );
+        add_detail(
+            "cold_pn",
+            is(&["VP3+_l2PN", "VP3+_vPN", "VP1l+VP3_ilPN", "VP3+VP1l_ivPN", "VP5+VP3_l2PN"]),
+            &mut det_id,
+            &mut names,
+            &mut sizes,
+        );
         let clock = add_detail("clock", is(&["l-LNv", "s-LNv"]), &mut det_id, &mut names, &mut sizes);
         sense.insert(("clock".into(), None), clock);
         let extra = add_detail(
@@ -220,7 +267,10 @@ impl Groups {
         }
         sense.insert(("scent:cva".into(), None), in_gloms(&["DA1"]));
         sense.insert(("scent:player".into(), None), if order.len() >= 53 { in_gloms(&order[50..]) } else { first(3) });
-        sense.insert(("pheromone:foreleg".into(), None), (0..n as u32).filter(|&i| ["LgLG5", "LgLG6", "LgLG7", "LgLG8"].contains(&types(i as usize))).collect());
+        sense.insert(
+            ("pheromone:foreleg".into(), None),
+            (0..n as u32).filter(|&i| ["LgLG5", "LgLG6", "LgLG7", "LgLG8"].contains(&types(i as usize))).collect(),
+        );
         // the T-maze odors use their own deal (seed 1985, six glomeruli each)
         let mut odor_order: Vec<&str> = uniq;
         Generator::new(1985).shuffle(&mut odor_order);
@@ -439,10 +489,17 @@ mod tests {
     use super::*;
 
     fn labels() -> Labels {
-        let mut types = vec!["DNp09".to_string(), "DNa01".into(), "DNa02".into(), "LPLC2".into(), "JO-C1".into(), "ORN_DA1".into(), "ORN_DM1".into()];
+        let mut types =
+            vec!["DNp09".to_string(), "DNa01".into(), "DNa02".into(), "LPLC2".into(), "JO-C1".into(), "ORN_DA1".into(), "ORN_DM1".into()];
         types.extend((0..20).map(|i| format!("ORN_G{i}")));
         let m = types.len();
-        let mut sc = vec!["descending_neuron".to_string(), "descending_neuron".into(), "descending_neuron".into(), "visual_projection".into(), "cb_sensory".into()];
+        let mut sc = vec![
+            "descending_neuron".to_string(),
+            "descending_neuron".into(),
+            "descending_neuron".into(),
+            "visual_projection".into(),
+            "cb_sensory".into(),
+        ];
         sc.extend(std::iter::repeat_n("cb_sensory".to_string(), m - 5));
         let mut inst = vec![String::new(); m];
         inst[1] = "DNa01_L".into();

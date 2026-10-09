@@ -160,7 +160,9 @@ impl Replay {
         let last = self.rel(n - 1);
         let nb = (0..n).filter(|&i| self.rel(i) < BASE_S).count().clamp(1, (n / 3).max(1));
         let nt = (0..n).filter(|&i| last - self.rel(i) <= TAIL_S).count().clamp(1, (n / 3).max(1));
-        let mean = |frames: std::ops::Range<usize>, j: usize| frames.clone().map(|f| decode_hz(self.q[f * self.n + j])).sum::<f32>() / frames.len() as f32;
+        let mean = |frames: std::ops::Range<usize>, j: usize| {
+            frames.clone().map(|f| decode_hz(self.q[f * self.n + j])).sum::<f32>() / frames.len() as f32
+        };
         let mut all: Vec<Riser> = (0..self.n)
             .map(|j| {
                 let (before, after) = (mean(0..nb, j), mean(n - nt..n, j));

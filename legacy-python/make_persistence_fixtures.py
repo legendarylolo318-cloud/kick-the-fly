@@ -42,6 +42,43 @@ def dump_cfg(cfg: C.Config) -> dict:
             "migrated_from": cfg.migrated_from, "warnings": cfg.warnings}
 
 
+def stores(out: Path) -> None:
+    """neurodex.json, contraptions.json, lesion_loadouts.json and the fly memory, written by the Python modules."""
+    import os
+    import shutil
+    import tempfile
+
+    home = tempfile.mkdtemp(prefix="ktf-fixture-")
+    os.environ["KICK_THE_FLY_HOME"] = home
+    from kickthefly.core import neurodex, paths
+    from kickthefly.game import contraption, lesion_battle
+
+    paths.reset_cache()
+    out.mkdir(parents=True, exist_ok=True)
+    prog = neurodex.Progress(Path(home) / "neurodex.json")
+    prog.mark("adult", "LC4", 3.5, "stimulated", "2026-01-02T03:04:05")
+    prog.mark("adult", "DNp01", 1.25, "play", "2026-01-03T03:04:05")
+    prog.mark("larva", "Ka", 0.0, "rest", "2026-02-03T03:04:05")
+    prog.save()
+    shutil.copy(Path(home) / "neurodex.json", out / "neurodex.json")
+    (out / "neurodex_hand.json").write_text(json.dumps({"version": 1, "brains": {
+        "adult": {"types": {"A": {"t": "x", "x": "bad", "how": "nonsense"}, "B": "notadict", "C": {"t": "y", "x": 2}}},
+        "odd": 5}}))
+    (out / "neurodex_newer.json").write_text(json.dumps({"version": 9, "brains": {"adult": {"types": {}}}}))
+    build = contraption.Build.from_json(json.loads((out.parent / "share" / "contraption.json").read_text())["payload"])
+    contraption.save_slot(2, build)
+    contraption.save_slot(5, build)
+    shutil.copy(contraption.saved_path(), out / "contraptions.json")
+    for name, picks in {"quiet": {"LC4": -1}, "loud": {"DNp01": 1, "LC4": -1}}.items():
+        lesion_battle.save_loadout(lesion_battle.Loadout(name, picks))
+    shutil.copy(lesion_battle.saved_path(), out / "lesion_loadouts.json")
+    mem = Path(__file__).resolve().parent / "tests" / "fixtures" / "fly-memory-v2.5.0.npz"
+    shutil.copy(mem, out / "fly-memory.npz")
+    (out / "training-log.json").write_text(json.dumps({"naive_mbon": {"swatter": 12.5}, "trials": {
+        "swatter": [[1700000000.0, "punish", 0.1234, 0.0, 11.25], [1700000100.0, "test", 0.5, 0.01, None]]}}, indent=1))
+    shutil.rmtree(home, ignore_errors=True)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     root = Path(__file__).resolve().parent.parent
@@ -123,6 +160,7 @@ def main() -> None:
     for p in sorted(cfgdir.glob("*.toml")):
         c = C.Config.load(p)
         (cfgdir / (p.stem + ".expect.json")).write_text(json.dumps(dump_cfg(c), indent=1, sort_keys=True) + "\n")
+    stores(out / "stores")
     print("wrote", sch, "and", out)
 
 

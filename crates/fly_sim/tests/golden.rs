@@ -23,7 +23,7 @@
 use std::path::PathBuf;
 use std::sync::{Arc, OnceLock};
 
-use fly_sim::brain::{rows_of, INHIB};
+use fly_sim::brain::{INHIB, rows_of};
 use fly_sim::lif::{Individuality, LifParams, LifSim};
 use fly_sim::pack::{self, Pack};
 use fly_sim::rng::Generator;

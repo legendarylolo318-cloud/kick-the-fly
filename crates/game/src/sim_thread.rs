@@ -14,7 +14,7 @@ use fly_sim::brain::STIM_AMP;
 use fly_sim::csr::Weights;
 use fly_sim::lif::{LifParams, LifSim};
 use fly_sim::pack::{Labels, Pack};
-use fly_sim::{synthetic, Brain};
+use fly_sim::{Brain, synthetic};
 
 use crate::snapshot::{BrainInfo, Mailbox, Phase, Snapshot};
 
@@ -51,9 +51,15 @@ impl SimConfig {
 #[derive(Debug)]
 pub enum Command {
     /// Hold the neurons named by a spec (`type:LPLC2,LC4`, `prefix:KC`, ...) driven at `amp` (0 releases them).
-    DriveSpec { spec: String, amp: f32 },
+    DriveSpec {
+        spec: String,
+        amp: f32,
+    },
     /// Hold these rows driven at `amp`.
-    DriveRows { rows: Vec<u32>, amp: f32 },
+    DriveRows {
+        rows: Vec<u32>,
+        amp: f32,
+    },
     /// Real-time multiplier: 1 normal, below 1 slow motion, above 1 faster than real time.
     SetSpeed(f32),
     Pause(bool),
@@ -63,9 +69,16 @@ pub enum Command {
     /// Bring a dead brain back (R).
     Revive,
     /// `Brain.poke`: a touch/scent/heat... pulse on a region (`head`, `body`, `legs`, `wing`, `scent:sugar`, `heat`, `reward`...).
-    Poke { region: String, side: Option<char>, strength: f32 },
+    Poke {
+        region: String,
+        side: Option<char>,
+        strength: f32,
+    },
     /// Brain surgery on the neurons of a spec: -1 silence, 0 release, +1 stimulate.
-    Surgery { spec: String, mode: i8 },
+    Surgery {
+        spec: String,
+        mode: i8,
+    },
     /// 0..1 share of the death inhibition (solvent, cold, venom).
     Sedation(f32),
     /// Pain level 0..2 (normal, more, max).
@@ -306,7 +319,16 @@ fn apply(brain: &mut Brain, state: &mut LoopState, cmd: Command) -> bool {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn publish(mailbox: &Mailbox<Snapshot>, brain: &Brain, source: &str, state: &LoopState, steps_per_s: f32, dropped: u64, driving: bool, info: &Arc<BrainInfo>) {
+fn publish(
+    mailbox: &Mailbox<Snapshot>,
+    brain: &Brain,
+    source: &str,
+    state: &LoopState,
+    steps_per_s: f32,
+    dropped: u64,
+    driving: bool,
+    info: &Arc<BrainInfo>,
+) {
     let sim = &brain.sim;
     mailbox.publish(Snapshot::default, |s| {
         s.phase = if state.paused { Phase::Paused } else { Phase::Running };
@@ -351,7 +373,16 @@ fn brain_info(labels: &Labels, weights: &Weights) -> BrainInfo {
     let mut region_names: Vec<String> = labels.region.iter().cloned().collect::<std::collections::BTreeSet<_>>().into_iter().collect();
     region_names.truncate(250);
     let region_id = labels.region.iter().map(|r| region_names.iter().position(|n| n == r).map_or(255, |i| i as u8)).collect();
-    BrainInfo { types: labels.types.clone(), region_id, region_names, layout: layout(labels, weights), soma: labels.soma.clone(), population, group_names: g.names.clone(), population_names: pop_names }
+    BrainInfo {
+        types: labels.types.clone(),
+        region_id,
+        region_names,
+        layout: layout(labels, weights),
+        soma: labels.soma.clone(),
+        population,
+        group_names: g.names.clone(),
+        population_names: pop_names,
+    }
 }
 
 /// Drawing positions: the real cell body where the dataset has one, else the synapse-weighted centre of the placed partners (Python

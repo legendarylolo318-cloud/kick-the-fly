@@ -56,42 +56,136 @@ pub const HELP: &[(&str, &str)] = &[
 ];
 
 fn setup(mut commands: Commands) {
-    commands.spawn((StatusText, Text::new(""), TextFont { font_size: FontSize::Px(15.0), ..default() }, TextColor(Color::srgb(0.9, 0.93, 0.98)), Node { position_type: PositionType::Absolute, top: px(10), left: px(12), ..default() }));
+    commands.spawn((
+        StatusText,
+        Text::new(""),
+        TextFont { font_size: FontSize::Px(15.0), ..default() },
+        TextColor(Color::srgb(0.9, 0.93, 0.98)),
+        Node { position_type: PositionType::Absolute, top: px(10), left: px(12), ..default() },
+    ));
     // crosshair
-    commands.spawn((Crosshair, Node { position_type: PositionType::Absolute, left: percent(50), top: percent(50), width: px(6), height: px(6), margin: UiRect { left: px(-3), top: px(-3), ..default() }, border_radius: BorderRadius::all(px(3)), ..default() }, BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.7))));
+    commands.spawn((
+        Crosshair,
+        Node {
+            position_type: PositionType::Absolute,
+            left: percent(50),
+            top: percent(50),
+            width: px(6),
+            height: px(6),
+            margin: UiRect { left: px(-3), top: px(-3), ..default() },
+            border_radius: BorderRadius::all(px(3)),
+            ..default()
+        },
+        BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.7)),
+    ));
     // hotbar
-    commands.spawn(Node { position_type: PositionType::Absolute, bottom: px(8), left: percent(50), margin: UiRect { left: px(-310), ..default() }, flex_direction: FlexDirection::Column, align_items: AlignItems::Center, row_gap: px(4), ..default() }).with_children(|p| {
-        p.spawn((HintText, Text::new(""), TextFont { font_size: FontSize::Px(14.0), ..default() }, TextColor(Color::srgb(0.85, 0.9, 0.95))));
-        p.spawn(Node { flex_direction: FlexDirection::Row, column_gap: px(4), ..default() }).with_children(|r| {
-            for i in 0..10 {
-                r.spawn((HotbarSlot(i), Node { width: px(58), height: px(40), justify_content: JustifyContent::Center, align_items: AlignItems::Center, border: UiRect::all(px(2)), ..default() }, BackgroundColor(Color::srgba(0.05, 0.06, 0.09, 0.75)), BorderColor::all(Color::srgb(0.25, 0.28, 0.35)))).with_children(|s| {
-                    s.spawn((Text::new(""), TextFont { font_size: FontSize::Px(11.0), ..default() }, TextColor(Color::WHITE)));
-                });
+    commands
+        .spawn(Node {
+            position_type: PositionType::Absolute,
+            bottom: px(8),
+            left: percent(50),
+            margin: UiRect { left: px(-310), ..default() },
+            flex_direction: FlexDirection::Column,
+            align_items: AlignItems::Center,
+            row_gap: px(4),
+            ..default()
+        })
+        .with_children(|p| {
+            p.spawn((
+                HintText,
+                Text::new(""),
+                TextFont { font_size: FontSize::Px(14.0), ..default() },
+                TextColor(Color::srgb(0.85, 0.9, 0.95)),
+            ));
+            p.spawn(Node { flex_direction: FlexDirection::Row, column_gap: px(4), ..default() }).with_children(|r| {
+                for i in 0..10 {
+                    r.spawn((
+                        HotbarSlot(i),
+                        Node {
+                            width: px(58),
+                            height: px(40),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            border: UiRect::all(px(2)),
+                            ..default()
+                        },
+                        BackgroundColor(Color::srgba(0.05, 0.06, 0.09, 0.75)),
+                        BorderColor::all(Color::srgb(0.25, 0.28, 0.35)),
+                    ))
+                    .with_children(|s| {
+                        s.spawn((Text::new(""), TextFont { font_size: FontSize::Px(11.0), ..default() }, TextColor(Color::WHITE)));
+                    });
+                }
+            });
+        });
+    // reaction log
+    commands
+        .spawn(Node {
+            position_type: PositionType::Absolute,
+            bottom: px(100),
+            left: px(12),
+            flex_direction: FlexDirection::Column,
+            row_gap: px(2),
+            max_width: px(430),
+            ..default()
+        })
+        .with_children(|p| {
+            for i in 0..8 {
+                p.spawn((NotesText(i), Text::new(""), TextFont { font_size: FontSize::Px(13.0), ..default() }, TextColor(Color::WHITE)));
             }
         });
-    });
-    // reaction log
-    commands.spawn(Node { position_type: PositionType::Absolute, bottom: px(100), left: px(12), flex_direction: FlexDirection::Column, row_gap: px(2), max_width: px(430), ..default() }).with_children(|p| {
-        for i in 0..8 {
-            p.spawn((NotesText(i), Text::new(""), TextFont { font_size: FontSize::Px(13.0), ..default() }, TextColor(Color::WHITE)));
-        }
-    });
     // health
     commands
-        .spawn((Node { position_type: PositionType::Absolute, top: px(10), left: percent(50), margin: UiRect { left: px(-100), ..default() }, width: px(200), height: px(10), ..default() }, BackgroundColor(Color::srgba(0.1, 0.1, 0.12, 0.8))))
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                top: px(10),
+                left: percent(50),
+                margin: UiRect { left: px(-100), ..default() },
+                width: px(200),
+                height: px(10),
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.1, 0.1, 0.12, 0.8)),
+        ))
         .with_children(|p| {
-            p.spawn((HealthBar, Node { width: percent(100), height: percent(100), ..default() }, BackgroundColor(Color::srgb(0.3, 0.85, 0.45))));
+            p.spawn((
+                HealthBar,
+                Node { width: percent(100), height: percent(100), ..default() },
+                BackgroundColor(Color::srgb(0.3, 0.85, 0.45)),
+            ));
         });
     // popups
     for i in 0..POPUP_POOL {
-        commands.spawn((PopupText(i), Text::new(""), TextFont { font_size: FontSize::Px(20.0), ..default() }, TextColor(Color::NONE), Node { position_type: PositionType::Absolute, display: Display::None, ..default() }));
+        commands.spawn((
+            PopupText(i),
+            Text::new(""),
+            TextFont { font_size: FontSize::Px(20.0), ..default() },
+            TextColor(Color::NONE),
+            Node { position_type: PositionType::Absolute, display: Display::None, ..default() },
+        ));
     }
     // help
     let mut body = String::from("KICK THE FLY (Rust + Bevy)\n\n");
     for (k, v) in HELP {
         body += &format!("{k:<18} {v}\n");
     }
-    commands.spawn((HelpPanel, Text::new(body), TextFont { font_size: FontSize::Px(15.0), ..default() }, TextColor(Color::srgb(0.92, 0.95, 1.0)), Node { position_type: PositionType::Absolute, left: percent(50), top: px(80), margin: UiRect { left: px(-330), ..default() }, padding: UiRect::all(px(16)), display: Display::None, ..default() }, BackgroundColor(Color::srgba(0.03, 0.04, 0.07, 0.92))));
+    commands.spawn((
+        HelpPanel,
+        Text::new(body),
+        TextFont { font_size: FontSize::Px(15.0), ..default() },
+        TextColor(Color::srgb(0.92, 0.95, 1.0)),
+        Node {
+            position_type: PositionType::Absolute,
+            left: percent(50),
+            top: px(80),
+            margin: UiRect { left: px(-330), ..default() },
+            padding: UiRect::all(px(16)),
+            display: Display::None,
+            ..default()
+        },
+        BackgroundColor(Color::srgba(0.03, 0.04, 0.07, 0.92)),
+    ));
 }
 
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
@@ -131,10 +225,23 @@ fn update(
         ),
         _ => "loading the brain...".to_string(),
     });
-    status.0 = format!("{}  |  arena: {}{}  |  brain panel: {}\n{brain}\nH help", "Kick the Fly", arena.name(), if settings.immortal { "  |  IMMORTAL" } else { "" }, view.mode.label());
+    status.0 = format!(
+        "{}  |  arena: {}{}  |  brain panel: {}\n{brain}\nH help",
+        "Kick the Fly",
+        arena.name(),
+        if settings.immortal { "  |  IMMORTAL" } else { "" },
+        view.mode.label()
+    );
     let t = TOOLS[tools.selected];
     hint.0 = if t.0 == "laser" {
-        format!("{} {}: {}  [{}  {}]", tools.selected + 1, t.1, t.2, LASER_TARGETS[tools.laser_target].0, if tools.laser_silence { "SILENCE" } else { "ACTIVATE" })
+        format!(
+            "{} {}: {}  [{}  {}]",
+            tools.selected + 1,
+            t.1,
+            t.2,
+            LASER_TARGETS[tools.laser_target].0,
+            if tools.laser_silence { "SILENCE" } else { "ACTIVATE" }
+        )
     } else {
         format!("{} {}: {}", tools.selected + 1, t.1, t.2)
     };

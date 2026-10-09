@@ -6,10 +6,10 @@
 
 use std::sync::Arc;
 
+use crate::Error;
 use crate::groups::Groups;
 use crate::lif::{LifParams, LifSim};
 use crate::pack::Labels;
-use crate::Error;
 
 /// `Brain._inhib`: the per-step current of full sedation or death, before the `ext_gain` of 4 (so -1.6 per step).
 pub const INHIB: f32 = -0.4;
@@ -32,7 +32,11 @@ pub fn rows_of(labels: &Labels, n: usize, spec: &str) -> Result<Vec<u32>, Error>
         let (side, types) = arg.split_once(':').ok_or_else(|| Error::Spec(format!("'{spec}': side:<L|R>:<types>")))?;
         let suffix = format!("_{side}");
         let items: Vec<&str> = types.split(',').collect();
-        return Ok((0..n as u32).filter(|&i| items.contains(&labels.types[i as usize].as_str()) && labels.instance.get(i as usize).is_some_and(|x| x.ends_with(&suffix))).collect());
+        return Ok((0..n as u32)
+            .filter(|&i| {
+                items.contains(&labels.types[i as usize].as_str()) && labels.instance.get(i as usize).is_some_and(|x| x.ends_with(&suffix))
+            })
+            .collect());
     }
     let items: Vec<&str> = arg.split(',').collect();
     match kind {

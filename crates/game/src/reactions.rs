@@ -70,13 +70,20 @@ pub enum Reaction {
     /// Head-touch DNs: fly away.
     Yikes(f32),
     /// DNg02: take off and wander for `seconds`.
-    TakeOff { level: f32, seconds: f32 },
+    TakeOff {
+        level: f32,
+        seconds: f32,
+    },
     Run(f32),
     Kick(f32),
     BackUp(f32),
     Walk(f32),
     /// Turn by `radians` (positive right).
-    Turn { right: bool, radians: f32, diff: f32 },
+    Turn {
+        right: bool,
+        radians: f32,
+        diff: f32,
+    },
     Groom(f32),
     Song(f32),
     Sleep(f32),
@@ -115,7 +122,14 @@ pub fn decide(lv: &Levels, st: &mut ReactState, body: Body, now: f32, rng: &mut 
         st.escape_until = now + 2.4;
         st.escape_ready = now + 2.4 + 1.0;
         out.push(Reaction::Yikes(jump));
-    } else if fly > T_FLY && now >= st.escape_ready && body.free && body.can_fly && now >= st.stun_until && now >= st.eating_until && now >= st.asleep_until {
+    } else if fly > T_FLY
+        && now >= st.escape_ready
+        && body.free
+        && body.can_fly
+        && now >= st.stun_until
+        && now >= st.eating_until
+        && now >= st.asleep_until
+    {
         let seconds = rng.uniform(2.5, 4.0);
         st.escape_until = now + seconds;
         st.escape_ready = now + seconds + 1.0;
@@ -170,8 +184,10 @@ pub fn decide(lv: &Levels, st: &mut ReactState, body: Body, now: f32, rng: &mut 
 /// The tags the game keeps on screen: which reactions are triggered by the connectome sim's own neurons (REAL) and which by a game rule.
 pub fn reaction_source(word: &str) -> Option<&'static str> {
     match word {
-        "DODGE" | "FLY AWAY" | "TAKE OFF" | "RUN" | "KICK" | "BACK UP" | "WALK" | "TURN" | "SHOOT" | "GROOM" | "PROBOSCIS" | "SONG" | "CO2" | "HEAT" | "COLD" => Some("real"),
-        "EATING" | "TO LIGHT" | "AVOID" | "APPROACH" | "FLEE" | "WRAPPED" | "BROKE FREE" | "DIED" | "HIT YOU" | "YOU DIED" | "AUTOPILOT" | "ROLL" | "CRAWL" | "SLEEP" | "LUNGE" => Some("rule"),
+        "DODGE" | "FLY AWAY" | "TAKE OFF" | "RUN" | "KICK" | "BACK UP" | "WALK" | "TURN" | "SHOOT" | "GROOM" | "PROBOSCIS" | "SONG"
+        | "CO2" | "HEAT" | "COLD" => Some("real"),
+        "EATING" | "TO LIGHT" | "AVOID" | "APPROACH" | "FLEE" | "WRAPPED" | "BROKE FREE" | "DIED" | "HIT YOU" | "YOU DIED"
+        | "AUTOPILOT" | "ROLL" | "CRAWL" | "SLEEP" | "LUNGE" => Some("rule"),
         _ => None,
     }
 }

@@ -81,7 +81,19 @@ pub struct BrainView {
 
 impl Default for BrainView {
     fn default() -> Self {
-        Self { mode: PanelMode::Solid, big: false, yaw: 0.0, pitch: 0.0, zoom: 0.8, auto_rotate: true, lit: 0, replay: None, highlight: Vec::new(), activity: Vec::new(), built: false }
+        Self {
+            mode: PanelMode::Solid,
+            big: false,
+            yaw: 0.0,
+            pitch: 0.0,
+            zoom: 0.8,
+            auto_rotate: true,
+            lit: 0,
+            replay: None,
+            highlight: Vec::new(),
+            activity: Vec::new(),
+            built: false,
+        }
     }
 }
 
@@ -125,11 +137,23 @@ fn setup(mut commands: Commands, mut view: ResMut<BrainView>, mut images: ResMut
         Transform::from_xyz(0.0, 0.0, 3.4).looking_at(Vec3::ZERO, Vec3::Y),
         RenderLayers::layer(BRAIN_LAYER),
     ));
-    commands.spawn((PanelNode, ImageNode::new(image), Node { position_type: PositionType::Absolute, right: px(0), top: px(0), width: px(300), height: px(300), ..default() }, ZIndex(-5)));
+    commands.spawn((
+        PanelNode,
+        ImageNode::new(image),
+        Node { position_type: PositionType::Absolute, right: px(0), top: px(0), width: px(300), height: px(300), ..default() },
+        ZIndex(-5),
+    ));
 }
 
 /// Build the cloud when the first snapshot with the layout arrives.
-fn build_cloud(mut commands: Commands, mut view: ResMut<BrainView>, snap: Res<LatestSnapshot>, mut meshes: ResMut<Assets<Mesh>>, mut materials: ResMut<Assets<BrainMaterial>>, mut buffers: ResMut<Assets<ShaderBuffer>>) {
+fn build_cloud(
+    mut commands: Commands,
+    mut view: ResMut<BrainView>,
+    snap: Res<LatestSnapshot>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<BrainMaterial>>,
+    mut buffers: ResMut<Assets<ShaderBuffer>>,
+) {
     if view.built {
         return;
     }
@@ -154,13 +178,27 @@ fn build_cloud(mut commands: Commands, mut view: ResMut<BrainView>, snap: Res<La
         soma,
         activity: activity.clone(),
     });
-    commands.spawn((Mesh3d(meshes.add(quad_mesh(n))), MeshMaterial3d(material.clone()), Transform::default(), NoFrustumCulling, RenderLayers::layer(BRAIN_LAYER), BrainCloud { material, activity }));
+    commands.spawn((
+        Mesh3d(meshes.add(quad_mesh(n))),
+        MeshMaterial3d(material.clone()),
+        Transform::default(),
+        NoFrustumCulling,
+        RenderLayers::layer(BRAIN_LAYER),
+        BrainCloud { material, activity },
+    ));
     view.activity = vec![0.0; n];
     view.built = true;
 }
 
 /// One pass over the neurons: decay, take the EMA rate, flash the neurons that just spiked, write the buffer.
-fn update_activity(mut view: ResMut<BrainView>, snap: Res<LatestSnapshot>, cloud: Option<Single<&BrainCloud>>, mut buffers: ResMut<Assets<ShaderBuffer>>, mut materials: ResMut<Assets<BrainMaterial>>, time: Res<Time>) {
+fn update_activity(
+    mut view: ResMut<BrainView>,
+    snap: Res<LatestSnapshot>,
+    cloud: Option<Single<&BrainCloud>>,
+    mut buffers: ResMut<Assets<ShaderBuffer>>,
+    mut materials: ResMut<Assets<BrainMaterial>>,
+    time: Res<Time>,
+) {
     let (Some(cloud), Some(s)) = (cloud, snap.0.as_deref()) else { return };
     if s.rates.len() != view.activity.len() {
         return;
@@ -206,7 +244,14 @@ fn update_activity(mut view: ResMut<BrainView>, snap: Res<LatestSnapshot>, cloud
 }
 
 #[allow(clippy::too_many_arguments)]
-fn control(keys: Res<ButtonInput<KeyCode>>, mouse: Res<ButtonInput<MouseButton>>, motion: Res<AccumulatedMouseMotion>, look: Res<MouseLook>, mut view: ResMut<BrainView>, time: Res<Time>) {
+fn control(
+    keys: Res<ButtonInput<KeyCode>>,
+    mouse: Res<ButtonInput<MouseButton>>,
+    motion: Res<AccumulatedMouseMotion>,
+    look: Res<MouseLook>,
+    mut view: ResMut<BrainView>,
+    time: Res<Time>,
+) {
     if keys.just_pressed(KeyCode::KeyB) {
         view.big = !view.big;
     }
@@ -246,7 +291,16 @@ fn layout(
     let (w, h) = if view.big { (lw, lh) } else { ((lw * 0.30).max(240.0).min(lw), (lh * 0.58).min(lh)) };
     node.0.width = px(w);
     node.0.height = px(h);
-    let alpha = if view.big { 1.0 } else { match view.mode { PanelMode::Solid => 1.0, PanelMode::SeeThrough => 0.6, PanelMode::Faint => 0.28, PanelMode::Hidden => 0.0 } };
+    let alpha = if view.big {
+        1.0
+    } else {
+        match view.mode {
+            PanelMode::Solid => 1.0,
+            PanelMode::SeeThrough => 0.6,
+            PanelMode::Faint => 0.28,
+            PanelMode::Hidden => 0.0,
+        }
+    };
     node.1.color = Color::srgba(1.0, 1.0, 1.0, alpha);
     let sf = window.scale_factor();
     let (pw, ph) = (((w * sf) as u32).clamp(64, 2400), ((h * sf) as u32).clamp(64, 2400));
@@ -262,6 +316,8 @@ pub struct BrainViewPlugin;
 
 impl Plugin for BrainViewPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<BrainView>().add_systems(Startup, setup).add_systems(Update, (control, build_cloud, update_activity, layout).chain());
+        app.init_resource::<BrainView>()
+            .add_systems(Startup, setup)
+            .add_systems(Update, (control, build_cloud, update_activity, layout).chain());
     }
 }

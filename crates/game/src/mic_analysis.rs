@@ -46,14 +46,30 @@ impl Biquad {
         let w0 = 2.0 * PI * fc / fs;
         let (c, alpha) = (w0.cos(), w0.sin() / (2.0 * q));
         let a0 = 1.0 + alpha;
-        Self { b0: (1.0 - c) / 2.0 / a0, b1: (1.0 - c) / a0, b2: (1.0 - c) / 2.0 / a0, a1: -2.0 * c / a0, a2: (1.0 - alpha) / a0, z1: 0.0, z2: 0.0 }
+        Self {
+            b0: (1.0 - c) / 2.0 / a0,
+            b1: (1.0 - c) / a0,
+            b2: (1.0 - c) / 2.0 / a0,
+            a1: -2.0 * c / a0,
+            a2: (1.0 - alpha) / a0,
+            z1: 0.0,
+            z2: 0.0,
+        }
     }
 
     fn highpass(fc: f32, fs: f32, q: f32) -> Self {
         let w0 = 2.0 * PI * fc / fs;
         let (c, alpha) = (w0.cos(), w0.sin() / (2.0 * q));
         let a0 = 1.0 + alpha;
-        Self { b0: (1.0 + c) / 2.0 / a0, b1: -(1.0 + c) / a0, b2: (1.0 + c) / 2.0 / a0, a1: -2.0 * c / a0, a2: (1.0 - alpha) / a0, z1: 0.0, z2: 0.0 }
+        Self {
+            b0: (1.0 + c) / 2.0 / a0,
+            b1: -(1.0 + c) / a0,
+            b2: (1.0 + c) / 2.0 / a0,
+            a1: -2.0 * c / a0,
+            a2: (1.0 - alpha) / a0,
+            z1: 0.0,
+            z2: 0.0,
+        }
     }
 
     /// Transposed direct form II.
@@ -159,7 +175,16 @@ pub struct Analyzer {
 impl Analyzer {
     pub fn new(rate: f32, sensitivity: f32) -> Self {
         let win = (0..WINDOW).map(|i| 0.5 - 0.5 * (2.0 * PI * i as f32 / WINDOW as f32).cos()).collect();
-        Self { rate, sensitivity: sensitivity.clamp(SENSITIVITY.0, SENSITIVITY.1), a: Band::new(BAND_A.0, BAND_A.1, rate), b: Band::new(BAND_B.0, BAND_B.1, rate), buf: vec![0.0; WINDOW], win, t: 0.0, reading: Reading::default() }
+        Self {
+            rate,
+            sensitivity: sensitivity.clamp(SENSITIVITY.0, SENSITIVITY.1),
+            a: Band::new(BAND_A.0, BAND_A.1, rate),
+            b: Band::new(BAND_B.0, BAND_B.1, rate),
+            buf: vec![0.0; WINDOW],
+            win,
+            t: 0.0,
+            reading: Reading::default(),
+        }
     }
 
     /// Analyse one chunk (samples in -1..1) and return the new reading.
@@ -201,7 +226,15 @@ impl Analyzer {
             }
         }
         self.t += n / self.rate;
-        self.reading = Reading { peak_hz: peak, rms, rms_a, rms_b, drive_a: band_drive(rms_a, self.sensitivity), drive_b: band_drive(rms_b, self.sensitivity), t: self.t };
+        self.reading = Reading {
+            peak_hz: peak,
+            rms,
+            rms_a,
+            rms_b,
+            drive_a: band_drive(rms_a, self.sensitivity),
+            drive_b: band_drive(rms_b, self.sensitivity),
+            t: self.t,
+        };
         self.reading
     }
 }

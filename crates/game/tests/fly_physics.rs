@@ -19,16 +19,24 @@ fn app() -> App {
     let mut config = SimConfig::new(Source::Synthetic { n: 2000 });
     config.warmup = 10;
     let mut app = App::new();
-    app.add_plugins((MinimalPlugins, TransformPlugin, AssetPlugin::default(), PhysicsPlugins::default(), SimPlugin { config }, FeedbackPlugin, FlyPlugin))
-        .init_asset::<Mesh>()
-        .init_asset::<StandardMaterial>()
-        .insert_resource(Gravity(Vec3::NEG_Y * 19.44))
-        .insert_resource(Time::<Fixed>::from_hz(60.0))
-        .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_micros(16_667)))
-        .insert_resource(Arena(0))
-        .insert_resource(WorldColliders::default())
-        .insert_resource(Settings::default())
-        .insert_resource(kick_the_fly::tools::ToolState::default());
+    app.add_plugins((
+        MinimalPlugins,
+        TransformPlugin,
+        AssetPlugin::default(),
+        PhysicsPlugins::default(),
+        SimPlugin { config },
+        FeedbackPlugin,
+        FlyPlugin,
+    ))
+    .init_asset::<Mesh>()
+    .init_asset::<StandardMaterial>()
+    .insert_resource(Gravity(Vec3::NEG_Y * 19.44))
+    .insert_resource(Time::<Fixed>::from_hz(60.0))
+    .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_micros(16_667)))
+    .insert_resource(Arena(0))
+    .insert_resource(WorldColliders::default())
+    .insert_resource(Settings::default())
+    .insert_resource(kick_the_fly::tools::ToolState::default());
     app.world_mut().spawn((RigidBody::Static, Collider::cuboid(40.0, 1.0, 40.0), Transform::from_xyz(0.0, -0.5, 0.0)));
     app.finish();
     app.cleanup();
@@ -36,7 +44,8 @@ fn app() -> App {
 }
 
 fn spawn(app: &mut App, pos: Vec3) -> Entity {
-    let mut commands_state = bevy::ecs::system::SystemState::<(Commands, ResMut<Assets<Mesh>>, ResMut<Assets<StandardMaterial>>)>::new(app.world_mut());
+    let mut commands_state =
+        bevy::ecs::system::SystemState::<(Commands, ResMut<Assets<Mesh>>, ResMut<Assets<StandardMaterial>>)>::new(app.world_mut());
     let (mut commands, mut meshes, mut mats) = commands_state.get_mut(app.world_mut()).expect("system state");
     let e = spawn_fly(&mut commands, &mut meshes, &mut mats, pos, std::f32::consts::FRAC_PI_2, 1);
     commands_state.apply(app.world_mut());

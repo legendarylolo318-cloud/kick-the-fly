@@ -55,9 +55,7 @@ pub struct Schema {
 
 pub fn schema() -> &'static Schema {
     static S: OnceLock<Schema> = OnceLock::new();
-    S.get_or_init(|| {
-        serde_json::from_str(SCHEMA_JSON).expect("data/schema.json is generated and valid")
-    })
+    S.get_or_init(|| serde_json::from_str(SCHEMA_JSON).expect("data/schema.json is generated and valid"))
 }
 
 pub fn setting(key: &str) -> Option<&'static Setting> {
@@ -65,21 +63,9 @@ pub fn setting(key: &str) -> Option<&'static Setting> {
 }
 
 /// The order Python writes the `[first_run]` flags in (its dict order).
-const FIRST_RUN_ORDER: [&str; 4] = [
-    "tutorial_done",
-    "loadout_notice",
-    "neuron_shapes_asked",
-    "whatsnew_3_0_seen",
-];
+const FIRST_RUN_ORDER: [&str; 4] = ["tutorial_done", "loadout_notice", "neuron_shapes_asked", "whatsnew_3_0_seen"];
 
-pub const TABS: [&str; 6] = [
-    "Graphics",
-    "Audio",
-    "Brain",
-    "Controls",
-    "Accessibility",
-    "Help",
-];
+pub const TABS: [&str; 6] = ["Graphics", "Audio", "Brain", "Controls", "Accessibility", "Help"];
 
 fn num(v: f64) -> Value {
     Value::Number(Number::from_f64(v).expect("finite"))
@@ -91,10 +77,7 @@ fn as_number(v: &Value) -> Option<f64> {
 /// A valid value for this setting, or the reason it isn't (Python: `_coerce`).
 pub fn coerce(s: &Setting, v: &Value) -> Result<Value, String> {
     match s.kind.as_str() {
-        "bool" => v
-            .as_bool()
-            .map(Value::Bool)
-            .ok_or_else(|| format!("{}: expected true/false", s.key)),
+        "bool" => v.as_bool().map(Value::Bool).ok_or_else(|| format!("{}: expected true/false", s.key)),
         "choice" => {
             for o in &s.options {
                 let same = match (o.as_f64(), v.as_f64()) {
@@ -105,34 +88,16 @@ pub fn coerce(s: &Setting, v: &Value) -> Result<Value, String> {
                     return Ok(o.clone());
                 }
             }
-            let opts: Vec<String> = s
-                .options
-                .iter()
-                .map(|o| {
-                    if let Some(t) = o.as_str() {
-                        format!("'{t}'")
-                    } else {
-                        o.to_string()
-                    }
-                })
-                .collect();
-            Err(format!(
-                "{}: {} is not one of ({})",
-                s.key,
-                py_repr(v),
-                opts.join(", ")
-            ))
+            let opts: Vec<String> =
+                s.options.iter().map(|o| if let Some(t) = o.as_str() { format!("'{t}'") } else { o.to_string() }).collect();
+            Err(format!("{}: {} is not one of ({})", s.key, py_repr(v), opts.join(", ")))
         }
         "float" | "int" => {
             let Some(x) = as_number(v) else {
                 return Err(format!("{}: expected a number", s.key));
             };
             let x = x.clamp(s.lo, s.hi);
-            Ok(if s.kind == "int" {
-                Value::Number(Number::from(x.round_ties_even() as i64))
-            } else {
-                num(x)
-            })
+            Ok(if s.kind == "int" { Value::Number(Number::from(x.round_ties_even() as i64)) } else { num(x) })
         }
         k => Err(k.to_string()),
     }
@@ -166,10 +131,7 @@ pub fn pad_binding(v: &Value) -> Option<String> {
 }
 
 fn allowed_overlap(actions: &[&str]) -> bool {
-    schema()
-        .overlap_ok
-        .iter()
-        .any(|pair| actions.iter().all(|a| pair.iter().any(|p| p == a)))
+    schema().overlap_ok.iter().any(|pair| actions.iter().all(|a| pair.iter().any(|p| p == a)))
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -206,21 +168,9 @@ impl Config {
         let sc = schema();
         Config {
             path,
-            values: sc
-                .settings
-                .iter()
-                .map(|s| (s.key.clone(), s.default.clone()))
-                .collect(),
-            keys: sc
-                .actions
-                .iter()
-                .map(|(a, _, k)| (a.clone(), k.clone()))
-                .collect(),
-            pad: sc
-                .pad_actions
-                .iter()
-                .map(|(a, _, b)| (a.clone(), b.clone()))
-                .collect(),
+            values: sc.settings.iter().map(|s| (s.key.clone(), s.default.clone())).collect(),
+            keys: sc.actions.iter().map(|(a, _, k)| (a.clone(), k.clone())).collect(),
+            pad: sc.pad_actions.iter().map(|(a, _, b)| (a.clone(), b.clone())).collect(),
             warnings: vec![],
             dirty: false,
             custom_loadout: vec![],
@@ -233,9 +183,7 @@ impl Config {
 
     // --- values -------------------------------------------------------------------------------------------------------------
     pub fn get(&self, key: &str) -> &Value {
-        self.values
-            .get(key)
-            .unwrap_or_else(|| panic!("no setting {key}"))
+        self.values.get(key).unwrap_or_else(|| panic!("no setting {key}"))
     }
     pub fn get_bool(&self, key: &str) -> bool {
         self.get(key).as_bool().unwrap_or(false)
@@ -244,9 +192,7 @@ impl Config {
         self.get(key).as_f64().unwrap_or(0.0) as f32
     }
     pub fn get_i64(&self, key: &str) -> i64 {
-        self.get(key)
-            .as_i64()
-            .unwrap_or_else(|| self.get(key).as_f64().unwrap_or(0.0) as i64)
+        self.get(key).as_i64().unwrap_or_else(|| self.get(key).as_f64().unwrap_or(0.0) as i64)
     }
     pub fn get_str(&self, key: &str) -> &str {
         self.get(key).as_str().unwrap_or("")
@@ -269,9 +215,7 @@ impl Config {
     pub fn set_for_session(&mut self, key: &str, value: &Value) -> Result<(), String> {
         let s = setting(key).ok_or_else(|| format!("no setting {key}"))?;
         let v = coerce(s, value)?;
-        self.session
-            .entry(key.into())
-            .or_insert_with(|| self.values.get(key).cloned().unwrap_or(Value::Null));
+        self.session.entry(key.into()).or_insert_with(|| self.values.get(key).cloned().unwrap_or(Value::Null));
         self.values.insert(key.into(), v);
         Ok(())
     }
@@ -285,20 +229,12 @@ impl Config {
             }
         }
         if tab == "Controls" {
-            let d: Vec<_> = schema()
-                .actions
-                .iter()
-                .map(|(a, _, k)| (a.clone(), k.clone()))
-                .collect();
+            let d: Vec<_> = schema().actions.iter().map(|(a, _, k)| (a.clone(), k.clone())).collect();
             if self.keys != d {
                 self.keys = d;
                 changed.push("keys".into());
             }
-            let d: Vec<_> = schema()
-                .pad_actions
-                .iter()
-                .map(|(a, _, b)| (a.clone(), b.clone()))
-                .collect();
+            let d: Vec<_> = schema().pad_actions.iter().map(|(a, _, b)| (a.clone(), b.clone())).collect();
             if self.pad != d {
                 self.pad = d;
                 changed.push("keys".into());
@@ -327,10 +263,7 @@ impl Config {
 
     // --- keys ---------------------------------------------------------------------------------------------------------------
     pub fn key_of(&self, action: &str) -> &str {
-        self.keys
-            .iter()
-            .find(|(a, _)| a == action)
-            .map_or("", |(_, k)| k.as_str())
+        self.keys.iter().find(|(a, _)| a == action).map_or("", |(_, k)| k.as_str())
     }
     fn set_key(&mut self, action: &str, key: &str) {
         if let Some(e) = self.keys.iter_mut().find(|(a, _)| a == action) {
@@ -341,28 +274,17 @@ impl Config {
         if key_name.is_empty() {
             return None;
         }
-        self.keys
-            .iter()
-            .find(|(_, k)| k == key_name)
-            .map(|(a, _)| a.as_str())
+        self.keys.iter().find(|(_, k)| k == key_name).map(|(a, _)| a.as_str())
     }
     /// Every action bound to a key (D is walk-right and the Neurodex key at once by design).
     pub fn actions_for(&self, key_name: &str) -> Vec<String> {
         if key_name.is_empty() {
             return vec![];
         }
-        self.keys
-            .iter()
-            .filter(|(_, k)| k == key_name)
-            .map(|(a, _)| a.clone())
-            .collect()
+        self.keys.iter().filter(|(_, k)| k == key_name).map(|(a, _)| a.clone()).collect()
     }
     pub fn action_label(action: &str) -> &'static str {
-        schema()
-            .actions
-            .iter()
-            .find(|(a, _, _)| a == action)
-            .map_or("", |(_, l, _)| l.as_str())
+        schema().actions.iter().find(|(a, _, _)| a == action).map_or("", |(_, l, _)| l.as_str())
     }
 
     /// key → the actions sharing it, for keys that clash (an allowed overlap and "unbound" don't count).
@@ -377,52 +299,30 @@ impl Config {
                 None => seen.push((k.clone(), vec![a.clone()])),
             }
         }
-        seen.into_iter()
-            .filter(|(_, v)| {
-                v.len() > 1 && !allowed_overlap(&v.iter().map(String::as_str).collect::<Vec<_>>())
-            })
-            .collect()
+        seen.into_iter().filter(|(_, v)| v.len() > 1 && !allowed_overlap(&v.iter().map(String::as_str).collect::<Vec<_>>())).collect()
     }
 
     /// Rebind an action. A key another action already uses swaps the two bindings. Returns (ok, message).
     pub fn bind(&mut self, action: &str, key_name: &str) -> (bool, String) {
         let key_name = key_name.to_lowercase();
         if schema().reserved_keys.contains(&key_name) {
-            return (
-                false,
-                format!("'{key_name}' is reserved (Esc opens the menu)"),
-            );
+            return (false, format!("'{key_name}' is reserved (Esc opens the menu)"));
         }
         let old = self.key_of(action).to_string();
-        let displaced: Vec<String> = self
-            .actions_for(&key_name)
-            .into_iter()
-            .filter(|a| a != action && !allowed_overlap(&[a, action]))
-            .collect();
+        let displaced: Vec<String> =
+            self.actions_for(&key_name).into_iter().filter(|a| a != action && !allowed_overlap(&[a, action])).collect();
         self.set_key(action, &key_name);
         self.dirty = true;
         let mut notes = vec![];
         for a in displaced {
-            let holders: Vec<String> = if old.is_empty() {
-                vec![]
-            } else {
-                self.actions_for(&old)
-                    .into_iter()
-                    .filter(|b| *b != a)
-                    .collect()
-            };
+            let holders: Vec<String> =
+                if old.is_empty() { vec![] } else { self.actions_for(&old).into_iter().filter(|b| *b != a).collect() };
             if !old.is_empty() && holders.iter().all(|b| allowed_overlap(&[&a, b])) {
                 self.set_key(&a, &old);
-                notes.push(format!(
-                    "'{key_name}' was used by {}; swapped, that is now '{old}'",
-                    Self::action_label(&a)
-                ));
+                notes.push(format!("'{key_name}' was used by {}; swapped, that is now '{old}'", Self::action_label(&a)));
             } else {
                 self.set_key(&a, "");
-                notes.push(format!(
-                    "'{key_name}' was used by {}; that is now unbound (Settings > Controls)",
-                    Self::action_label(&a)
-                ));
+                notes.push(format!("'{key_name}' was used by {}; that is now unbound (Settings > Controls)", Self::action_label(&a)));
             }
         }
         (true, notes.join("; "))
@@ -433,17 +333,8 @@ impl Config {
         let Some(b) = pad_binding(&Value::String(binding.into())) else {
             return (false, format!("'{binding}' isn't a gamepad button or axis"));
         };
-        let other = self
-            .pad
-            .iter()
-            .find(|(a, x)| *x == b && a != action && !b.is_empty())
-            .map(|(a, _)| a.clone());
-        let old = self
-            .pad
-            .iter()
-            .find(|(a, _)| a == action)
-            .map(|(_, x)| x.clone())
-            .unwrap_or_default();
+        let other = self.pad.iter().find(|(a, x)| *x == b && a != action && !b.is_empty()).map(|(a, _)| a.clone());
+        let old = self.pad.iter().find(|(a, _)| a == action).map(|(_, x)| x.clone()).unwrap_or_default();
         if let Some(e) = self.pad.iter_mut().find(|(a, _)| a == action) {
             e.1 = b.clone();
         }
@@ -452,15 +343,8 @@ impl Config {
             if let Some(e) = self.pad.iter_mut().find(|(a, _)| *a == o) {
                 e.1 = old.clone();
             }
-            let shown = if old.is_empty() {
-                "unbound"
-            } else {
-                old.as_str()
-            };
-            return (
-                true,
-                format!("{b} was used by {o}; swapped, that is now {shown}"),
-            );
+            let shown = if old.is_empty() { "unbound" } else { old.as_str() };
+            return (true, format!("{b} was used by {o}; swapped, that is now {shown}"));
         }
         (true, String::new())
     }
@@ -474,11 +358,7 @@ impl Config {
     /// Store a named loadout (replacing one of the same name). False if all slots are taken.
     pub fn save_loadout(&mut self, name: &str, tools: &[String]) -> bool {
         let name: String = name.trim().chars().take(24).collect();
-        let name = if name.is_empty() {
-            "Loadout".to_string()
-        } else {
-            name
-        };
+        let name = if name.is_empty() { "Loadout".to_string() } else { name };
         if let Some(i) = self.saved_loadouts.iter_mut().find(|i| i.name == name) {
             i.tools = tools.to_vec();
             self.dirty = true;
@@ -487,10 +367,7 @@ impl Config {
         if self.saved_loadouts.len() >= schema().max_saved_loadouts {
             return false;
         }
-        self.saved_loadouts.push(SavedLoadout {
-            name,
-            tools: tools.to_vec(),
-        });
+        self.saved_loadouts.push(SavedLoadout { name, tools: tools.to_vec() });
         self.dirty = true;
         true
     }
@@ -516,18 +393,10 @@ impl Config {
         match parsed {
             Ok(data) => cfg.apply(&data),
             Err(e) => {
-                cfg.warnings.push(format!(
-                    "config.toml could not be read ({e}); using default settings"
-                ));
-                let bad = path.with_file_name(format!(
-                    "{}.bad",
-                    path.file_name().unwrap_or_default().to_string_lossy()
-                ));
+                cfg.warnings.push(format!("config.toml could not be read ({e}); using default settings"));
+                let bad = path.with_file_name(format!("{}.bad", path.file_name().unwrap_or_default().to_string_lossy()));
                 if std::fs::rename(path, &bad).is_ok() {
-                    cfg.warnings.push(format!(
-                        "the unreadable file was kept as {}",
-                        bad.file_name().unwrap_or_default().to_string_lossy()
-                    ));
+                    cfg.warnings.push(format!("the unreadable file was kept as {}", bad.file_name().unwrap_or_default().to_string_lossy()));
                 }
             }
         }
@@ -545,11 +414,7 @@ impl Config {
     fn apply(&mut self, data: &Value) {
         for s in &schema().settings {
             let (section, name) = s.key.split_once('.').expect("section.name");
-            if let Some(v) = data
-                .get(section)
-                .and_then(|d| d.as_object())
-                .and_then(|d| d.get(name))
-            {
+            if let Some(v) = data.get(section).and_then(|d| d.as_object()).and_then(|d| d.get(name)) {
                 match coerce(s, v) {
                     Ok(v) => {
                         self.values.insert(s.key.clone(), v);
@@ -567,18 +432,11 @@ impl Config {
                 }
             }
             // an action newer than this file whose default is a button the player gave to another action: theirs wins
-            let mine: Vec<String> = self
-                .pad
-                .iter()
-                .filter(|(a, b)| pad.contains_key(a) && !b.is_empty())
-                .map(|(_, b)| b.clone())
-                .collect();
+            let mine: Vec<String> = self.pad.iter().filter(|(a, b)| pad.contains_key(a) && !b.is_empty()).map(|(_, b)| b.clone()).collect();
             for i in 0..self.pad.len() {
                 let (a, b) = self.pad[i].clone();
                 if !pad.contains_key(&a) && mine.contains(&b) {
-                    self.warnings.push(format!(
-                        "gamepad '{b}' is yours for another action; {a} is unbound"
-                    ));
+                    self.warnings.push(format!("gamepad '{b}' is yours for another action; {a} is unbound"));
                     self.pad[i].1.clear();
                 }
             }
@@ -597,11 +455,7 @@ impl Config {
                 if !saved.is_empty() && saved.len() < acts.len() {
                     // a default of an action newer than this file on a key the player chose for something else: unbound
                     let names: Vec<&str> = saved.iter().map(|s| s.as_str()).collect();
-                    let lost: Vec<String> = acts
-                        .iter()
-                        .filter(|a| !keys.contains_key(*a))
-                        .cloned()
-                        .collect();
+                    let lost: Vec<String> = acts.iter().filter(|a| !keys.contains_key(*a)).cloned().collect();
                     for a in lost {
                         self.set_key(&a, "");
                         self.warnings.push(format!(
@@ -615,44 +469,23 @@ impl Config {
             for (k, acts) in self.conflicts() {
                 // a hand-edited file bound one key twice: keep the first
                 for a in &acts[1..] {
-                    let default = schema()
-                        .actions
-                        .iter()
-                        .find(|(x, _, _)| x == a)
-                        .map(|(_, _, d)| d.clone())
-                        .unwrap_or_default();
-                    let taken = self
-                        .actions_for(&default)
-                        .into_iter()
-                        .any(|b| b != *a && !allowed_overlap(&[a, &b]));
-                    let new = if default == k || taken {
-                        String::new()
-                    } else {
-                        default
-                    };
+                    let default = schema().actions.iter().find(|(x, _, _)| x == a).map(|(_, _, d)| d.clone()).unwrap_or_default();
+                    let taken = self.actions_for(&default).into_iter().any(|b| b != *a && !allowed_overlap(&[a, &b]));
+                    let new = if default == k || taken { String::new() } else { default };
                     self.set_key(a, &new);
                     self.warnings.push(format!(
                         "key '{k}' was bound twice; {a} {}",
-                        if new.is_empty() {
-                            "is unbound (Settings > Controls)"
-                        } else {
-                            "reset to its default"
-                        }
+                        if new.is_empty() { "is unbound (Settings > Controls)" } else { "reset to its default" }
                     ));
                 }
             }
         }
-        let schema_v = data
-            .get("schema_version")
-            .and_then(|v| v.as_i64())
-            .unwrap_or(1);
+        let schema_v = data.get("schema_version").and_then(|v| v.as_i64()).unwrap_or(1);
         self.load_loadout(data, schema_v);
         if schema_v < 2 && self.values.get("brain.science_popups") == Some(&Value::Bool(true)) {
-            self.values
-                .insert("brain.science_popups".into(), Value::Bool(false));
+            self.values.insert("brain.science_popups".into(), Value::Bool(false));
             self.dirty = true;
-            self.warnings
-                .push("migrated brain.science_popups to off for schema 2".into());
+            self.warnings.push("migrated brain.science_popups to off for schema 2".into());
         }
     }
 
@@ -669,23 +502,11 @@ impl Config {
         };
         if let Some(sec) = data.get("loadout").and_then(|s| s.as_object()) {
             self.custom_loadout = names(sec.get("custom"));
-            for item in sec
-                .get("saved")
-                .and_then(|s| s.as_array())
-                .into_iter()
-                .flatten()
-                .take(schema().max_saved_loadouts)
-            {
-                let name = item
-                    .get("name")
-                    .and_then(|n| n.as_str())
-                    .map(|n| crate::sharecode::clean_name(n, usize::MAX))
-                    .unwrap_or_default();
+            for item in sec.get("saved").and_then(|s| s.as_array()).into_iter().flatten().take(schema().max_saved_loadouts) {
+                let name =
+                    item.get("name").and_then(|n| n.as_str()).map(|n| crate::sharecode::clean_name(n, usize::MAX)).unwrap_or_default();
                 if !name.is_empty() {
-                    self.saved_loadouts.push(SavedLoadout {
-                        name: name.chars().take(24).collect(),
-                        tools: names(item.get("tools")),
-                    });
+                    self.saved_loadouts.push(SavedLoadout { name: name.chars().take(24).collect(), tools: names(item.get("tools")) });
                 }
             }
         }
@@ -698,15 +519,9 @@ impl Config {
         }
         if schema_v < 3 {
             self.migrated_from = Some(schema_v);
-            let has_preset = data
-                .get("controls")
-                .and_then(|c| c.get("loadout_preset"))
-                .is_some();
+            let has_preset = data.get("controls").and_then(|c| c.get("loadout_preset")).is_some();
             if self.get_str("controls.loadout_preset") == "auto" && !has_preset {
-                self.values.insert(
-                    "controls.loadout_preset".into(),
-                    Value::String("all".into()),
-                );
+                self.values.insert("controls.loadout_preset".into(), Value::String("all".into()));
             }
             self.first_run.insert("loadout_notice".into(), true);
             self.first_run.insert("tutorial_done".into(), true);
@@ -721,9 +536,7 @@ impl Config {
     /// The file's text, in the same layout Python writes. `version` goes in the first comment line.
     pub fn to_toml(&self, version: &str) -> String {
         let mut out = vec![
-            format!(
-                "# Kick the Fly {version} settings. Edit in the game (Esc > Settings) or by hand."
-            ),
+            format!("# Kick the Fly {version} settings. Edit in the game (Esc > Settings) or by hand."),
             format!("schema_version = {SCHEMA_VERSION}"),
             String::new(),
         ];
@@ -743,23 +556,11 @@ impl Config {
             out.push(String::new());
         }
         out.push("[keys]".into());
-        out.extend(
-            self.keys
-                .iter()
-                .map(|(a, k)| format!("{a} = {}", toml_str(k))),
-        );
+        out.extend(self.keys.iter().map(|(a, k)| format!("{a} = {}", toml_str(k))));
         out.push(String::new());
         out.push("[gamepad]".into());
-        out.extend(
-            self.pad
-                .iter()
-                .map(|(a, b)| format!("{a} = {}", toml_str(b))),
-        );
-        out.extend([
-            "".into(),
-            "[loadout]".into(),
-            format!("custom = {}", toml_list(&self.custom_loadout)),
-        ]);
+        out.extend(self.pad.iter().map(|(a, b)| format!("{a} = {}", toml_str(b))));
+        out.extend(["".into(), "[loadout]".into(), format!("custom = {}", toml_list(&self.custom_loadout))]);
         for item in &self.saved_loadouts {
             out.extend([
                 "".into(),
@@ -769,11 +570,7 @@ impl Config {
             ]);
         }
         out.extend(["".into(), "[first_run]".into()]);
-        out.extend(
-            FIRST_RUN_ORDER
-                .iter()
-                .map(|k| format!("{k} = {}", self.first_run[*k])),
-        );
+        out.extend(FIRST_RUN_ORDER.iter().map(|k| format!("{k} = {}", self.first_run[*k])));
         out.join("\n") + "\n"
     }
 
@@ -786,10 +583,7 @@ impl Config {
             if let Some(d) = path.parent() {
                 std::fs::create_dir_all(d)?;
             }
-            let tmp = path.with_file_name(format!(
-                "{}.tmp",
-                path.file_name().unwrap_or_default().to_string_lossy()
-            ));
+            let tmp = path.with_file_name(format!("{}.tmp", path.file_name().unwrap_or_default().to_string_lossy()));
             std::fs::write(&tmp, self.to_toml(version))?;
             std::fs::rename(&tmp, &path)
         })();
@@ -831,12 +625,5 @@ fn toml_str(s: &str) -> String {
 }
 
 fn toml_list(items: &[String]) -> String {
-    format!(
-        "[{}]",
-        items
-            .iter()
-            .map(|s| toml_str(s))
-            .collect::<Vec<_>>()
-            .join(", ")
-    )
+    format!("[{}]", items.iter().map(|s| toml_str(s)).collect::<Vec<_>>().join(", "))
 }

@@ -62,6 +62,8 @@ macro_rules! accessor {
 
 impl Array {
     accessor!(into_i16, I16, i16);
+    accessor!(into_bool, Bool, bool);
+    accessor!(into_f64, F64, f64);
     accessor!(into_i32, I32, i32);
     accessor!(into_i64, I64, i64);
     accessor!(into_f32, F32, f32);
@@ -87,6 +89,15 @@ impl Npz {
         Ok(Self { arrays })
     }
 
+    /// Names of all arrays (unordered).
+    pub fn names(&self) -> impl Iterator<Item = &String> {
+        self.arrays.keys()
+    }
+
+    pub fn get(&self, name: &str) -> Option<&Array> {
+        self.arrays.get(name)
+    }
+
     pub fn contains(&self, name: &str) -> bool {
         self.arrays.contains_key(name)
     }
@@ -110,8 +121,8 @@ fn parse_npy(bytes: &[u8]) -> Result<Array, Error> {
         2 | 3 => (u32::from_le_bytes([bytes[8], bytes[9], bytes[10], bytes[11]]) as usize, 12),
         v => return Err(Error::Format(format!("unsupported .npy version {v}"))),
     };
-    let header = std::str::from_utf8(&bytes[header_start..header_start + header_len])
-        .map_err(|_| Error::Format("non-UTF-8 .npy header".into()))?;
+    let header =
+        std::str::from_utf8(&bytes[header_start..header_start + header_len]).map_err(|_| Error::Format("non-UTF-8 .npy header".into()))?;
     let descr = dict_value(header, "descr").ok_or_else(|| Error::Format("no descr in .npy header".into()))?;
     let descr = descr.trim_matches(|c| c == '\'' || c == '"').to_string();
     if dict_value(header, "fortran_order").is_some_and(|v| v.starts_with("True")) {

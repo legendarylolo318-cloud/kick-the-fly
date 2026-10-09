@@ -30,7 +30,9 @@ pub fn quad_mesh(n: usize) -> Mesh {
         let b = (i * 4) as u32;
         indices.extend_from_slice(&[b, b + 1, b + 2, b, b + 2, b + 3]);
     }
-    Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::RENDER_WORLD).with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions).with_inserted_indices(Indices::U32(indices))
+    Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::RENDER_WORLD)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+        .with_inserted_indices(Indices::U32(indices))
 }
 
 // --- generic points -------------------------------------------------------------------------------------------------------------
@@ -94,16 +96,35 @@ impl ParticleCloud {
 }
 
 /// Spawn a particle cloud entity. Returns it so the caller can find it again.
-pub fn spawn_particle_cloud(commands: &mut Commands, meshes: &mut Assets<Mesh>, materials: &mut Assets<PointsMaterial>, buffers: &mut Assets<ShaderBuffer>, capacity: usize, softness: f32) -> Entity {
+pub fn spawn_particle_cloud(
+    commands: &mut Commands,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<PointsMaterial>,
+    buffers: &mut Assets<ShaderBuffer>,
+    capacity: usize,
+    softness: f32,
+) -> Entity {
     let buffer = buffers.add(ShaderBuffer::with_size(capacity * std::mem::size_of::<GpuPoint>(), RenderAssetUsages::default()));
-    let material = materials.add(PointsMaterial { params: PointsParams { count: 0, size_scale: 1.0, time: 0.0, softness }, points: buffer.clone() });
+    let material =
+        materials.add(PointsMaterial { params: PointsParams { count: 0, size_scale: 1.0, time: 0.0, softness }, points: buffer.clone() });
     commands
-        .spawn((Mesh3d(meshes.add(quad_mesh(capacity))), MeshMaterial3d(material.clone()), Transform::default(), bevy::camera::visibility::NoFrustumCulling, ParticleCloud { capacity, points: Vec::new(), buffer, material }))
+        .spawn((
+            Mesh3d(meshes.add(quad_mesh(capacity))),
+            MeshMaterial3d(material.clone()),
+            Transform::default(),
+            bevy::camera::visibility::NoFrustumCulling,
+            ParticleCloud { capacity, points: Vec::new(), buffer, material },
+        ))
         .id()
 }
 
 /// Upload every cloud's points for this frame (a plain buffer write; the draw itself does not change).
-pub fn flush_particles(mut clouds: Query<&mut ParticleCloud>, mut buffers: ResMut<Assets<ShaderBuffer>>, mut materials: ResMut<Assets<PointsMaterial>>, time: Res<Time>) {
+pub fn flush_particles(
+    mut clouds: Query<&mut ParticleCloud>,
+    mut buffers: ResMut<Assets<ShaderBuffer>>,
+    mut materials: ResMut<Assets<PointsMaterial>>,
+    time: Res<Time>,
+) {
     for mut c in &mut clouds {
         let n = c.points.len();
         if let Some(mut b) = buffers.get_mut(&c.buffer) {
@@ -203,8 +224,12 @@ impl Plugin for GpuPlugin {
         embedded_asset!(app, "shaders/points.wgsl");
         embedded_asset!(app, "shaders/brain.wgsl");
         embedded_asset!(app, "shaders/rain.wgsl");
-        app.add_plugins((MaterialPlugin::<PointsMaterial>::default(), MaterialPlugin::<BrainMaterial>::default(), MaterialPlugin::<RainMaterial>::default()))
-            .add_systems(PostUpdate, flush_particles);
+        app.add_plugins((
+            MaterialPlugin::<PointsMaterial>::default(),
+            MaterialPlugin::<BrainMaterial>::default(),
+            MaterialPlugin::<RainMaterial>::default(),
+        ))
+        .add_systems(PostUpdate, flush_particles);
     }
 }
 

@@ -48,7 +48,13 @@ pub struct Script {
     pub hold_s: f32,
 }
 
-fn run_script(script: Res<Script>, time: Res<Time<Real>>, mut mouse: ResMut<ButtonInput<MouseButton>>, mut tools: ResMut<crate::tools::ToolState>, mut look: ResMut<crate::player::MouseLook>) {
+fn run_script(
+    script: Res<Script>,
+    time: Res<Time<Real>>,
+    mut mouse: ResMut<ButtonInput<MouseButton>>,
+    mut tools: ResMut<crate::tools::ToolState>,
+    mut look: ResMut<crate::player::MouseLook>,
+) {
     tools.selected = script.tool;
     look.captured = true;
     let t = time.elapsed_secs();
@@ -71,7 +77,13 @@ impl Plugin for ScriptPlugin {
 #[derive(Resource, Clone, Copy)]
 pub struct KillAt(pub f32);
 
-fn kill_at(at: Res<KillAt>, time: Res<Time<Real>>, flies: Query<Entity, With<crate::fly::Fly>>, mut dmg: MessageWriter<crate::fly::FlyDamage>, mut done: Local<bool>) {
+fn kill_at(
+    at: Res<KillAt>,
+    time: Res<Time<Real>>,
+    flies: Query<Entity, With<crate::fly::Fly>>,
+    mut dmg: MessageWriter<crate::fly::FlyDamage>,
+    mut done: Local<bool>,
+) {
     if !*done && time.elapsed_secs() >= at.0 {
         *done = true;
         for e in &flies {

@@ -15,7 +15,8 @@ pub const SILENCE: i8 = -1;
 pub const STIMULATE: i8 = 1;
 pub const TAG_TEXT: &str = "CONNECTOME for what the surgery does to the neurons, GAME RULE for the budget, the size cap and the arena, MODEL PREDICTION for who wins";
 /// The types the duel itself reads: a hint for the picker, never an answer.
-pub const SUGGESTED: [&str; 15] = ["DNp35", "DNpe052", "DNa01", "DNa02", "DNp01", "DNp09", "LC10a", "LC10b", "LC11", "LPLC2", "LC4", "MDN", "DNg02_a", "PPL1", "PAM"];
+pub const SUGGESTED: [&str; 15] =
+    ["DNp35", "DNpe052", "DNa01", "DNa02", "DNp01", "DNp09", "LC10a", "LC10b", "LC11", "LPLC2", "LC4", "MDN", "DNg02_a", "PPL1", "PAM"];
 
 pub fn mode_word(m: i8) -> &'static str {
     if m < 0 { "silenced" } else { "stimulated" }
@@ -99,7 +100,14 @@ mod tests {
     use super::*;
 
     fn sizes() -> HashMap<String, usize> {
-        type_sizes(&["DNp09", "DNp09", "KCg", "KCg"].map(String::from).iter().cloned().chain((0..600).map(|_| "huge".to_string())).collect::<Vec<_>>())
+        type_sizes(
+            &["DNp09", "DNp09", "KCg", "KCg"]
+                .map(String::from)
+                .iter()
+                .cloned()
+                .chain((0..600).map(|_| "huge".to_string()))
+                .collect::<Vec<_>>(),
+        )
     }
 
     #[test]

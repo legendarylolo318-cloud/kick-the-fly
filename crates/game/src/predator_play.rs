@@ -17,6 +17,7 @@ use std::f32::consts::FRAC_PI_2;
 use bevy::prelude::*;
 
 use crate::anim::{LegRig, SpiderCycle, SpiderEvent, spider_rig};
+use crate::app::SimLink;
 use crate::arena::WorldColliders;
 use crate::config::{Arena, Settings};
 use crate::feedback::{Notes, Popup, Sfx, Tag};
@@ -26,7 +27,6 @@ use crate::rng::Rng;
 use crate::senses::Threats;
 use crate::sim_thread::Command;
 use crate::tools::SpawnPredator;
-use crate::app::SimLink;
 use crate::world;
 
 pub const CAPTURE_DAMAGE: f32 = 55.0;
@@ -101,7 +101,8 @@ pub fn layout_frog(p: &Predator) -> Vec<Prim> {
     let mouth = p.p + Vec3::Y * p.spec.body_r * 0.7 + face * p.spec.body_r * 0.8;
     let head = mouth - face * 0.072 * sc + Vec3::Y * (0.012 - 0.02 * sq) * sc;
     let body = head - tilt * (0.125 - 0.012 * sq) * sc - Vec3::Y * (0.012 + 0.012 * sq) * sc;
-    let bsize = Vec3::new(0.15 * (1.0 - 0.10 * sq + 0.35 * st), 0.075 * (1.0 - 0.35 * sq - 0.25 * st), 0.12 * (1.0 + 0.18 * sq - 0.15 * st));
+    let bsize =
+        Vec3::new(0.15 * (1.0 - 0.10 * sq + 0.35 * st), 0.075 * (1.0 - 0.35 * sq - 0.25 * st), 0.12 * (1.0 + 0.18 * sq - 0.15 * st));
     let mut out = Vec::new();
     let e = |c: Vec3, f: Vec3, size: Vec3, col: [f32; 3]| Prim::Ell { c, fwd: f, size: size * sc, col };
     out.push(e(body, tilt, bsize, g1));
@@ -111,7 +112,12 @@ pub fn layout_frog(p: &Predator) -> Vec<Prim> {
     out.push(e(mouth - face * 0.012 * sc, face, Vec3::new(0.012, 0.004, 0.07), [0.25, 0.12, 0.12]));
     for k in -1..=1 {
         let kf = k as f32;
-        out.push(e(body + Vec3::Y * 0.07 * bsize.y / 0.075 * sc + fr.side * 0.05 * kf * sc - tilt * 0.03 * kf.abs() * sc, tilt, Vec3::new(0.025, 0.012, 0.022), dark));
+        out.push(e(
+            body + Vec3::Y * 0.07 * bsize.y / 0.075 * sc + fr.side * 0.05 * kf * sc - tilt * 0.03 * kf.abs() * sc,
+            tilt,
+            Vec3::new(0.025, 0.012, 0.022),
+            dark,
+        ));
     }
     let gy = p.p.y + 0.012 * sc;
     for sg in [-1.0f32, 1.0] {
@@ -223,7 +229,12 @@ pub fn layout_dragonfly(p: &Predator, now: f32) -> Vec<Prim> {
     let ab0 = body - dirn * 0.03 * sc;
     for i in 0..6 {
         let a0 = ab0 - dirn * 0.03 * i as f32 * sc;
-        out.push(Prim::Limb { a: a0, b: a0 - dirn * 0.03 * sc, r: 0.007 * (1.0 - 0.06 * i as f32) * sc, col: if i % 2 == 0 { [0.12, 0.40, 0.72] } else { [0.08, 0.22, 0.40] } });
+        out.push(Prim::Limb {
+            a: a0,
+            b: a0 - dirn * 0.03 * sc,
+            r: 0.007 * (1.0 - 0.06 * i as f32) * sc,
+            col: if i % 2 == 0 { [0.12, 0.40, 0.72] } else { [0.08, 0.22, 0.40] },
+        });
     }
     let flap = 0.18 * (now * 55.0).sin();
     for sg in [-1.0f32, 1.0] {
@@ -231,12 +242,22 @@ pub fn layout_dragonfly(p: &Predator, now: f32) -> Vec<Prim> {
             let span = unit(sd_b * sg + Vec3::Y * if off > 0.0 { flap } else { -flap * 0.6 });
             let c = body + dirn * off * sc + span * ln * sc;
             out.push(Prim::Wing { c, fwd: span, size: Vec3::new(ln * sc, 0.0015 * sc, wd * sc) });
-            out.push(Prim::Limb { a: body + dirn * off * sc, b: body + dirn * off * sc + span * 2.0 * ln * sc, r: 0.0012 * sc, col: [0.25, 0.30, 0.35] });
+            out.push(Prim::Limb {
+                a: body + dirn * off * sc,
+                b: body + dirn * off * sc + span * 2.0 * ln * sc,
+                r: 0.0012 * sc,
+                col: [0.25, 0.30, 0.35],
+            });
         }
         for k in 0..3 {
             let hip = body - Vec3::Y * 0.012 * sc + dirn * (0.01 - 0.01 * k as f32) * sc;
             let o = ps.reach;
-            out.push(Prim::Limb { a: hip, b: hip + (dirn * (0.02 + 0.05 * o) - Vec3::Y * (0.02 + 0.01 * o) + sd * (0.01 + 0.012 * o) * sg) * sc, r: 0.0025 * sc, col: [0.1, 0.1, 0.1] });
+            out.push(Prim::Limb {
+                a: hip,
+                b: hip + (dirn * (0.02 + 0.05 * o) - Vec3::Y * (0.02 + 0.01 * o) + sd * (0.01 + 0.012 * o) * sg) * sc,
+                r: 0.0025 * sc,
+                col: [0.1, 0.1, 0.1],
+            });
         }
     }
     out
@@ -336,18 +357,53 @@ impl PaintBox {
     fn material(&mut self, materials: &mut Assets<StandardMaterial>, col: [f32; 3], unlit: bool) -> Handle<StandardMaterial> {
         let key = [(col[0] * 63.0) as u8, (col[1] * 63.0) as u8, (col[2] * 63.0) as u8];
         let map = if unlit { &mut self.unlit } else { &mut self.mats };
-        map.entry(key).or_insert_with(|| materials.add(StandardMaterial { base_color: Color::srgb(col[0], col[1], col[2]), perceptual_roughness: 0.55, unlit, ..default() })).clone()
+        map.entry(key)
+            .or_insert_with(|| {
+                materials.add(StandardMaterial {
+                    base_color: Color::srgb(col[0], col[1], col[2]),
+                    perceptual_roughness: 0.55,
+                    unlit,
+                    ..default()
+                })
+            })
+            .clone()
     }
 }
 
 /// Spawn the entities a body needs and place them (one entity per primitive, pooled and reused; unused ones are hidden).
 #[allow(clippy::too_many_arguments)]
-pub fn draw_prims(commands: &mut Commands, pool: &mut PrimPool, prims: &[Prim], paint: &mut PaintBox, meshes: &mut Assets<Mesh>, materials: &mut Assets<StandardMaterial>, tfs: &mut Query<(&mut Transform, &mut Visibility, &mut MeshMaterial3d<StandardMaterial>), With<PrimTag>>) {
+pub fn draw_prims(
+    commands: &mut Commands,
+    pool: &mut PrimPool,
+    prims: &[Prim],
+    paint: &mut PaintBox,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+    tfs: &mut Query<(&mut Transform, &mut Visibility, &mut MeshMaterial3d<StandardMaterial>), With<PrimTag>>,
+) {
     let sphere = paint.sphere.get_or_insert_with(|| meshes.add(Sphere::new(1.0).mesh().uv(14, 9))).clone();
     let cyl = paint.cyl.get_or_insert_with(|| meshes.add(Cylinder::new(1.0, 1.0))).clone();
-    let wing_mat = paint.wing.get_or_insert_with(|| materials.add(StandardMaterial { base_color: Color::srgba(0.85, 0.92, 0.98, 0.45), alpha_mode: AlphaMode::Blend, double_sided: true, cull_mode: None, perceptual_roughness: 0.2, ..default() })).clone();
+    let wing_mat = paint
+        .wing
+        .get_or_insert_with(|| {
+            materials.add(StandardMaterial {
+                base_color: Color::srgba(0.85, 0.92, 0.98, 0.45),
+                alpha_mode: AlphaMode::Blend,
+                double_sided: true,
+                cull_mode: None,
+                perceptual_roughness: 0.2,
+                ..default()
+            })
+        })
+        .clone();
     let (mut ne, mut nc, mut nb, mut nw, mut nj) = (0, 0, 0, 0, 0);
-    let place = |commands: &mut Commands, list: &mut Vec<Entity>, idx: &mut usize, mesh: &Handle<Mesh>, mat: Handle<StandardMaterial>, t: Transform, tfs: &mut Query<(&mut Transform, &mut Visibility, &mut MeshMaterial3d<StandardMaterial>), With<PrimTag>>| {
+    let place = |commands: &mut Commands,
+                 list: &mut Vec<Entity>,
+                 idx: &mut usize,
+                 mesh: &Handle<Mesh>,
+                 mat: Handle<StandardMaterial>,
+                 t: Transform,
+                 tfs: &mut Query<(&mut Transform, &mut Visibility, &mut MeshMaterial3d<StandardMaterial>), With<PrimTag>>| {
         if *idx >= list.len() {
             let e = commands.spawn((PrimTag, Mesh3d(mesh.clone()), MeshMaterial3d(mat.clone()), t, Visibility::Inherited)).id();
             list.push(e);
@@ -364,19 +420,63 @@ pub fn draw_prims(commands: &mut Commands, pool: &mut PrimPool, prims: &[Prim], 
         match *pr {
             Prim::Ell { c, fwd, size, col } => {
                 let m = paint.material(materials, col, false);
-                place(commands, &mut pool.ells, &mut ne, &sphere, m, Transform { translation: c, rotation: basis(fwd, Vec3::Y), scale: size.max(Vec3::splat(1e-4)) }, tfs);
+                place(
+                    commands,
+                    &mut pool.ells,
+                    &mut ne,
+                    &sphere,
+                    m,
+                    Transform { translation: c, rotation: basis(fwd, Vec3::Y), scale: size.max(Vec3::splat(1e-4)) },
+                    tfs,
+                );
             }
             Prim::Limb { a, b, r, col } => {
                 let d = b - a;
                 let len = d.length().max(1e-4);
                 let m = paint.material(materials, col, false);
-                place(commands, &mut pool.cyls, &mut nc, &cyl, m.clone(), Transform { translation: (a + b) / 2.0, rotation: Quat::from_rotation_arc(Vec3::Y, d / len), scale: Vec3::new(r, len, r) }, tfs);
-                place(commands, &mut pool.joints, &mut nj, &sphere, m, Transform { translation: b, rotation: Quat::IDENTITY, scale: Vec3::splat(r) }, tfs);
+                place(
+                    commands,
+                    &mut pool.cyls,
+                    &mut nc,
+                    &cyl,
+                    m.clone(),
+                    Transform {
+                        translation: (a + b) / 2.0,
+                        rotation: Quat::from_rotation_arc(Vec3::Y, d / len),
+                        scale: Vec3::new(r, len, r),
+                    },
+                    tfs,
+                );
+                place(
+                    commands,
+                    &mut pool.joints,
+                    &mut nj,
+                    &sphere,
+                    m,
+                    Transform { translation: b, rotation: Quat::IDENTITY, scale: Vec3::splat(r) },
+                    tfs,
+                );
             }
-            Prim::Wing { c, fwd, size } => place(commands, &mut pool.wings, &mut nw, &sphere, wing_mat.clone(), Transform { translation: c, rotation: basis(fwd, Vec3::Y), scale: size.max(Vec3::splat(1e-4)) }, tfs),
+            Prim::Wing { c, fwd, size } => place(
+                commands,
+                &mut pool.wings,
+                &mut nw,
+                &sphere,
+                wing_mat.clone(),
+                Transform { translation: c, rotation: basis(fwd, Vec3::Y), scale: size.max(Vec3::splat(1e-4)) },
+                tfs,
+            ),
             Prim::Bead { c, r, col } => {
                 let m = paint.material(materials, col, true);
-                place(commands, &mut pool.beads, &mut nb, &sphere, m, Transform { translation: c, rotation: Quat::IDENTITY, scale: Vec3::splat(r) }, tfs);
+                place(
+                    commands,
+                    &mut pool.beads,
+                    &mut nb,
+                    &sphere,
+                    m,
+                    Transform { translation: c, rotation: Quat::IDENTITY, scale: Vec3::splat(r) },
+                    tfs,
+                );
             }
         }
     }
@@ -400,7 +500,13 @@ fn bounds_for(arena: &str) -> Bounds {
 
 /// New predators and spiders asked for by the tools.
 #[allow(clippy::too_many_arguments)]
-fn spawn(mut reqs: MessageReader<SpawnPredator>, mut preds: ResMut<Predators>, arena: Res<Arena>, flies: Query<&Fly>, mut popups: MessageWriter<Popup>) {
+fn spawn(
+    mut reqs: MessageReader<SpawnPredator>,
+    mut preds: ResMut<Predators>,
+    arena: Res<Arena>,
+    flies: Query<&Fly>,
+    mut popups: MessageWriter<Popup>,
+) {
     for r in reqs.read() {
         if !flies.iter().any(|f| !f.dead() && !f.gone()) {
             continue;
@@ -411,7 +517,19 @@ fn spawn(mut reqs: MessageReader<SpawnPredator>, mut preds: ResMut<Predators>, a
             }
             let top = SPIDER_TOP.min(world::spec(arena.name()).ry);
             let at = Vec3::new(r.at.x, top - 0.05, r.at.z);
-            preds.spider = Some((Spider { p: at, mode: SpiderMode::Drop, cycle: SpiderCycle::default(), rig: spider_rig(1.0), face: Vec3::Z, bites: 0, target: None, anchor: r.at }, PrimPool::default()));
+            preds.spider = Some((
+                Spider {
+                    p: at,
+                    mode: SpiderMode::Drop,
+                    cycle: SpiderCycle::default(),
+                    rig: spider_rig(1.0),
+                    face: Vec3::Z,
+                    bites: 0,
+                    target: None,
+                    anchor: r.at,
+                },
+                PrimPool::default(),
+            ));
             popups.write(Popup::new(at, "A SPIDER!", (200, 220, 160)));
             continue;
         }
@@ -434,7 +552,8 @@ fn spawn(mut reqs: MessageReader<SpawnPredator>, mut preds: ResMut<Predators>, a
 
 fn mantis_rig(p: &Predator) -> LegRig {
     let sc = p.spec.body_r / ART_MANTIS;
-    let hips: Vec<Vec3> = [-1.0f32, 1.0].iter().flat_map(|sg| [0.0f32, -0.035].map(|f| Vec3::new(f * sc, 0.075 * sc, 0.018 * sg * sc))).collect();
+    let hips: Vec<Vec3> =
+        [-1.0f32, 1.0].iter().flat_map(|sg| [0.0f32, -0.035].map(|f| Vec3::new(f * sc, 0.075 * sc, 0.018 * sg * sc))).collect();
     let rests: Vec<Vec3> = [-1.0f32, 1.0].iter().flat_map(|sg| [0.03f32, -0.06].map(|f| Vec3::new(f * sc, 0.0, 0.09 * sg * sc))).collect();
     LegRig::new(hips, rests, 0.07 * sc, 0.08 * sc, vec![0, 1, 1, 0], 0.035 * sc, 0.30, 0.02 * sc)
 }
@@ -463,7 +582,15 @@ fn step(
         .iter()
         .map(|(e, f)| {
             let p = parts.get(f.parts[Part::Thorax.index()]).map(|t| t.translation).unwrap_or(Vec3::ZERO);
-            (e, Target { id: (e.to_bits() & 0xFFFF_FFFF) as u32, p, flying: f.flying_now, alive: !f.dead() && !f.gone() && !held_ids.contains(&e) })
+            (
+                e,
+                Target {
+                    id: (e.to_bits() & 0xFFFF_FFFF) as u32,
+                    p,
+                    flying: f.flying_now,
+                    alive: !f.dead() && !f.gone() && !held_ids.contains(&e),
+                },
+            )
         })
         .collect();
     let eng_targets: Vec<Target> = targets.iter().map(|t| t.1).collect();
@@ -503,7 +630,15 @@ fn step(
             let kind = preds.list.iter().find(|l| l.id == id).map_or("predator", |l| l.engine.kind);
             if settings.immortal {
                 release(preds, e, &mut flies);
-                popups.write(Popup::new(parts.get(flies.get(e).map(|(_, f)| f.parts[1]).unwrap_or(Entity::PLACEHOLDER)).map(|t| t.translation).unwrap_or(Vec3::ZERO) + Vec3::Y * 0.4, "BROKE FREE!", (255, 225, 120)));
+                popups.write(Popup::new(
+                    parts
+                        .get(flies.get(e).map(|(_, f)| f.parts[1]).unwrap_or(Entity::PLACEHOLDER))
+                        .map(|t| t.translation)
+                        .unwrap_or(Vec3::ZERO)
+                        + Vec3::Y * 0.4,
+                    "BROKE FREE!",
+                    (255, 225, 120),
+                ));
             } else {
                 dmg.write(FlyDamage { fly: e, amount: 1000.0, source: kind_static(kind) });
                 release(preds, e, &mut flies);
@@ -532,7 +667,14 @@ fn kind_static(kind: &str) -> &'static str {
     predators::spec(kind).map_or("a predator", |s| s.label)
 }
 
-fn handle(ev: &Event, live: &Live, targets: &[(Entity, Target)], captured: &mut Vec<(u32, Entity, Vec3, &'static str)>, finished: &mut Vec<u32>, sfx: &mut MessageWriter<Sfx>) {
+fn handle(
+    ev: &Event,
+    live: &Live,
+    targets: &[(Entity, Target)],
+    captured: &mut Vec<(u32, Entity, Vec3, &'static str)>,
+    finished: &mut Vec<u32>,
+    sfx: &mut MessageWriter<Sfx>,
+) {
     match ev.kind {
         EventKind::Capture => {
             if let Some(id) = ev.target
@@ -594,7 +736,11 @@ fn spider_step(
             }
         }
         SpiderMode::Hunt => {
-            let cands: Vec<(Entity, Vec3)> = flies.iter().filter(|(_, f)| !f.dead() && !f.gone()).filter_map(|(e, f)| parts.get(f.parts[Part::Thorax.index()]).ok().map(|t| (e, t.translation))).collect();
+            let cands: Vec<(Entity, Vec3)> = flies
+                .iter()
+                .filter(|(_, f)| !f.dead() && !f.gone())
+                .filter_map(|(e, f)| parts.get(f.parts[Part::Thorax.index()]).ok().map(|t| (e, t.translation)))
+                .collect();
             let Some((e, thx)) = cands.iter().min_by(|a, b| (a.1 - sp.p).length().total_cmp(&(b.1 - sp.p).length())).copied() else {
                 sp.mode = SpiderMode::Leave;
                 return;
@@ -729,6 +875,9 @@ pub struct PredatorPlugin;
 impl Plugin for PredatorPlugin {
     fn build(&self, app: &mut App) {
         let _ = FRAC_PI_2;
-        app.init_resource::<Predators>().init_resource::<PaintBox>().add_systems(FixedUpdate, (spawn, step, spider_step).chain().before(crate::fly::control)).add_systems(Update, (render, cleanup).chain());
+        app.init_resource::<Predators>()
+            .init_resource::<PaintBox>()
+            .add_systems(FixedUpdate, (spawn, step, spider_step).chain().before(crate::fly::control))
+            .add_systems(Update, (render, cleanup).chain());
     }
 }

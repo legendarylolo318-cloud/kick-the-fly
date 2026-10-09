@@ -3776,10 +3776,12 @@ version = "4.0.0-dev"
 dependencies = [
  "directories",
  "flate2",
+ "fly_sim",
  "serde",
  "serde_json",
  "sha2",
  "toml",
+ "zip",
 ]
 
 [[package]]

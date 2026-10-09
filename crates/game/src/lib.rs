@@ -10,8 +10,9 @@
 #![allow(clippy::too_many_arguments, clippy::type_complexity)]
 
 pub mod anim;
-pub mod arena;
+pub mod app;
 pub mod arcade;
+pub mod arena;
 pub mod audio;
 pub mod brainview;
 pub mod capture;
@@ -19,38 +20,37 @@ pub mod config;
 pub mod contraption;
 pub mod controls;
 pub mod duel;
-pub mod killcam;
-pub mod killcam_play;
-pub mod feedback;
 pub mod environment;
+pub mod feedback;
 pub mod fly;
-pub mod flyeye;
 pub mod fly_visuals;
+pub mod flyeye;
 pub mod fx;
 pub mod gpu;
 pub mod hud;
+pub mod killcam;
+pub mod killcam_play;
 pub mod kitchen;
+pub mod lesion;
 pub mod mic;
 pub mod mic_analysis;
-pub mod lesion;
-pub mod app;
 pub mod paths;
 pub mod player;
 pub mod points;
-pub mod props;
-pub mod profiler;
 pub mod predator_play;
 pub mod predators;
+pub mod profiler;
+pub mod props;
 pub mod puppeteer;
 pub mod race;
 pub mod reactions;
 pub mod rng;
-pub mod sim_thread;
 pub mod senses;
+pub mod sim_thread;
 pub mod snapshot;
-pub mod tournament;
 pub mod synth;
 pub mod tools;
+pub mod tournament;
 pub mod weather;
 pub mod weather_play;
 pub mod world;
@@ -127,7 +127,32 @@ impl Plugin for GamePlugin {
             .insert_resource(Gravity(Vec3::NEG_Y * predators::GRAVITY))
             .insert_resource(Time::<Fixed>::from_hz(60.0))
             .init_resource::<config::Settings>()
-            .add_plugins((feedback::FeedbackPlugin, gpu::GpuPlugin, arena::ArenaPlugin, player::PlayerPlugin, brainview::BrainViewPlugin, profiler::ProfilerPlugin, fx::FxPlugin, senses::SensesPlugin))
-            .add_plugins((hud::HudPlugin, weather_play::WeatherPlugin, controls::ControlsPlugin, environment::EnvironmentPlugin, props::PropsPlugin, mic::MicPlugin, audio::AudioPlugin, contraption::ContraptionPlugin, flyeye::FlyEyePlugin, killcam_play::KillCamPlugin, arcade::ArcadePlugin, tools::ToolsPlugin, predator_play::PredatorPlugin, fly::FlyPlugin, fly_visuals::FlyVisualsPlugin));
+            .add_plugins((
+                feedback::FeedbackPlugin,
+                gpu::GpuPlugin,
+                arena::ArenaPlugin,
+                player::PlayerPlugin,
+                brainview::BrainViewPlugin,
+                profiler::ProfilerPlugin,
+                fx::FxPlugin,
+                senses::SensesPlugin,
+            ))
+            .add_plugins((
+                hud::HudPlugin,
+                weather_play::WeatherPlugin,
+                controls::ControlsPlugin,
+                environment::EnvironmentPlugin,
+                props::PropsPlugin,
+                mic::MicPlugin,
+                audio::AudioPlugin,
+                contraption::ContraptionPlugin,
+                flyeye::FlyEyePlugin,
+                killcam_play::KillCamPlugin,
+                arcade::ArcadePlugin,
+                tools::ToolsPlugin,
+                predator_play::PredatorPlugin,
+                fly::FlyPlugin,
+                fly_visuals::FlyVisualsPlugin,
+            ));
     }
 }

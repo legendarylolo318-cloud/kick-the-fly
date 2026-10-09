@@ -32,7 +32,14 @@ fn setup(mut commands: Commands) {
         Text::new(""),
         TextFont { font_size: FontSize::Px(17.0), ..default() },
         TextColor(Color::srgb(1.0, 0.85, 0.8)),
-        Node { position_type: PositionType::Absolute, left: px(24), top: px(90), display: Display::None, padding: UiRect::all(px(10)), ..default() },
+        Node {
+            position_type: PositionType::Absolute,
+            left: px(24),
+            top: px(90),
+            display: Display::None,
+            padding: UiRect::all(px(10)),
+            ..default()
+        },
         BackgroundColor(Color::srgba(0.05, 0.02, 0.03, 0.8)),
     ));
 }
@@ -57,7 +64,15 @@ fn record(snap: Res<LatestSnapshot>, mut kc: ResMut<KillCam>) {
     }
 }
 
-fn on_death(mut died: MessageReader<FlyDied>, mut kc: ResMut<KillCam>, snap: Res<LatestSnapshot>, settings: Res<Settings>, mut view: ResMut<BrainView>, mut notes: ResMut<Notes>, time: Res<Time<Real>>) {
+fn on_death(
+    mut died: MessageReader<FlyDied>,
+    mut kc: ResMut<KillCam>,
+    snap: Res<LatestSnapshot>,
+    settings: Res<Settings>,
+    mut view: ResMut<BrainView>,
+    mut notes: ResMut<Notes>,
+    time: Res<Time<Real>>,
+) {
     if died.read().next().is_none() || !settings.killcam || kc.player.is_some() {
         return;
     }
@@ -84,7 +99,13 @@ fn on_death(mut died: MessageReader<FlyDied>, mut kc: ResMut<KillCam>, snap: Res
     notes.push(time.elapsed_secs(), "KILL CAM replaying the last 6 s of the brain", Tag::Connectome);
 }
 
-fn play(time: Res<Time<Real>>, keys: Res<ButtonInput<KeyCode>>, mut kc: ResMut<KillCam>, mut view: ResMut<BrainView>, mut text: Single<(&mut Text, &mut Node), With<KillCamText>>) {
+fn play(
+    time: Res<Time<Real>>,
+    keys: Res<ButtonInput<KeyCode>>,
+    mut kc: ResMut<KillCam>,
+    mut view: ResMut<BrainView>,
+    mut text: Single<(&mut Text, &mut Node), With<KillCamText>>,
+) {
     let kc = &mut *kc;
     let Some(p) = kc.player.as_mut() else {
         text.1.display = Display::None;

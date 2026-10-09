@@ -116,7 +116,16 @@ fn setup(mut commands: Commands) {
         Text::new(""),
         TextFont { font_size: FontSize::Px(16.0), ..default() },
         TextColor(Color::srgb(0.92, 0.95, 1.0)),
-        Node { position_type: PositionType::Absolute, left: percent(50), top: px(70), margin: UiRect { left: px(-340), ..default() }, padding: UiRect::all(px(16)), width: px(680), display: Display::None, ..default() },
+        Node {
+            position_type: PositionType::Absolute,
+            left: percent(50),
+            top: px(70),
+            margin: UiRect { left: px(-340), ..default() },
+            padding: UiRect::all(px(16)),
+            width: px(680),
+            display: Display::None,
+            ..default()
+        },
         BackgroundColor(Color::srgba(0.03, 0.04, 0.08, 0.94)),
         ZIndex(10),
     ));
@@ -125,7 +134,16 @@ fn setup(mut commands: Commands) {
         Text::new(""),
         TextFont { font_size: FontSize::Px(16.0), ..default() },
         TextColor(Color::srgb(1.0, 0.92, 0.6)),
-        Node { position_type: PositionType::Absolute, left: percent(50), top: px(34), margin: UiRect { left: px(-260), ..default() }, padding: UiRect::all(px(8)), width: px(520), display: Display::None, ..default() },
+        Node {
+            position_type: PositionType::Absolute,
+            left: percent(50),
+            top: px(34),
+            margin: UiRect { left: px(-260), ..default() },
+            padding: UiRect::all(px(8)),
+            width: px(520),
+            display: Display::None,
+            ..default()
+        },
         BackgroundColor(Color::srgba(0.03, 0.03, 0.06, 0.8)),
         ZIndex(10),
     ));
@@ -162,8 +180,10 @@ struct RealMatches<'a> {
 impl MatchRunner for RealMatches<'_> {
     fn run(&mut self, a: u32, b: u32, match_seed: u64, attempt: usize) -> DuelResult {
         let (_, na, nb) = tournament::match_noise(self.bracket_seed, a, b, attempt);
-        *self.progress.lock().unwrap_or_else(PoisonError::into_inner) = format!("match {} of {}: fly {a} v fly {b}{}", self.played + 1, self.total, if attempt > 0 { " (rematch)" } else { "" });
-        let (mut ba, mut bb) = (build_brain(self.shared, u64::from(a), na, self.sigma), build_brain(self.shared, u64::from(b), nb, self.sigma));
+        *self.progress.lock().unwrap_or_else(PoisonError::into_inner) =
+            format!("match {} of {}: fly {a} v fly {b}{}", self.played + 1, self.total, if attempt > 0 { " (rematch)" } else { "" });
+        let (mut ba, mut bb) =
+            (build_brain(self.shared, u64::from(a), na, self.sigma), build_brain(self.shared, u64::from(b), nb, self.sigma));
         let r = duel::run_duel(&mut ba, &mut bb, match_seed, self.seconds);
         if attempt == 0 || r.winner.is_some() {
             self.played += 1;
@@ -180,7 +200,15 @@ fn spawn_tournament(shared: Shared, size: usize) -> Job {
         .name("tournament".into())
         .spawn(move || {
             let seeds: Vec<u32> = (1..=size as u32).collect();
-            let mut runner = RealMatches { shared: &shared, seconds: duel::DEFAULT_SECONDS, sigma: 0.05, bracket_seed: 0, progress: &p, played: 0, total: size - 1 };
+            let mut runner = RealMatches {
+                shared: &shared,
+                seconds: duel::DEFAULT_SECONDS,
+                sigma: 0.05,
+                bracket_seed: 0,
+                progress: &p,
+                played: 0,
+                total: size - 1,
+            };
             let out = tournament::run_bracket(&seeds, 0, &mut runner);
             let _ = tx.send(match out {
                 Ok(b) => {
@@ -204,7 +232,8 @@ fn spawn_lesion(shared: Shared, picks: [Loadout; 2], rounds: u32) -> Job {
             let (mut wins, mut lines) = ([0u32; 2], Vec::new());
             for round in 0..rounds {
                 *p.lock().unwrap_or_else(PoisonError::into_inner) = format!("round {} of {rounds}", round + 1);
-                let (mut a, mut b) = (build_brain(&shared, 1, 100 + u64::from(round), 0.05), build_brain(&shared, 2, 200 + u64::from(round), 0.05));
+                let (mut a, mut b) =
+                    (build_brain(&shared, 1, 100 + u64::from(round), 0.05), build_brain(&shared, 2, 200 + u64::from(round), 0.05));
                 apply_loadout(&mut a, &picks[0]);
                 apply_loadout(&mut b, &picks[1]);
                 let r = duel::run_duel(&mut a, &mut b, 7 + u64::from(round), duel::DEFAULT_SECONDS);
@@ -213,9 +242,29 @@ fn spawn_lesion(shared: Shared, picks: [Loadout; 2], rounds: u32) -> Job {
                     Some(Side::B) => wins[1] += 1,
                     None => {}
                 }
-                lines.push(format!("round {}: {}  (health {:.0} v {:.0}, shots {} v {}, hits {} v {})", round + 1, match r.winner { Some(Side::A) => "player 1", Some(Side::B) => "player 2", None => "a draw" }, r.hp.0, r.hp.1, r.shots.0, r.shots.1, r.hits.0, r.hits.1));
+                lines.push(format!(
+                    "round {}: {}  (health {:.0} v {:.0}, shots {} v {}, hits {} v {})",
+                    round + 1,
+                    match r.winner {
+                        Some(Side::A) => "player 1",
+                        Some(Side::B) => "player 2",
+                        None => "a draw",
+                    },
+                    r.hp.0,
+                    r.hp.1,
+                    r.shots.0,
+                    r.shots.1,
+                    r.hits.0,
+                    r.hits.1
+                ));
             }
-            let verdict = if wins[0] > wins[1] { "PLAYER 1 wins" } else if wins[1] > wins[0] { "PLAYER 2 wins" } else { "a DRAW" };
+            let verdict = if wins[0] > wins[1] {
+                "PLAYER 1 wins"
+            } else if wins[1] > wins[0] {
+                "PLAYER 2 wins"
+            } else {
+                "a DRAW"
+            };
             lines.push(format!("{verdict}  ({} - {})   [MODEL PREDICTION: this model and its noise, not real flies]", wins[0], wins[1]));
             let _ = tx.send(JobDone::Text(lines.join("\n")));
         })
@@ -245,8 +294,35 @@ fn spawn_race(shared: Shared, lanes: usize, pick: usize, stake: i64) -> Job {
 
 // --- the pages ----------------------------------------------------------------------------------------------------------------------
 const LETTERS: &str = "abcdefghijklmno";
-const KEYS: [KeyCode; 15] = [KeyCode::KeyA, KeyCode::KeyB, KeyCode::KeyC, KeyCode::KeyD, KeyCode::KeyE, KeyCode::KeyF, KeyCode::KeyG, KeyCode::KeyH, KeyCode::KeyI, KeyCode::KeyJ, KeyCode::KeyK, KeyCode::KeyL, KeyCode::KeyM, KeyCode::KeyN, KeyCode::KeyO];
-const DIGITS: [KeyCode; 10] = [KeyCode::Digit1, KeyCode::Digit2, KeyCode::Digit3, KeyCode::Digit4, KeyCode::Digit5, KeyCode::Digit6, KeyCode::Digit7, KeyCode::Digit8, KeyCode::Digit9, KeyCode::Digit0];
+const KEYS: [KeyCode; 15] = [
+    KeyCode::KeyA,
+    KeyCode::KeyB,
+    KeyCode::KeyC,
+    KeyCode::KeyD,
+    KeyCode::KeyE,
+    KeyCode::KeyF,
+    KeyCode::KeyG,
+    KeyCode::KeyH,
+    KeyCode::KeyI,
+    KeyCode::KeyJ,
+    KeyCode::KeyK,
+    KeyCode::KeyL,
+    KeyCode::KeyM,
+    KeyCode::KeyN,
+    KeyCode::KeyO,
+];
+const DIGITS: [KeyCode; 10] = [
+    KeyCode::Digit1,
+    KeyCode::Digit2,
+    KeyCode::Digit3,
+    KeyCode::Digit4,
+    KeyCode::Digit5,
+    KeyCode::Digit6,
+    KeyCode::Digit7,
+    KeyCode::Digit8,
+    KeyCode::Digit9,
+    KeyCode::Digit0,
+];
 
 fn stars_text(n: f64) -> String {
     let n = n as usize;
@@ -256,13 +332,19 @@ fn stars_text(n: f64) -> String {
 fn page_text(a: &Arcade, sizes_ok: bool) -> String {
     if let Some(job) = &a.job {
         let progress = job.progress.lock().unwrap_or_else(PoisonError::into_inner).clone();
-        return format!("FLY ARCADE: {}\n\nrunning on its own brains in the background...\n{progress}\n\n(Esc: leave it running and close this page)", job.label);
+        return format!(
+            "FLY ARCADE: {}\n\nrunning on its own brains in the background...\n{progress}\n\n(Esc: leave it running and close this page)",
+            job.label
+        );
     }
     let mut s = String::new();
     match a.page {
         Page::Main => {
             s += "FLY ARCADE\n\n  1  Puppeteer: steer the fly with the laser alone to make it do ten things\n  2  Lesion battle: operate on your own fly within a budget, then they fight\n  3  Tournament: a bracket of 4, 8 or 16 flies, each its own individual\n  4  Race: flies race down a track through their own brains; bet points on one\n\n";
-            s += &format!("points: {} (arcade points are a score only: they cannot be bought, sold or cashed out)\n\nO or Esc closes", a.wallet.points);
+            s += &format!(
+                "points: {} (arcade points are a score only: they cannot be bought, sold or cashed out)\n\nO or Esc closes",
+                a.wallet.points
+            );
         }
         Page::Puppeteer => {
             s += "PUPPETEER: you cannot touch the fly; only the laser (hold the button on the fly) and latching neurons on or off.\n; next cell type   ' activate/silence   L latch the chosen type   H hint (costs an action)   R restart   Esc back\n\n";
@@ -276,8 +358,16 @@ fn page_text(a: &Arcade, sizes_ok: bool) -> String {
             }
         }
         Page::Lesion => {
-            s += &format!("LESION BATTLE ({} round{}; R toggles 1 or 3)   Tab: switch player   F: fight   Esc: back\n", a.rounds, if a.rounds == 1 { "" } else { "s" });
-            s += &format!("budget: {} picks per fly, each a cell type of at most {} neurons. Press the letter to cycle a cell type: silenced, stimulated, off.\n\n", lesion::BUDGET, lesion::MAX_TYPE_NEURONS);
+            s += &format!(
+                "LESION BATTLE ({} round{}; R toggles 1 or 3)   Tab: switch player   F: fight   Esc: back\n",
+                a.rounds,
+                if a.rounds == 1 { "" } else { "s" }
+            );
+            s += &format!(
+                "budget: {} picks per fly, each a cell type of at most {} neurons. Press the letter to cycle a cell type: silenced, stimulated, off.\n\n",
+                lesion::BUDGET,
+                lesion::MAX_TYPE_NEURONS
+            );
             for p in 0..2 {
                 s += &format!("{} player {}: {}\n", if a.player == p { ">>" } else { "  " }, p + 1, a.picks[p].describe());
             }
@@ -298,8 +388,17 @@ fn page_text(a: &Arcade, sizes_ok: bool) -> String {
             }
         }
         Page::Race => {
-            s += &format!("RACE: {} flies run an 8 m track with three lures (sugar, fruit, sugar). Speed comes from the walking neurons (DNp09).\n  4 / 8  lanes    1-8  pick your fly    S  stake ({} points)    Enter  start    Esc back\n", a.race_lanes, points::STAKES[a.stake_i]);
-            s += &format!("your pick: lane {}   points: {}\nTAGS: speed from DNp09 is CONNECTOME; the track, rules and betting are GAME RULES; the order is a MODEL PREDICTION. Odds are flat in this build ({:.1}x).\n", a.race_pick + 1, a.wallet.points, points::decimal_odds(1.0 / a.race_lanes as f32));
+            s += &format!(
+                "RACE: {} flies run an 8 m track with three lures (sugar, fruit, sugar). Speed comes from the walking neurons (DNp09).\n  4 / 8  lanes    1-8  pick your fly    S  stake ({} points)    Enter  start    Esc back\n",
+                a.race_lanes,
+                points::STAKES[a.stake_i]
+            );
+            s += &format!(
+                "your pick: lane {}   points: {}\nTAGS: speed from DNp09 is CONNECTOME; the track, rules and betting are GAME RULES; the order is a MODEL PREDICTION. Odds are flat in this build ({:.1}x).\n",
+                a.race_pick + 1,
+                a.wallet.points,
+                points::decimal_odds(1.0 / a.race_lanes as f32)
+            );
             if !a.result.is_empty() {
                 s += &format!("\n{}", a.result.join("\n"));
             }
@@ -390,7 +489,12 @@ fn input(
     }
     match a.page {
         Page::Main => {
-            for (k, p) in [(KeyCode::Digit1, Page::Puppeteer), (KeyCode::Digit2, Page::Lesion), (KeyCode::Digit3, Page::Tournament), (KeyCode::Digit4, Page::Race)] {
+            for (k, p) in [
+                (KeyCode::Digit1, Page::Puppeteer),
+                (KeyCode::Digit2, Page::Lesion),
+                (KeyCode::Digit3, Page::Tournament),
+                (KeyCode::Digit4, Page::Race),
+            ] {
                 if keys.just_pressed(k) {
                     a.page = p;
                     a.result.clear();
@@ -491,7 +595,15 @@ fn input(
     }
 }
 
-fn start_level(a: &mut Arcade, level: &Level, now: f32, link: &SimLink, tools: &mut ToolState, reset: &mut MessageWriter<ResetFly>, notes: &mut Notes) {
+fn start_level(
+    a: &mut Arcade,
+    level: &Level,
+    now: f32,
+    link: &SimLink,
+    tools: &mut ToolState,
+    reset: &mut MessageWriter<ResetFly>,
+    notes: &mut Notes,
+) {
     if let Some(old) = a.puppet.take()
         && let Some((t, _)) = old.latched
     {
@@ -503,7 +615,18 @@ fn start_level(a: &mut Arcade, level: &Level, now: f32, link: &SimLink, tools: &
     tools.laser_target = 0;
     let mut tracker = Tracker::new(&level.goal);
     tracker.start(now);
-    a.puppet = Some(PuppetRun { level: level.clone(), tracker, actions: 0, started: now, latched: None, loom_until: 0.0, prev_laser: false, won_at: None, stars: 0, shown_hint: false });
+    a.puppet = Some(PuppetRun {
+        level: level.clone(),
+        tracker,
+        actions: 0,
+        started: now,
+        latched: None,
+        loom_until: 0.0,
+        prev_laser: false,
+        won_at: None,
+        stars: 0,
+        shown_hint: false,
+    });
     notes.push(now, format!("PUPPETEER {}: {}", level.title, level.brief), Tag::GameRule);
 }
 
@@ -567,7 +690,14 @@ fn puppeteer_tick(
     let Some(run) = a.puppet.as_ref() else { return };
     text.1.display = Display::Flex;
     let mut s = format!("PUPPETEER  {}: {}\n", run.level.title, run.level.brief);
-    s += &format!("progress {}   actions {} (par {})   target: {}{}\n", run.tracker.describe(), run.actions, run.level.par, PALETTE[tools.laser_target % PALETTE.len()].0, if tools.laser_silence { " SILENCE" } else { " ACTIVATE" });
+    s += &format!(
+        "progress {}   actions {} (par {})   target: {}{}\n",
+        run.tracker.describe(),
+        run.actions,
+        run.level.par,
+        PALETTE[tools.laser_target % PALETTE.len()].0,
+        if tools.laser_silence { " SILENCE" } else { " ACTIVATE" }
+    );
     if let Some(l) = run.latched {
         s += &format!("latched: {} {}\n", PALETTE[l.0].0, if l.1 { "OFF" } else { "ON" });
     }
@@ -578,12 +708,18 @@ fn puppeteer_tick(
         s += &format!("hint: {}\n", run.level.hint);
     }
     if run.won_at.is_some() {
-        s += &format!("CLEARED in {:.1}s: {} stars ({}). R again, O menu. Circuit: {}\n", now - run.started, run.stars, stars_text(f64::from(run.stars)), match run.level.goal {
-            Goal::Event(e) => e.to_string(),
-            Goal::Travel(m) => format!("travel {m} m"),
-            Goal::SurviveLoom { .. } => "survive the shadows".to_string(),
-            Goal::Sequence(_) => "a sequence".to_string(),
-        });
+        s += &format!(
+            "CLEARED in {:.1}s: {} stars ({}). R again, O menu. Circuit: {}\n",
+            now - run.started,
+            run.stars,
+            stars_text(f64::from(run.stars)),
+            match run.level.goal {
+                Goal::Event(e) => e.to_string(),
+                Goal::Travel(m) => format!("travel {m} m"),
+                Goal::SurviveLoom { .. } => "survive the shadows".to_string(),
+                Goal::Sequence(_) => "a sequence".to_string(),
+            }
+        );
     } else {
         s += "L latch   H hint   R restart   O menu   ; ' choose the cell type and effect";
     }
@@ -604,7 +740,13 @@ fn collect(mut a: ResMut<Arcade>, mut notes: ResMut<Notes>, time: Res<Time<Real>
             for (r, round) in b.rounds.iter().enumerate() {
                 lines.push(format!("round {}:", r + 1));
                 for m in round {
-                    lines.push(format!("   fly {} v fly {} -> fly {}{}", m.a, m.b, m.winner, if m.coin_toss { "  (coin toss after two drawn rematches)" } else { "" }));
+                    lines.push(format!(
+                        "   fly {} v fly {} -> fly {}{}",
+                        m.a,
+                        m.b,
+                        m.winner,
+                        if m.coin_toss { "  (coin toss after two drawn rematches)" } else { "" }
+                    ));
                 }
             }
             let mut w = wins;
@@ -616,12 +758,25 @@ fn collect(mut a: ResMut<Arcade>, mut notes: ResMut<Notes>, time: Res<Time<Real>
             let mut lines = vec!["FINISH ORDER  [MODEL PREDICTION]".to_string()];
             for (rank, &i) in order.iter().enumerate() {
                 let l = &lanes[i];
-                lines.push(format!("  {}. lane {}  {}  (reached {:.1} m, lures touched {})", rank + 1, i + 1, l.finish_s.map_or("did not finish".to_string(), |t| format!("{t:.1} s")), l.distance, l.lures_touched.len()));
+                lines.push(format!(
+                    "  {}. lane {}  {}  (reached {:.1} m, lures touched {})",
+                    rank + 1,
+                    i + 1,
+                    l.finish_s.map_or("did not finish".to_string(), |t| format!("{t:.1} s")),
+                    l.distance,
+                    l.lures_touched.len()
+                ));
             }
             let odds = points::decimal_odds(1.0 / lanes.len() as f32);
             let won = order.first() == Some(&pick);
             match a.wallet.settle(stake, odds, won, &format!("race lane {}", pick + 1)) {
-                Ok(d) => lines.push(format!("your lane {}: {} {:+} points (now {})", pick + 1, if won { "WON" } else { "lost" }, d, a.wallet.points)),
+                Ok(d) => lines.push(format!(
+                    "your lane {}: {} {:+} points (now {})",
+                    pick + 1,
+                    if won { "WON" } else { "lost" },
+                    d,
+                    a.wallet.points
+                )),
                 Err(e) => lines.push(format!("bet not settled: {e}")),
             }
             a.result = lines;

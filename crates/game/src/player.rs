@@ -43,12 +43,7 @@ pub struct Aim {
 
 impl Default for Aim {
     fn default() -> Self {
-        Self {
-            eye: Vec3::new(0.0, EYE, 2.6),
-            dir: Vec3::NEG_Z,
-            right: Vec3::X,
-            up: Vec3::Y,
-        }
+        Self { eye: Vec3::new(0.0, EYE, 2.6), dir: Vec3::NEG_Z, right: Vec3::X, up: Vec3::Y }
     }
 }
 
@@ -74,17 +69,10 @@ pub fn push_out_xz(p: &mut Vec2, r: f32, boxes: &[Aabb]) {
         if b.lo.y > 0.9 {
             continue; // above head height: not an obstacle for the walking body
         }
-        let (lo, hi) = (
-            Vec2::new(b.lo.x - r, b.lo.z - r),
-            Vec2::new(b.hi.x + r, b.hi.z + r),
-        );
+        let (lo, hi) = (Vec2::new(b.lo.x - r, b.lo.z - r), Vec2::new(b.hi.x + r, b.hi.z + r));
         if p.x > lo.x && p.x < hi.x && p.y > lo.y && p.y < hi.y {
             let pen = [p.x - lo.x, hi.x - p.x, p.y - lo.y, hi.y - p.y];
-            let k = pen
-                .iter()
-                .enumerate()
-                .min_by(|a, b| a.1.total_cmp(b.1))
-                .map_or(0, |e| e.0);
+            let k = pen.iter().enumerate().min_by(|a, b| a.1.total_cmp(b.1)).map_or(0, |e| e.0);
             match k {
                 0 => p.x = lo.x,
                 1 => p.x = hi.x,
@@ -97,13 +85,7 @@ pub fn push_out_xz(p: &mut Vec2, r: f32, boxes: &[Aabb]) {
 
 fn spawn_player(mut commands: Commands, settings: Res<Settings>) {
     commands.spawn((
-        Player {
-            yaw: -std::f32::consts::FRAC_PI_2,
-            pitch: -0.32,
-            eye_h: EYE,
-            vel: Vec2::ZERO,
-            walk_phase: 0.0,
-        },
+        Player { yaw: -std::f32::consts::FRAC_PI_2, pitch: -0.32, eye_h: EYE, vel: Vec2::ZERO, walk_phase: 0.0 },
         RigidBody::Kinematic,
         Collider::cylinder(PLAYER_RADIUS, 1.4),
         Transform::from_xyz(0.0, 0.7, 2.6),
@@ -112,12 +94,7 @@ fn spawn_player(mut commands: Commands, settings: Res<Settings>) {
         PlayerCamera,
         IsDefaultUiCamera,
         Camera3d::default(),
-        Projection::Perspective(PerspectiveProjection {
-            fov: settings.fov_deg.to_radians(),
-            near: 0.03,
-            far: 200.0,
-            ..default()
-        }),
+        Projection::Perspective(PerspectiveProjection { fov: settings.fov_deg.to_radians(), near: 0.03, far: 200.0, ..default() }),
         Transform::from_xyz(0.0, EYE, 2.6),
     ));
 }
@@ -139,23 +116,11 @@ fn walk(
     let p = &mut **p;
     if look.captured {
         p.yaw += motion.delta.x * settings.mouse_sensitivity;
-        p.pitch = (p.pitch
-            - motion.delta.y
-                * settings.mouse_sensitivity
-                * if settings.invert_y { -1.0 } else { 1.0 })
-        .clamp(-1.45, 1.45);
+        p.pitch = (p.pitch - motion.delta.y * settings.mouse_sensitivity * if settings.invert_y { -1.0 } else { 1.0 }).clamp(-1.45, 1.45);
     }
-    let axis = |a: KeyCode, b: KeyCode| {
-        f32::from(u8::from(keys.pressed(a))) - f32::from(u8::from(keys.pressed(b)))
-    };
-    let (fwd_in, side_in) = if look.captured {
-        (
-            axis(KeyCode::KeyW, KeyCode::KeyS),
-            axis(KeyCode::KeyD, KeyCode::KeyA),
-        )
-    } else {
-        (0.0, 0.0)
-    };
+    let axis = |a: KeyCode, b: KeyCode| f32::from(u8::from(keys.pressed(a))) - f32::from(u8::from(keys.pressed(b)));
+    let (fwd_in, side_in) =
+        if look.captured { (axis(KeyCode::KeyW, KeyCode::KeyS), axis(KeyCode::KeyD, KeyCode::KeyA)) } else { (0.0, 0.0) };
     let fh = Vec2::new(p.yaw.cos(), p.yaw.sin());
     let rh = Vec2::new(-p.yaw.sin(), p.yaw.cos());
     let want = fh * fwd_in + rh * side_in;
@@ -167,11 +132,7 @@ fn walk(
     } else {
         WALK
     };
-    let target = if want.length() > 0.0 {
-        want.normalize() * speed
-    } else {
-        Vec2::ZERO
-    };
+    let target = if want.length() > 0.0 { want.normalize() * speed } else { Vec2::ZERO };
     let dv = (target - p.vel) * (dt * 12.0).min(1.0);
     p.vel += dv;
     let mut pos = Vec2::new(tf.translation.x, tf.translation.z) + p.vel * dt;
@@ -195,11 +156,7 @@ fn update_camera(
     over: Option<Res<CameraOverride>>,
 ) {
     let (p, tf) = *player;
-    let eye = Vec3::new(
-        tf.translation.x,
-        p.eye_h + 0.012 * (p.walk_phase * 2.0).sin(),
-        tf.translation.z,
-    );
+    let eye = Vec3::new(tf.translation.x, p.eye_h + 0.012 * (p.walk_phase * 2.0).sin(), tf.translation.z);
     let cp = p.pitch.cos();
     let dir = Vec3::new(cp * p.yaw.cos(), p.pitch.sin(), cp * p.yaw.sin());
     cam.translation = eye;
@@ -208,39 +165,21 @@ fn update_camera(
         pp.fov = settings.fov_deg.to_radians();
     }
     let right = Vec3::new(-p.yaw.sin(), 0.0, p.yaw.cos());
-    *aim = Aim {
-        eye,
-        dir,
-        right,
-        up: right.cross(dir),
-    };
+    *aim = Aim { eye, dir, right, up: right.cross(dir) };
     if let Some(o) = over {
         cam.translation = o.0;
         cam.look_at(o.1, Vec3::Y);
         let d = (o.1 - o.0).normalize_or_zero();
         let r = Vec3::new(-d.z, 0.0, d.x).normalize_or_zero();
-        *aim = Aim {
-            eye: o.0,
-            dir: d,
-            right: r,
-            up: r.cross(d),
-        };
+        *aim = Aim { eye: o.0, dir: d, right: r, up: r.cross(d) };
     }
 }
 
-fn cursor(
-    keys: Res<ButtonInput<KeyCode>>,
-    mut look: ResMut<MouseLook>,
-    mut opts: Single<&mut CursorOptions, With<PrimaryWindow>>,
-) {
+fn cursor(keys: Res<ButtonInput<KeyCode>>, mut look: ResMut<MouseLook>, mut opts: Single<&mut CursorOptions, With<PrimaryWindow>>) {
     if keys.just_pressed(KeyCode::Tab) {
         look.captured = !look.captured;
     }
-    let (grab, visible) = if look.captured {
-        (CursorGrabMode::Locked, false)
-    } else {
-        (CursorGrabMode::None, true)
-    };
+    let (grab, visible) = if look.captured { (CursorGrabMode::Locked, false) } else { (CursorGrabMode::None, true) };
     if opts.grab_mode != grab || opts.visible != visible {
         opts.grab_mode = grab;
         opts.visible = visible;

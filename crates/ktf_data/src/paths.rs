@@ -56,35 +56,14 @@ impl Bases {
     pub fn from_system() -> Self {
         let b = directories::BaseDirs::new();
         let u = directories::UserDirs::new();
-        let home = b
-            .as_ref()
-            .map(|b| b.home_dir().to_path_buf())
-            .unwrap_or_else(|| PathBuf::from("."));
+        let home = b.as_ref().map(|b| b.home_dir().to_path_buf()).unwrap_or_else(|| PathBuf::from("."));
         Bases {
-            config: b
-                .as_ref()
-                .map(|b| b.config_dir().to_path_buf())
-                .unwrap_or_else(|| home.join(".config")),
-            data: b
-                .as_ref()
-                .map(|b| b.data_dir().to_path_buf())
-                .unwrap_or_else(|| home.join(".local/share")),
-            state: b
-                .as_ref()
-                .and_then(|b| b.state_dir().map(Path::to_path_buf))
-                .unwrap_or_else(|| home.join(".local/state")),
-            local: b
-                .as_ref()
-                .map(|b| b.data_local_dir().to_path_buf())
-                .unwrap_or_else(|| home.join("AppData/Local")),
-            documents: u
-                .as_ref()
-                .and_then(|u| u.document_dir().map(Path::to_path_buf))
-                .unwrap_or_else(|| home.join("Documents")),
-            pictures: u
-                .as_ref()
-                .and_then(|u| u.picture_dir().map(Path::to_path_buf))
-                .unwrap_or_else(|| home.join("Pictures")),
+            config: b.as_ref().map(|b| b.config_dir().to_path_buf()).unwrap_or_else(|| home.join(".config")),
+            data: b.as_ref().map(|b| b.data_dir().to_path_buf()).unwrap_or_else(|| home.join(".local/share")),
+            state: b.as_ref().and_then(|b| b.state_dir().map(Path::to_path_buf)).unwrap_or_else(|| home.join(".local/state")),
+            local: b.as_ref().map(|b| b.data_local_dir().to_path_buf()).unwrap_or_else(|| home.join("AppData/Local")),
+            documents: u.as_ref().and_then(|u| u.document_dir().map(Path::to_path_buf)).unwrap_or_else(|| home.join("Documents")),
+            pictures: u.as_ref().and_then(|u| u.picture_dir().map(Path::to_path_buf)).unwrap_or_else(|| home.join("Pictures")),
             home,
         }
     }
@@ -108,12 +87,7 @@ impl AppPaths {
 }
 
 /// Pure path resolution (no directories created).
-pub fn resolve(
-    platform: Platform,
-    kick_home: Option<&Path>,
-    memory_override: Option<&Path>,
-    b: &Bases,
-) -> AppPaths {
+pub fn resolve(platform: Platform, kick_home: Option<&Path>, memory_override: Option<&Path>, b: &Bases) -> AppPaths {
     let mut p = if let Some(r) = kick_home {
         AppPaths {
             config_dir: r.join("config"),
@@ -141,10 +115,7 @@ pub fn resolve(
                 if !p.memory_dir.join(MEMORY_FILES[0]).exists() {
                     let old = b.home.join("Documents").join(WIN_NAME).join("memory");
                     if old != p.memory_dir && old.join(MEMORY_FILES[0]).exists() {
-                        p.notes.push(format!(
-                            "using existing training memory in {}",
-                            old.display()
-                        ));
+                        p.notes.push(format!("using existing training memory in {}", old.display()));
                         p.memory_dir = old;
                     }
                 }
@@ -184,18 +155,9 @@ pub fn resolve(
 
 /// The folders for this machine, from the environment.
 pub fn get() -> AppPaths {
-    let home = std::env::var_os("KICK_THE_FLY_HOME")
-        .filter(|s| !s.is_empty())
-        .map(PathBuf::from);
-    let mem = std::env::var_os("KICK_THE_FLY_MEMORY")
-        .filter(|s| !s.is_empty())
-        .map(PathBuf::from);
-    resolve(
-        Platform::current(),
-        home.as_deref(),
-        mem.as_deref(),
-        &Bases::from_system(),
-    )
+    let home = std::env::var_os("KICK_THE_FLY_HOME").filter(|s| !s.is_empty()).map(PathBuf::from);
+    let mem = std::env::var_os("KICK_THE_FLY_MEMORY").filter(|s| !s.is_empty()).map(PathBuf::from);
+    resolve(Platform::current(), home.as_deref(), mem.as_deref(), &Bases::from_system())
 }
 
 /// The first of these folders that exists or can be created, else the next (read-only homes, full disks).
@@ -227,10 +189,7 @@ mod tests {
     #[test]
     fn linux_layout_matches_python() {
         let p = resolve(Platform::Linux, None, None, &bases());
-        assert_eq!(
-            p.config_file(),
-            Path::new("/h/.config/kickthefly/config.toml")
-        );
+        assert_eq!(p.config_file(), Path::new("/h/.config/kickthefly/config.toml"));
         assert_eq!(p.memory_dir, Path::new("/h/.local/share/kickthefly/memory"));
         assert_eq!(p.saves_dir, Path::new("/h/.local/share/kickthefly/saves"));
         assert_eq!(p.state_dir, Path::new("/h/.local/state/kickthefly"));
@@ -244,28 +203,14 @@ mod tests {
         b.local = "C:/Users/me/AppData/Local".into();
         b.documents = "C:/Users/me/OneDrive/Documents".into();
         let p = resolve(Platform::Windows, None, None, &b);
-        assert_eq!(
-            p.config_file(),
-            Path::new("C:/Users/me/AppData/Roaming/Kick the Fly/config.toml")
-        );
-        assert_eq!(
-            p.saves_dir,
-            Path::new("C:/Users/me/OneDrive/Documents/Kick the Fly/saves")
-        );
-        assert_eq!(
-            p.state_dir,
-            Path::new("C:/Users/me/AppData/Local/Kick the Fly")
-        );
+        assert_eq!(p.config_file(), Path::new("C:/Users/me/AppData/Roaming/Kick the Fly/config.toml"));
+        assert_eq!(p.saves_dir, Path::new("C:/Users/me/OneDrive/Documents/Kick the Fly/saves"));
+        assert_eq!(p.state_dir, Path::new("C:/Users/me/AppData/Local/Kick the Fly"));
     }
 
     #[test]
     fn home_override_and_memory_override() {
-        let p = resolve(
-            Platform::Linux,
-            Some(Path::new("/portable")),
-            Some(Path::new("/mem")),
-            &bases(),
-        );
+        let p = resolve(Platform::Linux, Some(Path::new("/portable")), Some(Path::new("/mem")), &bases());
         assert_eq!(p.config_file(), Path::new("/portable/config/config.toml"));
         assert_eq!(p.data_dir, Path::new("/portable/data"));
         assert_eq!(p.memory_dir, Path::new("/mem"));

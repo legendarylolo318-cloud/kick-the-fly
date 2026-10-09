@@ -37,7 +37,12 @@ pub fn layout_cook(c: &kit::Cook) -> Vec<Prim> {
     // the swatter: a handle and a flat head the size the fly's eyes measure (COOK_SWATTER_R)
     let up = if raised { Vec3::Y } else { Vec3::new(0.3, 1.0, 0.0).normalize() };
     out.push(Prim::Limb { a: hand, b: hand + up * 0.25, r: 0.015, col: [0.5, 0.35, 0.2] });
-    out.push(Prim::Ell { c: hand + up * 0.42, fwd: Vec3::X, size: Vec3::new(kit::COOK_SWATTER_R * 0.5, 0.012, kit::COOK_SWATTER_R * 0.5), col: [0.9, 0.35, 0.25] });
+    out.push(Prim::Ell {
+        c: hand + up * 0.42,
+        fwd: Vec3::X,
+        size: Vec3::new(kit::COOK_SWATTER_R * 0.5, 0.012, kit::COOK_SWATTER_R * 0.5),
+        col: [0.9, 0.35, 0.25],
+    });
     out
 }
 

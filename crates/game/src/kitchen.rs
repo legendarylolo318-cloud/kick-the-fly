@@ -58,7 +58,10 @@ pub const COOK_SPEED: f32 = 0.6;
 /// Boxes you and the walking fly go around: the jar (its top is the mouth) and the fridge.
 pub fn colliders() -> Vec<Aabb> {
     vec![
-        Aabb { lo: Vec3::new(TRAP_POS.x - TRAP_R, 0.0, TRAP_POS.z - TRAP_R), hi: Vec3::new(TRAP_POS.x + TRAP_R, TRAP_H, TRAP_POS.z + TRAP_R) },
+        Aabb {
+            lo: Vec3::new(TRAP_POS.x - TRAP_R, 0.0, TRAP_POS.z - TRAP_R),
+            hi: Vec3::new(TRAP_POS.x + TRAP_R, TRAP_H, TRAP_POS.z + TRAP_R),
+        },
         Aabb { lo: Vec3::new(-RX, 0.0, -3.35), hi: Vec3::new(-RX + 0.8, 2.1, -1.95) },
     ]
 }
@@ -163,7 +166,18 @@ impl Cook {
     pub fn new(mut rng: Rng) -> Self {
         let wait = rng.range(COOK_FIRST_S);
         let goal_x = rng.uniform(-2.5, 2.5);
-        Self { rng, x: 0.0, state: CookState::Idle, t: 0.0, wait, goal_x, aim: Vec3::ZERO, hand0: Vec3::ZERO, pos: Vec3::new(0.0, COOK_HAND_HEIGHT * 0.6, COOK_Z + 0.4), swats: 0 }
+        Self {
+            rng,
+            x: 0.0,
+            state: CookState::Idle,
+            t: 0.0,
+            wait,
+            goal_x,
+            aim: Vec3::ZERO,
+            hand0: Vec3::ZERO,
+            pos: Vec3::new(0.0, COOK_HAND_HEIGHT * 0.6, COOK_Z + 0.4),
+            swats: 0,
+        }
     }
 
     /// `targets`: thorax positions of living flies. Returns what happened this step.
@@ -178,7 +192,9 @@ impl Cook {
                 self.x += (COOK_SPEED * dt).min((self.goal_x - self.x).abs()).copysign(self.goal_x - self.x);
                 self.pos = Vec3::new(self.x, COOK_HAND_HEIGHT * 0.6, COOK_Z + 0.4);
                 if self.t >= self.wait
-                    && let Some(near) = targets.iter().min_by(|a, b| ((a.x - self.x).abs() + (a.z - COOK_Z).abs()).total_cmp(&((b.x - self.x).abs() + (b.z - COOK_Z).abs())))
+                    && let Some(near) = targets.iter().min_by(|a, b| {
+                        ((a.x - self.x).abs() + (a.z - COOK_Z).abs()).total_cmp(&((b.x - self.x).abs() + (b.z - COOK_Z).abs()))
+                    })
                 {
                     self.aim = Vec3::new(near.x, 0.12, near.z); // aimed once, at where the fly is now
                     self.hand0 = Vec3::new(self.x, COOK_HAND_HEIGHT, COOK_Z + 0.5);

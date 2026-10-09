@@ -69,7 +69,13 @@ fn attach_memory(mut commands: Commands, new: Query<Entity, (With<Fly>, Without<
 }
 
 /// Difference each threat's angular size and poke the looming detectors with the fastest-growing one.
-fn vision(threats: Res<Threats>, link: Res<SimLink>, time: Res<Time<Fixed>>, mut flies: Query<(&mut Fly, &mut LoomMemory)>, parts: Query<(&FlyPart, &Transform)>) {
+fn vision(
+    threats: Res<Threats>,
+    link: Res<SimLink>,
+    time: Res<Time<Fixed>>,
+    mut flies: Query<(&mut Fly, &mut LoomMemory)>,
+    parts: Query<(&FlyPart, &Transform)>,
+) {
     let dt = time.delta_secs().max(1e-4);
     for (mut f, mut mem) in &mut flies {
         if f.dead() || f.frozen_at.is_some() {
@@ -127,6 +133,10 @@ pub struct SensesPlugin;
 
 impl Plugin for SensesPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Threats>().init_resource::<Scents>().add_systems(FixedFirst, clear).add_systems(Update, attach_memory).add_systems(FixedLast, (vision, smell));
+        app.init_resource::<Threats>()
+            .init_resource::<Scents>()
+            .add_systems(FixedFirst, clear)
+            .add_systems(Update, attach_memory)
+            .add_systems(FixedLast, (vision, smell));
     }
 }

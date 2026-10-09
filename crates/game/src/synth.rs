@@ -76,7 +76,11 @@ pub fn sfx_bank() -> HashMap<&'static str, Vec<f32>> {
     }
     let tt = t(0.18);
     let n = noise(&mut rng, 0.18);
-    let v = zip(&low(&n, 6).iter().zip(env(&tt, 28.0)).map(|(a, e)| a * e * 2.0).collect::<Vec<_>>(), &sine(&tt, 85.0).iter().zip(env(&tt, 20.0)).map(|(a, e)| a * e).collect::<Vec<_>>(), |a, b| a + b);
+    let v = zip(
+        &low(&n, 6).iter().zip(env(&tt, 28.0)).map(|(a, e)| a * e * 2.0).collect::<Vec<_>>(),
+        &sine(&tt, 85.0).iter().zip(env(&tt, 20.0)).map(|(a, e)| a * e).collect::<Vec<_>>(),
+        |a, b| a + b,
+    );
     fx.insert("whack", snd(v, 0.6));
     let tt = t(0.3);
     let n = noise(&mut rng, 0.3);
@@ -98,13 +102,20 @@ pub fn sfx_bank() -> HashMap<&'static str, Vec<f32>> {
     fx.insert("zap", snd(zip(&sq, &crackle, |a, b| a + b).iter().zip(env(&tt, 6.0)).map(|(a, e)| a * e).collect(), 0.5));
     let n1 = noise(&mut rng, 1.0);
     let lo1 = low(&n1, 4);
-    fx.insert("sizzle", snd(zip(&n1, &lo1, |a, b| a - b).into_iter().map(|v| v * (0.5 + 0.5 * if rng.f32() < 0.08 { 1.0 } else { 0.0 })).collect(), 0.35));
+    fx.insert(
+        "sizzle",
+        snd(zip(&n1, &lo1, |a, b| a - b).into_iter().map(|v| v * (0.5 + 0.5 * if rng.f32() < 0.08 { 1.0 } else { 0.0 })).collect(), 0.35),
+    );
     let n2 = noise(&mut rng, 1.0);
     let lo2 = low(&n2, 3);
     fx.insert("hiss", snd(zip(&n2, &lo2, |a, b| a - b), 0.25));
     let tt = t(0.2);
     let n = noise(&mut rng, 0.2);
-    let bite: Vec<f32> = low(&n, 8).iter().zip(&tt).map(|(a, x)| a * 2.5 * ((-x * 40.0).exp() + (-(x - 0.1).max(0.0) * 40.0).exp() * if *x > 0.1 { 1.0 } else { 0.0 })).collect();
+    let bite: Vec<f32> = low(&n, 8)
+        .iter()
+        .zip(&tt)
+        .map(|(a, x)| a * 2.5 * ((-x * 40.0).exp() + (-(x - 0.1).max(0.0) * 40.0).exp() * if *x > 0.1 { 1.0 } else { 0.0 }))
+        .collect();
     fx.insert("chomp", snd(bite, 0.6));
     let (t1, t2) = (t(0.09), t(0.16));
     let mut yum: Vec<f32> = sine(&t1, 520.0).iter().zip(env(&t1, 20.0)).map(|(a, e)| a * e).collect();
@@ -113,7 +124,8 @@ pub fn sfx_bank() -> HashMap<&'static str, Vec<f32>> {
     let tt = t(0.6);
     let n = noise(&mut rng, 0.6);
     let lo3 = low(&n, 3);
-    let pings: Vec<f32> = tt.iter().map(|x| [2200.0f32, 2950.0, 3700.0, 4400.0].iter().map(|f| (TAU * f * x).sin() * (-x * 9.0).exp()).sum()).collect();
+    let pings: Vec<f32> =
+        tt.iter().map(|x| [2200.0f32, 2950.0, 3700.0, 4400.0].iter().map(|f| (TAU * f * x).sin() * (-x * 9.0).exp()).sum()).collect();
     let v: Vec<f32> = (0..tt.len()).map(|i| (n[i] - lo3[i]) * (-tt[i] * 7.0).exp() + 0.25 * pings[i]).collect();
     fx.insert("shatter", snd(v, 0.5));
     let n = noise(&mut rng, 0.6);
@@ -164,7 +176,16 @@ pub fn sfx_bank() -> HashMap<&'static str, Vec<f32>> {
     // extracellular biphasic spike clicks for the brain stethoscope
     let ts = t(0.002);
     let n = noise(&mut rng, 0.002);
-    fx.insert("spike_click1", snd(ts.iter().enumerate().map(|(i, x)| -(TAU * 950.0 * x).sin() * (-x * 2500.0).exp() + 0.15 * n[i] * (-x * 2000.0).exp()).collect(), 0.45));
+    fx.insert(
+        "spike_click1",
+        snd(
+            ts.iter()
+                .enumerate()
+                .map(|(i, x)| -(TAU * 950.0 * x).sin() * (-x * 2500.0).exp() + 0.15 * n[i] * (-x * 2000.0).exp())
+                .collect(),
+            0.45,
+        ),
+    );
     let ts = t(0.005);
     let n = noise(&mut rng, 0.005);
     fx.insert(
@@ -174,7 +195,9 @@ pub fn sfx_bank() -> HashMap<&'static str, Vec<f32>> {
                 .enumerate()
                 .map(|(i, x)| {
                     let sh = (x - 0.0018).max(0.0);
-                    -(TAU * 950.0 * x).sin() * (-x * 2500.0).exp() + 0.85 * -(TAU * 880.0 * sh).sin() * (-sh * 2500.0).exp() * if *x >= 0.0018 { 1.0 } else { 0.0 } + 0.1 * n[i] * (-x * 1500.0).exp()
+                    -(TAU * 950.0 * x).sin() * (-x * 2500.0).exp()
+                        + 0.85 * -(TAU * 880.0 * sh).sin() * (-sh * 2500.0).exp() * if *x >= 0.0018 { 1.0 } else { 0.0 }
+                        + 0.1 * n[i] * (-x * 1500.0).exp()
                 })
                 .collect(),
             0.5,
@@ -188,7 +211,13 @@ pub fn sfx_bank() -> HashMap<&'static str, Vec<f32>> {
             ts.iter()
                 .enumerate()
                 .map(|(i, x)| {
-                    let burst: f32 = [(0.0f32, 950.0f32, 1.0f32), (0.0021, 1020.0, 0.9), (0.0045, 890.0, 0.8)].iter().map(|(d, f, a)| { let sub = (x - d).max(0.0); -(TAU * f * sub).sin() * (-sub * 2400.0).exp() * if *x >= *d { 1.0 } else { 0.0 } * a }).sum();
+                    let burst: f32 = [(0.0f32, 950.0f32, 1.0f32), (0.0021, 1020.0, 0.9), (0.0045, 890.0, 0.8)]
+                        .iter()
+                        .map(|(d, f, a)| {
+                            let sub = (x - d).max(0.0);
+                            -(TAU * f * sub).sin() * (-sub * 2400.0).exp() * if *x >= *d { 1.0 } else { 0.0 } * a
+                        })
+                        .sum();
                     burst + 0.1 * n[i] * (-x * 1000.0).exp()
                 })
                 .collect(),
@@ -203,7 +232,14 @@ pub fn sfx_bank() -> HashMap<&'static str, Vec<f32>> {
             ts.iter()
                 .enumerate()
                 .map(|(i, x)| {
-                    let many: f32 = [0.0f32, 0.0015, 0.0032, 0.0051, 0.0078, 0.0102].iter().zip([950.0f32, 1100.0, 850.0, 1050.0, 920.0, 980.0]).map(|(d, f)| { let sub = (x - d).max(0.0); -(TAU * f * sub).sin() * (-sub * 2200.0).exp() * if *x >= *d { 1.0 } else { 0.0 } * 0.6 }).sum();
+                    let many: f32 = [0.0f32, 0.0015, 0.0032, 0.0051, 0.0078, 0.0102]
+                        .iter()
+                        .zip([950.0f32, 1100.0, 850.0, 1050.0, 920.0, 980.0])
+                        .map(|(d, f)| {
+                            let sub = (x - d).max(0.0);
+                            -(TAU * f * sub).sin() * (-sub * 2200.0).exp() * if *x >= *d { 1.0 } else { 0.0 } * 0.6
+                        })
+                        .sum();
                     many + 0.12 * n[i] * (-x * 500.0).exp()
                 })
                 .collect(),
@@ -387,7 +423,21 @@ impl Synth {
             })
             .collect();
         let freq: Vec<f32> = VOICES.iter().map(|v| midi_hz(v.1 as f32)).collect();
-        Self { rate: rate as f32, phase: vec![0.0; k], f_target: freq.clone(), freq, amp: vec![0.0; k], a_target: vec![0.0; k], song_on: false, song_amp: 0.0, duck: 1.0, pos: 0, next_pulse: 0, tail: Vec::new(), pulse }
+        Self {
+            rate: rate as f32,
+            phase: vec![0.0; k],
+            f_target: freq.clone(),
+            freq,
+            amp: vec![0.0; k],
+            a_target: vec![0.0; k],
+            song_on: false,
+            song_amp: 0.0,
+            duck: 1.0,
+            pos: 0,
+            next_pulse: 0,
+            tail: Vec::new(),
+            pulse,
+        }
     }
 
     pub fn set_targets(&mut self, targets: &[(i32, f32)]) {
@@ -417,7 +467,8 @@ impl Synth {
                 let f = self.f_target[i] + (self.freq[i] - self.f_target[i]) * (-t / GLIDE_S).exp();
                 let a = self.a_target[i] + (self.amp[i] - self.a_target[i]) * (-t / tau).exp();
                 ph += TAU * f / self.rate;
-                let wave: f32 = harm.iter().enumerate().filter(|(_, h)| **h > 0.0).map(|(k, h)| h * ((k + 1) as f32 * ph).sin()).sum::<f32>() / hsum;
+                let wave: f32 =
+                    harm.iter().enumerate().filter(|(_, h)| **h > 0.0).map(|(k, h)| h * ((k + 1) as f32 * ph).sin()).sum::<f32>() / hsum;
                 *o += a * wave;
                 mean_a += a;
                 f_last = f;
@@ -481,7 +532,34 @@ mod tests {
     #[test]
     fn every_effect_exists_is_bounded_and_not_silent() {
         let bank = sfx_bank();
-        for name in ["whack", "squish", "flick", "boom", "zap", "chomp", "yum", "shatter", "splash", "death", "dodge", "pop", "bonk", "drop", "hurt", "pulse_song", "buzz0", "buzz3", "spike_click1", "spike_click_many", "sizzle", "hiss", "whoosh", "click", "pew", "hum"] {
+        for name in [
+            "whack",
+            "squish",
+            "flick",
+            "boom",
+            "zap",
+            "chomp",
+            "yum",
+            "shatter",
+            "splash",
+            "death",
+            "dodge",
+            "pop",
+            "bonk",
+            "drop",
+            "hurt",
+            "pulse_song",
+            "buzz0",
+            "buzz3",
+            "spike_click1",
+            "spike_click_many",
+            "sizzle",
+            "hiss",
+            "whoosh",
+            "click",
+            "pew",
+            "hum",
+        ] {
             let s = bank.get(name).unwrap_or_else(|| panic!("{name} missing"));
             assert!(!s.is_empty());
             assert!(s.iter().all(|v| v.abs() <= 1.0 && v.is_finite()), "{name} clips or is not finite");

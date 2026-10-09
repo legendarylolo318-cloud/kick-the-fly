@@ -60,7 +60,13 @@ fn attach(mut commands: Commands, new: Query<Entity, (With<Fly>, Without<Forage>
 }
 
 /// Rebuild the arena state when the arena changes.
-fn on_arena_change(arena: Res<Arena>, mut fruit: ResMut<Fruit>, mut kitchen: ResMut<Kitchen>, mut room: ResMut<EscapeRoom>, time: Res<Time<Virtual>>) {
+fn on_arena_change(
+    arena: Res<Arena>,
+    mut fruit: ResMut<Fruit>,
+    mut kitchen: ResMut<Kitchen>,
+    mut room: ResMut<EscapeRoom>,
+    time: Res<Time<Virtual>>,
+) {
     if !arena.is_changed() {
         return;
     }
@@ -75,7 +81,8 @@ fn on_arena_change(arena: Res<Arena>, mut fruit: ResMut<Fruit>, mut kitchen: Res
         }
         "kitchen" => {
             let tree = Tree { pos: kit::BOWL_POS, height: kit::BOWL_H + 0.3, crown: 0.3 };
-            let mut o = Orchard::new(&[tree], world::DEFAULT_FEEDS, world::DEFAULT_REGROW_S, world::SLOTS_PER_TREE.min(world::DEFAULT_CAP), 5);
+            let mut o =
+                Orchard::new(&[tree], world::DEFAULT_FEEDS, world::DEFAULT_REGROW_S, world::SLOTS_PER_TREE.min(world::DEFAULT_CAP), 5);
             let mut rng = Rng::new(16);
             let n = o.fruit.len();
             for (k, f) in o.fruit.iter_mut().enumerate() {
@@ -93,7 +100,10 @@ fn on_arena_change(arena: Res<Arena>, mut fruit: ResMut<Fruit>, mut kitchen: Res
 
 /// The groups' firing the snapshot carries, by name.
 fn group_hz(snap: &LatestSnapshot, name: &str) -> f32 {
-    snap.0.as_deref().and_then(|s| s.info.as_deref().and_then(|i| i.group_names.iter().position(|n| n == name)).and_then(|i| s.hz.get(i).copied())).unwrap_or(0.0)
+    snap.0
+        .as_deref()
+        .and_then(|s| s.info.as_deref().and_then(|i| i.group_names.iter().position(|n| n == name)).and_then(|i| s.hz.get(i).copied()))
+        .unwrap_or(0.0)
 }
 
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
@@ -143,7 +153,14 @@ fn arena_effects(
             }
             if rng.chance(0.8) {
                 let at = Vec3::new(FAN3.x + 0.5, rng.uniform(0.4, 1.6), FAN3.z + rng.uniform(-1.2, 1.2));
-                fx.add(Particle { pos: at, vel: Vec3::new(rng.uniform(0.09, 0.15) * 60.0, 0.0, 0.0), born: now, life: 1.0, size: 0.025, kind: Kind::Streak });
+                fx.add(Particle {
+                    pos: at,
+                    vel: Vec3::new(rng.uniform(0.09, 0.15) * 60.0, 0.0, 0.0),
+                    born: now,
+                    life: 1.0,
+                    size: 0.025,
+                    kind: Kind::Streak,
+                });
             }
         }
         if want_paper {
@@ -413,7 +430,12 @@ fn foraging(
         if let Some(i) = fo.fruit {
             let perch = o.fruit[i].pos + Vec3::Y * 0.07;
             let diverted = (f.fly_target - perch).length() > 1e-3;
-            if busy || diverted || !o.fruit[i].ripe() || now >= f.react.escape_until || (fo.landed && o.fruit[i].eater != Some(index_u32(e))) {
+            if busy
+                || diverted
+                || !o.fruit[i].ripe()
+                || now >= f.react.escape_until
+                || (fo.landed && o.fruit[i].eater != Some(index_u32(e)))
+            {
                 leave(&mut fo, &mut f, o, now, &mut rng);
                 continue;
             }
@@ -427,7 +449,15 @@ fn foraging(
                     fo.landed = true;
                     fo.feed_start = now;
                     f.react.escape_until = now + world::FEED_BOUT_S + 1.0;
-                    notes.push(now, if o.fruit[i].fermented { "EATING   fermented fruit: sweet + PAM reward [GAME RULE: inebriation]" } else { "EATING   fruit: taste + PAM reward" }, Tag::GameRule);
+                    notes.push(
+                        now,
+                        if o.fruit[i].fermented {
+                            "EATING   fermented fruit: sweet + PAM reward [GAME RULE: inebriation]"
+                        } else {
+                            "EATING   fruit: taste + PAM reward"
+                        },
+                        Tag::GameRule,
+                    );
                     popups.write(Popup::new(head + Vec3::Y * 0.3, ["YUM!", "NOM NOM"][rng.index(2)], (255, 160, 190)));
                 } else if now - fo.since > 14.0 {
                     leave(&mut fo, &mut f, o, now, &mut rng);
@@ -564,7 +594,13 @@ fn kitchen_tick(
         if tick.is_multiple_of(6) {
             k.tracker(key).update(6.0 / 60.0, alcohol_hz, s > 0.0);
         }
-        let busy = f.wrapped || f.frozen_at.is_some() || f.grabbed.is_some() || f.wet > 0.0 || fo.fruit.is_some() || f.stuck.len() >= 2 || k.trapped.contains_key(&key);
+        let busy = f.wrapped
+            || f.frozen_at.is_some()
+            || f.grabbed.is_some()
+            || f.wet > 0.0
+            || fo.fruit.is_some()
+            || f.stuck.len() >= 2
+            || k.trapped.contains_key(&key);
         if let Some(trip) = fo.trap_trip
             && (k.trapped.contains_key(&key) || now >= f.react.escape_until || (f.fly_target - trip).length() > 1e-3)
         {
@@ -662,6 +698,10 @@ pub struct EnvironmentPlugin;
 
 impl Plugin for EnvironmentPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Fruit>().init_resource::<Kitchen>().init_resource::<EscapeRoom>().add_systems(Update, (attach, on_arena_change).chain()).add_systems(FixedUpdate, (arena_effects, outdoor_effects, foraging, kitchen_tick).chain().before(crate::fly::control));
+        app.init_resource::<Fruit>()
+            .init_resource::<Kitchen>()
+            .init_resource::<EscapeRoom>()
+            .add_systems(Update, (attach, on_arena_change).chain())
+            .add_systems(FixedUpdate, (arena_effects, outdoor_effects, foraging, kitchen_tick).chain().before(crate::fly::control));
     }
 }

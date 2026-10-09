@@ -50,11 +50,42 @@ pub struct WorldSpec {
     pub sky: [f32; 3],
 }
 
-pub const ROOM: WorldSpec = WorldSpec { name: "room", rx: 4.2, ry: 3.0, rz: 3.6, fly_rx: 4.2, fly_ry: 3.0, fly_rz: 3.6, lost_radius: None, ground: [0.24, 0.2, 0.17], sky: [0.42, 0.44, 0.5] };
-pub const FIELD: WorldSpec =
-    WorldSpec { name: "field", rx: 30.0, ry: 60.0, rz: 30.0, fly_rx: 200.0, fly_ry: 80.0, fly_rz: 200.0, lost_radius: Some(26.0), ground: [0.3, 0.33, 0.22], sky: [0.55, 0.66, 0.8] };
-pub const ORCHARD: WorldSpec =
-    WorldSpec { name: "orchard", rx: 16.0, ry: 40.0, rz: 16.0, fly_rx: 150.0, fly_ry: 60.0, fly_rz: 150.0, lost_radius: Some(22.0), ground: [0.3, 0.3, 0.2], sky: [0.55, 0.66, 0.8] };
+pub const ROOM: WorldSpec = WorldSpec {
+    name: "room",
+    rx: 4.2,
+    ry: 3.0,
+    rz: 3.6,
+    fly_rx: 4.2,
+    fly_ry: 3.0,
+    fly_rz: 3.6,
+    lost_radius: None,
+    ground: [0.24, 0.2, 0.17],
+    sky: [0.42, 0.44, 0.5],
+};
+pub const FIELD: WorldSpec = WorldSpec {
+    name: "field",
+    rx: 30.0,
+    ry: 60.0,
+    rz: 30.0,
+    fly_rx: 200.0,
+    fly_ry: 80.0,
+    fly_rz: 200.0,
+    lost_radius: Some(26.0),
+    ground: [0.3, 0.33, 0.22],
+    sky: [0.55, 0.66, 0.8],
+};
+pub const ORCHARD: WorldSpec = WorldSpec {
+    name: "orchard",
+    rx: 16.0,
+    ry: 40.0,
+    rz: 16.0,
+    fly_rx: 150.0,
+    fly_ry: 60.0,
+    fly_rz: 150.0,
+    lost_radius: Some(22.0),
+    ground: [0.3, 0.3, 0.2],
+    sky: [0.55, 0.66, 0.8],
+};
 
 pub fn spec(arena: &str) -> WorldSpec {
     match arena {
@@ -208,7 +239,11 @@ pub fn scenery(arena: &str, seed: u64) -> Scenery {
                     continue; // a clearing where you start
                 }
                 let j = (rng.uniform(-0.8, 0.8), rng.uniform(-0.8, 0.8));
-                out.trees.push(Tree { pos: Vec3::new(gx as f32 * 5.5 + j.0, 0.0, gz as f32 * 5.5 + j.1), height: rng.uniform(2.6, 3.4), crown: rng.uniform(1.3, 1.7) });
+                out.trees.push(Tree {
+                    pos: Vec3::new(gx as f32 * 5.5 + j.0, 0.0, gz as f32 * 5.5 + j.1),
+                    height: rng.uniform(2.6, 3.4),
+                    crown: rng.uniform(1.3, 1.7),
+                });
             }
         }
     }
@@ -217,7 +252,10 @@ pub fn scenery(arena: &str, seed: u64) -> Scenery {
 
 /// Trunks as boxes, so you and the walking fly go around them.
 pub fn tree_colliders(trees: &[Tree]) -> Vec<Aabb> {
-    trees.iter().map(|t| Aabb { lo: Vec3::new(t.pos.x - 0.18, 0.0, t.pos.z - 0.18), hi: Vec3::new(t.pos.x + 0.18, t.height, t.pos.z + 0.18) }).collect()
+    trees
+        .iter()
+        .map(|t| Aabb { lo: Vec3::new(t.pos.x - 0.18, 0.0, t.pos.z - 0.18), hi: Vec3::new(t.pos.x + 0.18, t.height, t.pos.z + 0.18) })
+        .collect()
 }
 
 // --- the orchard's fruit -------------------------------------------------------------------------------------------------------
@@ -274,7 +312,16 @@ impl Orchard {
                 let a = TAU * k as f32 / SLOTS_PER_TREE as f32 + o.rng.uniform(-0.3, 0.3);
                 let r = t.crown * o.rng.uniform(0.55, 0.85);
                 let pos = top + Vec3::new(r * a.cos(), -o.rng.uniform(0.35, 0.9), r * a.sin());
-                o.fruit.push(Fruit { tree: ti, pos, feeds_max: feeds, feeds_left: 0, fermented: false, regrow_at: None, fell_at: None, eater: None });
+                o.fruit.push(Fruit {
+                    tree: ti,
+                    pos,
+                    feeds_max: feeds,
+                    feeds_left: 0,
+                    fermented: false,
+                    regrow_at: None,
+                    fell_at: None,
+                    eater: None,
+                });
             }
         }
         for ti in 0..trees.len() {

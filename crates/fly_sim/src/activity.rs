@@ -22,6 +22,19 @@ pub struct ActivityBuffer {
 const NEVER: i32 = -(1 << 30);
 
 impl ActivityBuffer {
+    /// Put back what a save file kept; the raster (the last 400 steps) is cleared, as Python does on load.
+    pub fn restore(&mut self, rate: &[f32], last_spike: &[i32], steps: u64, active_count: usize) {
+        self.rate.copy_from_slice(rate);
+        self.last_spike.copy_from_slice(last_spike);
+        self.steps = steps;
+        self.active_count = active_count;
+        for r in &mut self.raster {
+            r.clear();
+        }
+        self.raster_head = 0;
+        self.raster_len = 0;
+    }
+
     pub fn new(n: usize) -> Self {
         Self::with_shape(n, 400, 40.0)
     }

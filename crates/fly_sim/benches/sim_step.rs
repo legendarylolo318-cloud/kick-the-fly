@@ -7,7 +7,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use fly_sim::brain::STIM_AMP;
 use fly_sim::csr::Weights;
 use fly_sim::lif::{LifParams, LifSim};
@@ -24,14 +24,7 @@ fn nets() -> Vec<Net> {
     let mut nets = Vec::new();
     match pack::find_default().map(Pack::load) {
         Some(Ok(p)) => {
-            let rows = p
-                .labels
-                .types
-                .iter()
-                .enumerate()
-                .filter(|(_, t)| *t == "LPLC2" || *t == "LC4")
-                .map(|(i, _)| i)
-                .collect();
+            let rows = p.labels.types.iter().enumerate().filter(|(_, t)| *t == "LPLC2" || *t == "LC4").map(|(i, _)| i).collect();
             nets.push(Net { label: "malecns-166700", weights: Arc::new(p.weights), drive_rows: rows });
         }
         other => {

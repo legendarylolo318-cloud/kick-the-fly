@@ -65,7 +65,20 @@ impl LegRig {
     #[allow(clippy::too_many_arguments)]
     pub fn new(hips: Vec<Vec3>, rests: Vec<Vec3>, l1: f32, l2: f32, groups: Vec<u8>, step_len: f32, step_s: f32, lift: f32) -> Self {
         let n = hips.len();
-        Self { hips, rests, l1, l2, groups, step_len, step_s, lift, feet: vec![None; n], from: vec![Vec3::ZERO; n], to: vec![Vec3::ZERO; n], t: vec![-1.0; n] }
+        Self {
+            hips,
+            rests,
+            l1,
+            l2,
+            groups,
+            step_len,
+            step_s,
+            lift,
+            feet: vec![None; n],
+            from: vec![Vec3::ZERO; n],
+            to: vec![Vec3::ZERO; n],
+            t: vec![-1.0; n],
+        }
     }
 
     pub fn len(&self) -> usize {
@@ -95,7 +108,16 @@ impl LegRig {
     /// `ground` `None`: the animal is off the ground (dangling): the feet hang `hang` below their hips and nothing is planted.
     /// `overrides` `(leg, point)`: that foot is held there (a raised foreleg in a wind-up).
     #[allow(clippy::too_many_arguments)]
-    pub fn update(&mut self, pos: Vec3, fwd: Vec3, dt: f32, moving: bool, ground: Option<f32>, overrides: &[(usize, Vec3)], hang: f32) -> Vec<LegPose> {
+    pub fn update(
+        &mut self,
+        pos: Vec3,
+        fwd: Vec3,
+        dt: f32,
+        moving: bool,
+        ground: Option<f32>,
+        overrides: &[(usize, Vec3)],
+        hang: f32,
+    ) -> Vec<LegPose> {
         let mut fwd = unit(Vec3::new(fwd.x, 0.0, fwd.z));
         if fwd == Vec3::ZERO {
             fwd = Vec3::Z;

@@ -60,10 +60,21 @@ pub fn procedural_image(w: u32, h: u32, f: impl Fn(f32, f32) -> [f32; 3]) -> Ima
     for y in 0..h {
         for x in 0..w {
             let c = f(x as f32 / w as f32, y as f32 / h as f32);
-            data.extend_from_slice(&[(c[0].clamp(0.0, 1.0) * 255.0) as u8, (c[1].clamp(0.0, 1.0) * 255.0) as u8, (c[2].clamp(0.0, 1.0) * 255.0) as u8, 255]);
+            data.extend_from_slice(&[
+                (c[0].clamp(0.0, 1.0) * 255.0) as u8,
+                (c[1].clamp(0.0, 1.0) * 255.0) as u8,
+                (c[2].clamp(0.0, 1.0) * 255.0) as u8,
+                255,
+            ]);
         }
     }
-    Image::new(Extent3d { width: w, height: h, depth_or_array_layers: 1 }, TextureDimension::D2, data, TextureFormat::Rgba8UnormSrgb, RenderAssetUsages::RENDER_WORLD)
+    Image::new(
+        Extent3d { width: w, height: h, depth_or_array_layers: 1 },
+        TextureDimension::D2,
+        data,
+        TextureFormat::Rgba8UnormSrgb,
+        RenderAssetUsages::RENDER_WORLD,
+    )
 }
 
 fn hash2(x: u32, y: u32) -> f32 {
@@ -109,15 +120,31 @@ impl Kit<'_> {
 
     /// A box with no collider (decoration).
     fn deco(&mut self, center: Vec3, half: Vec3, mat: Handle<StandardMaterial>) -> Entity {
-        self.commands.spawn((ArenaScene, Mesh3d(self.meshes.add(Cuboid::new(half.x * 2.0, half.y * 2.0, half.z * 2.0))), MeshMaterial3d(mat), Transform::from_translation(center))).id()
+        self.commands
+            .spawn((
+                ArenaScene,
+                Mesh3d(self.meshes.add(Cuboid::new(half.x * 2.0, half.y * 2.0, half.z * 2.0))),
+                MeshMaterial3d(mat),
+                Transform::from_translation(center),
+            ))
+            .id()
     }
 
     fn sphere(&mut self, center: Vec3, r: f32, mat: Handle<StandardMaterial>) -> Entity {
-        self.commands.spawn((ArenaScene, Mesh3d(self.meshes.add(Sphere::new(r).mesh().uv(24, 16))), MeshMaterial3d(mat), Transform::from_translation(center))).id()
+        self.commands
+            .spawn((
+                ArenaScene,
+                Mesh3d(self.meshes.add(Sphere::new(r).mesh().uv(24, 16))),
+                MeshMaterial3d(mat),
+                Transform::from_translation(center),
+            ))
+            .id()
     }
 
     fn cylinder(&mut self, center: Vec3, r: f32, h: f32, mat: Handle<StandardMaterial>) -> Entity {
-        self.commands.spawn((ArenaScene, Mesh3d(self.meshes.add(Cylinder::new(r, h))), MeshMaterial3d(mat), Transform::from_translation(center))).id()
+        self.commands
+            .spawn((ArenaScene, Mesh3d(self.meshes.add(Cylinder::new(r, h))), MeshMaterial3d(mat), Transform::from_translation(center)))
+            .id()
     }
 
     fn solid_cylinder(&mut self, center: Vec3, r: f32, h: f32, mat: Handle<StandardMaterial>) -> Entity {
@@ -174,7 +201,8 @@ fn room_furniture(k: &mut Kit, images: &mut Assets<Image>) {
     k.solid(c1, h1, wood.clone());
     // the books: one merged mesh with vertex colours, so a whole shelf is a single draw call
     let mut rng = Rng::new(5);
-    let (mut pos, mut col, mut nor, mut idx): (Vec<[f32; 3]>, Vec<[f32; 4]>, Vec<[f32; 3]>, Vec<u32>) = (Vec::new(), Vec::new(), Vec::new(), Vec::new());
+    let (mut pos, mut col, mut nor, mut idx): (Vec<[f32; 3]>, Vec<[f32; 4]>, Vec<[f32; 3]>, Vec<u32>) =
+        (Vec::new(), Vec::new(), Vec::new(), Vec::new());
     for shelf in 0..5 {
         let y = 0.25 + shelf as f32 * 0.38;
         let mut z = b[1].lo.z + 0.08;
@@ -225,16 +253,32 @@ fn room_furniture(k: &mut Kit, images: &mut Assets<Image>) {
 /// A window on the back wall (decorative) so the room has a visible light source.
 fn window(k: &mut Kit) {
     let frame = k.mat(Color::srgb(0.85, 0.85, 0.82), 0.6);
-    let glass = k.materials.add(StandardMaterial { base_color: Color::srgb(0.65, 0.8, 1.0), emissive: LinearRgba::rgb(0.5, 0.7, 1.1), unlit: true, ..default() });
+    let glass = k.materials.add(StandardMaterial {
+        base_color: Color::srgb(0.65, 0.8, 1.0),
+        emissive: LinearRgba::rgb(0.5, 0.7, 1.1),
+        unlit: true,
+        ..default()
+    });
     k.deco(Vec3::new(1.8, 1.7, -RZ + 0.02), Vec3::new(0.8, 0.7, 0.02), glass);
-    for (c, h) in [(Vec3::new(1.8, 2.42, -RZ + 0.04), Vec3::new(0.86, 0.04, 0.04)), (Vec3::new(1.8, 0.98, -RZ + 0.04), Vec3::new(0.86, 0.04, 0.04)), (Vec3::new(0.95, 1.7, -RZ + 0.04), Vec3::new(0.04, 0.74, 0.04)), (Vec3::new(2.65, 1.7, -RZ + 0.04), Vec3::new(0.04, 0.74, 0.04)), (Vec3::new(1.8, 1.7, -RZ + 0.04), Vec3::new(0.02, 0.7, 0.04))] {
+    for (c, h) in [
+        (Vec3::new(1.8, 2.42, -RZ + 0.04), Vec3::new(0.86, 0.04, 0.04)),
+        (Vec3::new(1.8, 0.98, -RZ + 0.04), Vec3::new(0.86, 0.04, 0.04)),
+        (Vec3::new(0.95, 1.7, -RZ + 0.04), Vec3::new(0.04, 0.74, 0.04)),
+        (Vec3::new(2.65, 1.7, -RZ + 0.04), Vec3::new(0.04, 0.74, 0.04)),
+        (Vec3::new(1.8, 1.7, -RZ + 0.04), Vec3::new(0.02, 0.7, 0.04)),
+    ] {
         k.deco(c, h, frame.clone());
     }
 }
 
 fn fan(k: &mut Kit) {
     let metal = k.mat(Color::srgb(0.55, 0.57, 0.6), 0.4);
-    let blade = k.materials.add(StandardMaterial { base_color: Color::srgb(0.7, 0.72, 0.78), alpha_mode: AlphaMode::Blend, perceptual_roughness: 0.4, ..default() });
+    let blade = k.materials.add(StandardMaterial {
+        base_color: Color::srgb(0.7, 0.72, 0.78),
+        alpha_mode: AlphaMode::Blend,
+        perceptual_roughness: 0.4,
+        ..default()
+    });
     let c = Vec3::new(FAN3.x, 0.9, FAN3.z);
     k.cylinder(Vec3::new(c.x - 0.12, 0.35, c.z), 0.05, 0.7, metal.clone());
     k.deco(Vec3::new(c.x - 0.12, 0.05, c.z), Vec3::new(0.25, 0.05, 0.25), metal.clone());
@@ -246,7 +290,13 @@ fn fan(k: &mut Kit) {
         let a = i as f32 * std::f32::consts::FRAC_PI_2;
         let blade_e = k
             .commands
-            .spawn((Mesh3d(k.meshes.add(Cuboid::new(0.02, 0.5, 0.16))), MeshMaterial3d(blade.clone()), Transform::from_rotation(Quat::from_rotation_x(a) * Quat::from_rotation_z(0.0)).with_translation(Vec3::new(0.0, a.cos() * 0.28, a.sin() * 0.28)).with_rotation(Quat::from_rotation_x(a))))
+            .spawn((
+                Mesh3d(k.meshes.add(Cuboid::new(0.02, 0.5, 0.16))),
+                MeshMaterial3d(blade.clone()),
+                Transform::from_rotation(Quat::from_rotation_x(a) * Quat::from_rotation_z(0.0))
+                    .with_translation(Vec3::new(0.0, a.cos() * 0.28, a.sin() * 0.28))
+                    .with_rotation(Quat::from_rotation_x(a)),
+            ))
             .id();
         k.commands.entity(pivot).add_child(blade_e);
     }
@@ -258,24 +308,45 @@ fn flypaper(k: &mut Kit, images: &mut Assets<Image>) {
         let n = hash2((u * 64.0) as u32, (v * 64.0) as u32) * 0.2;
         [0.9 + n * 0.3, 0.74 + n * 0.3, 0.2 + n * 0.2]
     }));
-    let m = k.materials.add(StandardMaterial { base_color: Color::WHITE, base_color_texture: Some(img), perceptual_roughness: 0.15, reflectance: 0.9, ..default() });
+    let m = k.materials.add(StandardMaterial {
+        base_color: Color::WHITE,
+        base_color_texture: Some(img),
+        perceptual_roughness: 0.15,
+        reflectance: 0.9,
+        ..default()
+    });
     k.deco(Vec3::new((x0 + x1) / 2.0, 0.008, (z0 + z1) / 2.0), Vec3::new((x1 - x0) / 2.0, 0.008, (z1 - z0) / 2.0), m);
 }
 
 fn pool(k: &mut Kit) {
     // the whole floor is a pool 0.6 m deep: walls of water, a translucent surface
-    let water = k.materials.add(StandardMaterial { base_color: Color::srgba(0.2, 0.5, 0.75, 0.55), alpha_mode: AlphaMode::Blend, perceptual_roughness: 0.05, reflectance: 0.8, ..default() });
+    let water = k.materials.add(StandardMaterial {
+        base_color: Color::srgba(0.2, 0.5, 0.75, 0.55),
+        alpha_mode: AlphaMode::Blend,
+        perceptual_roughness: 0.05,
+        reflectance: 0.8,
+        ..default()
+    });
     k.deco(Vec3::new(0.0, WATER3, 0.0), Vec3::new(RX, 0.004, RZ), water);
 }
 
 fn lamp(k: &mut Kit, on: bool) {
     let shade = k.mat(Color::srgb(0.2, 0.2, 0.22), 0.6);
-    let bulb = k.materials.add(StandardMaterial { base_color: Color::srgb(1.0, 0.9, 0.6), emissive: if on { LinearRgba::rgb(14.0, 10.0, 4.0) } else { LinearRgba::rgb(0.4, 0.35, 0.2) }, ..default() });
+    let bulb = k.materials.add(StandardMaterial {
+        base_color: Color::srgb(1.0, 0.9, 0.6),
+        emissive: if on { LinearRgba::rgb(14.0, 10.0, 4.0) } else { LinearRgba::rgb(0.4, 0.35, 0.2) },
+        ..default()
+    });
     k.cylinder(Vec3::new(LAMP3.x, RY - 0.25, LAMP3.z), 0.012, 0.5, shade.clone());
     k.sphere(LAMP3, 0.14, bulb);
     k.cylinder(Vec3::new(LAMP3.x, LAMP3.y + 0.2, LAMP3.z), 0.2, 0.12, shade);
     if on {
-        k.commands.spawn((ArenaScene, LampLight, PointLight { intensity: 900_000.0, range: 12.0, color: Color::srgb(1.0, 0.85, 0.55), shadow_maps_enabled: false, ..default() }, Transform::from_translation(LAMP3)));
+        k.commands.spawn((
+            ArenaScene,
+            LampLight,
+            PointLight { intensity: 900_000.0, range: 12.0, color: Color::srgb(1.0, 0.85, 0.55), shadow_maps_enabled: false, ..default() },
+            Transform::from_translation(LAMP3),
+        ));
     }
 }
 
@@ -285,14 +356,28 @@ fn thermo(k: &mut Kit, images: &mut Assets<Image>) {
         let t = u;
         [0.15 + 0.8 * t, 0.35 + 0.1 * (1.0 - (2.0 * t - 1.0).abs()), 0.9 - 0.8 * t]
     }));
-    let m = k.materials.add(StandardMaterial { base_color: Color::WHITE, base_color_texture: Some(img), perceptual_roughness: 0.9, unlit: false, ..default() });
+    let m = k.materials.add(StandardMaterial {
+        base_color: Color::WHITE,
+        base_color_texture: Some(img),
+        perceptual_roughness: 0.9,
+        unlit: false,
+        ..default()
+    });
     k.deco(Vec3::new(0.0, 0.007, 0.0), Vec3::new(THERMO_HALF3 + 0.3, 0.006, RZ - 0.1), m);
 }
 
 fn sugar_goal(k: &mut Kit) {
-    let sugar = k.materials.add(StandardMaterial { base_color: Color::srgb(1.0, 0.95, 0.95), emissive: LinearRgba::rgb(0.6, 0.5, 0.55), ..default() });
+    let sugar = k.materials.add(StandardMaterial {
+        base_color: Color::srgb(1.0, 0.95, 0.95),
+        emissive: LinearRgba::rgb(0.6, 0.5, 0.55),
+        ..default()
+    });
     for i in 0..6 {
-        k.deco(Vec3::new(RX - 0.7 + (i % 3) as f32 * 0.06 - 0.06, 0.03 + (i / 3) as f32 * 0.05, (i % 2) as f32 * 0.07), Vec3::splat(0.03), sugar.clone());
+        k.deco(
+            Vec3::new(RX - 0.7 + (i % 3) as f32 * 0.06 - 0.06, 0.03 + (i / 3) as f32 * 0.05, (i % 2) as f32 * 0.07),
+            Vec3::splat(0.03),
+            sugar.clone(),
+        );
     }
 }
 
@@ -315,7 +400,12 @@ fn kitchen(k: &mut Kit, images: &mut Assets<Image>) {
     let ceramic = k.mat(Color::srgb(0.85, 0.8, 0.7), 0.5);
     k.cylinder(kit::BOWL_POS + Vec3::new(0.0, kit::BOWL_H / 2.0, 0.0), kit::BOWL_R, kit::BOWL_H, ceramic);
     // vinegar trap: a glass jar with a funnel mouth
-    let glass = k.materials.add(StandardMaterial { base_color: Color::srgba(0.8, 0.9, 0.7, 0.35), alpha_mode: AlphaMode::Blend, perceptual_roughness: 0.05, ..default() });
+    let glass = k.materials.add(StandardMaterial {
+        base_color: Color::srgba(0.8, 0.9, 0.7, 0.35),
+        alpha_mode: AlphaMode::Blend,
+        perceptual_roughness: 0.05,
+        ..default()
+    });
     let jar = k.solid_cylinder(kit::TRAP_POS + Vec3::new(0.0, kit::TRAP_H / 2.0, 0.0), kit::TRAP_R, kit::TRAP_H, glass);
     k.commands.entity(jar).insert(Name::new("vinegar trap"));
     let vinegar = k.materials.add(StandardMaterial { base_color: Color::srgb(0.45, 0.22, 0.1), perceptual_roughness: 0.2, ..default() });
@@ -324,15 +414,38 @@ fn kitchen(k: &mut Kit, images: &mut Assets<Image>) {
     let (x0, x1, z0, z1) = kit::SINK;
     let basin = k.mat(Color::srgb(0.25, 0.27, 0.3), 0.4);
     k.deco(Vec3::new((x0 + x1) / 2.0, 0.01, (z0 + z1) / 2.0), Vec3::new((x1 - x0) / 2.0 + 0.1, 0.01, (z1 - z0) / 2.0 + 0.1), basin);
-    let water = k.materials.add(StandardMaterial { base_color: Color::srgba(0.25, 0.55, 0.8, 0.5), alpha_mode: AlphaMode::Blend, perceptual_roughness: 0.05, reflectance: 0.8, ..default() });
+    let water = k.materials.add(StandardMaterial {
+        base_color: Color::srgba(0.25, 0.55, 0.8, 0.5),
+        alpha_mode: AlphaMode::Blend,
+        perceptual_roughness: 0.05,
+        reflectance: 0.8,
+        ..default()
+    });
     k.deco(Vec3::new((x0 + x1) / 2.0, kit::SINK_WATER, (z0 + z1) / 2.0), Vec3::new((x1 - x0) / 2.0, 0.004, (z1 - z0) / 2.0), water);
     // the burner: a flat disc and a glowing ring
     let iron = k.mat(Color::srgb(0.1, 0.1, 0.11), 0.5);
     k.cylinder(kit::BURNER_POS + Vec3::new(0.0, 0.02, 0.0), kit::BURNER_R + 0.08, 0.04, iron);
-    let ring = k.materials.add(StandardMaterial { base_color: Color::srgb(0.9, 0.2, 0.05), emissive: LinearRgba::rgb(6.0, 1.0, 0.1), ..default() });
-    let e = k.commands.spawn((ArenaScene, BurnerGlow, Mesh3d(k.meshes.add(Torus::new(kit::BURNER_R * 0.55, kit::BURNER_R * 0.8))), MeshMaterial3d(ring), Transform::from_translation(kit::BURNER_POS + Vec3::new(0.0, 0.05, 0.0)))).id();
+    let ring = k.materials.add(StandardMaterial {
+        base_color: Color::srgb(0.9, 0.2, 0.05),
+        emissive: LinearRgba::rgb(6.0, 1.0, 0.1),
+        ..default()
+    });
+    let e = k
+        .commands
+        .spawn((
+            ArenaScene,
+            BurnerGlow,
+            Mesh3d(k.meshes.add(Torus::new(kit::BURNER_R * 0.55, kit::BURNER_R * 0.8))),
+            MeshMaterial3d(ring),
+            Transform::from_translation(kit::BURNER_POS + Vec3::new(0.0, 0.05, 0.0)),
+        ))
+        .id();
     let _ = e;
-    k.commands.spawn((ArenaScene, PointLight { intensity: 120_000.0, range: 3.0, color: Color::srgb(1.0, 0.4, 0.1), ..default() }, Transform::from_translation(kit::BURNER_POS + Vec3::new(0.0, 0.3, 0.0))));
+    k.commands.spawn((
+        ArenaScene,
+        PointLight { intensity: 120_000.0, range: 3.0, color: Color::srgb(1.0, 0.4, 0.1), ..default() },
+        Transform::from_translation(kit::BURNER_POS + Vec3::new(0.0, 0.3, 0.0)),
+    ));
 }
 
 impl Kit<'_> {
@@ -355,7 +468,12 @@ fn grass_mesh(tufts: &[world::Tuft], seed: u64) -> Mesh {
             let d = Vec3::new(ang.cos(), 0.0, ang.sin()) * w;
             let base = t.pos - Vec3::new(0.0, t.height / 2.0, 0.0);
             let b = pos.len() as u32;
-            pos.extend([(base - d).to_array(), (base + d).to_array(), (base + d * 0.15 + Vec3::Y * t.height).to_array(), (base - d * 0.15 + Vec3::Y * t.height).to_array()]);
+            pos.extend([
+                (base - d).to_array(),
+                (base + d).to_array(),
+                (base + d * 0.15 + Vec3::Y * t.height).to_array(),
+                (base - d * 0.15 + Vec3::Y * t.height).to_array(),
+            ]);
             col.extend([green, green, tip, tip]);
             idx.extend([b, b + 1, b + 2, b, b + 2, b + 3, b, b + 2, b + 1, b, b + 3, b + 2]);
         }
@@ -380,13 +498,31 @@ fn outdoors(k: &mut Kit, images: &mut Assets<Image>, arena: &str) {
     k.solid(Vec3::new(0.0, -0.5, 0.0), Vec3::new(big, 0.5, big), ground);
     let rock = k.mat(Color::srgb(0.45, 0.44, 0.42), 0.95);
     for r in &sc.rocks {
-        let rm = k.materials.add(StandardMaterial { base_color: Color::srgb(r.shade, r.shade * 0.98, r.shade * 0.94), perceptual_roughness: 0.95, ..default() });
-        let e = k.commands.spawn((ArenaScene, Mesh3d(k.meshes.add(Sphere::new(1.0).mesh().uv(12, 8))), MeshMaterial3d(rm), Transform::from_translation(r.pos).with_rotation(Quat::from_rotation_y(r.yaw)).with_scale(r.scale))).id();
+        let rm = k.materials.add(StandardMaterial {
+            base_color: Color::srgb(r.shade, r.shade * 0.98, r.shade * 0.94),
+            perceptual_roughness: 0.95,
+            ..default()
+        });
+        let e = k
+            .commands
+            .spawn((
+                ArenaScene,
+                Mesh3d(k.meshes.add(Sphere::new(1.0).mesh().uv(12, 8))),
+                MeshMaterial3d(rm),
+                Transform::from_translation(r.pos).with_rotation(Quat::from_rotation_y(r.yaw)).with_scale(r.scale),
+            ))
+            .id();
         k.commands.entity(e).insert((RigidBody::Static, Collider::sphere(1.0)));
     }
     let _ = rock;
     let grass = k.meshes.add(grass_mesh(&sc.tufts, 21));
-    let gm = k.materials.add(StandardMaterial { base_color: Color::WHITE, perceptual_roughness: 1.0, cull_mode: None, double_sided: true, ..default() });
+    let gm = k.materials.add(StandardMaterial {
+        base_color: Color::WHITE,
+        perceptual_roughness: 1.0,
+        cull_mode: None,
+        double_sided: true,
+        ..default()
+    });
     k.commands.spawn((ArenaScene, Mesh3d(grass), MeshMaterial3d(gm), Transform::default()));
     let bark = k.mat(Color::srgb(0.32, 0.22, 0.14), 1.0);
     let leaves = k.mat(Color::srgb(0.2, 0.45, 0.18), 0.9);
@@ -400,7 +536,13 @@ fn outdoors(k: &mut Kit, images: &mut Assets<Image>, arena: &str) {
 
 /// Spawn the scenery of `arena` and its lights.
 #[allow(clippy::too_many_arguments)]
-pub fn build_arena(commands: Commands, meshes: &mut Assets<Mesh>, materials: &mut Assets<StandardMaterial>, images: &mut Assets<Image>, arena: &str) {
+pub fn build_arena(
+    commands: Commands,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+    images: &mut Assets<Image>,
+    arena: &str,
+) {
     let mut k = Kit { commands, meshes, materials };
     let outdoor = world::is_outdoor(arena);
     let boxes = match arena {
@@ -421,7 +563,12 @@ pub fn build_arena(commands: Commands, meshes: &mut Assets<Mesh>, materials: &mu
         // the ceiling light fixture
         let glow = k.materials.add(StandardMaterial { base_color: Color::WHITE, emissive: LinearRgba::rgb(5.0, 4.5, 3.8), ..default() });
         k.cylinder(Vec3::new(0.0, RY - 0.05, 0.0), 0.35, 0.05, glow);
-        k.commands.spawn((ArenaScene, CeilingLight, PointLight { intensity: 1_200_000.0, range: 14.0, color: Color::srgb(1.0, 0.93, 0.82), shadow_maps_enabled: true, ..default() }, Transform::from_xyz(0.0, RY - 0.3, 0.0)));
+        k.commands.spawn((
+            ArenaScene,
+            CeilingLight,
+            PointLight { intensity: 1_200_000.0, range: 14.0, color: Color::srgb(1.0, 0.93, 0.82), shadow_maps_enabled: true, ..default() },
+            Transform::from_xyz(0.0, RY - 0.3, 0.0),
+        ));
     }
     match arena {
         "fan" => fan(&mut k),
@@ -437,15 +584,39 @@ pub fn build_arena(commands: Commands, meshes: &mut Assets<Mesh>, materials: &mu
         }
         _ => {}
     }
-    k.commands.spawn((ArenaScene, SunLight, DirectionalLight { illuminance: if outdoor { 14_000.0 } else { 2_500.0 }, shadow_maps_enabled: true, color: Color::srgb(1.0, 0.95, 0.85), ..default() }, Transform::from_translation(Vec3::new(0.0, 10.0, 0.0)).looking_to(Vec3::new(-0.3, -0.55, 0.78), Vec3::Y)));
+    k.commands.spawn((
+        ArenaScene,
+        SunLight,
+        DirectionalLight {
+            illuminance: if outdoor { 14_000.0 } else { 2_500.0 },
+            shadow_maps_enabled: true,
+            color: Color::srgb(1.0, 0.95, 0.85),
+            ..default()
+        },
+        Transform::from_translation(Vec3::new(0.0, 10.0, 0.0)).looking_to(Vec3::new(-0.3, -0.55, 0.78), Vec3::Y),
+    ));
 }
 
-fn spawn_initial(commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut materials: ResMut<Assets<StandardMaterial>>, mut images: ResMut<Assets<Image>>, arena: Res<Arena>) {
+fn spawn_initial(
+    commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut images: ResMut<Assets<Image>>,
+    arena: Res<Arena>,
+) {
     build_arena(commands, &mut meshes, &mut materials, &mut images, arena.name());
 }
 
 #[allow(clippy::too_many_arguments)]
-fn switch_arena(mut commands: Commands, mut msgs: MessageReader<SwitchArena>, mut arena: ResMut<Arena>, scene: Query<Entity, With<ArenaScene>>, mut meshes: ResMut<Assets<Mesh>>, mut materials: ResMut<Assets<StandardMaterial>>, mut images: ResMut<Assets<Image>>) {
+fn switch_arena(
+    mut commands: Commands,
+    mut msgs: MessageReader<SwitchArena>,
+    mut arena: ResMut<Arena>,
+    scene: Query<Entity, With<ArenaScene>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut images: ResMut<Assets<Image>>,
+) {
     let Some(SwitchArena(i)) = msgs.read().last().copied() else { return };
     arena.0 = i % world::ARENAS.len();
     for e in &scene {

@@ -66,7 +66,10 @@ impl Fx {
     /// A puff of dust at a point (`puff`).
     pub fn puff(&mut self, pos: Vec3, n: usize, spread: f32, now: f32) {
         for _ in 0..n {
-            let v = Vec3::new(self.rng.normal() * spread, self.rng.uniform(0.0, spread * 0.7), self.rng.normal() * spread) * 0.004 * 60.0 * 0.25;
+            let v = Vec3::new(self.rng.normal() * spread, self.rng.uniform(0.0, spread * 0.7), self.rng.normal() * spread)
+                * 0.004
+                * 60.0
+                * 0.25;
             let life = self.rng.uniform(0.4, 0.8);
             self.add(Particle { pos, vel: v, born: now, life, size: 0.05, kind: Kind::Dust });
         }
@@ -76,7 +79,9 @@ impl Fx {
     pub fn explosion(&mut self, pos: Vec3, now: f32) {
         self.puff(pos, 24, 7.0, now);
         for _ in 0..140 {
-            let d = Vec3::new(self.rng.normal(), self.rng.normal(), self.rng.normal()).normalize_or_zero() * self.rng.uniform(0.02, 0.07) * 60.0;
+            let d = Vec3::new(self.rng.normal(), self.rng.normal(), self.rng.normal()).normalize_or_zero()
+                * self.rng.uniform(0.02, 0.07)
+                * 60.0;
             let life = self.rng.uniform(0.25, 0.5);
             let size = self.rng.uniform(0.12, 0.3);
             self.add(Particle { pos, vel: d, born: now, life, size, kind: Kind::Fire });
@@ -86,7 +91,8 @@ impl Fx {
     /// Ice shards when a frozen fly is smashed.
     pub fn shatter(&mut self, pos: Vec3, now: f32) {
         for _ in 0..60 {
-            let d = Vec3::new(self.rng.normal(), self.rng.uniform(0.2, 1.5), self.rng.normal()).normalize_or_zero() * self.rng.uniform(0.6, 3.2);
+            let d = Vec3::new(self.rng.normal(), self.rng.uniform(0.2, 1.5), self.rng.normal()).normalize_or_zero()
+                * self.rng.uniform(0.6, 3.2);
             let life = self.rng.uniform(0.6, 1.4);
             let size = self.rng.uniform(0.02, 0.06);
             self.add(Particle { pos, vel: d, born: now, life, size, kind: Kind::Ice });
@@ -112,7 +118,12 @@ impl Fx {
 #[derive(Component)]
 pub struct FxCloud;
 
-fn spawn(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut materials: ResMut<Assets<PointsMaterial>>, mut buffers: ResMut<Assets<ShaderBuffer>>) {
+fn spawn(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<PointsMaterial>>,
+    mut buffers: ResMut<Assets<ShaderBuffer>>,
+) {
     let e = spawn_particle_cloud(&mut commands, &mut meshes, &mut materials, &mut buffers, CAPACITY, 1.6);
     commands.entity(e).insert(FxCloud);
 }
@@ -184,6 +195,8 @@ pub struct FxPlugin;
 
 impl Plugin for FxPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Fx>().add_systems(Startup, spawn).add_systems(Update, (step, draw_bolts).chain().before(crate::gpu::flush_particles));
+        app.init_resource::<Fx>()
+            .add_systems(Startup, spawn)
+            .add_systems(Update, (step, draw_bolts).chain().before(crate::gpu::flush_particles));
     }
 }

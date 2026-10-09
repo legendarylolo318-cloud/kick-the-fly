@@ -42,7 +42,14 @@ fn spawn_rain(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut mate
             color: Vec4::new(0.7, 0.78, 0.92, 0.5),
         },
     });
-    commands.spawn((RainCloud(material.clone()), Mesh3d(meshes.add(quad_mesh(STREAKS))), MeshMaterial3d(material), Transform::default(), NoFrustumCulling, Visibility::Hidden));
+    commands.spawn((
+        RainCloud(material.clone()),
+        Mesh3d(meshes.add(quad_mesh(STREAKS))),
+        MeshMaterial3d(material),
+        Transform::default(),
+        NoFrustumCulling,
+        Visibility::Hidden,
+    ));
 }
 
 /// Advance the weather and publish the sky: how dark, how bright the lightning, where the sun is.

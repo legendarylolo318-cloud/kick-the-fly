@@ -99,7 +99,21 @@ pub struct Duelist {
 
 impl Duelist {
     fn new(pos: Vec2, yaw: f32) -> Self {
-        Self { pos, yaw, hp: HP, steer: 0.0, fire_ready: 0.0, dodge_ready: 0.0, run_ready: 0.0, reward_until: 0.0, punish_until: 0.0, hop: Vec2::ZERO, shots: 0, hits: 0, max_fire: 0.0 }
+        Self {
+            pos,
+            yaw,
+            hp: HP,
+            steer: 0.0,
+            fire_ready: 0.0,
+            dodge_ready: 0.0,
+            run_ready: 0.0,
+            reward_until: 0.0,
+            punish_until: 0.0,
+            hop: Vec2::ZERO,
+            shots: 0,
+            hits: 0,
+            max_fire: 0.0,
+        }
     }
 
     pub fn fwd(&self) -> Vec2 {
@@ -173,7 +187,16 @@ fn senses<F: Fighter>(br: &mut F, me: &Duelist, other: &Duelist, pellets: &[Pell
 
 /// Steering from DNa01/02 right minus left, shooting above the threshold, dodging on the giant fiber, running on the body-touch group.
 #[allow(clippy::too_many_arguments)]
-fn motor<F: Fighter>(br: &mut F, me: &mut Duelist, other: &Duelist, pellets: &mut Vec<Pellet>, me_side: Side, t: f32, dt: f32, rng: &mut Rng) {
+fn motor<F: Fighter>(
+    br: &mut F,
+    me: &mut Duelist,
+    other: &Duelist,
+    pellets: &mut Vec<Pellet>,
+    me_side: Side,
+    t: f32,
+    dt: f32,
+    rng: &mut Rng,
+) {
     if me.hp <= 0.0 {
         return;
     }
@@ -195,12 +218,20 @@ fn motor<F: Fighter>(br: &mut F, me: &mut Duelist, other: &Duelist, pellets: &mu
     if fire > T_FIRE && t >= me.fire_ready {
         me.fire_ready = t + FIRE_COOLDOWN;
         let ang = me.yaw + rng.normal() * PELLET_SPREAD;
-        pellets.push(Pellet { pos: me.pos + me.fwd() * 0.25, vel: Vec2::new(ang.cos(), ang.sin()) * PELLET_SPEED, born: t, owner: me_side });
+        pellets.push(Pellet {
+            pos: me.pos + me.fwd() * 0.25,
+            vel: Vec2::new(ang.cos(), ang.sin()) * PELLET_SPEED,
+            born: t,
+            owner: me_side,
+        });
         me.shots += 1;
     }
     let away = (me.pos - other.pos).normalize_or_zero();
     if escape > T_ESCAPE && t >= me.dodge_ready {
-        let nearest = pellets.iter().filter(|p| p.owner != me_side && (p.pos - me.pos).length() < 4.0).min_by(|a, b| (a.pos - me.pos).length().total_cmp(&(b.pos - me.pos).length()));
+        let nearest = pellets
+            .iter()
+            .filter(|p| p.owner != me_side && (p.pos - me.pos).length() < 4.0)
+            .min_by(|a, b| (a.pos - me.pos).length().total_cmp(&(b.pos - me.pos).length()));
         if let Some(p) = nearest {
             // a hop sideways to the nearest incoming pellet's line
             let dirp = p.vel / PELLET_SPEED;
@@ -273,8 +304,21 @@ pub fn run_duel<F: Fighter>(ba: &mut F, bb: &mut F, seed: u64, seconds: f32) -> 
             break;
         }
     }
-    let winner = if a.hp > b.hp { Some(Side::A) } else if b.hp > a.hp { Some(Side::B) } else { None };
-    DuelResult { winner, hp: (a.hp, b.hp), shots: (a.shots, b.shots), hits: (a.hits, b.hits), seconds: done as f32 * dt, knockout: a.hp <= 0.0 || b.hp <= 0.0 }
+    let winner = if a.hp > b.hp {
+        Some(Side::A)
+    } else if b.hp > a.hp {
+        Some(Side::B)
+    } else {
+        None
+    };
+    DuelResult {
+        winner,
+        hp: (a.hp, b.hp),
+        shots: (a.shots, b.shots),
+        hits: (a.hits, b.hits),
+        seconds: done as f32 * dt,
+        knockout: a.hp <= 0.0 || b.hp <= 0.0,
+    }
 }
 
 #[cfg(test)]

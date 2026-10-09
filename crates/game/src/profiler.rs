@@ -42,7 +42,17 @@ fn setup(mut commands: Commands) {
     commands
         .spawn((
             ProfilerBars,
-            Node { position_type: PositionType::Absolute, top: px(150), left: px(12), width: px(240), height: px(46), flex_direction: FlexDirection::Row, align_items: AlignItems::FlexEnd, display: Display::None, ..default() },
+            Node {
+                position_type: PositionType::Absolute,
+                top: px(150),
+                left: px(12),
+                width: px(240),
+                height: px(46),
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::FlexEnd,
+                display: Display::None,
+                ..default()
+            },
             BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.55)),
         ))
         .with_children(|p| {
@@ -125,7 +135,10 @@ fn show(
     let mut s = format!("render  {fps:5.1} fps   frame {ft:5.2} ms   worst {worst:5.2} ms\n");
     if let Some(sn) = snap.0.as_deref() {
         let age_ms = sn.published_at.map_or(0.0, |t| t.elapsed().as_secs_f32() * 1000.0);
-        s += &format!("sim     {:5.1} steps/s of 200   x{:.2}   dropped {}   lag {:5.1} ms\n", sn.steps_per_s, sn.speed, sn.steps_dropped, age_ms);
+        s += &format!(
+            "sim     {:5.1} steps/s of 200   x{:.2}   dropped {}   lag {:5.1} ms\n",
+            sn.steps_per_s, sn.speed, sn.steps_dropped, age_ms
+        );
         s += &format!("brain   {} neurons, {} spiking, {} lit\n", sn.neurons, sn.active_count, sn.active_count);
     } else {
         s += "sim     waiting for the brain\n";
@@ -135,7 +148,9 @@ fn show(
     let mut gpu: Vec<(String, f64)> = diagnostics
         .iter()
         .filter(|d| d.path().as_str().ends_with("/elapsed_gpu"))
-        .filter_map(|d| d.smoothed().map(|v| (d.path().as_str().trim_end_matches("/elapsed_gpu").rsplit('/').next().unwrap_or("").to_string(), v)))
+        .filter_map(|d| {
+            d.smoothed().map(|v| (d.path().as_str().trim_end_matches("/elapsed_gpu").rsplit('/').next().unwrap_or("").to_string(), v))
+        })
         .collect();
     gpu.sort_by(|a, b| b.1.total_cmp(&a.1));
     if gpu.is_empty() {
@@ -154,7 +169,13 @@ fn show(
     for (b, mut c) in &mut colors {
         let idx = (b.0 + n).saturating_sub(120);
         let ms = if b.0 + n >= 120 { stats.frame_ms.get(idx).copied().unwrap_or(0.0) } else { 0.0 };
-        c.0 = if ms > 20.0 { Color::srgb(0.95, 0.3, 0.25) } else if ms > 17.5 { Color::srgb(0.95, 0.8, 0.3) } else { Color::srgb(0.3, 0.9, 0.5) };
+        c.0 = if ms > 20.0 {
+            Color::srgb(0.95, 0.3, 0.25)
+        } else if ms > 17.5 {
+            Color::srgb(0.95, 0.8, 0.3)
+        } else {
+            Color::srgb(0.3, 0.9, 0.5)
+        };
     }
 }
 

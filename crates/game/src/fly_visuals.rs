@@ -46,20 +46,43 @@ fn attach_visuals(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, new:
     for (e, f, look) in &new {
         let mut segments = Vec::new();
         for _ in 0..6 {
-            let a = commands.spawn((LegSegment, Mesh3d(seg_mesh.clone()), MeshMaterial3d(look.body.clone()), Transform::default(), Visibility::default())).id();
-            let b = commands.spawn((LegSegment, Mesh3d(seg_mesh.clone()), MeshMaterial3d(look.body.clone()), Transform::default(), Visibility::default())).id();
+            let a = commands
+                .spawn((
+                    LegSegment,
+                    Mesh3d(seg_mesh.clone()),
+                    MeshMaterial3d(look.body.clone()),
+                    Transform::default(),
+                    Visibility::default(),
+                ))
+                .id();
+            let b = commands
+                .spawn((
+                    LegSegment,
+                    Mesh3d(seg_mesh.clone()),
+                    MeshMaterial3d(look.body.clone()),
+                    Transform::default(),
+                    Visibility::default(),
+                ))
+                .id();
             segments.push([a, b]);
         }
         let thx = f.parts[Part::Thorax.index()];
         let mut wings = [Entity::PLACEHOLDER; 2];
         for (k, side) in [1.0f32, -1.0].into_iter().enumerate() {
             let pivot = commands.spawn((Transform::from_translation(Vec3::new(-0.03, 0.095, side * 0.05)), Visibility::default())).id();
-            let blade = commands.spawn((Mesh3d(wing_mesh.clone()), MeshMaterial3d(look.wing.clone()), Transform::from_translation(Vec3::new(-0.18, 0.0, side * 0.05)))).id();
+            let blade = commands
+                .spawn((
+                    Mesh3d(wing_mesh.clone()),
+                    MeshMaterial3d(look.wing.clone()),
+                    Transform::from_translation(Vec3::new(-0.18, 0.0, side * 0.05)),
+                ))
+                .id();
             commands.entity(pivot).add_child(blade);
             commands.entity(thx).add_child(pivot);
             wings[k] = pivot;
         }
-        let proboscis = commands.spawn((Mesh3d(prob_mesh.clone()), MeshMaterial3d(look.body.clone()), Transform::default(), Visibility::Hidden)).id();
+        let proboscis =
+            commands.spawn((Mesh3d(prob_mesh.clone()), MeshMaterial3d(look.body.clone()), Transform::default(), Visibility::Hidden)).id();
         commands.entity(e).insert(FlyVisuals { rig: rig(), segments, wings, proboscis });
     }
 }
@@ -98,7 +121,11 @@ fn animate(
             for i in 0..6 {
                 let (hip_l, rest_l) = (vis.rig.hips[i], vis.rig.rests[i]);
                 let hip = pos + rot * hip_l;
-                let mut foot_l = if f.flying_now { Vec3::new(rest_l.x - 0.18, -0.20, rest_l.z * 0.55) } else { Vec3::new(rest_l.x, -0.22, rest_l.z * 0.75) };
+                let mut foot_l = if f.flying_now {
+                    Vec3::new(rest_l.x - 0.18, -0.20, rest_l.z * 0.55)
+                } else {
+                    Vec3::new(rest_l.x, -0.22, rest_l.z * 0.75)
+                };
                 if now < f.react.flail_until || f.grabbed.is_some() {
                     let k = now * 22.0 + i as f32 * 1.7;
                     foot_l += Vec3::new(k.sin() * 0.06, k.cos() * 0.05, (k * 1.3).sin() * 0.05);
@@ -125,11 +152,18 @@ fn animate(
             }
         }
         // wings: flap when flying, fold along the back otherwise, spread limp when dead
-        let flap = if f.flying_now { (now * 75.0).sin() * 0.75 + 0.35 } else if f.dead() { 0.9 } else { 0.0 };
+        let flap = if f.flying_now {
+            (now * 75.0).sin() * 0.75 + 0.35
+        } else if f.dead() {
+            0.9
+        } else {
+            0.0
+        };
         for (k, side) in [1.0f32, -1.0].into_iter().enumerate() {
             if let Ok(mut w) = pivots.get_mut(vis.wings[k]) {
                 let fold = if f.flying_now || f.dead() { 0.0 } else { 0.35 };
-                w.rotation = Quat::from_rotation_x(side * (flap + fold)) * Quat::from_rotation_y(side * if f.flying_now { 0.4 } else { 0.1 });
+                w.rotation =
+                    Quat::from_rotation_x(side * (flap + fold)) * Quat::from_rotation_y(side * if f.flying_now { 0.4 } else { 0.1 });
             }
         }
     }
@@ -155,7 +189,13 @@ fn tint(mut materials: ResMut<Assets<StandardMaterial>>, flies: Query<(&Fly, &Fl
             c = c.lerp(Vec3::new(0.7, 0.9, 1.0), 0.8);
         }
         m.base_color = Color::srgb(c.x, c.y, c.z);
-        m.emissive = if now < f.burn_until { LinearRgba::rgb(1.4, 0.35, 0.05) } else if f.frozen_at.is_some() { LinearRgba::rgb(0.1, 0.25, 0.4) } else { LinearRgba::BLACK };
+        m.emissive = if now < f.burn_until {
+            LinearRgba::rgb(1.4, 0.35, 0.05)
+        } else if f.frozen_at.is_some() {
+            LinearRgba::rgb(0.1, 0.25, 0.4)
+        } else {
+            LinearRgba::BLACK
+        };
         m.perceptual_roughness = if f.frost > 0.3 { 0.1 } else { 0.45 };
     }
 }

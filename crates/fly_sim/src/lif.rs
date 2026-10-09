@@ -83,9 +83,7 @@ impl Individuality {
         let gain_seed = seed.wrapping_mul(1_000_003).wrapping_add(7919) & 0xFFFF_FFFF;
         let mut rng = Generator::new(gain_seed);
         let lim = (3.0 * sigma) as f32;
-        let draw = |rng: &mut Generator| -> Vec<f32> {
-            (0..n).map(|_| (rng.normal(0.0, sigma) as f32).clamp(-lim, lim).exp()).collect()
-        };
+        let draw = |rng: &mut Generator| -> Vec<f32> { (0..n).map(|_| (rng.normal(0.0, sigma) as f32).clamp(-lim, lim).exp()).collect() };
         let d_pre = draw(&mut rng);
         let d_post = draw(&mut rng);
         Some(Self { d_pre, d_post })
@@ -118,6 +116,24 @@ pub struct LifSim {
     indiv: Option<Individuality>,
     block_spikes: Vec<Vec<u32>>,
     block_size: usize,
+}
+
+/// What a save file keeps of the simulator (Python: `core/savestate.py:brain_state`, the `sim` part). The noise bank is not stored: it is
+/// rebuilt from the seed, then the generator continues from the saved state.
+#[derive(Debug, Clone)]
+pub struct SimState {
+    pub seed: u64,
+    pub v: Vec<f32>,
+    pub refr: Vec<i16>,
+    /// Neurons that spiked in the latest step (ascending).
+    pub spikes: Vec<u32>,
+    pub gain: f64,
+    pub target_p: f64,
+    pub rng: crate::rng::PcgState,
+    pub activity_rate: Vec<f32>,
+    pub activity_last: Vec<i32>,
+    pub activity_steps: u64,
+    pub activity_count: usize,
 }
 
 /// How often each propagation path ran (the Python `path_counts`).
@@ -194,6 +210,36 @@ impl LifSim {
             *x *= std;
         }
         self.rng = rng;
+    }
+
+    /// Load a saved state (`restore_brain`): rebuild the noise bank from `st.seed`, then continue its generator from the saved point.
+    pub fn import_state(&mut self, st: &SimState) {
+        assert!(st.v.len() == self.n && st.refr.len() == self.n, "the saved state is for a different brain");
+        self.reseed(st.seed);
+        self.rng.import_state(st.rng);
+        self.v.copy_from_slice(&st.v);
+        self.refr.copy_from_slice(&st.refr);
+        self.active = st.spikes.clone();
+        self.gain = st.gain;
+        self.target_p = st.target_p;
+        self.activity.restore(&st.activity_rate, &st.activity_last, st.activity_steps, st.activity_count);
+    }
+
+    /// The state a save file keeps. `seed` is the one the sim was made with (the sim does not remember it).
+    pub fn export_state(&self, seed: u64) -> SimState {
+        SimState {
+            seed,
+            v: self.v.clone(),
+            refr: self.refr.clone(),
+            spikes: self.active.clone(),
+            gain: self.gain,
+            target_p: self.target_p,
+            rng: self.rng.export_state(),
+            activity_rate: self.activity.rate.clone(),
+            activity_last: self.activity.last_spike.clone(),
+            activity_steps: self.activity.steps,
+            activity_count: self.activity.active_count,
+        }
     }
 
     /// Advance one `dt`. `sensory`: current per neuron (added as `ext_gain * sensory`), or `None`. Returns the spikes (ascending).

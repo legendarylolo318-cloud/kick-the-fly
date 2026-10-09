@@ -12,11 +12,11 @@
 use avian3d::prelude::*;
 use bevy::prelude::*;
 
+use crate::app::SimLink;
 use crate::feedback::{Notes, Popup, Sfx, Tag};
 use crate::fly::{Fly, FlyDamage, FlyHit, FlyPart, Part};
 use crate::player::{Aim, MouseLook, Player};
 use crate::sim_thread::Command;
-use crate::app::SimLink;
 use crate::tools::Bomb;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -94,19 +94,64 @@ fn build(commands: &mut Commands, meshes: &mut Assets<Mesh>, materials: &mut Ass
     let yaw = Quat::from_rotation_y(-dir.z.atan2(dir.x));
     let wood = materials.add(StandardMaterial { base_color: Color::srgb(0.7, 0.5, 0.3), perceptual_roughness: 0.8, ..default() });
     let ivory = materials.add(StandardMaterial { base_color: Color::srgb(0.95, 0.93, 0.85), perceptual_roughness: 0.5, ..default() });
-    let steel = materials.add(StandardMaterial { base_color: Color::srgb(0.8, 0.82, 0.88), metallic: 0.8, perceptual_roughness: 0.25, ..default() });
-    let red = materials.add(StandardMaterial { base_color: Color::srgb(0.85, 0.15, 0.1), emissive: LinearRgba::rgb(0.6, 0.05, 0.02), ..default() });
+    let steel = materials.add(StandardMaterial {
+        base_color: Color::srgb(0.8, 0.82, 0.88),
+        metallic: 0.8,
+        perceptual_roughness: 0.25,
+        ..default()
+    });
+    let red = materials.add(StandardMaterial {
+        base_color: Color::srgb(0.85, 0.15, 0.1),
+        emissive: LinearRgba::rgb(0.6, 0.05, 0.02),
+        ..default()
+    });
     // the ramp: a plank tilted down along `dir`
     let mid = l.ramp_top + dir * (l.ramp_len * l.ramp_angle.cos() / 2.0) - Vec3::Y * (l.ramp_len * l.ramp_angle.sin() / 2.0);
-    commands.spawn((MachinePart, RigidBody::Static, Collider::cuboid(l.ramp_len, 0.03, 0.3), Friction::new(0.2), Mesh3d(meshes.add(Cuboid::new(l.ramp_len, 0.03, 0.3))), MeshMaterial3d(wood.clone()), Transform::from_translation(mid).with_rotation(yaw * Quat::from_rotation_z(-l.ramp_angle))));
+    commands.spawn((
+        MachinePart,
+        RigidBody::Static,
+        Collider::cuboid(l.ramp_len, 0.03, 0.3),
+        Friction::new(0.2),
+        Mesh3d(meshes.add(Cuboid::new(l.ramp_len, 0.03, 0.3))),
+        MeshMaterial3d(wood.clone()),
+        Transform::from_translation(mid).with_rotation(yaw * Quat::from_rotation_z(-l.ramp_angle)),
+    ));
     // the marble waits at the top of the ramp and is released a moment after the run starts
-    commands.spawn((MachinePart, Marble, RigidBody::Dynamic, Collider::sphere(0.045), Restitution::new(0.2), Friction::new(0.3), Mass(0.4), Mesh3d(meshes.add(Sphere::new(0.045).mesh().uv(16, 10))), MeshMaterial3d(steel), Transform::from_translation(l.ramp_top + Vec3::Y * 0.05 + dir * 0.02)));
+    commands.spawn((
+        MachinePart,
+        Marble,
+        RigidBody::Dynamic,
+        Collider::sphere(0.045),
+        Restitution::new(0.2),
+        Friction::new(0.3),
+        Mass(0.4),
+        Mesh3d(meshes.add(Sphere::new(0.045).mesh().uv(16, 10))),
+        MeshMaterial3d(steel),
+        Transform::from_translation(l.ramp_top + Vec3::Y * 0.05 + dir * 0.02),
+    ));
     // the dominoes
     for p in &l.dominoes {
-        commands.spawn((MachinePart, RigidBody::Dynamic, Collider::cuboid(0.04, 0.24, 0.12), Mass(0.12), Friction::new(0.6), Mesh3d(meshes.add(Cuboid::new(0.04, 0.24, 0.12))), MeshMaterial3d(ivory.clone()), Transform::from_translation(*p).with_rotation(yaw)));
+        commands.spawn((
+            MachinePart,
+            RigidBody::Dynamic,
+            Collider::cuboid(0.04, 0.24, 0.12),
+            Mass(0.12),
+            Friction::new(0.6),
+            Mesh3d(meshes.add(Cuboid::new(0.04, 0.24, 0.12))),
+            MeshMaterial3d(ivory.clone()),
+            Transform::from_translation(*p).with_rotation(yaw),
+        ));
     }
     // the button plate
-    commands.spawn((MachinePart, ButtonPlate, RigidBody::Static, Collider::cuboid(0.3, 0.03, 0.3), Mesh3d(meshes.add(Cuboid::new(0.3, 0.03, 0.3))), MeshMaterial3d(red), Transform::from_translation(l.button + Vec3::Y * 0.015)));
+    commands.spawn((
+        MachinePart,
+        ButtonPlate,
+        RigidBody::Static,
+        Collider::cuboid(0.3, 0.03, 0.3),
+        Mesh3d(meshes.add(Cuboid::new(0.3, 0.03, 0.3))),
+        MeshMaterial3d(red),
+        Transform::from_translation(l.button + Vec3::Y * 0.015),
+    ));
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -176,7 +221,8 @@ fn run(
     let Some(b) = button.iter().next() else { return };
     let pressed = marbles.iter().any(|(t, _)| (t.translation - b.translation).length() < 0.35)
         || dominoes.iter().any(|t| (t.translation - b.translation).length() < 0.3 && t.rotation.mul_vec3(Vec3::Y).y < 0.5);
-    let fly_at = flies.iter().find(|(_, f)| !f.dead()).and_then(|(_, f)| parts.get(f.parts[Part::Thorax.index()]).ok().map(|t| t.translation));
+    let fly_at =
+        flies.iter().find(|(_, f)| !f.dead()).and_then(|(_, f)| parts.get(f.parts[Part::Thorax.index()]).ok().map(|t| t.translation));
     if pressed && !c.fired {
         c.fired = true;
         fb.sfx.write(Sfx::new("click"));
@@ -184,7 +230,20 @@ fn run(
         if let Some(at) = fly_at {
             match c.payload {
                 Payload::Bomb => {
-                    commands.spawn((Bomb { born: now - 0.8 }, RigidBody::Dynamic, Collider::sphere(0.08), Restitution::new(0.35), LinearVelocity(Vec3::ZERO), Mesh3d(meshes.add(Sphere::new(0.08).mesh().uv(16, 10))), MeshMaterial3d(materials.add(StandardMaterial { base_color: Color::srgb(0.08, 0.08, 0.1), emissive: LinearRgba::rgb(0.6, 0.1, 0.0), ..default() })), Transform::from_translation(at + Vec3::Y * 1.0)));
+                    commands.spawn((
+                        Bomb { born: now - 0.8 },
+                        RigidBody::Dynamic,
+                        Collider::sphere(0.08),
+                        Restitution::new(0.35),
+                        LinearVelocity(Vec3::ZERO),
+                        Mesh3d(meshes.add(Sphere::new(0.08).mesh().uv(16, 10))),
+                        MeshMaterial3d(materials.add(StandardMaterial {
+                            base_color: Color::srgb(0.08, 0.08, 0.1),
+                            emissive: LinearRgba::rgb(0.6, 0.1, 0.0),
+                            ..default()
+                        })),
+                        Transform::from_translation(at + Vec3::Y * 1.0),
+                    ));
                 }
                 Payload::Swat => {
                     for (e, mut f) in &mut flies {
@@ -208,7 +267,16 @@ fn run(
                 }
                 Payload::Wind => c.wind_until = now + 4.0,
                 Payload::Sugar => {
-                    commands.spawn((crate::tools::Treat { kind: "sugar", left: 1.0 }, RigidBody::Dynamic, Collider::sphere(0.035), Friction::new(1.0), LinearVelocity(Vec3::ZERO), Mesh3d(meshes.add(Sphere::new(0.035).mesh().uv(12, 8))), MeshMaterial3d(materials.add(StandardMaterial { base_color: Color::WHITE, ..default() })), Transform::from_translation(at + Vec3::new(0.3, 0.8, 0.0))));
+                    commands.spawn((
+                        crate::tools::Treat { kind: "sugar", left: 1.0 },
+                        RigidBody::Dynamic,
+                        Collider::sphere(0.035),
+                        Friction::new(1.0),
+                        LinearVelocity(Vec3::ZERO),
+                        Mesh3d(meshes.add(Sphere::new(0.035).mesh().uv(12, 8))),
+                        MeshMaterial3d(materials.add(StandardMaterial { base_color: Color::WHITE, ..default() })),
+                        Transform::from_translation(at + Vec3::new(0.3, 0.8, 0.0)),
+                    ));
                 }
             }
         }

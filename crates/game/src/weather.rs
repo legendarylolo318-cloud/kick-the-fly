@@ -82,7 +82,12 @@ impl Weather {
         self.storm = storm;
         self.t += dt;
         if gust_hz > 0.0 && self.rng.f32() < gust_hz * dt {
-            let g = Gust { start: self.t, length: self.rng.range(GUST_LEN_S), amp: self.rng.range(GUST_AMP), turn_deg: self.rng.uniform(-GUST_TURN_DEG, GUST_TURN_DEG) };
+            let g = Gust {
+                start: self.t,
+                length: self.rng.range(GUST_LEN_S),
+                amp: self.rng.range(GUST_AMP),
+                turn_deg: self.rng.uniform(-GUST_TURN_DEG, GUST_TURN_DEG),
+            };
             self.gusts.push(g);
         }
         let t = self.t;
@@ -133,7 +138,13 @@ impl Weather {
                         break;
                     }
                 }
-                let side = if part == "body" || part == "head" { None } else if self.rng.f32() < 0.5 { Some('L') } else { Some('R') };
+                let side = if part == "body" || part == "head" {
+                    None
+                } else if self.rng.f32() < 0.5 {
+                    Some('L')
+                } else {
+                    Some('R')
+                };
                 let s = self.rng.range(HIT_STRENGTH) * (0.5 + 0.5 * self.rain);
                 out.push((part, side, s));
             }

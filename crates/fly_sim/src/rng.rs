@@ -80,6 +80,15 @@ impl SeedSequence {
 // --- PCG64 ---------------------------------------------------------------------------------------------------------------------
 const PCG_MULT: u128 = 0x2360_ed05_1fc6_5da4_4385_df64_9fcc_f645;
 
+/// The complete state of a `PCG64`, as NumPy reports it in `bit_generator.state` (a save file carries it).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PcgState {
+    pub state: u128,
+    pub inc: u128,
+    pub has_uint32: bool,
+    pub uinteger: u32,
+}
+
 /// `np.random.PCG64`, including the buffered 32-bit half that `next_uint32` shares with `next_uint64`.
 #[derive(Debug, Clone)]
 pub struct Pcg64 {
@@ -99,6 +108,19 @@ impl Pcg64 {
         rng.state = rng.state.wrapping_add(initstate);
         rng.step();
         rng
+    }
+
+    /// `bit_generator.state`.
+    pub fn export_state(&self) -> PcgState {
+        PcgState { state: self.state, inc: self.inc, has_uint32: self.has_u32, uinteger: self.buffered }
+    }
+
+    /// `bit_generator.state = ...`.
+    pub fn import_state(&mut self, s: PcgState) {
+        self.state = s.state;
+        self.inc = s.inc;
+        self.has_u32 = s.has_uint32;
+        self.buffered = s.uinteger;
     }
 
     #[inline]
@@ -157,6 +179,14 @@ pub struct Generator {
 impl Generator {
     pub fn new(seed: u64) -> Self {
         Self { bits: Pcg64::new(seed) }
+    }
+
+    pub fn export_state(&self) -> PcgState {
+        self.bits.export_state()
+    }
+
+    pub fn import_state(&mut self, s: PcgState) {
+        self.bits.import_state(s);
     }
 
     /// `bit_generator.random_raw()`.
@@ -221,7 +251,9 @@ impl Generator {
                         return if (rabs >> 8) & 1 == 1 { -(NOR_R + xx) } else { NOR_R + xx };
                     }
                 }
-            } else if (f64::from_bits(FI_D[idx - 1]) - f64::from_bits(FI_D[idx])) * b.next_f64() + f64::from_bits(FI_D[idx]) < (-0.5 * x * x).exp() {
+            } else if (f64::from_bits(FI_D[idx - 1]) - f64::from_bits(FI_D[idx])) * b.next_f64() + f64::from_bits(FI_D[idx])
+                < (-0.5 * x * x).exp()
+            {
                 return x;
             }
         }

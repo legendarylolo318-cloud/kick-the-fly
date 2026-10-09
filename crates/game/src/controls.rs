@@ -90,10 +90,15 @@ fn keys(
         settings.mute = !settings.mute;
     }
     if keys.just_pressed(KeyCode::F11) {
-        window.mode = if matches!(window.mode, WindowMode::Windowed) { WindowMode::BorderlessFullscreen(MonitorSelection::Current) } else { WindowMode::Windowed };
+        window.mode = if matches!(window.mode, WindowMode::Windowed) {
+            WindowMode::BorderlessFullscreen(MonitorSelection::Current)
+        } else {
+            WindowMode::Windowed
+        };
     }
     if keys.just_pressed(KeyCode::F12) {
-        let path = format!("kick-the-fly-{}.png", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs()));
+        let path =
+            format!("kick-the-fly-{}.png", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs()));
         commands.spawn(Screenshot::primary_window()).observe(save_to_disk(path));
     }
     if keys.just_pressed(KeyCode::Escape) {

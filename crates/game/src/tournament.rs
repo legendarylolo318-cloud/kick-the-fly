@@ -103,7 +103,13 @@ mod tests {
     impl MatchRunner for Fixed {
         fn run(&mut self, a: u32, b: u32, _: u64, _: usize) -> DuelResult {
             self.calls += 1;
-            let winner = if self.draws.contains(&(a, b)) { None } else if a < b { Some(Side::A) } else { Some(Side::B) };
+            let winner = if self.draws.contains(&(a, b)) {
+                None
+            } else if a < b {
+                Some(Side::A)
+            } else {
+                Some(Side::B)
+            };
             DuelResult { winner, hp: (0.0, 0.0), shots: (0, 0), hits: (0, 0), seconds: 1.0, knockout: false }
         }
     }

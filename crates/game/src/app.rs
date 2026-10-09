@@ -21,9 +21,7 @@ pub struct LatestSnapshot(pub Option<Box<Snapshot>>);
 
 impl Plugin for SimPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(SimLink(spawn(self.config.clone())))
-            .init_resource::<LatestSnapshot>()
-            .add_systems(PreUpdate, poll_snapshot);
+        app.insert_resource(SimLink(spawn(self.config.clone()))).init_resource::<LatestSnapshot>().add_systems(PreUpdate, poll_snapshot);
     }
 }
 

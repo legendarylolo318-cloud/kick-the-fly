@@ -92,7 +92,16 @@ pub struct Sonifier {
 
 impl Default for Sonifier {
     fn default() -> Self {
-        Self { on: false, queue: Arc::new(Mutex::new(VecDeque::new())), synth: Synth::new(RATE), meter: RegionMeter::new(synth::VOICES.len()), gate: SongGate::default(), voices: Vec::new(), built: false, song_slow: 1.0 }
+        Self {
+            on: false,
+            queue: Arc::new(Mutex::new(VecDeque::new())),
+            synth: Synth::new(RATE),
+            meter: RegionMeter::new(synth::VOICES.len()),
+            gate: SongGate::default(),
+            voices: Vec::new(),
+            built: false,
+            song_slow: 1.0,
+        }
     }
 }
 
@@ -109,7 +118,13 @@ fn setup(mut commands: Commands, mut sources: ResMut<Assets<AudioSource>>, mut l
 }
 
 /// Play the effects that were asked for this frame.
-fn play_sfx(mut commands: Commands, mut msgs: MessageReader<Sfx>, bank: Res<SoundBank>, settings: Res<Settings>, playing: Query<(), (With<AudioPlayer>, Without<Buzz>, Without<Sonification>)>) {
+fn play_sfx(
+    mut commands: Commands,
+    mut msgs: MessageReader<Sfx>,
+    bank: Res<SoundBank>,
+    settings: Res<Settings>,
+    playing: Query<(), (With<AudioPlayer>, Without<Buzz>, Without<Sonification>)>,
+) {
     let mut room = MAX_PLAYING.saturating_sub(playing.iter().count());
     for m in msgs.read() {
         if settings.mute || room == 0 {
@@ -125,7 +140,8 @@ fn play_sfx(mut commands: Commands, mut msgs: MessageReader<Sfx>, bank: Res<Soun
 
 /// The wing buzz follows DNg02 (the flight neurons) while a fly flies: louder and higher with more wing power.
 fn buzz(settings: Res<Settings>, flies: Query<&Fly>, mut sink: Single<&mut AudioSink, With<Buzz>>) {
-    let flying = flies.iter().filter(|f| f.flying_now && !f.dead()).map(|f| f.power).fold(None::<f32>, |a, p| Some(a.map_or(p, |x| x.max(p))));
+    let flying =
+        flies.iter().filter(|f| f.flying_now && !f.dead()).map(|f| f.power).fold(None::<f32>, |a, p| Some(a.map_or(p, |x| x.max(p))));
     match flying {
         Some(power) if !settings.mute => {
             let k = (power / 2.0).clamp(0.0, 1.0);
@@ -149,7 +165,13 @@ fn toggle(keys: Res<ButtonInput<KeyCode>>, mut son: ResMut<Sonifier>, mut notes:
 }
 
 /// Each frame: region rates -> voice targets -> samples. Which neurons feed which voice is fixed once, from the snapshot's labels.
-fn render(time: Res<Time>, snap: Res<LatestSnapshot>, settings: Res<Settings>, mut son: ResMut<Sonifier>, mut sink: Single<&mut AudioSink, With<Sonification>>) {
+fn render(
+    time: Res<Time>,
+    snap: Res<LatestSnapshot>,
+    settings: Res<Settings>,
+    mut son: ResMut<Sonifier>,
+    mut sink: Single<&mut AudioSink, With<Sonification>>,
+) {
     sink.set_volume(Volume::Linear(if son.on && !settings.mute { settings.master_volume * 0.8 } else { 0.0 }));
     if !son.on {
         return;
@@ -160,7 +182,9 @@ fn render(time: Res<Time>, snap: Res<LatestSnapshot>, settings: Res<Settings>, m
         return;
     }
     if !son.built {
-        let region_is = |i: usize, f: &dyn Fn(&str) -> bool| info.region_id.get(i).and_then(|&r| info.region_names.get(r as usize)).is_some_and(|n| f(n));
+        let region_is = |i: usize, f: &dyn Fn(&str) -> bool| {
+            info.region_id.get(i).and_then(|&r| info.region_names.get(r as usize)).is_some_and(|n| f(n))
+        };
         let n = s.rates.len();
         let pick = |pred: &dyn Fn(usize) -> bool| -> Vec<u32> { (0..n).filter(|&i| pred(i)).map(|i| i as u32).collect() };
         son.voices = vec![
@@ -176,7 +200,13 @@ fn render(time: Res<Time>, snap: Res<LatestSnapshot>, settings: Res<Settings>, m
         son.built = true;
     }
     let per_step_to_hz = 1.0 / 0.005;
-    let hz: Vec<f32> = son.voices.iter().map(|rows| if rows.is_empty() { 0.0 } else { rows.iter().map(|&r| s.rates[r as usize]).sum::<f32>() / rows.len() as f32 * per_step_to_hz }).collect();
+    let hz: Vec<f32> = son
+        .voices
+        .iter()
+        .map(|rows| {
+            if rows.is_empty() { 0.0 } else { rows.iter().map(|&r| s.rates[r as usize]).sum::<f32>() / rows.len() as f32 * per_step_to_hz }
+        })
+        .collect();
     let dt = time.delta_secs();
     son.meter.update(&hz, dt);
     let targets = son.meter.targets();
@@ -200,6 +230,9 @@ pub struct AudioPlugin;
 
 impl Plugin for AudioPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Sonifier>().add_audio_source::<LiveSynth>().add_systems(Startup, setup).add_systems(Update, (play_sfx, buzz, toggle, render));
+        app.init_resource::<Sonifier>()
+            .add_audio_source::<LiveSynth>()
+            .add_systems(Startup, setup)
+            .add_systems(Update, (play_sfx, buzz, toggle, render));
     }
 }

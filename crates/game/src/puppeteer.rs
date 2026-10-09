@@ -42,7 +42,10 @@ pub enum Goal {
     /// Walk `m` metres along the way the fly faces (negative: backwards).
     Travel(f32),
     /// Let `count` looming shadows pass without the `forbid` reaction.
-    SurviveLoom { count: u32, forbid: &'static str },
+    SurviveLoom {
+        count: u32,
+        forbid: &'static str,
+    },
     Sequence(Vec<Goal>),
 }
 
@@ -78,17 +81,117 @@ fn step(how: How, target: &'static str, silence: bool) -> Step {
 
 pub fn levels() -> Vec<Level> {
     use How::*;
-    let lv = |id, title, brief, goal, par, solution, start_x, facing, hint| Level { id, title, brief, goal, par, solution, start_x, facing, hint };
+    let lv = |id, title, brief, goal, par, solution, start_x, facing, hint| Level {
+        id,
+        title,
+        brief,
+        goal,
+        par,
+        solution,
+        start_x,
+        facing,
+        hint,
+    };
     vec![
-        lv("first_steps", "First steps", "Make the fly walk.", Goal::Event("WALK"), 1, vec![step(Laser, "type:DNp09", false)], -0.9, 1, "A single descending neuron type starts walking."),
-        lv("about_face", "About face", "Make the fly turn to its right.", Goal::Event("TURN R"), 1, vec![step(Laser, "side:R:DNa01,DNa02", false)], 0.0, -1, "Steering neurons come in left and right pairs."),
-        lv("long_walk", "The long walk", "Get the fly 0.9 m across the floor.", Goal::Travel(0.9), 1, vec![step(Latch, "type:DNp09", false)], -1.4, 1, "One step is short. What keeps a command on?"),
-        lv("reverse_gear", "Reverse gear", "Make the fly back up half a metre.", Goal::Travel(-0.5), 1, vec![step(Latch, "type:MDN", false)], 0.5, 1, "There is a neuron named for walking backward."),
-        lv("lift_off", "Lift off", "Get the fly airborne.", Goal::Event("TAKE OFF"), 1, vec![step(Laser, "prefix:DNg02", false)], 0.0, 1, "Flight power comes down a family of descending neurons."),
-        lv("serenade", "Serenade", "Make the fly sing.", Goal::Event("SONG"), 1, vec![step(Latch, "type:pIP10", false)], 0.0, 1, "A command neuron specific to males."),
-        lv("clean_antennae", "Clean antennae", "Make the fly groom.", Goal::Event("GROOM"), 1, vec![step(Laser, "prefix:JO-C,JO-E", false)], 0.0, 1, "What does an antenna feel with?"),
-        lv("sleep_tight", "Sleep tight", "Put the fly to sleep.", Goal::Event("SLEEP"), 1, vec![step(Laser, "prefix:FB6,FB7", false)], 0.0, 1, "Sleep is in the central complex."),
-        lv("nerves_of_steel", "Nerves of steel", "Let three looming shadows pass without the fly dodging.", Goal::SurviveLoom { count: 3, forbid: "DODGE" }, 1, vec![step(Latch, "type:DNp01", true)], 0.0, 1, "The dodge comes from one neuron. Switch something OFF."),
+        lv(
+            "first_steps",
+            "First steps",
+            "Make the fly walk.",
+            Goal::Event("WALK"),
+            1,
+            vec![step(Laser, "type:DNp09", false)],
+            -0.9,
+            1,
+            "A single descending neuron type starts walking.",
+        ),
+        lv(
+            "about_face",
+            "About face",
+            "Make the fly turn to its right.",
+            Goal::Event("TURN R"),
+            1,
+            vec![step(Laser, "side:R:DNa01,DNa02", false)],
+            0.0,
+            -1,
+            "Steering neurons come in left and right pairs.",
+        ),
+        lv(
+            "long_walk",
+            "The long walk",
+            "Get the fly 0.9 m across the floor.",
+            Goal::Travel(0.9),
+            1,
+            vec![step(Latch, "type:DNp09", false)],
+            -1.4,
+            1,
+            "One step is short. What keeps a command on?",
+        ),
+        lv(
+            "reverse_gear",
+            "Reverse gear",
+            "Make the fly back up half a metre.",
+            Goal::Travel(-0.5),
+            1,
+            vec![step(Latch, "type:MDN", false)],
+            0.5,
+            1,
+            "There is a neuron named for walking backward.",
+        ),
+        lv(
+            "lift_off",
+            "Lift off",
+            "Get the fly airborne.",
+            Goal::Event("TAKE OFF"),
+            1,
+            vec![step(Laser, "prefix:DNg02", false)],
+            0.0,
+            1,
+            "Flight power comes down a family of descending neurons.",
+        ),
+        lv(
+            "serenade",
+            "Serenade",
+            "Make the fly sing.",
+            Goal::Event("SONG"),
+            1,
+            vec![step(Latch, "type:pIP10", false)],
+            0.0,
+            1,
+            "A command neuron specific to males.",
+        ),
+        lv(
+            "clean_antennae",
+            "Clean antennae",
+            "Make the fly groom.",
+            Goal::Event("GROOM"),
+            1,
+            vec![step(Laser, "prefix:JO-C,JO-E", false)],
+            0.0,
+            1,
+            "What does an antenna feel with?",
+        ),
+        lv(
+            "sleep_tight",
+            "Sleep tight",
+            "Put the fly to sleep.",
+            Goal::Event("SLEEP"),
+            1,
+            vec![step(Laser, "prefix:FB6,FB7", false)],
+            0.0,
+            1,
+            "Sleep is in the central complex.",
+        ),
+        lv(
+            "nerves_of_steel",
+            "Nerves of steel",
+            "Let three looming shadows pass without the fly dodging.",
+            Goal::SurviveLoom { count: 3, forbid: "DODGE" },
+            1,
+            vec![step(Latch, "type:DNp01", true)],
+            0.0,
+            1,
+            "The dodge comes from one neuron. Switch something OFF.",
+        ),
         lv(
             "detour",
             "The detour",
@@ -112,7 +215,13 @@ pub fn event_name(r: &Reaction) -> String {
 }
 
 pub fn stars_for(actions: u32, par: u32) -> u32 {
-    if actions <= par { 3 } else if actions <= par + PAR_SLACK { 2 } else { 1 }
+    if actions <= par {
+        3
+    } else if actions <= par + PAR_SLACK {
+        2
+    } else {
+        1
+    }
 }
 
 pub fn score_key(level_id: &str) -> String {
@@ -141,7 +250,19 @@ impl Tracker {
             Goal::Sequence(s) => s.clone(),
             g => vec![g.clone()],
         };
-        Self { steps, stage: 0, done: false, origin: None, last: (0.0, 0.0), progress: 0.0, message: String::new(), looms_survived: 0, last_loom: None, next_loom: None, dodged: false }
+        Self {
+            steps,
+            stage: 0,
+            done: false,
+            origin: None,
+            last: (0.0, 0.0),
+            progress: 0.0,
+            message: String::new(),
+            looms_survived: 0,
+            last_loom: None,
+            next_loom: None,
+            dodged: false,
+        }
     }
 
     pub fn cur(&self) -> &Goal {
@@ -167,7 +288,9 @@ impl Tracker {
         }
         match self.cur().clone() {
             Goal::Event(e) if e == name => self.advance(),
-            Goal::SurviveLoom { forbid, .. } if forbid == name && self.last_loom.is_some_and(|l| t - l <= LOOM_WINDOW_S + 0.4) => self.dodged = true,
+            Goal::SurviveLoom { forbid, .. } if forbid == name && self.last_loom.is_some_and(|l| t - l <= LOOM_WINDOW_S + 0.4) => {
+                self.dodged = true
+            }
             _ => {}
         }
     }
