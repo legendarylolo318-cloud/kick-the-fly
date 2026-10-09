@@ -14,16 +14,42 @@ use crate::theme::Color;
 static REGULAR: &[u8] = include_bytes!("../../../assets/fonts/FreeSans.otf");
 static BOLD: &[u8] = include_bytes!("../../../assets/fonts/FreeSansBold.otf");
 static MONO: &[u8] = include_bytes!("../../../assets/fonts/DejaVuSansMono.ttf");
+static FREE_MONO: &[u8] = include_bytes!("../../../assets/fonts/FreeMono.otf");
 
-/// pygame's hinted per-glyph metrics for the sizes the menus use: `[advance, min_x, max_x]` (`data/advances.json`, written by
-/// `legacy-python/make_ui_metrics.py`). FreeType's hinting moves advances by up to a pixel per glyph, which a plain scaler cannot
-/// reproduce, and a menu laid out from different widths would not line up with the original.
-fn table() -> &'static HashMap<String, HashMap<char, [i32; 3]>> {
-    static T: OnceLock<HashMap<String, HashMap<char, [i32; 3]>>> = OnceLock::new();
+/// pygame's hinted per-glyph metrics for the sizes the menus and the HUD use: `[advance, min_x, max_x]` per glyph plus the line height and
+/// ascent (`data/advances.json`, written by `legacy-python/make_ui_metrics.py`), keyed "<face><size>". FreeType's hinting moves advances
+/// by up to a pixel per glyph, which a plain scaler cannot reproduce, and a layout made from different widths would not line up with
+/// the original.
+struct Table {
+    glyphs: HashMap<char, [i32; 3]>,
+    linesize: i32,
+    ascent: i32,
+}
+
+fn tables() -> &'static HashMap<String, Table> {
+    static T: OnceLock<HashMap<String, Table>> = OnceLock::new();
     T.get_or_init(|| {
-        let raw: HashMap<String, HashMap<String, [i32; 3]>> =
-            serde_json::from_str(include_str!("../data/advances.json")).expect("advances.json");
-        raw.into_iter().map(|(k, v)| (k, v.into_iter().filter_map(|(c, m)| c.chars().next().map(|c| (c, m))).collect())).collect()
+        let raw: HashMap<String, serde_json::Value> = serde_json::from_str(include_str!("../data/advances.json")).expect("advances.json");
+        raw.into_iter()
+            .map(|(k, v)| {
+                let m = v["_metrics"].as_array().expect("metrics");
+                let (linesize, ascent) = (m[0].as_i64().unwrap() as i32, m[1].as_i64().unwrap() as i32);
+                let glyphs = v
+                    .as_object()
+                    .unwrap()
+                    .iter()
+                    .filter(|(c, _)| c.chars().count() == 1)
+                    .map(|(c, a)| {
+                        let a = a.as_array().unwrap();
+                        (
+                            c.chars().next().unwrap(),
+                            [a[0].as_i64().unwrap() as i32, a[1].as_i64().unwrap() as i32, a[2].as_i64().unwrap() as i32],
+                        )
+                    })
+                    .collect();
+                (k, Table { glyphs, linesize, ascent })
+            })
+            .collect()
     })
 }
 
@@ -37,31 +63,41 @@ pub struct Font {
     glyphs: Option<&'static HashMap<char, [i32; 3]>>,
 }
 
-/// (size, linesize, ascent) pygame reported for the sizes the menus use (`tests/ui_reference/font_metrics.json`).
-const METRICS: [(i32, i32, i32); 8] =
-    [(14, 17, 13), (16, 20, 15), (22, 27, 20), (38, 46, 35), (18, 22, 17), (20, 24, 18), (28, 34, 26), (48, 58, 44)];
-
 impl Font {
-    /// `pygame.font.SysFont("dejavusansmono,...", size)`: share codes, bug reports.
-    pub fn mono(size: i32) -> Self {
-        let face = FontRef::try_from_slice(MONO).expect("bundled font");
-        let (linesize, ascent) = match size {
-            12 => (14, 12),
-            13 => (16, 13),
-            _ => ((size as f32 * 1.2).ceil() as i32, (size as f32 * 0.9277).round() as i32),
-        };
-        Font { face, size, bold: false, linesize, ascent, glyphs: None }
+    fn make(bytes: &'static [u8], key: &str, size: i32, bold: bool) -> Self {
+        let face = FontRef::try_from_slice(bytes).expect("bundled font");
+        match tables().get(key) {
+            Some(t) => Font { face, size, bold, linesize: t.linesize, ascent: t.ascent, glyphs: Some(&t.glyphs) },
+            None => Font {
+                face,
+                size,
+                bold,
+                linesize: (size as f32 * 1.2).ceil() as i32,
+                ascent: (size as f32 * 0.9277).round() as i32,
+                glyphs: None,
+            },
+        }
     }
 
+    /// FreeSans / FreeSansBold at a pixel size (`SysFont("segoeui,...", size, bold)`).
     pub fn new(size: i32, bold: bool) -> Self {
-        let face = FontRef::try_from_slice(if bold { BOLD } else { REGULAR }).expect("bundled font");
-        let (linesize, ascent) = METRICS
-            .iter()
-            .find(|m| m.0 == size)
-            .map_or(((size as f32 * 1.2).ceil() as i32, (size as f32 * 0.9277).round() as i32), |m| (m.1, m.2));
-        let suffix = if bold { "b" } else { "" };
-        let glyphs = table().iter().find(|(k, _)| k.ends_with(&format!("@{size}{suffix}")) && (k.ends_with('b') == bold)).map(|(_, v)| v);
-        Font { face, size, bold, linesize, ascent, glyphs }
+        Self::make(if bold { BOLD } else { REGULAR }, &format!("{}{size}", if bold { "bold" } else { "sans" }), size, bold)
+    }
+
+    /// FreeMono (`SysFont("consolas", size)`): the HUD's small text.
+    pub fn free_mono(size: i32) -> Self {
+        Self::make(FREE_MONO, &format!("mono{size}"), size, false)
+    }
+
+    /// `pygame.font.SysFont("dejavusansmono,...", size)`: share codes, bug reports.
+    pub fn mono(size: i32) -> Self {
+        let mut f = Self::make(MONO, "none", size, false);
+        (f.linesize, f.ascent) = match size {
+            12 => (14, 12),
+            13 => (16, 13),
+            _ => (f.linesize, f.ascent),
+        };
+        f
     }
 
     fn scaled(&self) -> ab_glyph::PxScaleFont<&FontRef<'static>> {
@@ -101,6 +137,11 @@ impl Font {
 
     /// `font.render(text, True, color)` blitted with its top-left at (x, y): the image is `linesize` tall, the baseline `ascent` down.
     pub fn draw(&self, cv: &mut Canvas, text: &str, x: i32, y: i32, color: Color) {
+        self.draw_a(cv, text, x, y, color, 255)
+    }
+
+    /// The same with `img.set_alpha(alpha)`.
+    pub fn draw_a(&self, cv: &mut Canvas, text: &str, x: i32, y: i32, color: Color, alpha: u32) {
         let s = self.scaled();
         let mut pen = x;
         for c in text.chars() {
@@ -108,7 +149,7 @@ impl Font {
             if let Some(o) = self.face.outline_glyph(g) {
                 let b = o.px_bounds();
                 o.draw(|gx, gy, cov| {
-                    let a = (cov * 255.0 + 0.5) as u32;
+                    let a = (cov * alpha as f32 + 0.5) as u32;
                     cv.blend(b.min.x as i32 + gx as i32, b.min.y as i32 + gy as i32, color, a);
                 });
             }

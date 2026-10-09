@@ -13,6 +13,8 @@ use crate::rng::Generator;
 
 /// Current of a held touch pulse (x `ext_gain` 4 = 2.0 per step).
 pub const POKE_AMP: f32 = 0.5;
+/// History samples kept, one per 20 ms (4 steps): 30 s.
+pub const HIST: usize = 1500;
 /// Steps without a poke before the calm baseline learns again (2 s).
 pub const CALM_STEPS: u64 = 400;
 
@@ -97,6 +99,14 @@ pub const TOOL_NAMES: [&str; 18] = [
     "mantis",
 ];
 
+/// `PAIN_WEIGHTS`: touch, thermal, chemical, DN alarm, body relay; the index is capped at 100.
+pub const PAIN_WEIGHTS: [f32; 5] = [0.55, 0.25, 0.55, 0.20, 0.30];
+
+/// `Brain.pain_index`
+pub fn pain_index(parts: &[f32; 5]) -> f32 {
+    (100.0 * parts.iter().zip(PAIN_WEIGHTS).map(|(p, w)| *p as f64 * w as f64).sum::<f64>()).min(100.0) as f32
+}
+
 /// `PAIN_LEVELS`: share of a region's neurons a light touch recruits, and how hard the rest of the body's sensors join.
 pub const PAIN_LEVELS: [(&str, f32, f32); 3] = [("normal", 0.3, 0.0), ("more", 0.6, 0.5), ("max", 1.0, 1.0)];
 
@@ -127,6 +137,8 @@ pub struct Groups {
     pending: Vec<Pending>,
     cur: Vec<f32>,
     pub last_poke: i64,
+    /// Pain level 0..2 (`PAIN_LEVELS`).
+    pub pain_level: usize,
     pub recruit: f32,
     pub spill: f32,
     rng: Generator,
@@ -134,6 +146,10 @@ pub struct Groups {
     counts: Vec<u32>,
     /// Overlapping readout groups (they may share neurons with a detail group): `(column, membership mask)`.
     extra: Vec<(usize, Vec<bool>)>,
+    /// Ring of the fast rates, one row of `names.len()` per 20 ms (`Brain.hist`).
+    hist: Vec<f32>,
+    /// Samples written so far (`Brain.hist_n`).
+    pub hist_n: usize,
 }
 
 impl Groups {
@@ -313,12 +329,15 @@ impl Groups {
             pending: Vec::new(),
             cur: vec![0.0; n],
             last_poke: -1_000_000_000,
+            pain_level: 0,
             recruit: PAIN_LEVELS[0].1,
             spill: 0.0,
             rng: Generator::new(seed),
             dt_s: (dt_ms / 1000.0) as f32,
             counts: vec![0; g],
             extra: Vec::new(),
+            hist: Vec::new(),
+            hist_n: 0,
         };
         // the fermentation glomeruli (DM1/DM2/DP1m) as a readout of their own: the kitchen's vinegar trap reads them
         let rows = this.sense("scent:alcohol", None).to_vec();
@@ -364,6 +383,7 @@ impl Groups {
     }
 
     pub fn set_pain_level(&mut self, level: usize) {
+        self.pain_level = level.min(2);
         let (_, recruit, spill) = PAIN_LEVELS[level.min(2)];
         self.recruit = recruit;
         self.spill = spill;
@@ -457,6 +477,14 @@ impl Groups {
             let inst = self.counts[i] as f32 / self.sizes[i] / self.dt_s;
             self.fast[i] += (inst - self.fast[i]) * self.k_fast;
         }
+        if step.is_multiple_of(4) {
+            let row = (self.hist_n % HIST) * g;
+            if self.hist.len() < HIST * g {
+                self.hist.resize(HIST * g, 0.0);
+            }
+            self.hist[row..row + g].copy_from_slice(&self.fast);
+            self.hist_n += 1;
+        }
         if calm && step as i64 - self.last_poke > CALM_STEPS as i64 {
             for i in 0..g {
                 self.base[i] += (self.fast[i] - self.base[i]) * self.k_base;
@@ -471,6 +499,57 @@ impl Groups {
 
     pub fn restore_base_k(&mut self, k: f32) {
         self.k_base = k;
+    }
+
+    /// `Brain.pain_parts` for the adult brain: (touch overload, thermal, chemical, DN alarm, body relay), each 0..1, from the fast rates
+    /// against the calm baselines at the current pain level (`self.recruit`/`spill` belong to it: level 0, 1, 2).
+    pub fn pain_parts(&self, level: usize) -> [f32; 5] {
+        let above = |names: &[&str], full: f64| -> f64 {
+            let (mut num, mut den) = (0.0f64, 0.0f64);
+            for n in names {
+                if let Some(i) = self.col(n) {
+                    let sz = self.sizes[i] as f64;
+                    num += (self.fast[i] as f64 - self.base[i] as f64) * sz;
+                    den += sz;
+                }
+            }
+            if den == 0.0 { 0.0 } else { num / den / full }
+        };
+        let mut touch_names: Vec<&str> = TOUCH.to_vec();
+        if level > 0 {
+            touch_names.push("body_extra");
+        }
+        let touch = above(&touch_names, 35.0);
+        let thermal = above(&["heat"], 30.0).max(above(&["cold"], 30.0));
+        let chemical = (above(&["smell", "taste"], 1.0) - 8.0) / 27.0;
+        let ratio = |name: &str| self.col(name).map_or(0.0, |i| self.fast[i] as f64 / (self.base[i] as f64).max(1.0));
+        let alarm = (ratio("descending") - 1.06) / 0.3;
+        let relay = if level >= 2 { (ratio("ascending") - 1.06) / 0.35 } else { 0.0 };
+        [touch, thermal, chemical, alarm, relay].map(|v| v.clamp(0.0, 1.0) as f32)
+    }
+
+    /// `Brain.pain_neurons`: how many real neurons the pain index listens to at this level.
+    pub fn pain_neurons(&self, level: usize) -> usize {
+        let mut names: Vec<&str> = TOUCH.to_vec();
+        names.extend(["heat", "cold", "smell", "taste"]);
+        if level >= 1 {
+            names.push("body_extra");
+        }
+        if level >= 2 {
+            names.push("ascending");
+        }
+        names.iter().map(|n| self.size(n)).sum()
+    }
+
+    /// `Brain.history(first, last)[:, col]`: samples `[first, last)` by absolute index, clipped to what the ring still holds.
+    pub fn history_col(&self, col: usize, first: usize, last: usize) -> Vec<f32> {
+        let g = self.names.len();
+        let first = first.max(self.hist_n.saturating_sub(HIST));
+        let last = last.min(self.hist_n);
+        if last <= first || self.hist.is_empty() {
+            return vec![];
+        }
+        (first..last).map(|i| self.hist[(i % HIST) * g + col]).collect()
     }
 
     /// `Brain.level`: the fast rate as a multiple of the calm baseline (the baseline is floored at 2 Hz).

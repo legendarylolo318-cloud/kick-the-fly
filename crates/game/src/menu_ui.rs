@@ -20,6 +20,7 @@ use serde_json::Value;
 use crate::app::SimLink;
 use crate::config::Settings;
 use crate::controls::TimeControl;
+use crate::hud_canvas::HudLayout;
 use crate::player::MouseLook;
 use crate::sim_thread::Command;
 
@@ -46,14 +47,16 @@ struct MenuUi {
 #[derive(Component)]
 struct MenuNode;
 
-fn new_image(w: u32, h: u32) -> Image {
-    Image::new(
+fn new_image(w: u32, h: u32, nearest: bool) -> Image {
+    let mut img = Image::new(
         Extent3d { width: w, height: h, depth_or_array_layers: 1 },
         TextureDimension::D2,
         vec![0; (w * h * 4) as usize],
         TextureFormat::Rgba8UnormSrgb,
         RenderAssetUsages::default(),
-    )
+    );
+    img.sampler = if nearest { bevy::image::ImageSampler::nearest() } else { bevy::image::ImageSampler::linear() };
+    img
 }
 
 fn setup(
@@ -68,7 +71,7 @@ fn setup(
 ) {
     ktf_ui::i18n::set_language(cfg.0.get_str("access.language"));
     let (w, h) = (window.width().max(1.0) as u32, window.height().max(1.0) as u32);
-    let image = images.add(new_image(w, h));
+    let image = images.add(new_image(w, h, true));
     let node = commands
         .spawn((
             MenuNode,
@@ -87,7 +90,6 @@ fn setup(
         .id();
     let mut menu = Menu::new(env!("CARGO_PKG_VERSION"));
     ktf_ui::pages::install(&mut menu);
-    menu.veil_alpha = 240; // pygame blends the veil in sRGB space, Bevy in linear light: this alpha gives the same darkness
     if let Some(s) = start {
         let (screen, tab) = s.0.split_once(':').unwrap_or((s.0.as_str(), ""));
         menu.show(screen);
@@ -98,7 +100,7 @@ fn setup(
         tc.menu_paused = true;
         look.captured = false;
     }
-    commands.insert_resource(MenuUi { menu, canvas: Canvas::new(w as i32, h as i32), image, node });
+    commands.insert_resource(MenuUi { menu, canvas: Canvas { linear_light: true, ..Canvas::new(w as i32, h as i32) }, image, node });
 }
 
 /// `pygame.key.name` of a key, for the key-binding screen and Esc/Enter/Backspace handling.
@@ -207,9 +209,11 @@ fn input(
     arcade: Res<crate::arcade::Arcade>,
     link: Res<SimLink>,
     mut exit: MessageWriter<AppExit>,
+    lay: Res<HudLayout>,
 ) {
     let was_open = ui.menu.is_open();
-    let mouse = window.cursor_position().map_or((-1, -1), |p| (p.x as i32, p.y as i32));
+    let k = window.scale_factor() / lay.0.scale;
+    let mouse = window.cursor_position().map_or((-1, -1), |p| ((p.x * k) as i32, (p.y * k) as i32));
     let mut events: Vec<UiEvent> = vec![];
     if was_open {
         events.push(UiEvent::Motion { pos: mouse });
@@ -332,6 +336,7 @@ fn draw(
     mut images: ResMut<Assets<Image>>,
     mut vis: Query<(&mut Visibility, &mut ImageNode), With<MenuNode>>,
     time: Res<Time<Real>>,
+    lay: Res<HudLayout>,
 ) {
     let Ok((mut v, mut node)) = vis.single_mut() else { return };
     if !ui.menu.is_open() {
@@ -340,13 +345,14 @@ fn draw(
         }
         return;
     }
-    let (w, h) = (window.width().max(1.0) as i32, window.height().max(1.0) as i32);
+    let (w, h) = (lay.0.hud_w, lay.0.hud_h);
     if (ui.canvas.w, ui.canvas.h) != (w, h) {
-        ui.canvas = Canvas::new(w, h);
-        ui.image = images.add(new_image(w as u32, h as u32));
+        ui.canvas = Canvas { linear_light: true, ..Canvas::new(w, h) };
+        ui.image = images.add(new_image(w as u32, h as u32, lay.0.scale.fract() == 0.0));
         node.image = ui.image.clone();
     }
-    let mouse = window.cursor_position().map_or((-1, -1), |p| (p.x as i32, p.y as i32));
+    let k = window.scale_factor() / lay.0.scale;
+    let mouse = window.cursor_position().map_or((-1, -1), |p| ((p.x * k) as i32, (p.y * k) as i32));
     let MenuUi { menu, canvas, image, .. } = &mut *ui;
     canvas.clear();
     menu.draw(canvas, &mut cfg.0, true, mouse, time.elapsed_secs_f64(), &mut GameHost);

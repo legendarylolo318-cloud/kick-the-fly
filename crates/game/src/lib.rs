@@ -27,7 +27,7 @@ pub mod fly_visuals;
 pub mod flyeye;
 pub mod fx;
 pub mod gpu;
-pub mod hud;
+pub mod hud_canvas;
 pub mod killcam;
 pub mod killcam_play;
 pub mod kitchen;
@@ -140,7 +140,7 @@ impl Plugin for GamePlugin {
             ))
             .add_plugins(menu_ui::MenuPlugin)
             .add_plugins((
-                hud::HudPlugin,
+                hud_canvas::HudCanvasPlugin,
                 weather_play::WeatherPlugin,
                 controls::ControlsPlugin,
                 environment::EnvironmentPlugin,

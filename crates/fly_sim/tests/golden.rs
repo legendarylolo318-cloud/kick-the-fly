@@ -298,3 +298,28 @@ fn groups_match_python() {
         assert_eq!(sha16_u32(rows), sha.as_str().unwrap(), "scent rows of {tool}");
     }
 }
+
+/// The pain index (`Brain.pain_parts`, `pain_index`, `pain_neurons`) for random rates matches the NumPy formula of the original
+/// (`tests/golden/make_pain.py`), at pain levels 0, 1 and 2.
+#[test]
+fn pain_matches_python() {
+    let Some(pack) = pack() else { return };
+    let cases = load_json("pain.json");
+    let mut g = fly_sim::groups::Groups::new(&pack.labels, pack.n, 5.0, 1);
+    for (k, case) in cases.as_array().unwrap().iter().enumerate() {
+        let level = case["level"].as_u64().unwrap() as usize;
+        g.set_pain_level(level);
+        for (name, v) in case["fast"].as_object().unwrap() {
+            let i = g.col(name).unwrap();
+            g.fast[i] = v.as_f64().unwrap() as f32;
+            g.base[i] = case["base"][name].as_f64().unwrap() as f32;
+        }
+        let parts = g.pain_parts(level);
+        for (j, want) in case["parts"].as_array().unwrap().iter().enumerate() {
+            assert!((parts[j] as f64 - want.as_f64().unwrap()).abs() < 2e-5, "case {k} part {j}: {} vs {want}", parts[j]);
+        }
+        let idx = fly_sim::groups::pain_index(&parts);
+        assert!((idx as f64 - case["index"].as_f64().unwrap()).abs() < 2e-3, "case {k} index {idx} vs {}", case["index"]);
+        assert_eq!(g.pain_neurons(level) as u64, case["neurons"].as_u64().unwrap(), "case {k} neurons");
+    }
+}

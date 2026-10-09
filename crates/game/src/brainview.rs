@@ -140,8 +140,8 @@ fn setup(mut commands: Commands, mut view: ResMut<BrainView>, mut images: ResMut
     commands.spawn((
         PanelNode,
         ImageNode::new(image),
-        Node { position_type: PositionType::Absolute, right: px(0), top: px(0), width: px(300), height: px(300), ..default() },
-        ZIndex(-5),
+        Node { position_type: PositionType::Absolute, left: px(0), top: px(0), width: px(300), height: px(300), ..default() },
+        GlobalZIndex(400),
     ));
 }
 
@@ -280,6 +280,7 @@ fn layout(
     panel: Res<PanelImage>,
     mut images: ResMut<Assets<Image>>,
     mut node: Single<(&mut Node, &mut ImageNode, &mut Visibility), With<PanelNode>>,
+    hud: Res<crate::hud_canvas::HudLayout>,
 ) {
     let (lw, lh) = (window.width(), window.height());
     if lw < 2.0 || lh < 2.0 {
@@ -288,7 +289,19 @@ fn layout(
     let shown = view.built && view.mode != PanelMode::Hidden || view.big;
     cam.is_active = shown;
     *node.2 = if shown { Visibility::Inherited } else { Visibility::Hidden };
-    let (w, h) = if view.big { (lw, lh) } else { ((lw * 0.30).max(240.0).min(lw), (lh * 0.58).min(lh)) };
+    // the panel's picture sits where the HUD leaves a hole for it: (play_w + 12, 54), 356 x 193 HUD units (`VIEW_SIZES["panel"]`)
+    let sf = window.scale_factor();
+    let k = hud.0.scale / sf;
+    let (w, h) = if view.big { (lw, lh) } else { (356.0 * k, 193.0 * k) };
+    node.0.position_type = PositionType::Absolute;
+    node.0.right = Val::Auto;
+    if view.big {
+        node.0.left = px(0);
+        node.0.top = px(0);
+    } else {
+        node.0.left = px((hud.0.play_w + 12) as f32 * k);
+        node.0.top = px(54.0 * k);
+    }
     node.0.width = px(w);
     node.0.height = px(h);
     let alpha = if view.big {
@@ -302,7 +315,6 @@ fn layout(
         }
     };
     node.1.color = Color::srgba(1.0, 1.0, 1.0, alpha);
-    let sf = window.scale_factor();
     let (pw, ph) = (((w * sf) as u32).clamp(64, 2400), ((h * sf) as u32).clamp(64, 2400));
     if let Some(img) = images.get(&panel.0)
         && (img.width() != pw || img.height() != ph)

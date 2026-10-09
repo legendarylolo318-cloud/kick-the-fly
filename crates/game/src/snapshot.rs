@@ -55,6 +55,8 @@ pub struct Snapshot {
     pub sim_time_s: f64,
     /// Measured brain steps per wall-clock second, over the last second.
     pub steps_per_s: f32,
+    /// Wall time of the latest brain step, milliseconds.
+    pub step_ms: f32,
     /// Steps the thread dropped to catch up after falling behind (it never races to recover more than 40 at once).
     pub steps_dropped: u64,
     pub gain: f64,
@@ -71,6 +73,14 @@ pub struct Snapshot {
     /// Per group (`BrainInfo::group_names`): firing in Hz per neuron, and as a multiple of the calm baseline.
     pub hz: Vec<f32>,
     pub levels: Vec<f32>,
+    /// `Brain.pain_parts` now: touch overload, thermal, chemical, DN alarm, body relay (0..1).
+    pub pain_parts: [f32; 5],
+    /// How many real neurons the pain index listens to at this pain level.
+    pub pain_neurons: u32,
+    /// Pain level 0..2.
+    pub pain_level: u8,
+    /// Whole-brain rate, spikes/s per neuron, the last 600 samples of 20 ms (12 s), oldest first (the WHOLE BRAIN trace).
+    pub whole_trace: Vec<f32>,
     pub info: Option<Arc<BrainInfo>>,
     /// When the sim thread made this snapshot, to measure how stale the render side's view is.
     pub published_at: Option<Instant>,

@@ -11,7 +11,9 @@
 
 pub mod canvas;
 pub mod font;
+pub mod hud;
 pub mod i18n;
+pub mod layout;
 pub mod menu;
 pub mod pages;
 pub mod theme;

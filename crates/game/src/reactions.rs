@@ -192,6 +192,52 @@ pub fn reaction_source(word: &str) -> Option<&'static str> {
     }
 }
 
+/// `POPUP_SOURCE`: which floating words carry a REAL / RULE chip.
+pub fn popup_source(word: &str) -> Option<&'static str> {
+    match word {
+        "DODGE!" | "YIKES!" => Some("real"),
+        "ROLL!"
+        | "NOPE!"
+        | "RUN AWAY!"
+        | "YUM!"
+        | "SWEET!"
+        | "NOM NOM"
+        | "K.O.!"
+        | "BROKE FREE!"
+        | "FLY WINS!"
+        | "GOTCHA!"
+        | "PEW PEW!"
+        | "TAKE THAT!"
+        | "AUTOPILOT"
+        | "SPECTATOR"
+        | "PHOTO MODE"
+        | "*HIC*"
+        | "SIP..."
+        | "GLUG!"
+        | "STUMBLE!"
+        | "ALL GONE"
+        | "♪ BUZZ ♪"
+        | "LUNGE!"
+        | "ZZZ"
+        | "COURTSHIP"
+        | "cVA PUFF"
+        | "DECOY FEMALE"
+        | "A FROG!"
+        | "A DRAGONFLY!"
+        | "A MANTIS!"
+        | "SNAP!"
+        | "ZAP!"
+        | "GULP!"
+        | "GRABBED!"
+        | "SNATCH!"
+        | "STRIKE!"
+        | "SWAT!"
+        | "STUCK IN THE TRAP!"
+        | "THE COOK RAISES A SWATTER" => Some("rule"),
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

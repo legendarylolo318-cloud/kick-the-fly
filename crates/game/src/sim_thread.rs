@@ -338,6 +338,7 @@ fn publish(
         s.step = brain.steps;
         s.sim_time_s = brain.steps as f64 * sim.p.dt_ms / 1000.0;
         s.steps_per_s = steps_per_s;
+        s.step_ms = sim.last_step_ms as f32;
         s.steps_dropped = dropped;
         s.gain = sim.gain;
         s.active_count = sim.activity.active_count;
@@ -352,6 +353,15 @@ fn publish(
         s.hz.extend_from_slice(&brain.groups.fast);
         s.levels.clear();
         s.levels.extend(brain.groups.names.iter().map(|n| brain.groups.level(n)));
+        let level = brain.groups.pain_level;
+        s.pain_parts = brain.groups.pain_parts(level);
+        s.pain_neurons = brain.groups.pain_neurons(level) as u32;
+        s.pain_level = level as u8;
+        s.whole_trace.clear();
+        if let Some(c) = brain.groups.col("whole brain") {
+            let n = brain.groups.hist_n;
+            s.whole_trace.extend(brain.groups.history_col(c, n.saturating_sub(600), n));
+        }
         if s.info.is_none() {
             s.info = Some(info.clone());
         }

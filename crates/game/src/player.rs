@@ -92,7 +92,6 @@ fn spawn_player(mut commands: Commands, settings: Res<Settings>) {
     ));
     commands.spawn((
         PlayerCamera,
-        IsDefaultUiCamera,
         Camera3d::default(),
         Projection::Perspective(PerspectiveProjection { fov: settings.fov_deg.to_radians(), near: 0.03, far: 200.0, ..default() }),
         Transform::from_xyz(0.0, EYE, 2.6),
