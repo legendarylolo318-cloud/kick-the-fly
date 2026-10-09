@@ -78,6 +78,7 @@ fn setup(
     window: Single<&Window, With<PrimaryWindow>>,
     cfg: Res<UserConfig>,
     start: Option<Res<MenuStart>>,
+    dex: Res<crate::neurodex_play::Dex>,
     mut open: ResMut<MenuOpen>,
     mut tc: ResMut<TimeControl>,
     mut look: ResMut<MouseLook>,
@@ -102,7 +103,7 @@ fn setup(
         ))
         .id();
     let mut menu = Menu::new(env!("CARGO_PKG_VERSION"));
-    ktf_ui::pages::install(&mut menu);
+    ktf_ui::pages::install_with(&mut menu, dex.shared.clone());
     if let Some(s) = start {
         let (screen, tab) = s.0.split_once(':').unwrap_or((s.0.as_str(), ""));
         menu.show(screen);
@@ -265,8 +266,8 @@ fn input(
         key_events.clear();
         button_events.clear();
         wheel.clear();
-        if actions.just("loadout") && !arcade.open {
-            ui.menu.show("loadout");
+        if (actions.just("loadout") || (actions.just("neurodex") && !look.captured)) && !arcade.open {
+            ui.menu.show(if actions.just("loadout") { "loadout" } else { "neurodex" });
             look.captured = false;
             tc.menu_paused = true;
             link.0.send(Command::Pause(true));

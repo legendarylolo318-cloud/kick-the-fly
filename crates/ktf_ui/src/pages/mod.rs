@@ -3,10 +3,17 @@
 use crate::menu::Menu;
 
 pub mod loadout;
+pub mod neurodex;
 pub mod share;
 pub mod whatsnew;
 
 pub fn install(menu: &mut Menu) {
+    install_with(menu, std::sync::Arc::new(std::sync::Mutex::new(neurodex::NeurodexShared::new(Default::default()))));
+}
+
+/// Register every page; `dex` is the state the Neurodex panel shares with the game.
+pub fn install_with(menu: &mut Menu, dex: neurodex::SharedDex) {
+    menu.register_page("neurodex", Box::new(neurodex::NeurodexPage::new(dex)));
     menu.register_page("loadout", Box::<loadout::LoadoutPage>::default());
     menu.register_page("loadout_notice", Box::<loadout::LoadoutNotice>::default());
     menu.register_page("share", Box::<share::SharePage>::default());

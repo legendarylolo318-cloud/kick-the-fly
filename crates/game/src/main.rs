@@ -108,6 +108,7 @@ fn main() -> ExitCode {
             return ExitCode::from(1);
         }
     };
+    let pack_path = if let Source::Pack(p) = &args.source { Some(p.clone()) } else { None };
     let mut config = SimConfig::new(args.source);
     config.seed = args.seed;
 
@@ -134,6 +135,7 @@ fn main() -> ExitCode {
     }
 
     let mut app = App::new();
+    app.insert_resource(kick_the_fly::sim_thread::PackPath(pack_path));
     let mut full = args.fullscreen;
     {
         // the player's settings: the same config.toml the Python game wrote (missing or damaged files fall back to defaults)

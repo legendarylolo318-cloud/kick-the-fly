@@ -8,6 +8,7 @@ rust-version.workspace = true
 
 [dependencies]
 ktf_data.workspace = true
+fly_sim.workspace = true
 ab_glyph.workspace = true
 serde_json.workspace = true
 

@@ -32,6 +32,10 @@ pub enum Source {
     Synthetic { n: usize },
 }
 
+/// Where the loaded brain came from, for things that read the same file again (the Neurodex partner table).
+#[derive(bevy::prelude::Resource, Clone, Debug)]
+pub struct PackPath(pub Option<std::path::PathBuf>);
+
 #[derive(Debug, Clone)]
 pub struct SimConfig {
     pub source: Source,
@@ -83,6 +87,12 @@ pub enum Command {
     Sedation(f32),
     /// Pain level 0..2 (normal, more, max).
     PainLevel(usize),
+    /// The Neurodex's type table and the types already discovered: from now on the sim thread checks for discoveries every 10 steps.
+    DexTable { table: Arc<fly_sim::neurodex::TypeTable>, known: Vec<String> },
+    /// The discovered set changed outside the tracker (a wipe): re-read it.
+    DexKnown(Vec<String>),
+    /// `brain.neurodex` on/off.
+    DexEnabled(bool),
     Shutdown,
 }
 
@@ -94,7 +104,15 @@ pub struct Shared {
     pub labels: Arc<Labels>,
 }
 
+/// What the sim thread tells the game that must not be lost (the snapshot mailbox only keeps the newest).
+#[derive(Debug, Clone)]
+pub enum SimEvent {
+    /// A type was discovered (`fly_sim::neurodex::Tracker`).
+    Discovered(fly_sim::neurodex::Found),
+}
+
 pub struct SimHandle {
+    events: Mutex<Receiver<SimEvent>>,
     pub shared: Arc<Mutex<Option<Shared>>>,
     tx: Sender<Command>,
     pub mailbox: Arc<Mailbox<Snapshot>>,
@@ -103,6 +121,11 @@ pub struct SimHandle {
 }
 
 impl SimHandle {
+    /// A sender for background threads (the Neurodex table builder hands its table over with it).
+    pub fn sender(&self) -> Sender<Command> {
+        self.tx.clone()
+    }
+
     /// Send a command. Never blocks; returns false when the thread has already ended.
     pub fn send(&self, cmd: Command) -> bool {
         self.tx.send(cmd).is_ok()
@@ -111,6 +134,11 @@ impl SimHandle {
     /// The newest unread snapshot, if one arrived since the last call.
     pub fn latest(&self) -> Option<Box<Snapshot>> {
         self.mailbox.take()
+    }
+
+    /// Everything the thread reported since the last call.
+    pub fn drain_events(&self) -> Vec<SimEvent> {
+        self.events.lock().unwrap_or_else(PoisonError::into_inner).try_iter().collect()
     }
 
     /// Whether the thread is still alive.
@@ -135,14 +163,15 @@ pub fn spawn(cfg: SimConfig) -> SimHandle {
     let mailbox = Arc::new(Mailbox::<Snapshot>::default());
     let stop = Arc::new(AtomicBool::new(false));
     let shared = Arc::new(Mutex::new(None));
+    let (ev_tx, ev_rx) = mpsc::channel();
     let join = {
         let (mailbox, stop, shared) = (mailbox.clone(), stop.clone(), shared.clone());
         thread::Builder::new()
             .name("fly-sim".into())
-            .spawn(move || run(cfg, rx, mailbox, stop, shared))
+            .spawn(move || run(cfg, rx, mailbox, stop, shared, ev_tx))
             .expect("could not start the sim thread")
     };
-    SimHandle { shared, tx, mailbox, stop, join: Some(join) }
+    SimHandle { events: Mutex::new(ev_rx), shared, tx, mailbox, stop, join: Some(join) }
 }
 
 fn publish_phase(mailbox: &Mailbox<Snapshot>, phase: Phase, source: &str, neurons: usize) {
@@ -172,7 +201,14 @@ fn load(cfg: &SimConfig) -> Result<(Arc<Weights>, Arc<Labels>, String), String> 
     }
 }
 
-fn run(cfg: SimConfig, rx: Receiver<Command>, mailbox: Arc<Mailbox<Snapshot>>, stop: Arc<AtomicBool>, shared: Arc<Mutex<Option<Shared>>>) {
+fn run(
+    cfg: SimConfig,
+    rx: Receiver<Command>,
+    mailbox: Arc<Mailbox<Snapshot>>,
+    stop: Arc<AtomicBool>,
+    shared: Arc<Mutex<Option<Shared>>>,
+    events: Sender<SimEvent>,
+) {
     publish_phase(&mailbox, Phase::Loading, "", 0);
     let (weights, labels, source) = match load(&cfg) {
         Ok(v) => v,
@@ -203,6 +239,7 @@ fn run(cfg: SimConfig, rx: Receiver<Command>, mailbox: Arc<Mailbox<Snapshot>>, s
     let (mut rate_t, mut rate_steps, mut steps_per_s) = (Instant::now(), brain.steps, 0.0f32);
     let mut dropped: u64 = 0;
     let mut driving = false;
+    let mut dex = DexState { tracker: None, table: None, enabled: true };
     publish(&mailbox, &brain, &source, &state, steps_per_s, dropped, driving, &info);
 
     while !stop.load(Ordering::Relaxed) {
@@ -210,7 +247,7 @@ fn run(cfg: SimConfig, rx: Receiver<Command>, mailbox: Arc<Mailbox<Snapshot>>, s
         loop {
             match rx.try_recv() {
                 Ok(Command::Shutdown) | Err(TryRecvError::Disconnected) => return,
-                Ok(cmd) => driving |= apply(&mut brain, &mut state, cmd),
+                Ok(cmd) => driving |= apply(&mut brain, &mut state, &mut dex, cmd),
                 Err(TryRecvError::Empty) => break,
             }
         }
@@ -245,6 +282,7 @@ fn run(cfg: SimConfig, rx: Receiver<Command>, mailbox: Arc<Mailbox<Snapshot>>, s
         }
         brain.step();
         done += 1;
+        dex_check(&brain, &mut dex, &events);
         if rate_t.elapsed() >= Duration::from_secs(1) {
             steps_per_s = (brain.steps - rate_steps) as f32 / rate_t.elapsed().as_secs_f32();
             rate_t = Instant::now();
@@ -263,7 +301,7 @@ struct LoopState {
 }
 
 /// Returns true when the command turned a stimulus on.
-fn apply(brain: &mut Brain, state: &mut LoopState, cmd: Command) -> bool {
+fn apply(brain: &mut Brain, state: &mut LoopState, dex: &mut DexState, cmd: Command) -> bool {
     match cmd {
         Command::DriveSpec { spec, amp } => match brain.rows_of(&spec) {
             Ok(rows) => {
@@ -314,7 +352,44 @@ fn apply(brain: &mut Brain, state: &mut LoopState, cmd: Command) -> bool {
             brain.groups.set_pain_level(l);
             false
         }
+        Command::DexTable { table, known } => {
+            let set: std::collections::HashSet<String> = known.into_iter().collect();
+            dex.tracker = Some(fly_sim::neurodex::Tracker::new(&table, &|n| set.contains(n)));
+            dex.table = Some(table);
+            false
+        }
+        Command::DexKnown(known) => {
+            if let (Some(t), Some(tab)) = (dex.tracker.as_mut(), dex.table.as_ref()) {
+                let set: std::collections::HashSet<String> = known.into_iter().collect();
+                t.sync(tab, &|n| set.contains(n));
+            }
+            false
+        }
+        Command::DexEnabled(on) => {
+            dex.enabled = on;
+            false
+        }
         Command::Shutdown => false,
+    }
+}
+
+struct DexState {
+    tracker: Option<fly_sim::neurodex::Tracker>,
+    table: Option<Arc<fly_sim::neurodex::TypeTable>>,
+    enabled: bool,
+}
+
+/// `Extras.dex_tick`: every `CHECK_STEPS` steps, feed the recent spikes to the discovery rule and report what it found.
+fn dex_check(brain: &Brain, dex: &mut DexState, events: &Sender<SimEvent>) {
+    use fly_sim::neurodex::{CHECK_STEPS, WINDOW_STEPS};
+    if !dex.enabled || brain.dead() || !brain.steps.is_multiple_of(u64::from(CHECK_STEPS)) {
+        return;
+    }
+    let (Some(tracker), Some(table)) = (dex.tracker.as_mut(), dex.table.as_ref()) else { return };
+    let (spikes, steps) = brain.window_spikes(WINDOW_STEPS);
+    let dt = brain.sim.p.dt_ms / 1000.0;
+    for f in tracker.observe(table, 0, &spikes, dt, brain.dex_calm(), brain.driven(), steps) {
+        let _ = events.send(SimEvent::Discovered(f));
     }
 }
 

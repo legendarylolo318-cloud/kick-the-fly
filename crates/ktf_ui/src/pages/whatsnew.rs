@@ -53,6 +53,10 @@ const ITEMS: [(&str, &str, &str); 8] = [
 pub struct WhatsNew;
 
 impl Page for WhatsNew {
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
     fn draw(&mut self, m: &mut Menu, cv: &mut Canvas, rect: Rect, _ctx: &mut Ctx) {
         let key = "whatsnew";
         let f = m.fonts();

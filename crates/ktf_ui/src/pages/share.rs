@@ -386,6 +386,10 @@ fn group(n: usize) -> String {
 }
 
 impl Page for SharePage {
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
     fn draw(&mut self, m: &mut Menu, cv: &mut Canvas, rect: Rect, ctx: &mut Ctx) {
         let f = m.fonts();
         let head = m.text(cv, &tr("SHARE"), (rect.x + 24, rect.y + 14), INK, &f.head, Anchor::TopLeft);

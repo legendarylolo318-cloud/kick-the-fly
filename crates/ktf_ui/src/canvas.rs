@@ -212,6 +212,20 @@ impl Canvas {
         }
     }
 
+    /// A translucent outline of the given width (a `SRCALPHA` card's border).
+    pub fn stroke_rect2_a(&mut self, rc: Rect, c: Color, alpha: u32, width: i32, radius: i32) {
+        // draw on a scratch canvas so overlapping ring pixels do not blend twice, then composite
+        let mut tmp = Canvas::new(rc.w, rc.h);
+        tmp.stroke_rect2(Rect::new(0, 0, rc.w, rc.h), c, width, radius);
+        for y in 0..rc.h {
+            for x in 0..rc.w {
+                if tmp.px[((y * rc.w + x) * 4 + 3) as usize] > 0 {
+                    self.blend(rc.x + x, rc.y + y, c, alpha);
+                }
+            }
+        }
+    }
+
     /// `pygame.draw.circle(surf, color, center, radius)`.
     pub fn circle(&mut self, center: (i32, i32), radius: i32, c: Color) {
         for dy in -radius..=radius {

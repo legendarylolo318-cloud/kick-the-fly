@@ -22,6 +22,7 @@ use crate::fly::{Fly, FlyDied, FlyHit, MAX_HEALTH, ResetFly};
 use crate::menu_ui::{MenuOpen, UserConfig};
 use crate::player::{MouseLook, PlayerCamera};
 use crate::sim_thread::Command;
+use crate::neurodex_play::{Dex, TOAST_MAX, TOAST_S};
 use crate::tools::{ActiveLoadout, LASER_TARGETS, TOOLS, ToolState};
 
 /// Where the HUD sits in the window: recomputed every frame from the window size and the settings.
@@ -48,6 +49,10 @@ pub struct HudStats {
     frame: u64,
     pub help: bool,
 }
+
+/// Where the HUD's clickable parts were drawn last frame.
+#[derive(Resource, Default)]
+struct HudHitsRes(ktf_ui::hud::HudHits);
 
 #[derive(Resource)]
 struct HudCanvas {
@@ -244,6 +249,7 @@ struct HudIn<'w, 's> {
     menu: Res<'w, MenuOpen>,
     arcade: Res<'w, Arcade>,
     settings: Res<'w, crate::config::Settings>,
+    dex: Res<'w, Dex>,
     flies: Query<'w, 's, &'static Fly>,
 }
 
@@ -258,8 +264,9 @@ fn draw(
     window: Single<&Window, With<PrimaryWindow>>,
     mut images: ResMut<Assets<Image>>,
     mut node: Single<&mut ImageNode, With<HudNode>>,
+    mut hits_out: ResMut<HudHitsRes>,
 ) {
-    let HudIn { time, real, snap, st, notes, tools, loadout, arena, cfg, view, tc, look, menu, arcade, settings, flies } = i;
+    let HudIn { time, real, snap, st, notes, tools, loadout, arena, cfg, view, tc, look, menu, arcade, settings, dex, flies } = i;
     let l = lay.0;
     let crisp = (l.scale.fract() == 0.0) && l.scale >= 1.0;
     if (hc.canvas.w, hc.canvas.h) != (l.hud_w, l.hud_h) || hc.crisp != crisp {
@@ -428,14 +435,75 @@ fn draw(
             None
         },
         help_open: st.help,
+        toasts: {
+            let calm_fx = cfg.0.get_bool("access.reduced_flashing");
+            let rise = if calm_fx { 0.6 } else { 0.15 };
+            let n = dex.toasts.len();
+            dex.toasts[n.saturating_sub(TOAST_MAX)..]
+                .iter()
+                .map(|(t, born)| {
+                    let age = rnow as f32 - born;
+                    let a = 255.0 * ((TOAST_S - age) / 0.6).min(age / rise + if calm_fx { 0.0 } else { 0.2 }).min(1.0);
+                    (t.clone(), a.clamp(0.0, 255.0) as u32)
+                })
+                .collect()
+        },
+        toasts_more: (dex.toasts.len() > TOAST_MAX).then(|| {
+            let key = cfg.0.key_of("neurodex").to_uppercase();
+            ktf_ui::i18n::tr_args("+{n} more discovered (Neurodex: {key})", &[("n", &(dex.toasts.len() - TOAST_MAX).to_string()), ("key", if key.is_empty() { "Esc" } else { &key })])
+        }),
+        notd: dex.notd.as_ref().filter(|_| !menu.0).map(|(c, _)| ktf_ui::hud::NotdView {
+            label: format!("{}{}", c.first_type(), if c.also() > 0 { format!("  (+{} related types)", c.also()) } else { String::new() }),
+            text: c.fact.text.clone(),
+            cite: c.fact.cite.clone(),
+            action: c.plan.action.into(),
+            plan_text: c.plan.text.clone(),
+            look3d: look.captured,
+        }),
         ..Default::default()
     };
     let fonts = HudFonts::new(cfg.0.get_bool("access.larger_text"));
     let HudCanvas { canvas, image, .. } = &mut *hc;
     canvas.clear();
-    Hud { cv: canvas, lay: l, f: &fonts }.draw(&state, rnow);
+    hits_out.0 = Hud { cv: canvas, lay: l, f: &fonts }.draw(&state, rnow);
     if let Some(mut img) = images.get_mut(&*image) {
         img.data = Some(canvas.px.clone());
+    }
+}
+
+/// Clicks on the HUD itself (the Neuron of the Day card), with the mouse free.
+#[allow(clippy::too_many_arguments)]
+fn hud_clicks(
+    buttons: Res<ButtonInput<MouseButton>>,
+    look: Res<MouseLook>,
+    menu: Res<MenuOpen>,
+    window: Single<&Window, With<PrimaryWindow>>,
+    lay: Res<HudLayout>,
+    hits: Res<HudHitsRes>,
+    mut dex: ResMut<Dex>,
+    mut cfg: ResMut<UserConfig>,
+    link: Res<SimLink>,
+    mut notes: ResMut<Notes>,
+    real: Res<Time<Real>>,
+) {
+    if !buttons.just_pressed(MouseButton::Left) || look.captured || menu.0 {
+        return;
+    }
+    let Some(p) = window.cursor_position() else { return };
+    let k = window.scale_factor() / lay.0.scale;
+    let pos = ((p.x * k) as i32, (p.y * k) as i32);
+    let at = |r: Option<ktf_ui::Rect>| r.is_some_and(|r| r.contains(pos));
+    let now = real.elapsed_secs();
+    if at(hits.0.notd_try) {
+        if let Some((c, _)) = dex.notd.take() {
+            notes.push(now, crate::neurodex_play::apply(&c, &link), Tag::GameRule);
+        }
+    } else if at(hits.0.notd_off) {
+        dex.notd = None;
+        cfg.set_and_save("brain.neuron_of_day", serde_json::json!(false));
+        notes.push(now, "NEURON OF THE DAY off (Settings > Brain turns it back on)", Tag::GameRule);
+    } else if at(hits.0.notd_close) {
+        dex.notd = None;
     }
 }
 
@@ -454,9 +522,10 @@ impl Plugin for HudCanvasPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<HudLayout>()
             .init_resource::<HudStats>()
+            .init_resource::<HudHitsRes>()
             .add_systems(Startup, setup)
             .add_systems(PreUpdate, layout.after(bevy::input::InputSystems))
             .add_systems(FixedUpdate, update_stats)
-            .add_systems(Update, (keys, count_events, draw).chain());
+            .add_systems(Update, (keys, count_events, hud_clicks, draw).chain());
     }
 }

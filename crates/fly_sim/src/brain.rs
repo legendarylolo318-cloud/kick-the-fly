@@ -166,6 +166,26 @@ impl Brain {
         self.death_step.is_none() && self.sedation == 0.0 && !self.surgery && !self.driving
     }
 
+    /// The Neurodex's "calm" (`Extras.dex_tick`): nothing touched it for 2 s, no sedation, no surgery, no drive.
+    pub fn dex_calm(&self) -> bool {
+        self.sedation == 0.0 && !self.surgery && !self.driving && self.steps as i64 - self.groups.last_poke > 400
+    }
+
+    /// Brain surgery or a held drive is on.
+    pub fn driven(&self) -> bool {
+        self.surgery || self.driving
+    }
+
+    /// `nd.window_spikes`: the neuron indices of every spike in the last `steps` steps, and how many steps that really covers.
+    pub fn window_spikes(&self, steps: usize) -> (Vec<u32>, usize) {
+        let raster: Vec<&[u32]> = self.sim.activity.raster().collect();
+        let tail = &raster[raster.len().saturating_sub(steps)..];
+        if tail.is_empty() {
+            return (vec![], 1);
+        }
+        (tail.iter().flat_map(|r| r.iter().copied()).collect(), tail.len())
+    }
+
     /// `Brain.poke` on this brain.
     pub fn poke(&mut self, region: &str, side: Option<char>, strength: f32) {
         if self.dead() {

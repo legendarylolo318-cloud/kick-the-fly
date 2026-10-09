@@ -55,6 +55,13 @@ pub struct Discovery {
     pub how: String,
 }
 
+impl Default for Progress {
+    /// An empty, unsaved Neurodex (tests and the reference screenshots).
+    fn default() -> Self {
+        Progress { path: PathBuf::new(), brains: BTreeMap::new(), warnings: vec![], read_only: true, dirty: false }
+    }
+}
+
 impl Progress {
     /// The Neurodex lives in the memory folder (`ktf_data::paths::get().memory_dir`).
     pub fn open(path: PathBuf) -> Self {
@@ -105,6 +112,19 @@ impl Progress {
             }
             self.brains.insert(brain.clone(), kept);
         }
+    }
+
+    /// Read-only: has this type been discovered?
+    pub fn is_known(&self, brain: &str, name: &str) -> bool {
+        self.brains.get(brain).is_some_and(|t| t.contains_key(name))
+    }
+
+    pub fn record(&self, brain: &str, name: &str) -> Option<&Discovery> {
+        self.brains.get(brain).and_then(|t| t.get(name))
+    }
+
+    pub fn count(&self, brain: &str) -> usize {
+        self.brains.get(brain).map_or(0, |t| t.len())
     }
 
     pub fn types(&mut self, brain: &str) -> &mut BTreeMap<String, Discovery> {

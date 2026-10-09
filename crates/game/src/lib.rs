@@ -34,6 +34,7 @@ pub mod killcam_play;
 pub mod kitchen;
 pub mod lesion;
 pub mod menu_ui;
+pub mod neurodex_play;
 pub mod mic;
 pub mod mic_analysis;
 pub mod paths;
@@ -139,6 +140,7 @@ impl Plugin for GamePlugin {
                 fx::FxPlugin,
                 senses::SensesPlugin,
             ))
+            .add_plugins(neurodex_play::DexPlugin)
             .add_plugins(menu_ui::MenuPlugin)
             .add_plugins(actions::ActionsPlugin)
             .add_plugins((

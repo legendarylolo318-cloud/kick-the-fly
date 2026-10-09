@@ -115,6 +115,8 @@ pub struct Ctx<'a> {
 /// A screen of the menu (`Menu.pages[name] = fn(menu, surf, rect, mouse)` in Python). Its buttons carry `Act::Custom(name)`; the click comes
 /// back through [`Page::custom`], typed text through `custom("text:<field id>", Some(text))`.
 pub trait Page: Send + Sync {
+    /// For the game to reach a page it created (`Menu::page_mut`).
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
     fn draw(&mut self, m: &mut Menu, cv: &mut Canvas, rect: Rect, ctx: &mut Ctx);
     fn custom(&mut self, m: &mut Menu, name: &str, text: Option<&str>, ctx: &mut Ctx);
 }
@@ -469,6 +471,11 @@ impl Menu {
                 self.pages.entry(screen).or_insert(page);
             }
         }
+    }
+
+    /// The page registered under `name`, as its concrete type.
+    pub fn page_mut<T: 'static>(&mut self, name: &str) -> Option<&mut T> {
+        self.pages.get_mut(name).and_then(|p| p.as_any_mut().downcast_mut::<T>())
     }
 
     pub fn has_page(&self, name: &str) -> bool {

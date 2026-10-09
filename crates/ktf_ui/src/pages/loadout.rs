@@ -130,6 +130,10 @@ fn why_unavailable(cfg: &Config, t: &config::ToolInfo) -> String {
 }
 
 impl Page for LoadoutPage {
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
     fn draw(&mut self, m: &mut Menu, cv: &mut Canvas, rect: Rect, ctx: &mut Ctx) {
         let f = m.fonts();
         let cfg: &Config = ctx.cfg;
@@ -506,6 +510,10 @@ impl Page for LoadoutPage {
 pub struct LoadoutNotice;
 
 impl Page for LoadoutNotice {
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
     fn draw(&mut self, m: &mut Menu, cv: &mut Canvas, rect: Rect, ctx: &mut Ctx) {
         let f = m.fonts();
         let cx = rect.centerx();

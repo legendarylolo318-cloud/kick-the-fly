@@ -145,6 +145,33 @@ pub struct HudState {
     pub time_label: Option<(String, bool)>,
     /// The H controls overlay.
     pub help_open: bool,
+    /// Neurodex toasts, newest last: (text, alpha 0..255).
+    pub toasts: Vec<(String, u32)>,
+    /// "+N more discovered (Neurodex: D)" under the toasts.
+    pub toasts_more: Option<String>,
+    /// The Neuron of the Day card, while it is up.
+    pub notd: Option<NotdView>,
+}
+
+/// What the launch card shows (`Extras.draw_notd`).
+#[derive(Debug, Clone, Default)]
+pub struct NotdView {
+    pub label: String,
+    pub text: String,
+    pub cite: String,
+    /// "laser", "surgery" or "none"
+    pub action: String,
+    pub plan_text: String,
+    /// 3D with the mouse captured: the buttons cannot be clicked until Tab frees it.
+    pub look3d: bool,
+}
+
+/// Where the clickable parts of the HUD ended up this frame (HUD units), for the click handler.
+#[derive(Debug, Clone, Default)]
+pub struct HudHits {
+    pub notd_try: Option<Rect>,
+    pub notd_off: Option<Rect>,
+    pub notd_close: Option<Rect>,
 }
 
 /// `draw_source_chip`: a REAL / RULE pill.
@@ -325,7 +352,8 @@ pub struct Hud<'a> {
 
 impl Hud<'_> {
     /// `draw_hud3d` (without the overlays that have their own screens): the order is the pygame order.
-    pub fn draw(&mut self, st: &HudState, now: f64) {
+    pub fn draw(&mut self, st: &HudState, now: f64) -> HudHits {
+        let mut hits = HudHits::default();
         let play_w = self.lay.play_w;
         // popups over the fly
         for p in &st.popups {
@@ -363,12 +391,74 @@ impl Hud<'_> {
         if let Some(p) = &st.panel {
             self.panel(st, p, now);
         }
+        self.toasts(st);
+        if let Some(n) = &st.notd {
+            hits = self.notd(n);
+        }
         if let Some((label, user)) = &st.time_label {
             let w = self.f.bold.size(label);
             let bx = Rect::new(play_w / 2 - w / 2 - 11, 92 - 5, w + 22, self.f.bold.linesize + 10);
             self.cv.fill_rect(bx, if *user { AMBER } else { ACCENT }, 8);
             text(self.cv, label, bx.center(), [20, 16, 8], &self.f.bold, "center");
         }
+        hits
+    }
+
+    /// `Extras._banner` for each toast: a green-edged pill at the top of the play area.
+    fn toasts(&mut self, st: &HudState) {
+        let mut y = 8;
+        let all: Vec<(&str, u32, Color)> = st.toasts.iter().map(|(t, a)| (t.as_str(), *a, [90, 200, 120])).chain(st.toasts_more.iter().map(|t| (t.as_str(), 200, [90, 200, 120]))).collect();
+        for (t, a, col) in all {
+            let w = (self.f.bold.size(t) + 28).min(self.lay.hud_w - 20);
+            let cx = self.lay.hud_w.min(890) / 2;
+            let r = Rect::new(cx - w / 2, y, w, 28);
+            card(self.cv, r, ([14, 18, 26], (a as f32 * 0.9) as u32), 10);
+            self.cv.stroke_rect2_a(r, col, a, 2, 10);
+            self.f.bold.draw_a(self.cv, t, r.x + 14, r.y + 4, [240, 243, 248], a);
+            y += 34;
+        }
+    }
+
+    /// `Extras.draw_notd`: the Neuron of the Day card, centred on the play area above where the science card goes.
+    fn notd(&mut self, n: &NotdView) -> HudHits {
+        let f = self.f;
+        let mut hits = HudHits::default();
+        let base = Rect::new(self.lay.play_w / 2 - 300, self.lay.hud_h - 250, 600, 104);
+        let play_right = base.centerx() * 2 - 16;
+        let left = 256.max(base.centerx() - 300);
+        let w = 440.max(600.min(play_right - left));
+        let r = Rect::new(left, base.y - 172, w, 162);
+        card(self.cv, r, ([14, 20, 30], 240), 14);
+        self.cv.stroke_rect2(r, ACCENT, 2, 14);
+        text(self.cv, "NEURON OF THE DAY", (r.x + 16, r.y + 10), ACCENT, &f.small, "topleft");
+        text(self.cv, &n.label, (r.x + 16, r.y + 26), INK, &f.head, "topleft");
+        for (i, ln) in wrap_lines(&n.text, &f.text, r.w - 32).iter().take(3).enumerate() {
+            text(self.cv, ln, (r.x + 16, r.y + 54 + i as i32 * 18), TEXT, &f.text, "topleft");
+        }
+        text(self.cv, &n.cite, (r.x + 16, r.bottom() - 50), LABEL, &f.small, "topleft");
+        let bx = r.x + 16;
+        if n.action != "none" {
+            let tr_ = Rect::new(bx, r.bottom() - 30, 92, 24);
+            self.cv.fill_rect(tr_, if n.look3d { [44, 50, 64] } else { [40, 110, 150] }, 8);
+            text(self.cv, "Try it", tr_.center(), INK, &f.small, "center");
+            hits.notd_try = Some(tr_);
+            let mut hint = if n.look3d { "Tab frees the mouse to click".to_string() } else { format!("{}.", n.plan_text.split(". ").next().unwrap_or("")) };
+            let room = r.right() - 178 - (tr_.right() + 10);
+            while !hint.is_empty() && f.small.size(&hint) > room {
+                hint.pop();
+                hint.pop();
+            }
+            text(self.cv, &hint, (tr_.right() + 10, tr_.y + 5), LABEL, &f.small, "topleft");
+        }
+        let off = Rect::new(r.right() - 168, r.bottom() - 30, 152, 24);
+        self.cv.fill_rect(off, [44, 50, 64], 8);
+        text(self.cv, "Don't show again", off.center(), TEXT, &f.small, "center");
+        hits.notd_off = Some(off);
+        let x = Rect::new(r.right() - 30, r.y + 6, 24, 22);
+        text(self.cv, "x", x.center(), LABEL, &f.bold, "center");
+        hits.notd_close = Some(x);
+        text(self.cv, "LITERATURE", (r.right() - 110, r.y + 12), [120, 200, 140], &f.small, "topleft");
+        hits
     }
 
     /// `Game3D._draw_help`: the CONTROLS panel.
@@ -681,6 +771,21 @@ impl Hud<'_> {
         text(self.cv, unit, (x + w - 6, y), DIM, &self.f.small, "topright");
         y + 22
     }
+}
+
+fn wrap_lines(text: &str, font: &Font, width: i32) -> Vec<String> {
+    let (mut lines, mut line) = (vec![], String::new());
+    for w in text.split_whitespace() {
+        let trial = if line.is_empty() { w.to_string() } else { format!("{line} {w}") };
+        if font.size(&trial) > width && !line.is_empty() {
+            lines.push(std::mem::take(&mut line));
+            line = w.to_string();
+        } else {
+            line = trial;
+        }
+    }
+    lines.push(line);
+    lines
 }
 
 fn title_case(s: &str) -> String {
