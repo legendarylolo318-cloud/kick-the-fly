@@ -1,5 +1,6 @@
 //! Clicking, typing, dragging and key capture through the same event path the game uses.
 use ktf_data::config::Config;
+use ktf_ui::menu::NoHost;
 use ktf_ui::{Canvas, Effect, Menu, UiEvent};
 use serde_json::json;
 
@@ -20,10 +21,10 @@ impl Rig {
     fn frame(&mut self) {
         self.t += 0.016;
         self.cv.clear();
-        self.m.draw(&mut self.cv, &self.cfg, true, (-1, -1), self.t);
+        self.m.draw(&mut self.cv, &mut self.cfg, true, (-1, -1), self.t, &mut NoHost);
     }
     fn send(&mut self, ev: UiEvent) -> Vec<Effect> {
-        let (_, fx) = self.m.handle(&ev, &mut self.cfg, true);
+        let (_, fx) = self.m.handle(&ev, &mut self.cfg, true, &mut NoHost);
         self.frame();
         fx
     }

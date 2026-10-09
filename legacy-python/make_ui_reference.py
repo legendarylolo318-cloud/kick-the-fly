@@ -17,19 +17,29 @@ import pygame  # noqa: E402
 
 from kickthefly.core import config  # noqa: E402
 from kickthefly.ui import menu as M  # noqa: E402
+from kickthefly.ui import share_ui, whatsnew_ui  # noqa: E402
+
+INSTALL = [whatsnew_ui, share_ui]
 
 BG = (60, 70, 80)
 
 
-def render(screen, tab, out, w=1280, h=720, three_d=True, mutate=None):
+def render(screen, tab, out, w=1280, h=720, three_d=True, mutate=None, prep=None):
     pygame.init()
     cfg = config.Config()
     if mutate:
         mutate(cfg)
-    host = SimpleNamespace(cfg=cfg, three_d=three_d, set_setting=lambda *a, **k: None, menu_action=lambda *a: None, flies=[], pad=None)
+    from kickthefly.game import kick_the_fly as k
+
+    host = SimpleNamespace(cfg=cfg, three_d=three_d, set_setting=lambda *a, **k: None, menu_action=lambda *a: None, flies=[], pad=None,
+                           surgery_modes=[0] * len(k.SURGERY), type_ops={}, lab_params={}, loadout=SimpleNamespace(tools=["hand", "swatter", "bomb"]))
     m = M.Menu(host)
+    for mod in INSTALL:
+        mod.install(m)
     m.show(screen)
     m.tab = tab
+    if prep:
+        prep(m)
     surf = pygame.Surface((w, h))
     surf.fill(BG)
     m.draw(surf, (-1, -1))
@@ -41,9 +51,13 @@ if __name__ == "__main__":
     out.mkdir(parents=True, exist_ok=True)
     render("pause", "Graphics", out / "pause.png")
     render("confirm_quit", "Graphics", out / "confirm_quit.png")
-    for tab in ("Graphics", "Audio", "Brain", "Controls", "Accessibility"):
+    for tab in ("Graphics", "Audio", "Brain", "Controls", "Accessibility", "Help"):
         render("settings", tab, out / f"settings_{tab.lower()}.png")
     render("settings", "Controls", out / "settings_controls_2d.png", three_d=False)
     render("pause", "Graphics", out / "pause_lab.png", mutate=lambda c: c.set("brain.mode", "lab"))
     render("settings", "Graphics", out / "settings_graphics_big.png", mutate=lambda c: c.set("access.larger_text", True))
+    render("whatsnew", "Graphics", out / "page_whatsnew.png")
+    render("share", "Graphics", out / "page_share_surgery.png")
+    render("share", "Graphics", out / "page_share_loadout.png", prep=lambda m: setattr(share_ui._state(m), "kind", "loadout"))
+    render("share", "Graphics", out / "page_share_import.png", prep=lambda m: setattr(share_ui._state(m), "tab", "import"))
     print("wrote", out)

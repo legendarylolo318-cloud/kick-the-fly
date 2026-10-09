@@ -53,6 +53,70 @@ pub enum Effect {
     KeysChanged,
 }
 
+/// One button of [`Menu::button_row`].
+#[derive(Clone)]
+pub struct RowButton {
+    pub label: String,
+    pub click: Act,
+    pub id: String,
+    pub style: Style,
+    pub enabled: bool,
+    pub tip: Option<String>,
+    pub w: i32,
+}
+
+impl RowButton {
+    pub fn new(label: &str, click: Act, id: &str, w: i32) -> Self {
+        RowButton { label: label.into(), click, id: id.into(), style: Style::Normal, enabled: true, tip: None, w }
+    }
+    pub fn primary(mut self) -> Self {
+        self.style = Style::Primary;
+        self
+    }
+    pub fn tip(mut self, t: &str) -> Self {
+        self.tip = Some(t.into());
+        self
+    }
+    pub fn enabled(mut self, e: bool) -> Self {
+        self.enabled = e;
+        self
+    }
+}
+
+/// What the game tells a page and what a page asks of the game: a small JSON bridge, so pages (which live in this crate and are tested
+/// against pygame screenshots) need no game types. `query("lab_params")` returns data; `command("apply_share", args)` does something and
+/// returns its result.
+pub trait PageHost {
+    fn query(&self, key: &str) -> Value;
+    fn command(&mut self, cmd: &str, args: Value) -> Value;
+}
+
+/// A host with nothing in it (tests of pages that need no game state).
+pub struct NoHost;
+impl PageHost for NoHost {
+    fn query(&self, _: &str) -> Value {
+        Value::Null
+    }
+    fn command(&mut self, _: &str, _: Value) -> Value {
+        Value::Null
+    }
+}
+
+/// What a page gets while drawing or handling a click.
+pub struct Ctx<'a> {
+    pub cfg: &'a mut Config,
+    pub host: &'a mut dyn PageHost,
+    pub three_d: bool,
+    pub now: f64,
+}
+
+/// A screen of the menu (`Menu.pages[name] = fn(menu, surf, rect, mouse)` in Python). Its buttons carry `Act::Custom(name)`; the click comes
+/// back through [`Page::custom`], typed text through `custom("text:<field id>", Some(text))`.
+pub trait Page: Send + Sync {
+    fn draw(&mut self, m: &mut Menu, cv: &mut Canvas, rect: Rect, ctx: &mut Ctx);
+    fn custom(&mut self, m: &mut Menu, name: &str, text: Option<&str>, ctx: &mut Ctx);
+}
+
 /// What a button does when clicked (Python's lambdas).
 #[derive(Debug, Clone, PartialEq)]
 pub enum Act {
@@ -67,8 +131,14 @@ pub enum Act {
     Tab(String),
     Capture(String),
     Back,
+    /// `menu.show(page)`
+    Show(String),
+    /// `menu.close()` then `host.<name>()` (Settings > Help: replay the tutorial, open the loadout editor)
+    CloseThen(String),
     ResetTab,
     RandomSeed(String),
+    /// A page-specific click: the page that drew it gets `Page::custom(name)`.
+    Custom(String),
     Nothing,
 }
 
@@ -119,20 +189,23 @@ struct Edit {
 }
 
 #[derive(Clone)]
-struct Fonts {
-    small: Font,
-    text: Font,
-    bold: Font,
-    head: Font,
-    title: Font,
+pub struct Fonts {
+    pub small: Font,
+    pub text: Font,
+    pub bold: Font,
+    pub head: Font,
+    pub title: Font,
+    pub mono13: Font,
+    pub mono12: Font,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Anchor {
+pub enum Anchor {
     TopLeft,
     MidLeft,
     Center,
     MidTop,
+    TopRight,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -173,6 +246,9 @@ pub struct Menu {
     pub veil_alpha: u32,
     rng: u64,
     text_commits: Vec<(String, String)>,
+    customs: std::collections::VecDeque<(String, Option<String>)>,
+    pages: HashMap<String, Box<dyn Page>>,
+    scroll_key_override: Option<String>,
 }
 
 /// `config.PAD_BUTTONS`-aware text of a gamepad binding (`gamepad.pretty`).
@@ -262,6 +338,9 @@ impl Menu {
             veil_alpha: 196,
             rng: 0x9E37_79B9_7F4A_7C15,
             text_commits: vec![],
+            customs: Default::default(),
+            pages: HashMap::new(),
+            scroll_key_override: None,
         }
     }
 
@@ -282,6 +361,8 @@ impl Menu {
                     bold: Font::new(sz(16.0), true),
                     head: Font::new(sz(22.0), true),
                     title: Font::new(sz(38.0), true),
+                    mono13: Font::mono(13),
+                    mono12: Font::mono(12),
                 },
             ));
         }
@@ -332,9 +413,69 @@ impl Menu {
     }
 
     /// Consume an event while the menu is open. `pos` is the mouse in HUD coordinates. Returns (consumed, what the host must do).
-    pub fn handle(&mut self, ev: &UiEvent, cfg: &mut Config, three_d: bool) -> (bool, Vec<Effect>) {
+    pub fn handle(&mut self, ev: &UiEvent, cfg: &mut Config, three_d: bool, host: &mut dyn PageHost) -> (bool, Vec<Effect>) {
         let consumed = self.handle_inner(ev, cfg, three_d);
+        self.process_customs(cfg, three_d, host);
         (consumed, std::mem::take(&mut self.fx))
+    }
+
+    /// Hand page-specific clicks and committed text to the page that drew them.
+    fn process_customs(&mut self, cfg: &mut Config, three_d: bool, host: &mut dyn PageHost) {
+        while let Some((name, text)) = self.customs.pop_front() {
+            let Some(screen) = self.screen.clone() else { continue };
+            if let Some(mut page) = self.pages.remove(&screen) {
+                let mut ctx = Ctx { cfg, host, three_d, now: self.now };
+                page.custom(self, &name, text.as_deref(), &mut ctx);
+                self.pages.entry(screen).or_insert(page);
+            }
+        }
+    }
+
+    pub fn has_page(&self, name: &str) -> bool {
+        self.pages.contains_key(name)
+    }
+
+    pub fn register_page(&mut self, name: &str, page: Box<dyn Page>) {
+        self.pages.insert(name.into(), page);
+    }
+
+    pub fn mouse(&self) -> (i32, i32) {
+        self.mouse
+    }
+
+    pub fn now(&self) -> f64 {
+        self.now
+    }
+
+    /// The scroll offset of a page's body (`menu.scroll[key]`).
+    pub fn scroll_offset(&self, key: &str) -> i32 {
+        self.scroll.get(key).copied().unwrap_or(0.0) as i32
+    }
+
+    pub fn set_scroll(&mut self, key: &str, v: i32) {
+        let limit = self.content_h.get(key).copied().unwrap_or(0).max(0);
+        self.scroll.insert(key.into(), v.clamp(0, limit) as f32);
+    }
+
+    /// Tell the menu how far a page's content reaches below its body (`menu.content_h[key]`), so the wheel can scroll that far.
+    pub fn set_content_h(&mut self, key: &str, h: i32) {
+        self.content_h.insert(key.into(), h.max(0));
+    }
+
+    /// `menu.clip = body; surf.set_clip(body)`: hit regions and drawing are limited to `rect` until [`Menu::end_clip`].
+    pub fn begin_clip(&mut self, cv: &mut Canvas, rect: Rect) {
+        self.clip = Some(rect);
+        cv.clip = Some(rect);
+    }
+
+    pub fn end_clip(&mut self, cv: &mut Canvas) {
+        self.clip = None;
+        cv.clip = None;
+    }
+
+    /// The wheel scrolls the page named by the screen; pages with their own scroll key set it here.
+    pub fn set_scroll_key(&mut self, key: Option<&str>) {
+        self.scroll_key_override = key.map(String::from);
     }
 
     fn handle_inner(&mut self, ev: &UiEvent, cfg: &mut Config, three_d: bool) -> bool {
@@ -408,6 +549,9 @@ impl Menu {
     }
 
     fn scroll_key(&self) -> String {
+        if let Some(k) = &self.scroll_key_override {
+            return k.clone();
+        }
         let s = self.screen.clone().unwrap_or_default();
         if s == "settings" { format!("{s}:{}", self.tab) } else { s }
     }
@@ -420,6 +564,11 @@ impl Menu {
             Act::Tab(t) => self.tab = t,
             Act::Capture(c) => self.capture = Some(c),
             Act::Back => self.back(),
+            Act::Show(p) => self.show(&p),
+            Act::CloseThen(a) => {
+                self.close();
+                self.fx.push(Effect::Action(a));
+            }
             Act::ResetTab => self.reset_tab(cfg),
             Act::RandomSeed(key) => {
                 self.rng ^= self.rng << 13;
@@ -428,6 +577,7 @@ impl Menu {
                 let v = 1 + (self.rng % (2u64.pow(31) - 2)) as i64;
                 self.set_setting(cfg, &key, &Value::from(v), true);
             }
+            Act::Custom(name) => self.customs.push_back((name, None)),
             Act::Nothing => {}
         }
     }
@@ -558,7 +708,10 @@ impl Menu {
     fn commit_edit(&mut self, cfg: &mut Config) {
         let Some(e) = self.edit.take() else { return };
         match e.target {
-            EditTarget::Text(id) => self.text_commits.push((id, e.text)),
+            EditTarget::Text(id) => {
+                self.customs.push_back((format!("text:{id}"), Some(e.text.clone())));
+                self.text_commits.push((id, e.text));
+            }
             EditTarget::Setting { key, pct, int } => match e.text.parse::<f64>() {
                 Ok(v) => {
                     let v = if pct { v / 100.0 } else { v };
@@ -584,7 +737,7 @@ impl Menu {
 
 // --- widgets (called while drawing) ----------------------------------------------------------------------------------------------
 impl Menu {
-    fn fonts_now(&self) -> Fonts {
+    pub fn fonts(&self) -> Fonts {
         self.f().clone()
     }
 
@@ -604,20 +757,21 @@ impl Menu {
         over
     }
 
-    fn text(&self, cv: &mut Canvas, s: &str, pos: (i32, i32), color: Color, font: &Font, anchor: Anchor) -> Rect {
+    pub fn text(&self, cv: &mut Canvas, s: &str, pos: (i32, i32), color: Color, font: &Font, anchor: Anchor) -> Rect {
         let (w, h) = (font.size(s), font.linesize);
         let (x, y) = match anchor {
             Anchor::TopLeft => (pos.0, pos.1),
             Anchor::MidLeft => (pos.0, pos.1 - h / 2),
             Anchor::Center => (pos.0 - w / 2, pos.1 - h / 2),
             Anchor::MidTop => (pos.0 - w / 2, pos.1),
+            Anchor::TopRight => (pos.0 - w, pos.1),
         };
         font.draw(cv, s, x, y, color);
         Rect::new(x, y, w, h)
     }
 
     /// Word-wrapped text; returns the y below it.
-    fn wrapped(&self, cv: &mut Canvas, s: &str, pos: (i32, i32), width: i32, color: Color, font: &Font, max_lines: usize) -> i32 {
+    pub fn wrapped(&self, cv: &mut Canvas, s: &str, pos: (i32, i32), width: i32, color: Color, font: &Font, max_lines: usize) -> i32 {
         let mut lines: Vec<String> = vec![];
         let mut line = String::new();
         for word in s.split_whitespace() {
@@ -677,7 +831,7 @@ impl Menu {
     }
 
     /// A button's label centred in its rect, fitted by `fit_lines`. Returns whether it had to be cut.
-    fn label(&self, cv: &mut Canvas, rect: Rect, label: &str, color: Color, font: &Font) -> bool {
+    pub fn label(&self, cv: &mut Canvas, rect: Rect, label: &str, color: Color, font: &Font) -> bool {
         let lh = font.linesize;
         let (lines, cut) = Self::fit_lines(font, label, rect.w - 12, ((rect.h - 4) / lh).max(1));
         let mut y = rect.centery() as f32 - (lh * lines.len() as i32) as f32 / 2.0;
@@ -692,13 +846,118 @@ impl Menu {
         !Self::fit_lines(font, label, width - 12, ((height - 4) / font.linesize).max(1)).1
     }
 
+    /// A row of choice buttons, each as wide as its label, wrapping onto more rows before `right`. items: (text, click, id, active, tip). With
+    /// `label`, the label comes first and the buttons follow it on the same line when they fit there. Returns the bottom y.
+    pub fn flow_buttons(
+        &mut self,
+        cv: &mut Canvas,
+        x: i32,
+        y: i32,
+        right: i32,
+        items: &[(String, Act, String, bool, Option<String>)],
+        h: Option<i32>,
+        font: Option<Font>,
+        gap: i32,
+        label: Option<&str>,
+    ) -> i32 {
+        let font = font.unwrap_or_else(|| self.f().small.clone());
+        let h = h.unwrap_or_else(|| 28.max(font.linesize + 10));
+        let (mut x, mut y) = (x, y);
+        let mut x0 = x;
+        if let Some(label) = label {
+            let tf = self.f().text.clone();
+            let r = self.text(cv, label, (x, y + h / 2), TEXT, &tf, Anchor::MidLeft);
+            let widest = items.iter().map(|it| font.size(&it.0) + 24).max().unwrap_or(0);
+            if r.right() + 12 + widest <= right {
+                x0 = r.right() + 12;
+                x = x0;
+            } else {
+                y += h + 4;
+            }
+        }
+        for (text, click, id, active, tip) in items {
+            let w = (font.size(text) + 24).min(right - x0);
+            if x + w > right && x > x0 {
+                x = x0;
+                y += h + 6;
+            }
+            self.button(
+                cv,
+                Rect::new(x, y, w, h),
+                text,
+                click.clone(),
+                id,
+                Style::Normal,
+                true,
+                tip.as_deref(),
+                *active,
+                Some(font.clone()),
+            );
+            x += w + gap;
+        }
+        y + h
+    }
+
+    /// A page's description line under its heading, wrapped to the panel. Returns the y below it, with a gap.
+    pub fn subtitle(&self, cv: &mut Canvas, rect: Rect, text: &str, y: Option<i32>, max_lines: usize) -> i32 {
+        let f = self.f().small.clone();
+        let top = (rect.y + 16 + self.f().head.linesize + 2).max(y.unwrap_or(rect.y + 48));
+        self.wrapped(cv, text, (rect.x + 24, top), rect.w - 48, LABEL, &f, max_lines) + 8
+    }
+
+    /// The thin scroll bar at the right edge of a scrolled body (`content_h` is how far the content reaches below it).
+    pub fn scrollbar(&self, cv: &mut Canvas, body: Rect, content_h: i32, off: i32) {
+        if content_h > 0 {
+            let frac = body.h as f32 / (body.h + content_h) as f32;
+            let bar_h = 30.max((body.h as f32 * frac) as i32);
+            let by = body.y + ((body.h - bar_h) as f32 * (off as f32 / content_h.max(1) as f32)) as i32;
+            cv.fill_rect(Rect::new(body.right() - 6, by, 4, bar_h), [60, 66, 80], 2);
+        }
+    }
+
+    /// The first y below a page heading drawn at `rect.y + 16`, at any font.
+    pub fn under_heading(&self, rect: Rect) -> i32 {
+        rect.y + 16 + self.f().head.linesize + 2
+    }
+
+    /// Buttons side by side, each at least its `w` and never narrower than its label; wraps before `right`. Returns (x after the last, y below
+    /// the last row). Items: label, click, id, style, enabled, tip, min width.
+    pub fn button_row(&mut self, cv: &mut Canvas, x: i32, y: i32, h: i32, items: &[RowButton], gap: i32, right: Option<i32>) -> (i32, i32) {
+        let x0 = x;
+        let (mut x, mut y) = (x, y);
+        for it in items {
+            let bw = self.bw(&it.label, it.w);
+            if let Some(r) = right
+                && x + bw > r
+                && x > x0
+            {
+                x = x0;
+                y += h + 8;
+            }
+            self.button(
+                cv,
+                Rect::new(x, y, bw, h),
+                &it.label,
+                it.click.clone(),
+                &it.id,
+                it.style,
+                it.enabled,
+                it.tip.as_deref(),
+                false,
+                None,
+            );
+            x += bw + gap;
+        }
+        (x, y + h)
+    }
+
     /// A button width that fits its label on one line in the current font.
     pub fn bw(&self, label: &str, min_w: i32) -> i32 {
         min_w.max(self.f().bold.size(label) + 28)
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn button(
+    pub fn button(
         &mut self,
         cv: &mut Canvas,
         rect: Rect,
@@ -747,13 +1006,13 @@ impl Menu {
         over
     }
 
-    fn btn(&mut self, cv: &mut Canvas, rect: Rect, label: &str, click: Act, id: &str) -> bool {
+    pub fn btn(&mut self, cv: &mut Canvas, rect: Rect, label: &str, click: Act, id: &str) -> bool {
         self.button(cv, rect, label, click, id, Style::Normal, true, None, false, None)
     }
 
-    fn toggle(&mut self, cv: &mut Canvas, rect: Rect, value: bool, key: &str, enabled: bool, tip: &str) {
-        let click = Act::Set { key: key.into(), value: Value::Bool(!value), save: true };
-        let over = self.register(rect, Kind::Button { click }, key, enabled, Some(tip));
+    /// A switch; `click` is what flipping it does (Python's `change(not value)`).
+    pub fn toggle(&mut self, cv: &mut Canvas, rect: Rect, value: bool, click: Act, id: &str, enabled: bool, tip: &str) {
+        let over = self.register(rect, Kind::Button { click }, id, enabled, Some(tip));
         let track = Rect::new(rect.x, rect.centery() - 11, 44, 22);
         let on_col = if enabled { [40, 150, 200] } else { [40, 70, 90] };
         cv.fill_rect(
@@ -780,15 +1039,15 @@ impl Menu {
         );
     }
 
-    #[allow(clippy::too_many_arguments)]
-    fn segmented(
+    /// Choice buttons side by side; `acts[i]` is what picking option i does.
+    pub fn segmented(
         &mut self,
         cv: &mut Canvas,
         rect: Rect,
         labels: &[String],
         current: usize,
-        key: &str,
-        options: &[Value],
+        acts: &[Act],
+        id: &str,
         enabled: bool,
         tip: &str,
     ) {
@@ -798,8 +1057,7 @@ impl Menu {
         for (i, lab) in labels.iter().enumerate() {
             let r = Rect::new(rect.x + i as i32 * w, rect.y, w - 4, rect.h);
             let t = if Self::label_fits(&small, lab, r.w, r.h) { tip.to_string() } else { lab.clone() };
-            let click = Act::Set { key: key.into(), value: options[i].clone(), save: true };
-            let over = self.register(r, Kind::Button { click }, &format!("{key}#{i}"), enabled, Some(&t));
+            let over = self.register(r, Kind::Button { click: acts[i].clone() }, &format!("{id}#{i}"), enabled, Some(&t));
             let on = i == current;
             let mut fill = if on {
                 if over { BTN_PRIMARY_HOVER } else { BTN_PRIMARY }
@@ -916,7 +1174,7 @@ impl Menu {
         self.text(cv, &shown, (rect.x + 10, rect.centery()), INK, &f, Anchor::MidLeft);
     }
 
-    fn chip(&self, cv: &mut Canvas, pos: (i32, i32), label: &str) -> Rect {
+    pub fn chip(&self, cv: &mut Canvas, pos: (i32, i32), label: &str) -> Rect {
         let f = &self.f().small;
         let up = label.to_uppercase();
         let r = Rect::new(pos.0, pos.1, f.size(&up) + 12, f.linesize + 2);
@@ -929,7 +1187,7 @@ impl Menu {
 // --- drawing ---------------------------------------------------------------------------------------------------------------------
 impl Menu {
     /// Draw the open screen onto `cv` (the HUD canvas; the veil, panel, page, flash message and tooltip) and register its hit regions.
-    pub fn draw(&mut self, cv: &mut Canvas, cfg: &Config, three_d: bool, mouse: (i32, i32), now: f64) {
+    pub fn draw(&mut self, cv: &mut Canvas, cfg: &mut Config, three_d: bool, mouse: (i32, i32), now: f64, host: &mut dyn PageHost) {
         let Some(screen) = self.screen.clone() else { return };
         self.ensure_fonts(cfg.get_bool("access.larger_text"));
         self.hits.clear();
@@ -939,7 +1197,7 @@ impl Menu {
         let (w, h) = (cv.w, cv.h);
         cv.clip = None;
         cv.veil([4, 5, 8], self.veil_alpha);
-        let screen = if matches!(screen.as_str(), "pause" | "confirm_quit" | "settings") {
+        let screen = if matches!(screen.as_str(), "pause" | "confirm_quit" | "settings") || self.pages.contains_key(&screen) {
             screen
         } else {
             self.screen = Some("pause".into());
@@ -956,10 +1214,18 @@ impl Menu {
         let rect = Rect::new((w - pw) / 2, (h - ph) / 2, pw, ph);
         cv.fill_rect(rect, PANEL, 16);
         cv.stroke_rect(rect, BORDER, 16);
+        self.scroll_key_override = None;
         match screen.as_str() {
             "pause" => self.page_pause(cv, rect, cfg),
             "confirm_quit" => self.page_confirm_quit(cv, rect),
-            _ => self.page_settings(cv, rect, cfg, three_d),
+            "settings" => self.page_settings(cv, rect, cfg, three_d),
+            other => {
+                if let Some(mut page) = self.pages.remove(other) {
+                    let mut ctx = Ctx { cfg, host, three_d, now };
+                    page.draw(self, cv, rect, &mut ctx);
+                    self.pages.entry(other.to_string()).or_insert(page);
+                }
+            }
         }
         if let Some((text, until, color)) = self.message.clone()
             && now < until
@@ -1002,7 +1268,7 @@ impl Menu {
     }
 
     fn page_pause(&mut self, cv: &mut Canvas, rect: Rect, cfg: &Config) {
-        let fo = self.fonts_now();
+        let fo = self.fonts();
         self.text(cv, &tr("PAUSED"), (rect.centerx(), rect.y + 22), INK, &fo.title, Anchor::MidTop);
         let lab = cfg.lab();
         let mode_title = if cfg.pet() {
@@ -1087,7 +1353,7 @@ impl Menu {
     }
 
     fn page_confirm_quit(&mut self, cv: &mut Canvas, rect: Rect) {
-        let fo = self.fonts_now();
+        let fo = self.fonts();
         self.text(cv, &tr("Quit Kick the Fly?"), (rect.centerx(), rect.y + 30), INK, &fo.head, Anchor::MidTop);
         let msg = tr("The fly's training memory and your settings are saved.");
         let lines = Self::fit_lines(&fo.small, &msg, rect.w - 48, 3).0;
@@ -1110,7 +1376,7 @@ impl Menu {
     }
 
     fn page_settings(&mut self, cv: &mut Canvas, rect: Rect, cfg: &Config, three_d: bool) {
-        let fo = self.fonts_now();
+        let fo = self.fonts();
         self.text(cv, "SETTINGS", (rect.x + 24, rect.y + 16), INK, &fo.head, Anchor::TopLeft);
         let tabs = config::TABS;
         let need: Vec<i32> = tabs.iter().map(|t| fo.bold.size(&tr(t)) + 24).collect();
@@ -1194,11 +1460,16 @@ impl Menu {
             };
             let v = cfg.get(&s.key).clone();
             match s.kind.as_str() {
-                "bool" => self.toggle(cv, ctl, v.as_bool().unwrap_or(false), &s.key, on, &tip),
+                "bool" => {
+                    let flip = Act::Set { key: s.key.clone(), value: Value::Bool(!v.as_bool().unwrap_or(false)), save: true };
+                    self.toggle(cv, ctl, v.as_bool().unwrap_or(false), flip, &s.key, on, &tip)
+                }
                 "choice" => {
                     let i = s.options.iter().position(|o| num_eq(o, &v)).unwrap_or(0);
                     if labels.len() <= 4 {
-                        self.segmented(cv, ctl, &labels, i, &s.key, &s.options, on, &tip);
+                        let acts: Vec<Act> =
+                            s.options.iter().map(|o| Act::Set { key: s.key.clone(), value: o.clone(), save: true }).collect();
+                        self.segmented(cv, ctl, &labels, i, &acts, &s.key, on, &tip);
                     } else {
                         let mid = 152.max(labels.iter().map(|lb| fo.bold.size(lb)).max().unwrap_or(0) + 16);
                         let n = s.options.len();
@@ -1257,6 +1528,9 @@ impl Menu {
         if self.tab == "Controls" {
             y = self.keybinds(cv, body, y + 8, cfg, three_d);
         }
+        if self.tab == "Help" {
+            y = self.help_tab(cv, body, y + 4);
+        }
         self.content_h.insert(key.clone(), (y + off - body.bottom() + 12).max(0));
         cv.clip = None;
         self.clip = None;
@@ -1306,6 +1580,75 @@ impl Menu {
         }
     }
 
+    /// The rows under Settings > Help (`ui/help_ui.py:help_tab`). Returns the y below them.
+    fn help_tab(&mut self, cv: &mut Canvas, body: Rect, mut y: i32) -> i32 {
+        let fo = self.fonts();
+        let rows: [(&str, &str, &str, Act); 5] = [
+            (
+                "Replay the tutorial",
+                "Play",
+                "The one-minute first-launch tutorial again: moving, using a tool, the brain panel, sugar and the loadout editor. Skippable at any step.",
+                Act::CloseThen("tutorial_replay".into()),
+            ),
+            (
+                "Tool loadout editor",
+                "Open",
+                "Choose which tools are on the hotbar (keys 1-9, 0), reorder them and save your own loadouts. Also on the Q key.",
+                Act::CloseThen("loadout_editor".into()),
+            ),
+            (
+                "What's new in 3.0",
+                "Open",
+                "The one-time What's New screen again. Opening it here does not change whether it shows at launch.",
+                Act::Show("whatsnew".into()),
+            ),
+            (
+                "Self-test",
+                "Run",
+                "Checks this install: brain packs, every compute backend, OpenGL, audio, ffmpeg, folders, disk, memory and a 10-second run. Says how to fix what it finds. Changes nothing.",
+                Act::Show("selftest".into()),
+            ),
+            (
+                "Report a bug",
+                "Report",
+                "Collects the app version, OS, backend, self-test, the last 500 log lines and any crash report, shows you exactly what would be included, and lets you copy it or open a prefilled GitHub issue. Nothing is sent automatically.",
+                Act::Show("bugreport".into()),
+            ),
+        ];
+        for (label, btn, tip, click) in rows {
+            let row = Rect::new(body.x, y, body.w, 44);
+            if row.contains(self.mouse) && body.contains(self.mouse) {
+                cv.fill_rect(row, ROW_HOVER, 8);
+            }
+            self.text(cv, &tr(label), (row.x + 12, row.centery()), TEXT, &fo.text, Anchor::MidLeft);
+            self.register(Rect::new(row.x, row.y, 400, row.h), Kind::Label, &format!("help:{label}"), true, Some(&tr(tip)));
+            self.button(
+                cv,
+                Rect::new(row.x + 400, row.y + 7, 150, 30),
+                &tr(btn),
+                click,
+                &format!("help-btn:{label}"),
+                Style::Normal,
+                true,
+                Some(&tr(tip)),
+                false,
+                None,
+            );
+            y += 48;
+        }
+        y += 6;
+        self.wrapped(
+            cv,
+            &tr("Kick the Fly never uploads anything and has no telemetry. Reports, self-tests and logs stay on this computer until you copy or attach them yourself."),
+            (body.x + 12, y),
+            body.w - 24,
+            LABEL,
+            &fo.small,
+            3,
+        );
+        y + 60
+    }
+
     fn engine_info(&self, cv: &mut Canvas, body: Rect, mut y: i32) -> i32 {
         let f = self.f().small.clone();
         self.text(cv, "ENGINE", (body.x + 12, y + 8), LABEL, &f, Anchor::MidLeft);
@@ -1318,7 +1661,7 @@ impl Menu {
     }
 
     fn keybinds(&mut self, cv: &mut Canvas, body: Rect, y: i32, cfg: &Config, three_d: bool) -> i32 {
-        let fo = self.fonts_now();
+        let fo = self.fonts();
         let sc = config::schema();
         let k = self.text(cv, "KEYS", (body.x + 12, y), LABEL, &fo.small, Anchor::TopLeft);
         let wy = self.wrapped(

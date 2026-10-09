@@ -30,6 +30,7 @@ flate2 = { version = "=1.1.10", default-features = false, features = ["rust_back
 ktf_data = { path = "crates/ktf_data" }
 ktf_ui = { path = "crates/ktf_ui" }
 ab_glyph = "=0.2.32"
+arboard = { version = "=3.6.1", default-features = false, features = ["wayland-data-control"] }
 png = "=0.18.1"
 criterion = { version = "=0.8.2", default-features = false, features = ["cargo_bench_support", "rayon"] }
 fly_sim = { path = "crates/fly_sim" }

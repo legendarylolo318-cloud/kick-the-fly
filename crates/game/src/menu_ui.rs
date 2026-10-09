@@ -13,6 +13,7 @@ use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use bevy::window::{MonitorSelection, PrimaryWindow, WindowMode};
 use ktf_data::config::Config;
+use ktf_ui::menu::PageHost;
 use ktf_ui::{Canvas, Effect, Menu, UiEvent};
 use serde_json::Value;
 
@@ -85,6 +86,7 @@ fn setup(
         ))
         .id();
     let mut menu = Menu::new(env!("CARGO_PKG_VERSION"));
+    ktf_ui::pages::install(&mut menu);
     menu.veil_alpha = 240; // pygame blends the veil in sRGB space, Bevy in linear light: this alpha gives the same darkness
     if let Some(s) = start {
         let (screen, tab) = s.0.split_once(':').unwrap_or((s.0.as_str(), ""));
@@ -247,7 +249,7 @@ fn input(
     let three_d = true;
     let mut effects = vec![];
     for ev in events {
-        let (_, fx) = ui.menu.handle(&ev, &mut cfg.0, three_d);
+        let (_, fx) = ui.menu.handle(&ev, &mut cfg.0, three_d, &mut GameHost);
         effects.extend(fx);
     }
     for fx in effects {
@@ -279,6 +281,9 @@ fn input(
                     ui.menu.flash(&format!("{label} mode"), ktf_ui::theme::GOOD, 4.0);
                 }
                 "click_sound" => {}
+                // the pause menu's buttons open the page of the same name (Python: `menu_action`); minipapers is the Lab's page
+                "minipapers" if ui.menu.has_page("lab_minipapers") => ui.menu.show("lab_minipapers"),
+                name if ui.menu.has_page(name) => ui.menu.show(name),
                 _ => ui.menu.flash("coming soon", ktf_ui::theme::AMBER, 4.0),
             },
             Effect::SettingChanged { key, save } => {
@@ -322,7 +327,7 @@ fn apply_live(key: &str, cfg: &Config, window: &mut Window, tc: &mut TimeControl
 
 fn draw(
     mut ui: ResMut<MenuUi>,
-    cfg: Res<UserConfig>,
+    mut cfg: ResMut<UserConfig>,
     window: Single<&Window, With<PrimaryWindow>>,
     mut images: ResMut<Assets<Image>>,
     mut vis: Query<(&mut Visibility, &mut ImageNode), With<MenuNode>>,
@@ -344,7 +349,7 @@ fn draw(
     let mouse = window.cursor_position().map_or((-1, -1), |p| (p.x as i32, p.y as i32));
     let MenuUi { menu, canvas, image, .. } = &mut *ui;
     canvas.clear();
-    menu.draw(canvas, &cfg.0, true, mouse, time.elapsed_secs_f64());
+    menu.draw(canvas, &mut cfg.0, true, mouse, time.elapsed_secs_f64(), &mut GameHost);
     if let Some(mut img) = images.get_mut(&*image) {
         img.data = Some(canvas.px.clone());
     }
@@ -363,5 +368,56 @@ impl Plugin for MenuPlugin {
             .add_systems(PreUpdate, input.after(bevy::input::InputSystems))
             .add_systems(Update, draw);
         let _ = |ui: &MenuUi| ui.node;
+    }
+}
+
+/// What the menu pages ask of the game (`ktf_ui::PageHost`): the facts the share page validates against, the clipboard, and applying a code.
+/// Only what this build has is answered; the rest comes back as null or an error that says so.
+pub struct GameHost;
+
+fn stamp() -> String {
+    // UTC date and time as YYYYMMDD-HHMMSS (the Python game used local time)
+    let secs = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs()) as i64;
+    let (days, rem) = (secs.div_euclid(86_400), secs.rem_euclid(86_400));
+    let z = days + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z.rem_euclid(146_097);
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let (y, doy) = (yoe + era * 400, doe - (365 * yoe + yoe / 4 - yoe / 100));
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = if m <= 2 { y + 1 } else { y };
+    format!("{y:04}{m:02}{d:02}-{:02}{:02}{:02}", rem / 3600, rem % 3600 / 60, rem % 60)
+}
+
+impl PageHost for GameHost {
+    fn query(&self, key: &str) -> Value {
+        use serde_json::json;
+        let schema = ktf_data::config::schema();
+        match key {
+            "share_context" => json!({
+                "tools": schema.tools, "max_saved_loadouts": schema.max_saved_loadouts, "brain": "adult",
+                "arenas": crate::world::ARENAS, "contraption_slots_used": 0,
+            }),
+            "surgery_payload" => json!({"groups": {}, "types": {}}),
+            "loadout_tools" => json!(schema.tools.iter().take(10).collect::<Vec<_>>()),
+            "lab_modified" => json!({}),
+            "protocol_files" => json!([]),
+            "challenge_keys" => json!([]),
+            "clipboard_get" => json!(arboard::Clipboard::new().and_then(|mut c| c.get_text()).unwrap_or_default()),
+            "now_stamp" => json!(stamp()),
+            _ => Value::Null,
+        }
+    }
+
+    fn command(&mut self, cmd: &str, args: Value) -> Value {
+        use serde_json::json;
+        match cmd {
+            "clipboard_put" => json!(arboard::Clipboard::new().and_then(|mut c| c.set_text(args.as_str().unwrap_or(""))).is_ok()),
+            "share_apply" => json!({"error": format!("this build can't apply a {} code yet", args["kind"].as_str().unwrap_or("?"))}),
+            "protocol_payload" => json!({"error": "protocols are not part of this build yet"}),
+            _ => Value::Null,
+        }
     }
 }

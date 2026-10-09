@@ -13,7 +13,8 @@ pub mod canvas;
 pub mod font;
 pub mod i18n;
 pub mod menu;
+pub mod pages;
 pub mod theme;
 
 pub use canvas::{Canvas, Rect};
-pub use menu::{Effect, Key, Menu, UiEvent};
+pub use menu::{Act, Anchor, Ctx, Effect, Key, Menu, Page, PageHost, RowButton, Style, UiEvent};

@@ -13,6 +13,7 @@ use crate::theme::Color;
 
 static REGULAR: &[u8] = include_bytes!("../../../assets/fonts/FreeSans.otf");
 static BOLD: &[u8] = include_bytes!("../../../assets/fonts/FreeSansBold.otf");
+static MONO: &[u8] = include_bytes!("../../../assets/fonts/DejaVuSansMono.ttf");
 
 /// pygame's hinted per-glyph metrics for the sizes the menus use: `[advance, min_x, max_x]` (`data/advances.json`, written by
 /// `legacy-python/make_ui_metrics.py`). FreeType's hinting moves advances by up to a pixel per glyph, which a plain scaler cannot
@@ -41,6 +42,17 @@ const METRICS: [(i32, i32, i32); 8] =
     [(14, 17, 13), (16, 20, 15), (22, 27, 20), (38, 46, 35), (18, 22, 17), (20, 24, 18), (28, 34, 26), (48, 58, 44)];
 
 impl Font {
+    /// `pygame.font.SysFont("dejavusansmono,...", size)`: share codes, bug reports.
+    pub fn mono(size: i32) -> Self {
+        let face = FontRef::try_from_slice(MONO).expect("bundled font");
+        let (linesize, ascent) = match size {
+            12 => (14, 12),
+            13 => (16, 13),
+            _ => ((size as f32 * 1.2).ceil() as i32, (size as f32 * 0.9277).round() as i32),
+        };
+        Font { face, size, bold: false, linesize, ascent, glyphs: None }
+    }
+
     pub fn new(size: i32, bold: bool) -> Self {
         let face = FontRef::try_from_slice(if bold { BOLD } else { REGULAR }).expect("bundled font");
         let (linesize, ascent) = METRICS
