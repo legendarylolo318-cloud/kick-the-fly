@@ -88,7 +88,10 @@ pub enum Command {
     /// Pain level 0..2 (normal, more, max).
     PainLevel(usize),
     /// The Neurodex's type table and the types already discovered: from now on the sim thread checks for discoveries every 10 steps.
-    DexTable { table: Arc<fly_sim::neurodex::TypeTable>, known: Vec<String> },
+    DexTable {
+        table: Arc<fly_sim::neurodex::TypeTable>,
+        known: Vec<String>,
+    },
     /// The discovered set changed outside the tracker (a wipe): re-read it.
     DexKnown(Vec<String>),
     /// `brain.neurodex` on/off.

@@ -85,10 +85,21 @@ pub fn plan(fact: &Fact, tab: &TypeTable, lab: bool) -> Plan {
         };
     }
     if types.len() > MAX_SURGERY_TYPES {
-        return Plan { action: "none", target: None, text: format!("Matches {} types: too broad for a one-click experiment.", types.len()), types };
+        return Plan {
+            action: "none",
+            target: None,
+            text: format!("Matches {} types: too broad for a one-click experiment.", types.len()),
+            types,
+        };
     }
-    let shown = types.iter().take(4).cloned().collect::<Vec<_>>().join(", ") + &if types.len() > 4 { format!(" and {} more", types.len() - 4) } else { String::new() };
-    Plan { action: "surgery", target: None, text: format!("Stimulates {shown} in brain surgery. Replaces the surgery you have set."), types }
+    let shown = types.iter().take(4).cloned().collect::<Vec<_>>().join(", ")
+        + &if types.len() > 4 { format!(" and {} more", types.len() - 4) } else { String::new() };
+    Plan {
+        action: "surgery",
+        target: None,
+        text: format!("Stimulates {shown} in brain surgery. Replaces the surgery you have set."),
+        types,
+    }
 }
 
 /// Everything the launch card shows.

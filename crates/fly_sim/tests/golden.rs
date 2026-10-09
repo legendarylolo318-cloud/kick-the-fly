@@ -333,7 +333,11 @@ fn neurodex_matches_python() {
     let gold = load_json("neurodex.json");
     let path = pack.path.clone().unwrap();
     let mut npz = fly_sim::npy::Npz::read(std::io::BufReader::new(std::fs::File::open(&path).unwrap())).unwrap();
-    let (indptr, indices, data) = (npz.take("indptr").unwrap().into_i32().unwrap(), npz.take("indices").unwrap().into_i32().unwrap(), npz.take("data").unwrap().into_i16().unwrap());
+    let (indptr, indices, data) = (
+        npz.take("indptr").unwrap().into_i32().unwrap(),
+        npz.take("indices").unwrap().into_i32().unwrap(),
+        npz.take("data").unwrap().into_i16().unwrap(),
+    );
     let tab = TypeTable::build(&pack.labels, "adult", Some(RawCsr { indptr: &indptr, indices: &indices, data: &data }));
     assert_eq!(tab.len() as u64, gold["n_types"].as_u64().unwrap());
     let sha = sha256_hex(tab.names.join("\n").as_bytes());
@@ -346,7 +350,8 @@ fn neurodex_matches_python() {
         assert_eq!(tab.count[i] as u64, e["count"].as_u64().unwrap(), "{name} count");
         assert_eq!(tab.superclass[i], e["superclass"].as_str().unwrap(), "{name} superclass");
         assert_eq!(tab.region[i], e["region"].as_str().unwrap(), "{name} region");
-        let regs: Vec<(String, u64)> = e["regions"].as_array().unwrap().iter().map(|r| (r[0].as_str().unwrap().into(), r[1].as_u64().unwrap())).collect();
+        let regs: Vec<(String, u64)> =
+            e["regions"].as_array().unwrap().iter().map(|r| (r[0].as_str().unwrap().into(), r[1].as_u64().unwrap())).collect();
         assert_eq!(tab.regions[i].iter().map(|(r, c)| (r.clone(), *c as u64)).collect::<Vec<_>>(), regs, "{name} regions");
         assert_eq!(tab.nt[i], e["nt"].as_str().unwrap(), "{name} nt");
         match e["nt_conf"].as_f64() {
@@ -365,11 +370,20 @@ fn neurodex_matches_python() {
             }
         }
     }
-    let known: std::collections::HashSet<String> = gold["known"].as_array().unwrap().iter().map(|n| n.as_str().unwrap().to_string()).collect();
+    let known: std::collections::HashSet<String> =
+        gold["known"].as_array().unwrap().iter().map(|n| n.as_str().unwrap().to_string()).collect();
     let is_known = |n: &str| known.contains(n);
-    let rp: Vec<(String, u64, u64)> = gold["region_progress"].as_array().unwrap().iter().map(|r| (r[0].as_str().unwrap().into(), r[1].as_u64().unwrap(), r[2].as_u64().unwrap())).collect();
+    let rp: Vec<(String, u64, u64)> = gold["region_progress"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| (r[0].as_str().unwrap().into(), r[1].as_u64().unwrap(), r[2].as_u64().unwrap()))
+        .collect();
     assert_eq!(tab.region_progress(&is_known).into_iter().map(|(r, a, b)| (r, a as u64, b as u64)).collect::<Vec<_>>(), rp);
-    assert_eq!(tab.region_names(), gold["region_names"].as_array().unwrap().iter().map(|r| r.as_str().unwrap().to_string()).collect::<Vec<_>>());
+    assert_eq!(
+        tab.region_names(),
+        gold["region_names"].as_array().unwrap().iter().map(|r| r.as_str().unwrap().to_string()).collect::<Vec<_>>()
+    );
     let want = |k: &str| -> Vec<usize> { gold["lists"][k].as_array().unwrap().iter().map(|i| i.as_u64().unwrap() as usize).collect() };
     assert_eq!(tab.list_entries(&is_known, None, "", false, None), want("all"));
     assert_eq!(tab.list_entries(&is_known, None, "", true, None), want("found"));

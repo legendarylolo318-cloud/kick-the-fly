@@ -391,7 +391,12 @@ pub struct Tracker {
 
 impl Tracker {
     pub fn new(tab: &TypeTable, known: &dyn Fn(&str) -> bool) -> Self {
-        let mut t = Tracker { count: tab.count.iter().map(|&c| f64::from(c.max(1))).collect(), known: vec![], state: HashMap::new(), alpha: discover_alpha() };
+        let mut t = Tracker {
+            count: tab.count.iter().map(|&c| f64::from(c.max(1))).collect(),
+            known: vec![],
+            state: HashMap::new(),
+            alpha: discover_alpha(),
+        };
         t.sync(tab, known);
         t
     }
@@ -404,7 +409,16 @@ impl Tracker {
     /// `observe`: `spikes` are the neuron indices of every spike in the last `window_steps` steps (repeated once per spike), `dt` the
     /// step length in seconds. Returns the types discovered just now.
     #[allow(clippy::too_many_arguments)]
-    pub fn observe(&mut self, tab: &TypeTable, key: u64, spikes: &[u32], dt: f64, calm: bool, driven: bool, window_steps: usize) -> Vec<Found> {
+    pub fn observe(
+        &mut self,
+        tab: &TypeTable,
+        key: u64,
+        spikes: &[u32],
+        dt: f64,
+        calm: bool,
+        driven: bool,
+        window_steps: usize,
+    ) -> Vec<Found> {
         let t_n = tab.len();
         let mut counts = vec![0f64; t_n];
         for &s in spikes {
@@ -427,7 +441,8 @@ impl Tracker {
             return vec![];
         }
         let base: Vec<f64> = st.calm.iter().map(|c| c.max(DISCOVER_CALM_FLOOR_HZ)).collect();
-        let mut hot: Vec<bool> = (0..t_n).map(|i| hz[i] >= DISCOVER_MIN_HZ && hz[i] / base[i] >= DISCOVER_FACTOR && !self.known[i]).collect();
+        let mut hot: Vec<bool> =
+            (0..t_n).map(|i| hz[i] >= DISCOVER_MIN_HZ && hz[i] / base[i] >= DISCOVER_FACTOR && !self.known[i]).collect();
         if calm && !driven {
             hot.iter_mut().for_each(|h| *h = false);
         }
@@ -447,7 +462,18 @@ impl Tracker {
                 st.run[i] = 0;
             }
             if st.run[i] >= DISCOVER_SUSTAIN {
-                out.push(Found { type_index: i, name: tab.names[i].clone(), ratio: hz[i] / base[i], how: if driven { "stimulated" } else if calm { "rest" } else { "play" } });
+                out.push(Found {
+                    type_index: i,
+                    name: tab.names[i].clone(),
+                    ratio: hz[i] / base[i],
+                    how: if driven {
+                        "stimulated"
+                    } else if calm {
+                        "rest"
+                    } else {
+                        "play"
+                    },
+                });
                 self.known[i] = true;
                 st.run[i] = 0;
             }

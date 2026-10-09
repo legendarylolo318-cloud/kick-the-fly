@@ -20,9 +20,9 @@ use crate::controls::TimeControl;
 use crate::feedback::{Notes, Popup as PopupMsg, Tag};
 use crate::fly::{Fly, FlyDied, FlyHit, MAX_HEALTH, ResetFly};
 use crate::menu_ui::{MenuOpen, UserConfig};
+use crate::neurodex_play::{Dex, TOAST_MAX, TOAST_S};
 use crate::player::{MouseLook, PlayerCamera};
 use crate::sim_thread::Command;
-use crate::neurodex_play::{Dex, TOAST_MAX, TOAST_S};
 use crate::tools::{ActiveLoadout, LASER_TARGETS, TOOLS, ToolState};
 
 /// Where the HUD sits in the window: recomputed every frame from the window size and the settings.
@@ -450,7 +450,10 @@ fn draw(
         },
         toasts_more: (dex.toasts.len() > TOAST_MAX).then(|| {
             let key = cfg.0.key_of("neurodex").to_uppercase();
-            ktf_ui::i18n::tr_args("+{n} more discovered (Neurodex: {key})", &[("n", &(dex.toasts.len() - TOAST_MAX).to_string()), ("key", if key.is_empty() { "Esc" } else { &key })])
+            ktf_ui::i18n::tr_args(
+                "+{n} more discovered (Neurodex: {key})",
+                &[("n", &(dex.toasts.len() - TOAST_MAX).to_string()), ("key", if key.is_empty() { "Esc" } else { &key })],
+            )
         }),
         notd: dex.notd.as_ref().filter(|_| !menu.0).map(|(c, _)| ktf_ui::hud::NotdView {
             label: format!("{}{}", c.first_type(), if c.also() > 0 { format!("  (+{} related types)", c.also()) } else { String::new() }),

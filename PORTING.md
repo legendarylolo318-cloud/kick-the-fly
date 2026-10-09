@@ -250,7 +250,7 @@ against the pygame version (screenshot pair, or the code read side by side). Any
 - [ ] Menu page `load_state`
 - [x] Menu page `loadout` (the editor, Q): presets, saved loadouts, hotbar with drag to reorder/drop/remove, card grid by category with tags and 'Drives:' lines, footer; screenshot pairs (Base and All presets) match; click/drag/save/load/preset behaviour tested; `core/loadout.py` ported to `ktf_data::loadout` and verified on 48 preset/mode/brain builds + 11 editing operations against Python. The hotbar in the game is the loadout now (Base by default, rebindable slot keys, pages with - and =, wheel steps through it)
 - [~] Menu page `loadout_notice`: ported (`LoadoutNotice`), not shown yet because the migrated-config trigger (first_run flags) is not wired
-- [ ] Menu page `neurodex`
+- [x] Menu page `neurodex` (D, or Esc > Neurodex): regions with progress, search, list (virtualized), entry (counts, regions, transmitter, top inputs/outputs, curated fact, 'In the game' note), Neuron of the Day row, reset with confirm; two screenshot pairs on the real pack match. Core ported and golden-tested on the real pack (`fly_sim::neurodex`: type table incl. 11,751 sampled entries/partners, region progress, list filters, the discovery rule with its Poisson condition; `ktf_data::notd`: Neuron of the Day incl. CPython's `random.shuffle`, 130 cards x Play/Lab). In the game: table built on a worker thread, discovery checked on the sim thread every 10 steps, toasts + reactions-log line + sound, the launch card with Try it / Don't show again / x. Not yet: the cached EM skeleton drawing (real-shapes feature), gamepad navigation, Try it for a Lab laser plan (uses brain surgery)
 - [ ] Menu page `neuron_shapes_ask`
 - [ ] Menu page `selftest`
 - [x] Menu page `share`: both tabs (make a code for surgery/loadout/..., import with preview) ported with the real `sharecode` backend; 3 screenshot pairs (surgery, loadout code, import) match; Copy/Paste through the OS clipboard (`arboard`). The game applies only what this build has: apply returns "can't apply a <kind> code yet" for the rest
@@ -258,7 +258,7 @@ against the pygame version (screenshot pair, or the code read side by side). Any
 - [ ] Time controls UI (pause, slow-mo, single step), popups and overlays (death/autopsy, kill cam, photo mode, profiler F3, fly's-eye F4)
 - [ ] Mode split: Play stays simple; Lab-only stats only in Lab; "Real flies do this too" cards default OFF (`brain.science_popups` false)
 - [ ] Streamer mode panel, Mic panel (`live_inputs`)
-- [ ] Neurodex, Neuron of the Day, guided mini-papers
+- [~] Neurodex, Neuron of the Day (done, see the page entry), guided mini-papers (not yet)
 - [ ] Transitions and animations (menu open/close, fades, flashes honoring `reduced_flashing`)
 
 ### Cannot be matched exactly

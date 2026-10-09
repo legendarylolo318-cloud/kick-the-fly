@@ -148,3 +148,42 @@ fn loadout_editor_page() {
         0.009,
     );
 }
+
+/// The Neurodex panel on the real pack: the type table and a deterministic progress, as `make_ui_reference.py:dex_host_parts` builds them.
+fn dex_shot(selected: &str, only_found: bool) -> Option<Vec<u8>> {
+    use fly_sim::neurodex::{RawCsr, TypeTable};
+    use ktf_ui::pages::neurodex::{NeurodexPage, NeurodexShared};
+    let path = fly_sim::pack::find_default()?;
+    let pack = fly_sim::Pack::load(&path).unwrap();
+    let mut npz = fly_sim::npy::Npz::read(std::io::BufReader::new(std::fs::File::open(&path).unwrap())).unwrap();
+    let (indptr, indices, data) = (
+        npz.take("indptr").unwrap().into_i32().unwrap(),
+        npz.take("indices").unwrap().into_i32().unwrap(),
+        npz.take("data").unwrap().into_i16().unwrap(),
+    );
+    let tab = TypeTable::build(&pack.labels, "adult", Some(RawCsr { indptr: &indptr, indices: &indices, data: &data }));
+    let mut shared = NeurodexShared::new(Default::default());
+    let names: Vec<String> = tab.names.iter().take(400).cloned().chain(["DNp01".to_string(), "LPLC2".to_string()]).collect();
+    for (i, n) in names.iter().enumerate() {
+        shared.progress.mark("adult", n, 2.5 + (i % 7) as f64 * 0.5, if i % 3 == 0 { "stimulated" } else { "play" }, "2026-01-02T03:04:05");
+    }
+    shared.table = Some(std::sync::Arc::new(tab));
+    shared.state = "ready".into();
+    shared.today = ktf_data::notd::toordinal(2026, 10, 9);
+    let shared = std::sync::Arc::new(std::sync::Mutex::new(shared));
+    let mut cfg = Config::new(None);
+    let mut m = Menu::new("3.1.1");
+    ktf_ui::pages::install_with(&mut m, shared);
+    m.page_mut::<NeurodexPage>("neurodex").unwrap().select(selected, only_found);
+    m.show("neurodex");
+    let mut cv = Canvas::new(1280, 720);
+    m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut Mock);
+    Some(cv.to_rgb_over(BG))
+}
+
+#[test]
+fn neurodex_panel() {
+    let Some(a) = dex_shot("DNp01", true) else { return };
+    compare("page_neurodex.png", &a, 0.012);
+    compare("page_neurodex_unknown.png", &dex_shot("DNp02", false).unwrap(), 0.012);
+}

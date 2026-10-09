@@ -57,11 +57,16 @@ fn start_build(mut dex: ResMut<Dex>, link: Res<SimLink>, pack: Res<PackPath>, cf
             let build = || -> Result<TypeTable, String> {
                 match &path {
                     Some(p) => {
-                        let mut npz = fly_sim::npy::Npz::read(std::io::BufReader::new(std::fs::File::open(p).map_err(|e| e.to_string())?)).map_err(|e| e.to_string())?;
+                        let mut npz = fly_sim::npy::Npz::read(std::io::BufReader::new(std::fs::File::open(p).map_err(|e| e.to_string())?))
+                            .map_err(|e| e.to_string())?;
                         let indptr = npz.take("indptr").and_then(|a| a.into_i32()).map_err(|e| e.to_string())?;
                         let indices = npz.take("indices").and_then(|a| a.into_i32()).map_err(|e| e.to_string())?;
                         let data = npz.take("data").and_then(|a| a.into_i16()).map_err(|e| e.to_string())?;
-                        Ok(TypeTable::build(&shared.labels, "adult", Some(fly_sim::neurodex::RawCsr { indptr: &indptr, indices: &indices, data: &data })))
+                        Ok(TypeTable::build(
+                            &shared.labels,
+                            "adult",
+                            Some(fly_sim::neurodex::RawCsr { indptr: &indptr, indices: &indices, data: &data }),
+                        ))
                     }
                     None => Ok(TypeTable::build(&shared.labels, "adult", None)),
                 }
@@ -169,7 +174,10 @@ pub fn apply(c: &Card, link: &SimLink) -> String {
             let spec = format!("type:{}", c.plan.types.join(","));
             link.0.send(Command::Surgery { spec, mode: 1 });
             if action == "laser" {
-                format!("TRY IT  stimulating {} (the laser is Lab-only and not in this build yet: brain surgery instead)", c.plan.target.as_deref().unwrap_or("?"))
+                format!(
+                    "TRY IT  stimulating {} (the laser is Lab-only and not in this build yet: brain surgery instead)",
+                    c.plan.target.as_deref().unwrap_or("?")
+                )
             } else {
                 format!("TRY IT  stimulating {} type(s) in brain surgery", c.plan.types.len())
             }
@@ -182,6 +190,7 @@ pub struct DexPlugin;
 impl Plugin for DexPlugin {
     fn build(&self, app: &mut App) {
         let shared: SharedDex = Arc::new(Mutex::new(NeurodexShared::new(Progress::open(progress_path()))));
-        app.insert_resource(Dex { shared, toasts: vec![], notd: None, started: false, notd_tried: false }).add_systems(Update, (start_build, poll).chain());
+        app.insert_resource(Dex { shared, toasts: vec![], notd: None, started: false, notd_tried: false })
+            .add_systems(Update, (start_build, poll).chain());
     }
 }

@@ -407,7 +407,12 @@ impl Hud<'_> {
     /// `Extras._banner` for each toast: a green-edged pill at the top of the play area.
     fn toasts(&mut self, st: &HudState) {
         let mut y = 8;
-        let all: Vec<(&str, u32, Color)> = st.toasts.iter().map(|(t, a)| (t.as_str(), *a, [90, 200, 120])).chain(st.toasts_more.iter().map(|t| (t.as_str(), 200, [90, 200, 120]))).collect();
+        let all: Vec<(&str, u32, Color)> = st
+            .toasts
+            .iter()
+            .map(|(t, a)| (t.as_str(), *a, [90, 200, 120]))
+            .chain(st.toasts_more.iter().map(|t| (t.as_str(), 200, [90, 200, 120])))
+            .collect();
         for (t, a, col) in all {
             let w = (self.f.bold.size(t) + 28).min(self.lay.hud_w - 20);
             let cx = self.lay.hud_w.min(890) / 2;
@@ -442,7 +447,11 @@ impl Hud<'_> {
             self.cv.fill_rect(tr_, if n.look3d { [44, 50, 64] } else { [40, 110, 150] }, 8);
             text(self.cv, "Try it", tr_.center(), INK, &f.small, "center");
             hits.notd_try = Some(tr_);
-            let mut hint = if n.look3d { "Tab frees the mouse to click".to_string() } else { format!("{}.", n.plan_text.split(". ").next().unwrap_or("")) };
+            let mut hint = if n.look3d {
+                "Tab frees the mouse to click".to_string()
+            } else {
+                format!("{}.", n.plan_text.split(". ").next().unwrap_or(""))
+            };
             let room = r.right() - 178 - (tr_.right() + 10);
             while !hint.is_empty() && f.small.size(&hint) > room {
                 hint.pop();

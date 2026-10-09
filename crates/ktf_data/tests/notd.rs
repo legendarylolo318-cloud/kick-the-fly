@@ -4,7 +4,8 @@ use fly_sim::neurodex::TypeTable;
 use ktf_data::{neurodex_facts::fact_for, notd, pyrandom::Mt};
 
 fn gold() -> serde_json::Value {
-    serde_json::from_str(&std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/golden/neurodex.json")).unwrap()).unwrap()
+    serde_json::from_str(&std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/golden/neurodex.json")).unwrap())
+        .unwrap()
 }
 
 #[test]
@@ -42,7 +43,11 @@ fn neuron_of_the_day_matches_python() {
         let lab = c["lab"].as_bool().unwrap();
         let card = notd::card(notd::toordinal(y, m, d), &tab, lab).unwrap();
         assert_eq!(card.fact.id, c["fact_id"].as_str().unwrap(), "{day} fact");
-        assert_eq!(card.types, c["types"].as_array().unwrap().iter().map(|s| s.as_str().unwrap().to_string()).collect::<Vec<_>>(), "{day} types");
+        assert_eq!(
+            card.types,
+            c["types"].as_array().unwrap().iter().map(|s| s.as_str().unwrap().to_string()).collect::<Vec<_>>(),
+            "{day} types"
+        );
         assert_eq!(card.plan.action, c["plan"]["action"].as_str().unwrap(), "{day} plan");
         assert_eq!(card.plan.text, c["plan"]["text"].as_str().unwrap(), "{day} plan text");
     }

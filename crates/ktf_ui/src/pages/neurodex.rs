@@ -38,7 +38,17 @@ pub struct NeurodexShared {
 
 impl NeurodexShared {
     pub fn new(progress: Progress) -> Self {
-        NeurodexShared { table: None, state: "idle".into(), error: String::new(), progress, brain: "adult".into(), lab: false, today: 739_000, wiped: false, try_card: None }
+        NeurodexShared {
+            table: None,
+            state: "idle".into(),
+            error: String::new(),
+            progress,
+            brain: "adult".into(),
+            lab: false,
+            today: 739_000,
+            wiped: false,
+            try_card: None,
+        }
     }
 }
 
@@ -89,6 +99,14 @@ impl NeurodexPage {
     }
 }
 
+impl NeurodexPage {
+    /// Show this type's entry (tests and the reference screenshots).
+    pub fn select(&mut self, name: &str, only_found: bool) {
+        self.selected = Some(name.into());
+        self.only_found = only_found;
+    }
+}
+
 impl Page for NeurodexPage {
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
         self
@@ -100,7 +118,18 @@ impl Page for NeurodexPage {
         let guard = self.shared.lock().unwrap_or_else(PoisonError::into_inner);
         let brain = guard.brain.clone();
         m.text(cv, &tr("NEURODEX"), (rect.x + 24, rect.y + 14), INK, &f.head, Anchor::TopLeft);
-        m.button(cv, Rect::new(rect.right() - 164, rect.bottom() - 58, 140, 42), &tr("Back"), Act::Back, "dex:back", Style::Primary, true, None, false, None);
+        m.button(
+            cv,
+            Rect::new(rect.right() - 164, rect.bottom() - 58, 140, 42),
+            &tr("Back"),
+            Act::Back,
+            "dex:back",
+            Style::Primary,
+            true,
+            None,
+            false,
+            None,
+        );
         let Some(tab) = guard.table.clone() else {
             let msg = match guard.state.as_str() {
                 "building" => tr("Building the Neurodex from the brain pack..."),
@@ -113,7 +142,14 @@ impl Page for NeurodexPage {
         };
         let known = |n: &str| guard.progress.is_known(&brain, n);
         let (got, total) = (guard.progress.count(&brain), tab.len());
-        let hdr = m.text(cv, &format!("{} / {} {}   ({brain})", group(got), group(total), tr("cell types discovered")), (rect.x + 24, rect.y + 46), LABEL, &f.small, Anchor::TopLeft);
+        let hdr = m.text(
+            cv,
+            &format!("{} / {} {}   ({brain})", group(got), group(total), tr("cell types discovered")),
+            (rect.x + 24, rect.y + 46),
+            LABEL,
+            &f.small,
+            Anchor::TopLeft,
+        );
         let chip = m.chip(cv, (hdr.right() + 14, rect.y + 46), "GAME RULE");
         m.text(
             cv,
@@ -162,9 +198,25 @@ impl Page for NeurodexPage {
             }
         }
         let y = rect.bottom() - 170;
-        m.toggle(cv, Rect::new(colx, y, 72, 26), self.only_found, Act::Custom("only_found".into()), "dex-found", true, &tr("Off lists every type in the region as ??? (nothing is revealed about an undiscovered type)."));
+        m.toggle(
+            cv,
+            Rect::new(colx, y, 72, 26),
+            self.only_found,
+            Act::Custom("only_found".into()),
+            "dex-found",
+            true,
+            &tr("Off lists every type in the region as ??? (nothing is revealed about an undiscovered type)."),
+        );
         m.text(cv, &tr("Only discovered"), (colx + 82, y + 13), TEXT, &f.small, Anchor::MidLeft);
-        m.toggle(cv, Rect::new(colx, y + 32, 72, 26), self.only_curated, Act::Custom("only_curated".into()), "dex-cur", true, &tr("Only discovered types that have a literature fact and citation."));
+        m.toggle(
+            cv,
+            Rect::new(colx, y + 32, 72, 26),
+            self.only_curated,
+            Act::Custom("only_curated".into()),
+            "dex-cur",
+            true,
+            &tr("Only discovered types that have a literature fact and citation."),
+        );
         m.text(cv, &tr("Only with a fact"), (colx + 82, y + 45), TEXT, &f.small, Anchor::MidLeft);
         let armed = now - self.wipe_armed < 3.0;
         let wlab = if armed { tr("Click again to erase") } else { tr("Reset Neurodex") };
@@ -192,7 +244,13 @@ impl Page for NeurodexPage {
         let key = (self.region.clone(), self.query.clone(), self.only_found, self.only_curated, got, brain.clone());
         if self.cache_key.as_ref() != Some(&key) {
             let cur = |n: &str| fact_for(n, &brain).is_some();
-            self.cache_list = tab.list_entries(&known, Some(&self.region), &self.query, self.only_found, if self.only_curated { Some(&cur) } else { None });
+            self.cache_list = tab.list_entries(
+                &known,
+                Some(&self.region),
+                &self.query,
+                self.only_found,
+                if self.only_curated { Some(&cur) } else { None },
+            );
             self.cache_key = Some(key);
         }
         let lst = &self.cache_list;
@@ -208,7 +266,18 @@ impl Page for NeurodexPage {
             let name = &tab.names[i];
             let r = Rect::new(body.x + 2, body.y + k * ROW_H - off, body.w - 14, ROW_H - 2);
             let found = known(name);
-            m.button(cv, r, "", Act::Custom(format!("select:{name}")), &format!("dex-row:{name}"), Style::Normal, true, None, self.selected.as_deref() == Some(name.as_str()), None);
+            m.button(
+                cv,
+                r,
+                "",
+                Act::Custom(format!("select:{name}")),
+                &format!("dex-row:{name}"),
+                Style::Normal,
+                true,
+                None,
+                self.selected.as_deref() == Some(name.as_str()),
+                None,
+            );
             if found {
                 m.text(cv, &truncate(&f.small, name, r.w - 50), (r.x + 8, r.y + 4), INK, &f.small, Anchor::TopLeft);
                 if fact_for(name, &brain).is_some() {
@@ -237,9 +306,23 @@ impl Page for NeurodexPage {
         if let Some(Some(c)) = self.notd.as_ref().map(|n| &n.2) {
             let y = rect.bottom() - 52;
             let also = if c.also() > 0 { format!(" (+{})", c.also()) } else { String::new() };
-            m.text(cv, &format!("{}: {}{also}", tr("Neuron of the day"), c.first_type()), (rect.x + 24, y + 4), TEXT, &f.small, Anchor::TopLeft);
+            m.text(
+                cv,
+                &format!("{}: {}{also}", tr("Neuron of the day"), c.first_type()),
+                (rect.x + 24, y + 4),
+                TEXT,
+                &f.small,
+                Anchor::TopLeft,
+            );
             let try_x = (rect.x + 600).min(rect.right() - 164 - 150);
-            m.text(cv, &truncate(&f.small, &c.plan.text, try_x - rect.x - 40), (rect.x + 24, y + 4 + f.small.linesize), DIM, &f.small, Anchor::TopLeft);
+            m.text(
+                cv,
+                &truncate(&f.small, &c.plan.text, try_x - rect.x - 40),
+                (rect.x + 24, y + 4 + f.small.linesize),
+                DIM,
+                &f.small,
+                Anchor::TopLeft,
+            );
             m.button(
                 cv,
                 Rect::new(try_x, y, 140, 38),
@@ -331,7 +414,12 @@ impl NeurodexPage {
         let count = tab.count[i];
         let regs: Vec<String> = tab.regions[i].iter().take(4).map(|(r, c)| format!("{r} ({c})")).collect();
         let mut lines = vec![
-            format!("{} {}   ·   {}", group(count as usize), if count == 1 { tr("neuron") } else { tr("neurons") }, if tab.superclass[i].is_empty() { "?" } else { &tab.superclass[i] }),
+            format!(
+                "{} {}   ·   {}",
+                group(count as usize),
+                if count == 1 { tr("neuron") } else { tr("neurons") },
+                if tab.superclass[i].is_empty() { "?" } else { &tab.superclass[i] }
+            ),
             format!("{}: {}", tr("regions"), if regs.is_empty() { "?".into() } else { regs.join(", ") }),
         ];
         if !tab.nt[i].is_empty() {
@@ -344,18 +432,34 @@ impl NeurodexPage {
             }
             lines.push(t);
         } else {
-            lines.push(format!("{}: {}{}", tr("transmitter"), tr("not in this dataset"), if brain == "larva" { format!(" ({})", tr("the game assigns signs by a rule")) } else { String::new() }));
+            lines.push(format!(
+                "{}: {}{}",
+                tr("transmitter"),
+                tr("not in this dataset"),
+                if brain == "larva" { format!(" ({})", tr("the game assigns signs by a rule")) } else { String::new() }
+            ));
         }
         for ln in lines {
             y = m.wrapped(cv, &ln, (x, y), bx.w, TEXT, &f.small, 2) + 2;
         }
         let half = bx.w / 2 - 6;
-        for (col, (label, rows_)) in [(tr("TOP INPUTS"), tab.top_partners(name, "in", 6)), (tr("TOP OUTPUTS"), tab.top_partners(name, "out", 6))].into_iter().enumerate() {
+        for (col, (label, rows_)) in
+            [(tr("TOP INPUTS"), tab.top_partners(name, "in", 6)), (tr("TOP OUTPUTS"), tab.top_partners(name, "out", 6))]
+                .into_iter()
+                .enumerate()
+        {
             let (cx, cy) = (x + col as i32 * (half + 12), y + 4);
             m.text(cv, &label, (cx, cy), LABEL, &f.small, Anchor::TopLeft);
             for (k, (pn, syn, share)) in rows_.iter().take(5).enumerate() {
                 m.text(cv, &truncate(&f.small, pn, half - 84), (cx, cy + 18 + k as i32 * 17), TEXT, &f.small, Anchor::TopLeft);
-                m.text(cv, &format!("{}  {:.0}%", group(*syn as usize), share * 100.0), (cx + half, cy + 18 + k as i32 * 17), DIM, &f.small, Anchor::TopRight);
+                m.text(
+                    cv,
+                    &format!("{}  {:.0}%", group(*syn as usize), share * 100.0),
+                    (cx + half, cy + 18 + k as i32 * 17),
+                    DIM,
+                    &f.small,
+                    Anchor::TopRight,
+                );
             }
         }
         y += 4 + 18 + 5 * 17 + 6;
