@@ -13,6 +13,7 @@ pub mod actions;
 pub mod anim;
 pub mod app;
 pub mod arcade;
+pub mod arcade_hub;
 pub mod arena;
 pub mod audio;
 pub mod autopsy_play;
@@ -186,6 +187,7 @@ impl Plugin for GamePlugin {
                 predator_play::PredatorPlugin,
                 fly::FlyPlugin,
                 fly_visuals::FlyVisualsPlugin,
-            ));
+            ))
+            .add_plugins(arcade_hub::ArcadeHubPlugin);
     }
 }

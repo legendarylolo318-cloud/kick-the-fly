@@ -11,19 +11,20 @@ pub const TOP_UP_BELOW: i64 = 5;
 pub const TOP_UP_TO: i64 = 25;
 pub const STAKES: [i64; 3] = [5, 10, 25];
 /// The odds pay out (1 - this) of a fair price: GAME RULE, so a bet is not free money.
-pub const HOUSE_TAKE: f32 = 0.10;
-pub const MIN_ODDS: f32 = 1.1;
+pub const HOUSE_TAKE: f64 = fly_sim::race::HOUSE_TAKE;
+pub const MIN_ODDS: f64 = fly_sim::race::MIN_ODDS;
 
-/// Payout multiple for a fly with probability `p` of winning: a fair 1/p less the house take, to one decimal, at least 1.1.
-pub fn decimal_odds(p: f32) -> f32 {
-    let p = p.clamp(1e-6, 1.0);
-    (((1.0 - HOUSE_TAKE) / p) * 10.0).round().div_euclid(1.0).max(MIN_ODDS * 10.0) / 10.0
+/// Payout multiple for a fly with probability `p` of winning: a fair 1/p less the house take, to one decimal, at least 1.1
+/// (`core/points.py:decimal_odds`, in f64 with Python's rounding).
+pub fn decimal_odds(p: f64) -> f64 {
+    fly_sim::race::decimal_odds(p)
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct BetRecord {
     pub label: String,
     pub stake: i64,
+    pub odds: f64,
     pub won: bool,
     pub delta: i64,
 }
@@ -62,7 +63,7 @@ impl Wallet {
 
     /// Take the stake; if won, pay `stake * odds`. Returns the change in points. A bet the wallet cannot cover or odds under
     /// `MIN_ODDS` are refused.
-    pub fn settle(&mut self, stake: i64, odds: f32, won: bool, label: &str) -> Result<i64, String> {
+    pub fn settle(&mut self, stake: i64, odds: f64, won: bool, label: &str) -> Result<i64, String> {
         if stake <= 0 {
             return Err("a stake is a whole number of points above 0".into());
         }
@@ -72,12 +73,12 @@ impl Wallet {
         if !odds.is_finite() || odds < MIN_ODDS {
             return Err(format!("odds must be a finite payout of at least {MIN_ODDS}"));
         }
-        let delta = if won { (stake as f32 * odds).round() as i64 - stake } else { -stake };
+        let delta = if won { (stake as f64 * odds).round_ties_even() as i64 - stake } else { -stake };
         self.points += delta;
-        self.history.push(BetRecord { label: label.to_string(), stake, won, delta });
+        self.history.push(BetRecord { label: label.to_string(), stake, odds, won, delta });
         if self.points < TOP_UP_BELOW {
             self.points = TOP_UP_TO;
-            self.history.push(BetRecord { label: "free top-up".into(), stake: 0, won: false, delta: 0 });
+            self.history.push(BetRecord { label: "free top-up".into(), stake: 0, odds: 0.0, won: false, delta: 0 });
         }
         self.history.drain(..self.history.len().saturating_sub(50));
         self.save();
@@ -89,7 +90,15 @@ impl Wallet {
         if let Some(dir) = p.parent() {
             let _ = std::fs::create_dir_all(dir);
         }
-        let body = serde_json::json!({ "points": self.points });
+        let history: Vec<serde_json::Value> = self
+            .history
+            .iter()
+            .rev()
+            .take(50)
+            .rev()
+            .map(|h| serde_json::json!({"label": h.label, "stake": h.stake, "odds": h.odds, "won": h.won, "delta": h.delta}))
+            .collect();
+        let body = serde_json::json!({ "points": self.points, "history": history });
         let tmp = p.with_extension("tmp");
         if std::fs::write(&tmp, body.to_string()).is_ok() {
             let _ = std::fs::rename(&tmp, p); // a read-only folder: the points just do not persist
@@ -117,7 +126,7 @@ mod tests {
         assert_eq!(w.settle(10, 2.0, false, "b").unwrap(), -10);
         assert!(w.settle(0, 2.0, true, "c").is_err());
         assert!(w.settle(500, 2.0, true, "d").is_err());
-        assert!(w.settle(5, f32::NAN, true, "e").is_err());
+        assert!(w.settle(5, f64::NAN, true, "e").is_err());
         assert!(w.settle(5, 1.0, true, "f").is_err());
         w.points = 25;
         w.settle(25, 2.0, false, "g").unwrap();

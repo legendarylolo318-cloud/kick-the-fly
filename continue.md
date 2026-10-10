@@ -39,8 +39,8 @@ Done, committed: `fly_sim::{duel,cards,race}`, NumPy-exact `choice` in pokes, go
 (`tests/golden/make_{duel_engine,choice,arcade}.py`), see the PORTING.md section "Arcade engine parity". `serde_json` now has `float_roundtrip`
 (goldens with 17-digit floats need it). NOT touched: every item below. First steps next time:
 1. (done) `game/{duel,race}.rs` are shims over `fly_sim::{duel,race}`; the arcade's `build_brain` uses `cards::Build::brain`.
-2. (done) `fly_sim::stats` + `fly_sim::tournament::analyze`. Race `analyze`, `run_bracket`, `run_race`, `odds_table` are done in `fly_sim`, and the arcade *page* is drawn (`ktf_ui::pages::arcade`, 5 pairs). Next: wire
-   the page to the game (answer `query arcade` + `arcade:*` actions from a job thread; see the module doc of `pages/arcade.rs`), port `battle_ui.py`; a brain-backed `MatchPlayer`/lane closure in the game
+2. (done) `fly_sim::stats` + `fly_sim::tournament::analyze`. Race `analyze`, `run_bracket`, `run_race`, `odds_table` are done in `fly_sim`, and the arcade *page* is drawn (`ktf_ui::pages::arcade`, 5 pairs). The page is wired
+   to the game (`game::arcade_hub`). Next: port `battle_ui.py` (lesion battle tab) and write the personality-card cache; a brain-backed `MatchPlayer`/lane closure in the game
    (measure cards with `cards::measure_card`, play with `Build::brain(seed, Some(noise), 600)` + `lane_noise`), then the arcade page in `ktf_ui::pages` from `ui/arcade_ui.py`. Do not wait on background jobs with `pgrep`; read the task output file.
 3. Then the list below, in order. Venv: `python3 -m venv V; V/bin/pip install numpy scipy pygame-ce pytest pillow pyyaml pyarrow fonttools`.
 

@@ -251,6 +251,7 @@ fn input(
     mc: MenuCtx,
     mut settings: ResMut<Settings>,
     mut arcade: ResMut<crate::arcade::Arcade>,
+    mut hub: ResMut<crate::arcade_hub::ArcadeHub>,
     link: Res<SimLink>,
     mut exit: MessageWriter<AppExit>,
     lay: Res<HudLayout>,
@@ -334,7 +335,15 @@ fn input(
         }
     }
     let three_d = true;
-    let mut host = GameHost::new(&loadout.0.tools, crate::tools::TOOLS[tools.selected].0);
+    let palette = cfg.0.get_str("access.palette").to_string();
+    let mut host = GameHost::new(&loadout.0.tools, crate::tools::TOOLS[tools.selected].0).with_arcade(if ui.menu.is_open() {
+        hub.snapshot(&palette)
+    } else {
+        Value::Null
+    });
+    if let Some(text) = hub.flash.take() {
+        ui.menu.flash(&text, ktf_ui::theme::GOOD, 5.0);
+    }
     let mut effects = vec![];
     for ev in events {
         let (_, fx) = ui.menu.handle(&ev, &mut cfg.0, three_d, &mut host);
@@ -369,13 +378,18 @@ fn input(
                     ui.menu.flash(&format!("{label} mode"), ktf_ui::theme::GOOD, 4.0);
                 }
                 "click_sound" => {}
-                "arcade" => {
-                    arcade.open_main();
-                    look.captured = false;
-                    ui.menu.close();
-                    tc.menu_paused = false;
-                    link.0.send(Command::Pause(tc.paused));
-                    open.0 = false;
+                a if a.starts_with("arcade:") => {
+                    let shared = link.0.shared.lock().unwrap_or_else(std::sync::PoisonError::into_inner).clone();
+                    let mode = cfg.0.get_str("brain.individuality").to_string();
+                    hub.command(a, shared, &mode);
+                    if std::mem::take(&mut hub.want_lesion) {
+                        arcade.open_lesion();
+                        look.captured = false;
+                        ui.menu.close();
+                        tc.menu_paused = false;
+                        link.0.send(Command::Pause(tc.paused));
+                        open.0 = false;
+                    }
                 }
                 a if a.starts_with("start_challenge:") => {
                     let key = &a["start_challenge:".len()..];
@@ -478,6 +492,7 @@ fn draw(
     loadout: Res<crate::tools::ActiveLoadout>,
     tools: Res<crate::tools::ToolState>,
     saves: Res<crate::savestate_play::SaveLoad>,
+    hub: Res<crate::arcade_hub::ArcadeHub>,
 ) {
     let Ok((mut v, mut node)) = vis.single_mut() else { return };
     if !ui.menu.is_open() {
@@ -494,6 +509,7 @@ fn draw(
     }
     let k = window.scale_factor() / lay.0.scale;
     let mouse = window.cursor_position().map_or((-1, -1), |p| ((p.x * k) as i32, (p.y * k) as i32));
+    let arcade_json = if menu_screen_is_open(&ui) { hub.snapshot(cfg.0.get_str("access.palette")) } else { Value::Null };
     let MenuUi { menu, canvas, image, .. } = &mut *ui;
     canvas.clear();
     menu.draw(
@@ -502,7 +518,7 @@ fn draw(
         true,
         mouse,
         time.elapsed_secs_f64(),
-        &mut GameHost::new(&loadout.0.tools, crate::tools::TOOLS[tools.selected].0).with_saves(&saves.entries),
+        &mut GameHost::new(&loadout.0.tools, crate::tools::TOOLS[tools.selected].0).with_saves(&saves.entries).with_arcade(arcade_json),
     );
     if let Some(mut img) = images.get_mut(&*image) {
         img.data = Some(canvas.px.clone());
@@ -537,22 +553,32 @@ impl Plugin for MenuPlugin {
     }
 }
 
+fn menu_screen_is_open(ui: &MenuUi) -> bool {
+    ui.menu.is_open()
+}
+
 /// What the menu pages ask of the game (`ktf_ui::PageHost`): the facts the share page validates against, the clipboard, and applying a code.
 /// Only what this build has is answered; the rest comes back as null or an error that says so.
 pub struct GameHost {
     loadout: Vec<String>,
     selected: String,
     saves: Vec<Value>,
+    arcade: Value,
 }
 
 impl GameHost {
+    pub fn with_arcade(mut self, arcade: Value) -> Self {
+        self.arcade = arcade;
+        self
+    }
+
     pub fn with_saves(mut self, saves: &[Value]) -> Self {
         self.saves = saves.to_vec();
         self
     }
 
     pub fn new(loadout: &[String], selected: &str) -> Self {
-        GameHost { loadout: loadout.to_vec(), selected: selected.into(), saves: vec![] }
+        GameHost { loadout: loadout.to_vec(), selected: selected.into(), saves: vec![], arcade: Value::Null }
     }
 }
 
@@ -585,6 +611,7 @@ impl PageHost for GameHost {
             "loadout_tools" => json!(self.loadout),
             "selected_tool" => json!(self.selected),
             "saves" => Value::Array(self.saves.clone()),
+            "arcade" => self.arcade.clone(),
             "saves_dir" => json!(ktf_data::paths::get().saves_dir.to_string_lossy()),
             "lab_modified" => json!({}),
             "protocol_files" => json!([]),

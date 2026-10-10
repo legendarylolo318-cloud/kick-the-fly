@@ -814,7 +814,11 @@ impl Page for ArcadePage {
             "tab" => {
                 self.tab = match arg {
                     "1" => Tab::Race,
-                    "2" => Tab::Battle,
+                    "2" => {
+                        // the lesion battle is the game's own page (`ui/battle_ui.py` is not ported here)
+                        m.action("arcade:battle");
+                        Tab::Tournament
+                    }
                     _ => Tab::Tournament,
                 }
             }

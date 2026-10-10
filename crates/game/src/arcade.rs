@@ -91,6 +91,12 @@ impl Arcade {
         self.page = Page::Main;
     }
 
+    /// The arcade page's Lesion battle tab: the game's own lesion page.
+    pub fn open_lesion(&mut self) {
+        self.open = true;
+        self.page = Page::Lesion;
+    }
+
     /// Challenges > Puppeteer: the arcade at its puppeteer level list.
     pub fn open_puppeteer(&mut self) {
         self.open = true;
@@ -413,7 +419,7 @@ fn page_text(a: &Arcade, sizes_ok: bool) -> String {
                 "your pick: lane {}   points: {}\nTAGS: speed from DNp09 is CONNECTOME; the track, rules and betting are GAME RULES; the order is a MODEL PREDICTION. Odds are flat in this build ({:.1}x).\n",
                 a.race_pick + 1,
                 a.wallet.points,
-                points::decimal_odds(1.0 / a.race_lanes as f32)
+                points::decimal_odds(1.0 / a.race_lanes as f64)
             );
             if !a.result.is_empty() {
                 s += &format!("\n{}", a.result.join("\n"));
@@ -784,7 +790,7 @@ fn collect(mut a: ResMut<Arcade>, mut notes: ResMut<Notes>, time: Res<Time<Real>
                     l.lures_touched.len()
                 ));
             }
-            let odds = points::decimal_odds(1.0 / lanes.len() as f32);
+            let odds = points::decimal_odds(1.0 / lanes.len() as f64);
             let won = order.first() == Some(&pick);
             match a.wallet.settle(stake, odds, won, &format!("race lane {}", pick + 1)) {
                 Ok(d) => lines.push(format!(
