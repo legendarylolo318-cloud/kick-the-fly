@@ -950,3 +950,406 @@ fn py_g_2g(x: f64) -> String {
     let s = format!("{x:.dec$}");
     if s.contains('.') { s.trim_end_matches('0').trim_end_matches('.').to_string() } else { s }
 }
+
+// --- left/right asymmetry audit and the benchmark ------------------------------------------------------------------------------------
+const ASYM_ROWS: [[&str; 11]; 6] = [
+    [
+        "DNa01",
+        "Steering descending command",
+        "1 / 1",
+        "393 / 402",
+        "577 / 577",
+        "316 / 311",
+        "532 / 532",
+        "2.4 / 3.0 Hz",
+        "2.2 / 3.2 Hz",
+        "+0.60 Hz",
+        "+1.00 Hz",
+    ],
+    [
+        "DNa02",
+        "Sharp steering command",
+        "1 / 1",
+        "695 / 716",
+        "1084 / 1084",
+        "339 / 322",
+        "534 / 534",
+        "6.0 / 5.6 Hz",
+        "5.6 / 6.6 Hz",
+        "-0.40 Hz",
+        "+1.00 Hz",
+    ],
+    [
+        "LC10",
+        "Courtship tracking / fixation",
+        "479 / 481",
+        "78 / 97",
+        "86 / 106",
+        "54 / 60",
+        "72 / 80",
+        "3.8 / 3.9 Hz",
+        "4.0 / 4.1 Hz",
+        "+0.18 Hz",
+        "+0.07 Hz",
+    ],
+    [
+        "LPLC2",
+        "Rapid looming escape",
+        "94 / 91",
+        "232 / 283",
+        "243 / 295",
+        "93 / 97",
+        "125 / 131",
+        "10.2 / 6.5 Hz",
+        "10.5 / 7.7 Hz",
+        "-3.66 Hz",
+        "-2.79 Hz",
+    ],
+    [
+        "LC4",
+        "Collision looming avoidance",
+        "112 / 90",
+        "191 / 224",
+        "210 / 244",
+        "79 / 85",
+        "116 / 125",
+        "0.7 / 1.1 Hz",
+        "0.8 / 0.9 Hz",
+        "+0.38 Hz",
+        "+0.13 Hz",
+    ],
+    [
+        "DNp01",
+        "Giant fiber: escape takeoff",
+        "1 / 1",
+        "558 / 482",
+        "836 / 836",
+        "136 / 125",
+        "200 / 200",
+        "6.6 / 6.2 Hz",
+        "7.6 / 8.6 Hz",
+        "-0.40 Hz",
+        "+1.00 Hz",
+    ],
+];
+
+/// Lab > Asymmetry audit (`lab/lab.py:page_asymmetry`): the recorded table of the raw and the mirror-averaged connectome. The mirror switch is
+/// the setting `brain.mirror_weights` (the game's symmetrised-weights rule; see PORTING.md for what this build does with it).
+pub struct LabAsymmetry;
+
+impl Page for LabAsymmetry {
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
+    fn draw(&mut self, m: &mut Menu, cv: &mut Canvas, rect: Rect, ctx: &mut Ctx) {
+        let f = m.fonts();
+        m.text(cv, "LEFT / RIGHT ASYMMETRY AUDIT", (rect.x + 24, rect.y + 16), INK, &f.head, Anchor::TopLeft);
+        let top = m.wrapped(
+            cv,
+            "Audit bilateral differences in connectome structure and spontaneous turning bias.",
+            (rect.x + 24, m.under_heading(rect).max(rect.y + 50)),
+            rect.w - 48,
+            LABEL,
+            &f.small,
+            2,
+        ) + 8;
+        let body = Rect::new(rect.x + 16, top, rect.w - 32, rect.bottom() - 70 - top);
+        let key = "lab_asymmetry";
+        let off = m.scroll_offset(key);
+        m.begin_clip(cv, body);
+        let mut y = body.y + 4 - off;
+        let (fs, fb) = (&f.small, &f.bold);
+        let lh = fs.linesize;
+        let mirror = ctx.cfg.get_bool("brain.mirror_weights");
+        let chip_col: Color = if mirror { [240, 160, 60] } else { [100, 180, 240] };
+        let chip_txt = if mirror { "GAME RULE: MIRROR-AVERAGED" } else { "CONNECTOME: RAW DATA" };
+        let bias_txt = if mirror { "+1.00 Hz (symmetric weights)" } else { "+0.10 Hz (right turn bias)" };
+        let expl = "In the raw MaleCNS v1.0 connectome, bilateral asymmetries arise from both true biology and uneven electron microscopy (EM) reconstruction and proofreading depth between hemispheres. Descending steering neurons DNa01 and DNa02 drive a mild spontaneous rightward turning bias in quiet walking. Mirror-averaging synaptic weights across the 77,507 bilateral left/right pairs (155,014 neurons) enforces exact structural symmetry. Because this alters real connectome data, it is tagged strictly as a Game Rule.";
+        let cw = body.w - 12;
+        let n_expl = Menu::fit_lines(fs, expl, cw - 28, 99).0.len() as i32;
+        let chip_w = fs.size(chip_txt) + 16;
+        let bias_line = format!("Baseline turning bias: {bias_txt}");
+        let bias_below = chip_w + 24 + fb.size(&bias_line) > cw - 14;
+        let card_h = 10 + lh + 6 + if bias_below { fb.linesize + 6 } else { 0 } + n_expl * lh + 12;
+        let card = Rect::new(body.x, y, cw, card_h);
+        cv.fill_rect(card, [24, 28, 38], 8);
+        cv.stroke_rect(card, [45, 52, 68], 8);
+        let chip = Rect::new(card.x + 12, card.y + 10, chip_w, lh + 4);
+        cv.fill_rect(chip, [15, 18, 26], 4);
+        cv.stroke_rect(chip, chip_col, 4);
+        m.text(cv, chip_txt, chip.center(), chip_col, fs, Anchor::Center);
+        let yy = if bias_below {
+            m.text(cv, &bias_line, (card.x + 14, chip.bottom() + 6), INK, fb, Anchor::TopLeft);
+            chip.bottom() + 6 + fb.linesize + 6
+        } else {
+            m.text(cv, &bias_line, (chip.right() + 14, chip.center().1), INK, fb, Anchor::MidLeft);
+            chip.bottom() + 6
+        };
+        m.wrapped(cv, expl, (card.x + 14, yy), cw - 28, TEXT, fs, 99);
+        y += card_h + 10;
+        y = m.wrapped(
+            cv,
+            &format!(
+                "Recorded from python kick_the_fly.py --headless --audit-asymmetry{} (seed 0, a 5 s calm run, CPU backend). Partners: the number of distinct pre- (in) or postsynaptic (out) partner neurons, averaged over each side's neurons of the type; not synapse counts.",
+                if mirror { " --mirror-weights" } else { "" }
+            ),
+            (body.x + 4, y),
+            cw - 8,
+            LABEL,
+            fs,
+            6,
+        ) + 8;
+        let heads = ["Count L/R", "In-partners L/R", "Out-partners L/R", "Calm rate L/R", "Diff (R-L)"];
+        let pick = |r: &[&'static str; 11], a: usize, b: usize| if mirror { r[b] } else { r[a] };
+        let cells: Vec<[&str; 5]> = ASYM_ROWS.iter().map(|r| [r[2], pick(r, 3, 4), pick(r, 5, 6), pick(r, 7, 8), pick(r, 9, 10)]).collect();
+        let name_w = ASYM_ROWS.iter().map(|r| fb.size(r[0])).max().unwrap_or(0).max(fb.size("Type")) + 16;
+        let col_w: Vec<i32> = (0..5).map(|i| fs.size(heads[i]).max(cells.iter().map(|c| fs.size(c[i])).max().unwrap_or(0)) + 16).collect();
+        let role_max = ASYM_ROWS.iter().map(|r| fs.size(r[1])).max().unwrap_or(0) + 16;
+        let role_inline = name_w + role_max + col_w.iter().sum::<i32>() <= cw - 28;
+        let role_w = if role_inline { role_max } else { 0 };
+        let spare = ((cw - 28) - (name_w + role_w + col_w.iter().sum::<i32>())).max(0);
+        let mut xs = Vec::new();
+        let mut x = 14 + name_w + role_w;
+        for w in &col_w {
+            xs.push(x);
+            x += w + spare / 5;
+        }
+        let hdr = Rect::new(body.x, y, cw, 32.max(lh + 12));
+        cv.fill_rect(hdr, [32, 38, 52], 6);
+        m.text(cv, "Type", (hdr.x + 14, hdr.center().1), INK, fb, Anchor::MidLeft);
+        if role_inline {
+            m.text(cv, "Functional role", (hdr.x + 14 + name_w, hdr.center().1), LABEL, fs, Anchor::MidLeft);
+        }
+        for (xx, h) in xs.iter().zip(heads) {
+            m.text(cv, h, (hdr.x + xx, hdr.center().1), LABEL, fs, Anchor::MidLeft);
+        }
+        y += hdr.h + 6;
+        let row_h = if role_inline { 36.max(fb.linesize + 12) } else { fb.linesize + lh + 14 };
+        for (r, c) in ASYM_ROWS.iter().zip(&cells) {
+            let rbox = Rect::new(body.x, y, cw, row_h);
+            cv.fill_rect(rbox, [20, 24, 33], 6);
+            let cy = if role_inline {
+                m.text(cv, r[0], (rbox.x + 14, rbox.center().1), INK, fb, Anchor::MidLeft);
+                m.text(cv, r[1], (rbox.x + 14 + name_w, rbox.center().1), [150, 180, 220], fs, Anchor::MidLeft);
+                rbox.center().1
+            } else {
+                m.text(cv, r[0], (rbox.x + 14, rbox.y + 6), INK, fb, Anchor::TopLeft);
+                m.text(cv, r[1], (rbox.x + 14, rbox.y + 6 + fb.linesize), [150, 180, 220], fs, Anchor::TopLeft);
+                rbox.y + 6 + fb.linesize / 2
+            };
+            for (i, (xx, v)) in xs.iter().zip(c).enumerate() {
+                let mut col = TEXT;
+                if i == c.len() - 1 {
+                    let val: f64 = v.replace(" Hz", "").parse().unwrap_or(0.0);
+                    col = if val.abs() < 0.2 { GOOD } else { [240, 160, 60] };
+                }
+                m.text(cv, v, (rbox.x + xx, cy), col, fs, Anchor::MidLeft);
+            }
+            y += row_h + 6;
+        }
+        m.set_content_h(key, (y + off - body.bottom() + 8).max(0));
+        m.end_clip(cv);
+        let btn = if mirror { "Mirror weights: ON [Rule]" } else { "Mirror weights: OFF [Raw]" };
+        let bw = 250.max(fb.size(btn) + 32);
+        m.button(
+            cv,
+            Rect::new(rect.x + 24, rect.bottom() - 58, bw, 42),
+            btn,
+            Act::Custom("mirror".into()),
+            "asymmetry:toggle_mirror",
+            Style::Normal,
+            true,
+            Some("Toggle bilateral weight symmetrization [GAME RULE]"),
+            false,
+            None,
+        );
+        m.button(
+            cv,
+            Rect::new(rect.right() - 164, rect.bottom() - 58, 140, 42),
+            "Back",
+            Act::Back,
+            "asymmetry:back",
+            Style::Primary,
+            true,
+            None,
+            false,
+            None,
+        );
+    }
+
+    fn custom(&mut self, m: &mut Menu, name: &str, _text: Option<&str>, ctx: &mut Ctx) {
+        if name == "mirror" {
+            let on = !ctx.cfg.get_bool("brain.mirror_weights");
+            m.set_setting(ctx.cfg, "brain.mirror_weights", &json!(on), true);
+        }
+    }
+}
+
+/// Lab > Simulation benchmark (`lab/lab.py:page_benchmark`).
+///
+/// Host: query `benchmark_state` = `{results: <benchmark.run dict + timestamp> | null, system: {...}, backend, device, status: string | null}`;
+/// command `start_benchmark`.
+pub struct LabBenchmark;
+
+impl Page for LabBenchmark {
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
+    fn draw(&mut self, m: &mut Menu, cv: &mut Canvas, rect: Rect, ctx: &mut Ctx) {
+        let f = m.fonts();
+        let q = ctx.host.query("benchmark_state");
+        m.text(cv, "SIMULATION BENCHMARK", (rect.x + 24, rect.y + 16), INK, &f.head, Anchor::TopLeft);
+        let top = (rect.y + 80).max(m.subtitle(
+            cv,
+            rect,
+            "Throughput, real-time pace, neurons/sec and memory footprint across 1, 8, and 16 flies.",
+            Some(rect.y + 50),
+            2,
+        ));
+        let body = Rect::new(rect.x + 16, top, rect.w - 32, rect.bottom() - 70 - top);
+        let key = "lab_benchmark";
+        let off = m.scroll_offset(key);
+        m.begin_clip(cv, body);
+        let mut y = body.y + 4 - off;
+        let res = &q["results"];
+        let sys = if res.is_object() { &res["system"] } else { &q["system"] };
+        let s = |v: &serde_json::Value, k: &str| v[k].as_str().map_or_else(|| v[k].to_string(), String::from);
+        let backend = res["backend"].as_str().or(q["backend"].as_str()).unwrap_or("CPU (NumPy)").to_string();
+        let device = res["device"].as_str().or(q["device"].as_str()).unwrap_or("CPU").to_string();
+        let lines: Vec<(String, Color, &crate::font::Font)> = vec![
+            (format!("CPU: {} ({} threads)", s(sys, "cpu_model"), sys["cpu_count"]), INK, &f.bold),
+            (format!("OS: {}  ·  Python: {}", s(sys, "os"), s(sys, "python")), TEXT, &f.small),
+            (format!("Sim Backend: {backend}  ·  Device: {device}"), [120, 220, 240], &f.small),
+            ("Connectome: Janelia MaleCNS v1.0 (166,700 neurons, 10,272,125 connections)".to_string(), [140, 180, 220], &f.small),
+        ];
+        let cw = body.w - 12;
+        let card_h = 20 + lines.iter().map(|(t, _, fo)| Menu::fit_lines(fo, t, cw - 28, 3).0.len() as i32 * fo.linesize + 2).sum::<i32>();
+        let card = Rect::new(body.x, y, cw, card_h);
+        cv.fill_rect(card, [24, 28, 38], 8);
+        cv.stroke_rect(card, [45, 52, 68], 8);
+        let mut yy = card.y + 10;
+        for (t, col, fo) in &lines {
+            yy = m.wrapped(cv, t, (card.x + 14, yy), cw - 28, *col, fo, 3) + 2;
+        }
+        y += card_h + 16;
+        if let Some(records) = res["records"].as_array() {
+            let hdr = Rect::new(body.x, y, body.w - 12, 32);
+            cv.fill_rect(hdr, [32, 38, 52], 6);
+            let cy = hdr.center().1;
+            m.text(cv, "Flies", (hdr.x + 14, cy), INK, &f.bold, Anchor::MidLeft);
+            for (x, label) in [(80, "Paced Rate"), (230, "Real-Time"), (340, "Uncapped Rate"), (490, "Max Speedup"), (620, "Throughput")] {
+                m.text(cv, label, (hdr.x + x, cy), LABEL, &f.small, Anchor::MidLeft);
+            }
+            m.text(cv, "Memory", (hdr.right() - 14, cy), LABEL, &f.small, Anchor::MidRight);
+            y += 32 + 6;
+            for r in records {
+                let rbox = Rect::new(body.x, y, body.w - 12, 36);
+                cv.fill_rect(rbox, [20, 24, 33], 6);
+                let cy = rbox.center().1;
+                let g = |k: &str| r[k].as_f64().unwrap_or(0.0);
+                m.text(cv, &format!("{} flies", r["flies"]), (rbox.x + 14, cy), INK, &f.bold, Anchor::MidLeft);
+                m.text(cv, &format!("{:.1} steps/s", g("paced_steps_per_s")), (rbox.x + 80, cy), TEXT, &f.small, Anchor::MidLeft);
+                let rt = g("paced_realtime_ratio");
+                let rt_col = if rt >= 0.99 {
+                    GOOD
+                } else if rt >= 0.8 {
+                    [240, 160, 60]
+                } else {
+                    BAD
+                };
+                m.text(cv, &format!("{rt:.2}x"), (rbox.x + 230, cy), rt_col, &f.bold, Anchor::MidLeft);
+                let lat = r["uncapped_latency_ms"]
+                    .as_f64()
+                    .unwrap_or_else(|| (1000.0 / g("uncapped_steps_per_s").max(1e-6) * 100.0).round() / 100.0);
+                m.text(
+                    cv,
+                    &format!("{:.1} st/s ({lat:.2}ms)", g("uncapped_steps_per_s")),
+                    (rbox.x + 340, cy),
+                    TEXT,
+                    &f.small,
+                    Anchor::MidLeft,
+                );
+                m.text(
+                    cv,
+                    &format!("{:.2}x", g("uncapped_realtime_ratio")),
+                    (rbox.x + 490, cy),
+                    [140, 200, 240],
+                    &f.small,
+                    Anchor::MidLeft,
+                );
+                m.text(
+                    cv,
+                    &format!("{:.1} M neurons/s", g("neurons_per_sec") / 1e6),
+                    (rbox.x + 620, cy),
+                    [170, 230, 190],
+                    &f.small,
+                    Anchor::MidLeft,
+                );
+                m.text(cv, &format!("{:.0} MB", g("memory_mb")), (rbox.right() - 14, cy), LABEL, &f.small, Anchor::MidRight);
+                y += 36 + 6;
+            }
+            m.text(
+                cv,
+                &format!(
+                    "Measured at {}  ·  {:.0}s per condition  ·  Target: 200 steps/s",
+                    res["timestamp"].as_str().unwrap_or(""),
+                    res["seconds_per_run"].as_f64().unwrap_or(3.0)
+                ),
+                (body.x + 12, y + 10),
+                LABEL,
+                &f.small,
+                Anchor::TopLeft,
+            );
+            y += 36;
+        } else {
+            m.wrapped(
+                cv,
+                "No benchmark results found. Click 'Run Benchmark' to measure multi-fly simulation throughput.",
+                (body.x + 14, y + 10),
+                body.w - 40,
+                TEXT,
+                &f.text,
+                3,
+            );
+            y += 40;
+        }
+        m.set_content_h(key, (y + off - body.bottom() + 8).max(0));
+        m.end_clip(cv);
+        if let Some(status) = q["status"].as_str() {
+            m.text(cv, &format!("Benchmarking... {status}"), (rect.x + 24, rect.bottom() - 48), AMBER, &f.bold, Anchor::TopLeft);
+        } else {
+            m.button(
+                cv,
+                Rect::new(rect.x + 24, rect.bottom() - 58, 220, 42),
+                "Run Benchmark",
+                Act::Custom("run".into()),
+                "benchmark:run",
+                Style::Normal,
+                true,
+                Some("Measure simulation throughput across 1, 8, 16 flies"),
+                false,
+                None,
+            );
+        }
+        m.button(
+            cv,
+            Rect::new(rect.right() - 164, rect.bottom() - 58, 140, 42),
+            "Back",
+            Act::Back,
+            "benchmark:back",
+            Style::Primary,
+            true,
+            None,
+            false,
+            None,
+        );
+    }
+
+    fn custom(&mut self, _m: &mut Menu, name: &str, _text: Option<&str>, ctx: &mut Ctx) {
+        if name == "run" {
+            ctx.host.command("start_benchmark", json!({}));
+        }
+    }
+}

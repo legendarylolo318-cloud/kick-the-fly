@@ -50,8 +50,14 @@ pub const ASSAY_KINDS: [(&str, &str); 8] = [
     ("sleep_deprivation", "Sleep deprivation"),
 ];
 
+struct BenchJob {
+    status: Arc<Mutex<(String, Option<Value>)>>,
+}
+
 #[derive(Resource, Default)]
 pub struct LabRuns {
+    bench: Option<BenchJob>,
+    bench_results: Option<Value>,
     job: Option<Job>,
     assay: Option<AssayJob>,
     assay_result: Option<Value>,
@@ -117,6 +123,38 @@ impl LabRuns {
 
     pub fn busy(&self) -> bool {
         self.job.is_some()
+    }
+
+    /// The page's `benchmark_state` (see `ktf_ui::pages::lab::LabBenchmark`).
+    pub fn bench_load(&mut self) {
+        if self.bench_results.is_none() {
+            let path = ktf_data::paths::get().state_dir.join(fly_sim::benchmark::FILE);
+            self.bench_results = std::fs::read_to_string(path).ok().and_then(|t| serde_json::from_str(&t).ok());
+        }
+    }
+
+    pub fn bench_query(&self) -> Value {
+        let status = self.bench.as_ref().map(|b| b.status.lock().unwrap_or_else(PoisonError::into_inner).0.clone());
+        json!({"results": self.bench_results, "system": fly_sim::benchmark::system_info(), "backend": "Rust CPU (rayon)", "device": "CPU", "status": status})
+    }
+
+    pub fn start_benchmark(&mut self, shared: Shared) {
+        if self.bench.is_some() {
+            return;
+        }
+        let status = Arc::new(Mutex::new(("starting".to_string(), None)));
+        let st = status.clone();
+        thread::Builder::new()
+            .name("benchmark".into())
+            .spawn(move || {
+                let mut res = fly_sim::benchmark::run(&shared.weights, &shared.labels, &[1, 8, 16], 2.5, |d, n, label| {
+                    st.lock().unwrap_or_else(PoisonError::into_inner).0 = format!("{label} ({d}/{n})");
+                });
+                res["timestamp"] = json!(crate::savestate_play::utc_stamp_pub());
+                st.lock().unwrap_or_else(PoisonError::into_inner).1 = Some(res);
+            })
+            .ok();
+        self.bench = Some(BenchJob { status });
     }
 
     /// The page's `assay_state` (see `ktf_ui::pages::lab::LabAssays`).
@@ -256,6 +294,18 @@ impl LabRuns {
 
     /// Take a finished job's result: save it where Python does and show it.
     pub fn poll(&mut self) {
+        if let Some(b) = &self.bench {
+            let done = b.status.lock().unwrap_or_else(PoisonError::into_inner).1.take();
+            if let Some(res) = done {
+                let path = ktf_data::paths::get().state_dir.join(fly_sim::benchmark::FILE);
+                if let Some(d) = path.parent() {
+                    let _ = std::fs::create_dir_all(d);
+                }
+                let _ = std::fs::write(path, serde_json::to_string_pretty(&res).unwrap_or_default());
+                self.bench_results = Some(res);
+                self.bench = None;
+            }
+        }
         if let Some(j) = &self.assay {
             let (finished, errored) = {
                 let mut s = j.state.lock().unwrap_or_else(PoisonError::into_inner);
@@ -303,6 +353,9 @@ fn tick(mut runs: ResMut<LabRuns>, screen: Res<crate::menu_ui::MenuScreen>) {
     if screen.0 == "lab_validation" || screen.0 == "lab" {
         runs.refresh();
     }
+    if screen.0 == "lab_benchmark" {
+        runs.bench_load();
+    }
     runs.poll();
 }
 
@@ -310,6 +363,18 @@ pub struct LabPlugin;
 
 impl Plugin for LabPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<LabRuns>().add_systems(Update, tick);
+        app.init_resource::<LabRuns>().add_systems(Update, (tick, sync_mirror));
+    }
+}
+
+/// `brain.mirror_weights` from the config (the Lab asymmetry page's toggle, `--mirror-weights`) to the sim thread, when it changes.
+fn sync_mirror(link: Res<crate::app::SimLink>, cfg: Res<crate::menu_ui::UserConfig>, mut last: Local<Option<bool>>) {
+    let on = cfg.0.get_bool("brain.mirror_weights");
+    if *last != Some(on) {
+        // nothing to undo on the first look when it is off
+        if last.is_some() || on {
+            link.0.send(crate::sim_thread::Command::SetMirror(on));
+        }
+        *last = Some(on);
     }
 }

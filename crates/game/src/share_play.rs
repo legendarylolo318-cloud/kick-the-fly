@@ -165,6 +165,12 @@ fn apply_queue(
                 }
                 continue; // no flash for a slider drag
             }
+            "start_benchmark" => {
+                if let Some(shared) = link.0.shared.lock().unwrap_or_else(PoisonError::into_inner).clone() {
+                    runs.start_benchmark(shared);
+                }
+                continue;
+            }
             "start_assay" => {
                 if let Some(shared) = link.0.shared.lock().unwrap_or_else(PoisonError::into_inner).clone() {
                     let mut a = p.clone();

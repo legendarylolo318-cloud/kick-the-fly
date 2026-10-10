@@ -571,3 +571,36 @@ fn lab_assays_page() {
         compare(name, &cv.to_rgb_over(BG), 0.02);
     }
 }
+
+#[test]
+fn lab_asymmetry_and_benchmark_pages() {
+    struct H(serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            if key == "benchmark_state" { serde_json::json!({"results": self.0, "status": null}) } else { serde_json::Value::Null }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    let bench: serde_json::Value = serde_json::from_slice(
+        &std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/ui_reference/lab_benchmark_fixture.json")).unwrap(),
+    )
+    .unwrap();
+    for (name, screen, mirror) in [
+        ("page_lab_asymmetry.png", "lab_asymmetry", false),
+        ("page_lab_asymmetry_mirror.png", "lab_asymmetry", true),
+        ("page_lab_benchmark.png", "lab_benchmark", false),
+    ] {
+        let mut cfg = Config::new(None);
+        if mirror {
+            cfg.set("brain.mirror_weights", &serde_json::json!(true)).unwrap();
+        }
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        m.show(screen);
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(bench.clone()));
+        compare(name, &cv.to_rgb_over(BG), 0.02);
+    }
+}

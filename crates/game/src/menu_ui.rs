@@ -350,7 +350,8 @@ fn input(
         .with_share(share_q.0.clone())
         .with_lab(lab.json())
         .with_validation(if ui.menu.is_open() { runs.query() } else { Value::Null })
-        .with_assay(if ui.menu.is_open() { runs.assay_query(cfg.0.get_i64("brain.seed")) } else { Value::Null });
+        .with_assay(if ui.menu.is_open() { runs.assay_query(cfg.0.get_i64("brain.seed")) } else { Value::Null })
+        .with_bench(if ui.menu.is_open() { runs.bench_query() } else { Value::Null });
     if let Some(text) = hub.flash.take() {
         ui.menu.flash(&text, ktf_ui::theme::GOOD, 5.0);
     }
@@ -540,7 +541,8 @@ fn draw(
             .with_lesion(hub.sizes.clone(), hub.saved.clone())
             .with_lab(lab.json())
             .with_validation(if screen_is_validation { runs.query() } else { Value::Null })
-            .with_assay(if screen_is_assays { runs.assay_query(brain_seed) } else { Value::Null }),
+            .with_assay(if screen_is_assays { runs.assay_query(brain_seed) } else { Value::Null })
+            .with_bench(if screen.0 == "lab_benchmark" { runs.bench_query() } else { Value::Null }),
     );
     if let Some(mut img) = images.get_mut(&*image) {
         img.data = Some(canvas.px.clone());
@@ -592,6 +594,7 @@ pub struct GameHost {
     lab: Value,
     validation: Value,
     assay: Value,
+    bench: Value,
 }
 
 impl GameHost {
@@ -608,6 +611,11 @@ impl GameHost {
 
     pub fn with_lab(mut self, values: Value) -> Self {
         self.lab = values;
+        self
+    }
+
+    pub fn with_bench(mut self, v: Value) -> Self {
+        self.bench = v;
         self
     }
 
@@ -644,6 +652,7 @@ impl GameHost {
             lab: Value::Null,
             validation: Value::Null,
             assay: Value::Null,
+            bench: Value::Null,
         }
     }
 }
@@ -681,6 +690,7 @@ impl PageHost for GameHost {
             "lab_params" => self.lab.clone(),
             "validation_results" => self.validation.clone(),
             "assay_state" => self.assay.clone(),
+            "benchmark_state" => self.bench.clone(),
             "lab_pages" => ktf_data::labparams::pages().clone(),
             "lab_engine" => json!("Rust · CPU (rayon)"),
             "lab_notes" => json!([]),
@@ -710,7 +720,7 @@ impl PageHost for GameHost {
                 (_, Err(e)) => json!({"error": e}),
                 (None, _) => json!({"error": "the game is not ready to apply a code"}),
             },
-            "start_assay" | "cancel_assay" | "export_assay" => {
+            "start_assay" | "cancel_assay" | "export_assay" | "start_benchmark" => {
                 if let Some(q) = &self.share {
                     q.lock().unwrap_or_else(std::sync::PoisonError::into_inner).push((cmd.into(), args));
                 }

@@ -245,9 +245,9 @@ against the pygame version (screenshot pair, or the code read side by side). Any
 - [~] Menu page `lab`: hub drawn from `lab/lab.py:page_hub` (the page list is `Game.lab_pages` as data, `ktf_data::labparams::pages()`; only ported pages show, as in Python's `page in m.pages`); 2 screenshot pairs (plain, with modified parameters) 0.16-0.24 %. The `Modified connectome` note waits for `lab_wiring`.
 - [~] Menu page `lab_assays`: the page (assay kinds, flies slider, seeds, surgery picker with Silence/Stimulate, progress and Cancel, result chart with 95 % interval bars, per-level table, paired comparison, Export results = `result.json` + `per_fly.csv`) matches pygame on 4 states (empty, T-maze, looming with surgery, sugar; <= 2 % clearly different pixels). Engine `fly_sim::assay_jobs` = `labjobs.run_sync` for **T-maze, looming and sugar** (`looming_fly`, `sugar_fly`, `summarize`, `compare` with the paired Wilcoxon/t and Fisher tests, `labstats.mean_ci`): seeds 2000-2001 with and without a surgery equal Python's summaries (counts and ratios exact, f32-derived memory numbers to 1e-5; `tests/golden/make_assay_jobs.py`). **Not done:** the other five assays (orchard, thermogenetic escape, predator escape, hum demo, sleep deprivation) are listed and answer "not part of this build yet"; workers are threads, not processes.
 - [x] Menu page `lab_assumptions`: all 53 cards from the Python table (`lab_assumptions.json`), card heights measured from the font as in Python; 2 screenshot pairs (top, scrolled) 1.2-1.9 % (glyph anti-aliasing on dense small text; limit 2 %).
-- [ ] Menu page `lab_asymmetry`
+- [x] Menu page `lab_asymmetry` — matched with pygame (normal and mirrored). The Mirror toggle really runs every fly on `simcore.symmetrize_weights` (`fly_sim::mirror`, nnz and sum of the real pack equal Python's); learning restarts when it flips (Python keeps the old plastic state in a matrix it replaced).
 - [ ] Menu page `lab_autopsy`
-- [ ] Menu page `lab_benchmark`
+- [x] Menu page `lab_benchmark` — matched with pygame (idle and results); the job (`fly_sim::benchmark`, Start button, `benchmark_results.json`) measures steps/s per fly count on this machine, so numbers are machine-specific by nature.
 - [ ] Menu page `lab_clamp`
 - [ ] Menu page `lab_classroom`
 - [ ] Menu page `lab_critical`

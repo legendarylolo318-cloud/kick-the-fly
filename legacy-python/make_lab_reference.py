@@ -63,4 +63,29 @@ if __name__ == "__main__":
     (out / "lab_assays_fixture.json").write_text(json.dumps(dict(
         kinds=[[k, labjobs.ASSAY_LABEL[k]] for k in labjobs.ASSAYS], options=[[lbl, list(sp) if sp else []] for lbl, sp in opts],
         results={k: gold[k] for k in ("tmaze", "looming_surgery", "sugar")}, surgery_label_7=opts[7][0])))
+    R.render("lab_asymmetry", "Graphics", out / "page_lab_asymmetry.png", prep=prep_for("lab_asymmetry"))
+    R.render("lab_asymmetry", "Graphics", out / "page_lab_asymmetry_mirror.png", prep=prep_for("lab_asymmetry"),
+             mutate=lambda c: c.set("brain.mirror_weights", True))
+    bench = {"timestamp": "2026-10-10 12:00:00", "system": {"os": "Linux-test", "cpu_count": 16, "python": "3.12.3", "cpu_model": "Test CPU @ 3.0GHz"},
+             "backend": "CPU (NumPy)", "device": "CPU", "connectome": {"neurons": 166700, "synapses": 10272125}, "seconds_per_run": 2.5,
+             "records": [dict(flies=1, paced_steps_per_s=200.0, paced_min_steps_per_s=200.0, paced_realtime_ratio=1.0, uncapped_steps_per_s=412.5,
+                              uncapped_latency_ms=2.424, uncapped_realtime_ratio=2.06, agg_uncapped_steps_per_s=412.5, neurons_per_sec=68770000.0,
+                              active_fraction=0.0042, synapses_per_sec=1.2e8, memory_mb=1500.2),
+                         dict(flies=8, paced_steps_per_s=171.3, paced_min_steps_per_s=160.0, paced_realtime_ratio=0.857, uncapped_steps_per_s=60.1,
+                              uncapped_latency_ms=16.639, uncapped_realtime_ratio=0.3, agg_uncapped_steps_per_s=480.8, neurons_per_sec=80150000.0,
+                              active_fraction=0.0042, synapses_per_sec=1.3e8, memory_mb=3100.7),
+                         dict(flies=16, paced_steps_per_s=80.0, paced_min_steps_per_s=70.0, paced_realtime_ratio=0.4, uncapped_steps_per_s=30.0,
+                              uncapped_latency_ms=33.333, uncapped_realtime_ratio=0.15, agg_uncapped_steps_per_s=480.0, neurons_per_sec=80000000.0,
+                              active_fraction=0.0042, synapses_per_sec=1.3e8, memory_mb=5000.0)]}
+    (out / "lab_benchmark_fixture.json").write_text(json.dumps(bench))
+
+    def bench_prep(res):
+        def prep(m):
+            prep_for("lab_benchmark")(m)
+            m.host._benchmark_results = res
+            from kickthefly.lab import benchmark as bm
+            bm.load_benchmark_results = lambda *a, **k: res
+        return prep
+
+    R.render("lab_benchmark", "Graphics", out / "page_lab_benchmark.png", prep=bench_prep(bench))
     print("wrote", out)

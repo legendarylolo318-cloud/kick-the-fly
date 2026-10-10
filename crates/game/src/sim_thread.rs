@@ -113,6 +113,8 @@ pub enum Command {
     DexKnown(Vec<String>),
     /// `brain.neurodex` on/off.
     DexEnabled(bool),
+    /// `brain.mirror_weights`: run every fly on the left/right-averaged matrix (or back on the connectome). Learning starts over.
+    SetMirror(bool),
     /// `Memory.observe`: remember the Kenyon-cell pattern of a smell that is present now (the game sends it every 3rd frame).
     Observe(String),
     /// Start conditioning (`fear`, `like` or `test`) on a smell; `trials` 0 means 10.
@@ -356,7 +358,9 @@ fn run(
     let params = LifParams::default();
     let dt = Duration::from_secs_f64(params.dt_ms / 1000.0);
     let info = Arc::new(brain_info(&labels, &weights));
-    let (spawn_weights, spawn_labels) = (weights.clone(), labels.clone());
+    let original_weights = weights.clone();
+    let labels_for_mirror = labels.clone();
+    let (mut spawn_weights, spawn_labels) = (weights.clone(), labels.clone());
     let mut multi = Multi { extras: Vec::new(), focus: 0, seeds: vec![(0, cfg.seed)] };
     let mut brain = Brain::new(LifSim::new(weights, params, cfg.seed), labels);
     let mut mem = MemState::new(cfg.memory_dir.clone());
@@ -432,6 +436,26 @@ fn run(
                 Ok(Command::PokeFly { slot, region, side, strength }) => {
                     if let Some(b) = multi.brain_of(&mut brain, slot) {
                         b.poke(&region, side, strength);
+                    }
+                }
+                Ok(Command::SetMirror(on)) => {
+                    let w = if on {
+                        Arc::new(fly_sim::mirror::symmetrized_weights(&original_weights, &labels_for_mirror.instance))
+                    } else {
+                        original_weights.clone()
+                    };
+                    spawn_weights = w.clone();
+                    let had = brain.memory.is_some();
+                    *brain.sim.weights_mut() = w.clone();
+                    if had {
+                        brain.enable_memory();
+                    }
+                    for (_, b) in &mut multi.extras {
+                        let had = b.memory.is_some();
+                        *b.sim.weights_mut() = w.clone();
+                        if had {
+                            b.enable_memory();
+                        }
                     }
                 }
                 Ok(Command::SetModelParam { name, value }) => {
@@ -619,6 +643,7 @@ fn apply(
             }
             false
         }
+        Command::SetMirror(_) => false,
         Command::DexEnabled(on) => {
             dex.enabled = on;
             false
