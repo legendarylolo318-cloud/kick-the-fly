@@ -574,7 +574,26 @@ pub fn tmaze_fly(
     paired: bool,
     decision_noise: f64,
 ) -> TmazeResult {
+    tmaze_fly_with(build, &HashMap::new(), seed, cs_plus, cycles, test_trials, paired, decision_noise, &[])
+}
+
+/// As [`tmaze_fly`], with a surgery applied before the training (the Lab's assays page).
+#[allow(clippy::too_many_arguments)]
+pub fn tmaze_fly_with(
+    build: &Build,
+    g: &HashMap<&'static str, Vec<u32>>,
+    seed: u64,
+    cs_plus: &str,
+    cycles: usize,
+    test_trials: usize,
+    paired: bool,
+    decision_noise: f64,
+    surgery: &[(String, i8)],
+) -> TmazeResult {
     let mut br = build.brain_with(seed, None, 600, true);
+    if !surgery.is_empty() {
+        crate::assay_jobs::apply_surgery(&mut br, g, surgery);
+    }
     let cs_minus = if cs_plus == "odor_a" { "odor_b" } else { "odor_a" };
     rest(&mut br, 500);
     for odor in [cs_plus, cs_minus] {

@@ -44,4 +44,23 @@ if __name__ == "__main__":
     val_mod.load_results = lambda: (published, "from this build")
     R.render("lab_validation", "Graphics", out / "page_lab_validation.png", prep=prep_for("lab_validation"))
     R.render("lab_validation", "Graphics", out / "page_lab_validation_scrolled.png", prep=prep_for("lab_validation", None, 700))
+    gold = json.loads((Path(__file__).resolve().parent.parent / "tests" / "golden" / "assay_jobs.json").read_text())
+
+    def assay_prep(kind, name, surgery_i=0, flies=6, stimulate=False):
+        def prep(m):
+            prep_for("lab_assays")(m)
+            st = lab._state(m)
+            st.kind, st.flies, st.surgery_i, st.stimulate = kind, flies, surgery_i, stimulate
+            st.job, st.result = None, gold[name] if name else None
+        return prep
+
+    R.render("lab_assays", "Graphics", out / "page_lab_assays_empty.png", prep=assay_prep("tmaze", None))
+    R.render("lab_assays", "Graphics", out / "page_lab_assays_tmaze.png", prep=assay_prep("tmaze", "tmaze"))
+    R.render("lab_assays", "Graphics", out / "page_lab_assays_looming_surgery.png", prep=assay_prep("looming", "looming_surgery", surgery_i=7))
+    R.render("lab_assays", "Graphics", out / "page_lab_assays_sugar.png", prep=assay_prep("sugar", "sugar", flies=2))
+    from kickthefly.lab import labjobs
+    opts = lab.surgery_options()
+    (out / "lab_assays_fixture.json").write_text(json.dumps(dict(
+        kinds=[[k, labjobs.ASSAY_LABEL[k]] for k in labjobs.ASSAYS], options=[[lbl, list(sp) if sp else []] for lbl, sp in opts],
+        results={k: gold[k] for k in ("tmaze", "looming_surgery", "sugar")}, surgery_label_7=opts[7][0])))
     print("wrote", out)

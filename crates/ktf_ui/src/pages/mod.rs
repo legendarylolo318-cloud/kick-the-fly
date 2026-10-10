@@ -33,5 +33,6 @@ pub fn install_with(menu: &mut Menu, dex: neurodex::SharedDex) {
     menu.register_page("lab_params", Box::new(lab::LabParams));
     menu.register_page("lab_assumptions", Box::new(lab::LabAssumptions));
     menu.register_page("lab_validation", Box::new(lab::LabValidation));
+    menu.register_page("lab_assays", Box::<lab::LabAssays>::default());
     menu.register_page("whatsnew", Box::new(whatsnew::WhatsNew));
 }

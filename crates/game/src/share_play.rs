@@ -165,6 +165,25 @@ fn apply_queue(
                 }
                 continue; // no flash for a slider drag
             }
+            "start_assay" => {
+                if let Some(shared) = link.0.shared.lock().unwrap_or_else(PoisonError::into_inner).clone() {
+                    let mut a = p.clone();
+                    a["base_seed"] = json!(cfg.0.get_i64("brain.seed"));
+                    runs.start_assay(shared, &a);
+                }
+                continue;
+            }
+            "cancel_assay" => {
+                runs.cancel_assay();
+                continue;
+            }
+            "export_assay" => {
+                match runs.export_assay() {
+                    Some(f) => flash.write(MenuFlash(format!("Exported to {}", f.display()), true)),
+                    None => flash.write(MenuFlash("Export failed".into(), false)),
+                };
+                continue;
+            }
             "start_validation" => {
                 if let Some(shared) = link.0.shared.lock().unwrap_or_else(PoisonError::into_inner).clone() {
                     runs.start_validation(shared);

@@ -29,9 +29,32 @@ struct Job {
     cancel: Arc<AtomicBool>,
 }
 
+struct AssayJob {
+    state: Arc<Mutex<JobState>>,
+    cancel: Arc<AtomicBool>,
+    started: std::time::Instant,
+    workers: usize,
+    kind: String,
+    label: String,
+}
+
+/// `labjobs.ASSAYS` and `ASSAY_LABEL`, all eight as the page lists them; this build runs the first three.
+pub const ASSAY_KINDS: [(&str, &str); 8] = [
+    ("tmaze", "T-maze conditioning"),
+    ("looming", "Looming escape"),
+    ("sugar", "Sugar response"),
+    ("orchard", "Orchard feeding"),
+    ("thermo_escape", "Thermogenetic escape"),
+    ("predator_escape", "Predator escape"),
+    ("hum_demo", "Hum demo (JO-A/B)"),
+    ("sleep_deprivation", "Sleep deprivation"),
+];
+
 #[derive(Resource, Default)]
 pub struct LabRuns {
     job: Option<Job>,
+    assay: Option<AssayJob>,
+    assay_result: Option<Value>,
     results: Arc<Value>,
     source: String,
     loaded: Option<(PathBuf, SystemTime)>,
@@ -96,6 +119,92 @@ impl LabRuns {
         self.job.is_some()
     }
 
+    /// The page's `assay_state` (see `ktf_ui::pages::lab::LabAssays`).
+    pub fn assay_query(&self, base_seed: i64) -> Value {
+        let job = self.assay.as_ref().map(|j| {
+            let s = j.state.lock().unwrap_or_else(PoisonError::into_inner);
+            json!({"done": s.done, "total": s.total.max(1), "elapsed": j.started.elapsed().as_secs_f64(), "workers": j.workers, "error": s.error})
+        });
+        let options: Vec<Value> = fly_sim::assay_jobs::surgery_options().into_iter().map(|(l, specs)| json!([l, specs])).collect();
+        json!({
+            "job": job, "result": self.assay_result, "options": options, "base_seed": base_seed,
+            "kinds": ASSAY_KINDS.iter().map(|(k, l)| json!([k, l])).collect::<Vec<_>>(),
+        })
+    }
+
+    pub fn busy_assay(&self) -> bool {
+        self.assay.is_some()
+    }
+
+    pub fn assay_result(&self) -> Option<&Value> {
+        self.assay_result.as_ref()
+    }
+
+    pub fn start_assay(&mut self, shared: Shared, args: &Value) {
+        if self.assay.as_ref().is_some_and(|j| {
+            let s = j.state.lock().unwrap_or_else(PoisonError::into_inner);
+            s.finished.is_none() && s.error.is_none()
+        }) {
+            return;
+        }
+        let kind = args["kind"].as_str().unwrap_or("tmaze").to_string();
+        let flies = args["flies"].as_i64().unwrap_or(6).clamp(2, 30) as u64;
+        let base = args["base_seed"].as_i64().unwrap_or(1000);
+        let seeds: Vec<u64> = (0..flies).map(|i| (base + 2000) as u64 + i).collect();
+        let surgery: Vec<(String, i8)> = args["surgery"]
+            .as_object()
+            .map(|m| m.iter().map(|(k, v)| (k.clone(), v.as_i64().unwrap_or(-1) as i8)).collect())
+            .unwrap_or_default();
+        let label = args["label"].as_str().unwrap_or("none").to_string();
+        let state = Arc::new(Mutex::new(JobState { total: seeds.len() * if surgery.is_empty() { 1 } else { 2 }, ..Default::default() }));
+        let cancel = Arc::new(AtomicBool::new(false));
+        let workers = std::thread::available_parallelism().map_or(2, |n| n.get()).clamp(1, 4);
+        let (st, c, k, sd, sg) = (state.clone(), cancel.clone(), kind.clone(), seeds, surgery);
+        thread::Builder::new()
+            .name("assay".into())
+            .spawn(move || {
+                let res = fly_sim::assay_jobs::run_sync(&shared.weights, &shared.labels, &k, &sd, &json!({}), &sg, workers, |d, n| {
+                    let mut s = st.lock().unwrap_or_else(PoisonError::into_inner);
+                    s.done = d;
+                    s.total = n;
+                    !c.load(Ordering::Relaxed)
+                });
+                let mut s = st.lock().unwrap_or_else(PoisonError::into_inner);
+                match res {
+                    Ok(v) => s.finished = Some(v),
+                    Err(e) if e == "cancelled" => s.finished = Some(Value::Null),
+                    Err(e) => s.error = Some(e),
+                }
+            })
+            .ok();
+        self.assay_result = None;
+        self.assay = Some(AssayJob { state, cancel, started: std::time::Instant::now(), workers, kind, label });
+    }
+
+    pub fn cancel_assay(&self) {
+        if let Some(j) = &self.assay {
+            j.cancel.store(true, Ordering::Relaxed);
+        }
+    }
+
+    /// `recorder.export_result`: `result.json` and `per_fly.csv` in a new folder of the exports folder. Returns the folder.
+    pub fn export_assay(&self) -> Option<PathBuf> {
+        let res = self.assay_result.as_ref()?;
+        let kind = res["kind"].as_str().unwrap_or("result");
+        let folder = ktf_data::paths::get().data_dir.join("exports").join(format!("{}-{kind}", crate::savestate_play::utc_stamp_compact()));
+        std::fs::create_dir_all(&folder).ok()?;
+        std::fs::write(folder.join("result.json"), serde_json::to_string_pretty(res).ok()?).ok()?;
+        let mut csv = String::from("group,seed,score\n");
+        for group in ["treated", "control"] {
+            let (Some(per), Some(seeds)) = (res[group]["per_fly"].as_array(), res["seeds"].as_array()) else { continue };
+            for (s, v) in seeds.iter().zip(per) {
+                csv.push_str(&format!("{group},{s},{}\n", v.as_f64().map_or(String::new(), |x| format!("{x}"))));
+            }
+        }
+        std::fs::write(folder.join("per_fly.csv"), csv).ok()?;
+        Some(folder)
+    }
+
     pub fn start_validation(&mut self, shared: Shared) {
         if self.job.is_some() {
             return;
@@ -147,6 +256,22 @@ impl LabRuns {
 
     /// Take a finished job's result: save it where Python does and show it.
     pub fn poll(&mut self) {
+        if let Some(j) = &self.assay {
+            let (finished, errored) = {
+                let mut s = j.state.lock().unwrap_or_else(PoisonError::into_inner);
+                (s.finished.take(), s.error.is_some())
+            };
+            if let Some(mut v) = finished {
+                if !v.is_null() {
+                    v["label"] = json!(ASSAY_KINDS.iter().find(|k| k.0 == j.kind).map_or("", |k| k.1));
+                    v["surgery_label"] = json!(j.label);
+                    self.assay_result = Some(v);
+                }
+                self.assay = None;
+            } else if errored {
+                // the error stays on the page until the next run
+            }
+        }
         let Some(job) = &self.job else { return };
         let finished = job.state.lock().unwrap_or_else(PoisonError::into_inner).finished.take();
         let Some(res) = finished else { return };

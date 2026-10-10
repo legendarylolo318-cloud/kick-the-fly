@@ -349,7 +349,8 @@ fn input(
         .with_lesion(hub.sizes.clone(), hub.saved.clone())
         .with_share(share_q.0.clone())
         .with_lab(lab.json())
-        .with_validation(if ui.menu.is_open() { runs.query() } else { Value::Null });
+        .with_validation(if ui.menu.is_open() { runs.query() } else { Value::Null })
+        .with_assay(if ui.menu.is_open() { runs.assay_query(cfg.0.get_i64("brain.seed")) } else { Value::Null });
     if let Some(text) = hub.flash.take() {
         ui.menu.flash(&text, ktf_ui::theme::GOOD, 5.0);
     }
@@ -522,6 +523,8 @@ fn draw(
     let k = window.scale_factor() / lay.0.scale;
     let mouse = window.cursor_position().map_or((-1, -1), |p| ((p.x * k) as i32, (p.y * k) as i32));
     let screen_is_validation = screen.0 == "lab_validation";
+    let screen_is_assays = screen.0 == "lab_assays";
+    let brain_seed = cfg.0.get_i64("brain.seed");
     let arcade_json = if menu_screen_is_open(&ui) { hub.snapshot(cfg.0.get_str("access.palette")) } else { Value::Null };
     let MenuUi { menu, canvas, image, .. } = &mut *ui;
     canvas.clear();
@@ -536,7 +539,8 @@ fn draw(
             .with_arcade(arcade_json)
             .with_lesion(hub.sizes.clone(), hub.saved.clone())
             .with_lab(lab.json())
-            .with_validation(if screen_is_validation { runs.query() } else { Value::Null }),
+            .with_validation(if screen_is_validation { runs.query() } else { Value::Null })
+            .with_assay(if screen_is_assays { runs.assay_query(brain_seed) } else { Value::Null }),
     );
     if let Some(mut img) = images.get_mut(&*image) {
         img.data = Some(canvas.px.clone());
@@ -587,6 +591,7 @@ pub struct GameHost {
     share: Option<Arc<std::sync::Mutex<Vec<(String, Value)>>>>,
     lab: Value,
     validation: Value,
+    assay: Value,
 }
 
 impl GameHost {
@@ -603,6 +608,11 @@ impl GameHost {
 
     pub fn with_lab(mut self, values: Value) -> Self {
         self.lab = values;
+        self
+    }
+
+    pub fn with_assay(mut self, v: Value) -> Self {
+        self.assay = v;
         self
     }
 
@@ -633,6 +643,7 @@ impl GameHost {
             share: None,
             lab: Value::Null,
             validation: Value::Null,
+            assay: Value::Null,
         }
     }
 }
@@ -669,6 +680,7 @@ impl PageHost for GameHost {
             "arcade" => self.arcade.clone(),
             "lab_params" => self.lab.clone(),
             "validation_results" => self.validation.clone(),
+            "assay_state" => self.assay.clone(),
             "lab_pages" => ktf_data::labparams::pages().clone(),
             "lab_engine" => json!("Rust · CPU (rayon)"),
             "lab_notes" => json!([]),
@@ -698,6 +710,12 @@ impl PageHost for GameHost {
                 (_, Err(e)) => json!({"error": e}),
                 (None, _) => json!({"error": "the game is not ready to apply a code"}),
             },
+            "start_assay" | "cancel_assay" | "export_assay" => {
+                if let Some(q) = &self.share {
+                    q.lock().unwrap_or_else(std::sync::PoisonError::into_inner).push((cmd.into(), args));
+                }
+                Value::Null
+            }
             "start_validation" => {
                 if let Some(q) = &self.share {
                     q.lock().unwrap_or_else(std::sync::PoisonError::into_inner).push(("start_validation".into(), json!({})));

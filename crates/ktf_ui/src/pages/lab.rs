@@ -493,3 +493,460 @@ impl Page for LabValidation {
         }
     }
 }
+
+// --- assays and repeated trials (`lab/lab.py:page_assays`, `draw_assay_result`, `draw_chart`) -------------------------------------------
+/// `lab.draw_chart`: a line chart with 95 % interval bars. `series`: `(label, color, [mean_ci dicts per x])`.
+#[allow(clippy::too_many_arguments)]
+fn draw_chart(
+    m: &Menu,
+    cv: &mut Canvas,
+    rect: Rect,
+    xs: &[String],
+    series: &[(String, Color, Vec<serde_json::Value>)],
+    x_label: &str,
+    y_label: &str,
+    y_max: Option<f64>,
+    connect: bool,
+) {
+    let f = m.fonts();
+    cv.fill_rect(rect, [12, 14, 20], 8);
+    let plot = Rect::new(rect.x + 52, rect.y + 44, rect.w - 70, rect.h - 82);
+    let g = |c: &serde_json::Value, k: &str| c[k].as_f64().unwrap_or(f64::NAN);
+    let vals: Vec<f64> = series
+        .iter()
+        .flat_map(|(_, _, cs)| cs.iter())
+        .filter(|c| !g(c, "mean").is_nan())
+        .map(|c| if g(c, "hi").is_nan() { g(c, "mean") } else { g(c, "hi") })
+        .collect();
+    let top = y_max.unwrap_or_else(|| vals.iter().copied().fold(1e-6, f64::max) * 1.1);
+    for k in 0..5 {
+        let y = (f64::from(plot.bottom()) - f64::from(plot.h) * f64::from(k) / 4.0) as i32;
+        cv.line((plot.x, y), (plot.right(), y), 1, [36, 40, 50], 255);
+        m.text(cv, &py_g_2g(top * f64::from(k) / 4.0), (plot.x - 6, y), LABEL, &f.small, Anchor::MidRight);
+    }
+    let n = xs.len().max(1);
+    let px = |i: usize| -> i32 { (f64::from(plot.x) + f64::from(plot.w) * (i as f64 + 0.5) / n as f64) as i32 };
+    let py = |v: f64| -> i32 { (f64::from(plot.bottom()) - f64::from(plot.h) * (v / top).clamp(0.0, 1.0)) as i32 };
+    for (i, x) in xs.iter().enumerate() {
+        m.text(cv, x, (px(i), plot.bottom() + 6), LABEL, &f.small, Anchor::MidTop);
+    }
+    for (li, (label, col, cs)) in series.iter().enumerate() {
+        let mut pts = Vec::new();
+        for (i, c) in cs.iter().enumerate() {
+            let mean = g(c, "mean");
+            if mean.is_nan() {
+                continue;
+            }
+            if !g(c, "lo").is_nan() {
+                cv.line((px(i), py(g(c, "lo"))), (px(i), py(g(c, "hi"))), 2, *col, 255);
+            }
+            pts.push((px(i), py(mean)));
+            cv.circle((px(i), py(mean)), 4, *col);
+        }
+        if pts.len() > 1 && connect {
+            for w in pts.windows(2) {
+                cv.line(w[0], w[1], 2, *col, 255);
+            }
+        }
+        m.text(cv, label, (rect.right() - 12 - li as i32 * 190, rect.y + 6), *col, &f.small, Anchor::TopRight);
+    }
+    m.text(cv, x_label, (plot.center().0, rect.bottom() - 16), TEXT, &f.small, Anchor::MidTop);
+    m.text(cv, y_label, (rect.x + 6, rect.y + 2), TEXT, &f.small, Anchor::TopLeft);
+}
+
+/// `lab._ci`
+fn ci(c: &serde_json::Value, fmt: &str) -> String {
+    let g = |k: &str| c[k].as_f64().unwrap_or(f64::NAN);
+    if c["n"].as_u64().unwrap_or(0) == 0 || g("mean").is_nan() {
+        return "n/a".into();
+    }
+    if g("lo").is_nan() {
+        return crate::menu::py_fmt(fmt, g("mean"));
+    }
+    format!("{} ± {}", crate::menu::py_fmt(fmt, g("mean")), crate::menu::py_fmt(fmt, (g("hi") - g("lo")) / 2.0))
+}
+
+const WHITE_GREY: Color = [200, 200, 200];
+
+fn draw_assay_result(m: &mut Menu, cv: &mut Canvas, area: Rect, res: &serde_json::Value) {
+    let f = m.fonts();
+    let kind = res["kind"].as_str().unwrap_or("");
+    let (t, c) = (&res["treated"], &res["control"]);
+    let has_c = c.is_object();
+    let surg = res["surgery"].is_object();
+    let tl = if surg { "with surgery" } else { "flies" };
+    let chart = Rect::new(area.x, area.y, area.w / 2 - 10, area.h);
+    let tx = area.x + area.w / 2 + 10;
+    let mut y = area.y;
+    let nseeds = res["seeds"].as_array().map_or(0, Vec::len);
+    m.text(cv, &format!("{}  ·  n = {nseeds} flies", res["label"].as_str().unwrap_or("")), (tx, y), INK, &f.bold, Anchor::TopLeft);
+    y += 26;
+    let rows_of = |v: &serde_json::Value| -> Vec<serde_json::Value> { v["rows"].as_array().cloned().unwrap_or_default() };
+    let mut rows: Vec<(String, String, String)> = Vec::new();
+    let nanv = || serde_json::json!({"mean": null, "lo": null, "hi": null, "n": 0});
+    match kind {
+        "tmaze" => {
+            let (xs, pts): (Vec<String>, Vec<serde_json::Value>) = if has_c {
+                (vec!["with surgery".into(), "control".into()], vec![t["pi"].clone(), c["pi"].clone()])
+            } else {
+                (vec!["all flies".into()], vec![t["pi"].clone()])
+            };
+            draw_chart(m, cv, chart, &xs, &[("mean and 95% CI".into(), ACCENT, pts)], "", "performance index", Some(1.0), false);
+            let both = |k: &str, fmt: &str| (ci(&t[k], fmt), if has_c { ci(&c[k], fmt) } else { String::new() });
+            for (label, k, fmt) in [
+                ("performance index", "pi", "{:.2f}"),
+                ("fear of CS+", "fear_cs_plus", "{:.2f}"),
+                ("fear of CS-", "fear_cs_minus", "{:.2f}"),
+                ("approach MBONs to CS+ (Hz)", "mbon_cs_plus_hz", "{:.1f}"),
+                ("approach MBONs to CS- (Hz)", "mbon_cs_minus_hz", "{:.1f}"),
+            ] {
+                let (a, b) = both(k, fmt);
+                rows.push((label.into(), a, b));
+            }
+        }
+        "looming" => {
+            let tr = rows_of(t);
+            let xs: Vec<String> = tr.iter().map(|r| crate::menu::py_g(r["speed"].as_f64().unwrap_or(0.0))).collect();
+            let mut series = vec![(tl.to_string(), ACCENT, tr.iter().map(|r| r["escape_probability"].clone()).collect::<Vec<_>>())];
+            if has_c {
+                series.push(("control".into(), WHITE_GREY, rows_of(c).iter().map(|r| r["escape_probability"].clone()).collect()));
+            }
+            draw_chart(m, cv, chart, &xs, &series, "approach speed (m/s)", "escape probability", Some(1.0), true);
+            let cr = if has_c { rows_of(c) } else { tr.clone() };
+            for (r, q) in tr.iter().zip(&cr) {
+                rows.push((
+                    format!("{} m/s", crate::menu::py_g(r["speed"].as_f64().unwrap_or(0.0))),
+                    format!("{}/{} escaped, latency {} s", r["escapes"], r["approaches"], ci(&r["latency_s"], "{:.2f}")),
+                    if has_c { format!("{}/{}", q["escapes"], q["approaches"]) } else { String::new() },
+                ));
+            }
+        }
+        _ => {
+            // sugar
+            let tr = rows_of(t);
+            let xs: Vec<String> = tr.iter().map(|r| format!("{:.0}%", r["dose"].as_f64().unwrap_or(0.0) * 100.0)).collect();
+            let mut series = vec![(tl.to_string(), ACCENT, tr.iter().map(|r| r["mn9_ratio"].clone()).collect::<Vec<_>>())];
+            if has_c {
+                series.push(("control".into(), WHITE_GREY, rows_of(c).iter().map(|r| r["mn9_ratio"].clone()).collect()));
+            }
+            draw_chart(m, cv, chart, &xs, &series, "sugar dose (share of sugar-pathway GRNs)", "MN9 firing x before", None, true);
+            let cr = if has_c { rows_of(c) } else { tr.clone() };
+            for (r, q) in tr.iter().zip(&cr) {
+                let mean = q["mn9_ratio"]["mean"].as_f64().unwrap_or(f64::NAN);
+                rows.push((
+                    format!("{:.0}%", r["dose"].as_f64().unwrap_or(0.0) * 100.0),
+                    format!("MN9 x{}, extended {}/{}", ci(&r["mn9_ratio"], "{:.2f}"), r["extensions"], r["offers"]),
+                    if has_c { format!("x{mean:.2}") } else { String::new() },
+                ));
+            }
+            let _ = nanv;
+        }
+    }
+    let col_a = tx + 190;
+    let col_b = tx + (area.w / 2 - 10) - 120;
+    if has_c {
+        m.text(cv, "surgery", (col_a, y), LABEL, &f.small, Anchor::TopLeft);
+        m.text(cv, "control", (col_b, y), LABEL, &f.small, Anchor::TopLeft);
+    } else {
+        m.text(cv, "mean ± 95% CI half-width", (col_a, y), LABEL, &f.small, Anchor::TopLeft);
+    }
+    y += 18;
+    for (label, a, b) in rows {
+        m.text(cv, &label, (tx, y), TEXT, &f.small, Anchor::TopLeft);
+        if has_c {
+            m.wrapped(cv, &a, (col_a, y), col_b - col_a - 10, INK, &f.small, 1);
+            m.text(cv, &b, (col_b, y), INK, &f.small, Anchor::TopLeft);
+        } else {
+            m.wrapped(cv, &a, (col_a, y), area.right() - col_a, INK, &f.small, 1);
+        }
+        y += 20;
+    }
+    if has_c {
+        let o = &res["comparison"]["overall"];
+        y += 8;
+        m.text(
+            cv,
+            &format!(
+                "Surgery vs same-seed control: mean difference {:+.3} (n={} pairs)",
+                o["mean_difference"].as_f64().unwrap_or(f64::NAN),
+                o["n"]
+            ),
+            (tx, y),
+            INK,
+            &f.small,
+            Anchor::TopLeft,
+        );
+        let p = o["p_value"].as_f64().unwrap_or(f64::NAN);
+        m.text(
+            cv,
+            &format!(
+                "{}: {}   (paired t: {})",
+                o["test"].as_str().unwrap_or(""),
+                fmt_p(p),
+                fmt_p(o["t_p_value"].as_f64().unwrap_or(f64::NAN))
+            ),
+            (tx, y + 18),
+            if p < 0.05 { AMBER } else { TEXT },
+            &f.small,
+            Anchor::TopLeft,
+        );
+        let list: Vec<String> = res["surgery"]
+            .as_object()
+            .map(|s| s.iter().map(|(k, v)| format!("{k} {:+}", v.as_i64().unwrap_or(0))).collect())
+            .unwrap_or_default();
+        m.text(cv, &format!("surgery: {}", list.join(", ")), (tx, y + 36), LABEL, &f.small, Anchor::TopLeft);
+    }
+}
+
+/// Lab > Assays and repeated trials.
+///
+/// Host: query `assay_state` = `{job: {done, total, elapsed, workers, error} | null, result: <labjobs.run_sync dict + label> | null, options:
+/// [[label, [spec...]], ...] (the surgery options), kinds: [[key, label], ...], base_seed}`; commands `start_assay {kind, flies, surgery:
+/// {spec: mode}, label}`, `cancel_assay`.
+pub struct LabAssays {
+    kind: String,
+    flies: i64,
+    surgery_i: usize,
+    stimulate: bool,
+}
+
+impl Default for LabAssays {
+    fn default() -> Self {
+        Self { kind: "tmaze".into(), flies: 6, surgery_i: 0, stimulate: false }
+    }
+}
+
+impl LabAssays {
+    pub fn set_view(&mut self, kind: &str, flies: i64, surgery_i: usize, stimulate: bool) {
+        self.kind = kind.into();
+        self.flies = flies;
+        self.surgery_i = surgery_i;
+        self.stimulate = stimulate;
+    }
+}
+
+impl Page for LabAssays {
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
+    fn draw(&mut self, m: &mut Menu, cv: &mut Canvas, rect: Rect, ctx: &mut Ctx) {
+        let f = m.fonts();
+        let q = ctx.host.query("assay_state");
+        let busy = q["job"].is_object() && q["job"]["error"].is_null();
+        m.text(cv, "ASSAYS AND REPEATED TRIALS", (rect.x + 24, rect.y + 16), INK, &f.head, Anchor::TopLeft);
+        let mut y = m.subtitle(
+            cv,
+            rect,
+            "Each fly is a fresh, untrained brain with its own seed. Your saved training memory isn't used or changed.",
+            None,
+            2,
+        );
+        let x0 = rect.x + 24;
+        m.text(cv, "Assay", (x0, y + 15), TEXT, &f.text, Anchor::MidLeft);
+        let kinds: Vec<(String, String)> = q["kinds"]
+            .as_array()
+            .map(|a| a.iter().filter_map(|k| Some((k[0].as_str()?.to_string(), k[1].as_str()?.to_string()))).collect())
+            .unwrap_or_default();
+        if busy {
+            let label = kinds.iter().find(|k| k.0 == self.kind).map_or("", |k| k.1.as_str());
+            m.text(cv, &format!("{label} (running)"), (x0 + 110, y + 15), INK, &f.bold, Anchor::MidLeft);
+            y += 40;
+        } else {
+            let items: Vec<_> = kinds
+                .iter()
+                .map(|(k, label)| (label.clone(), Act::Custom(format!("kind:{k}")), format!("assay_kind:{k}"), self.kind == *k, None))
+                .collect();
+            y = m.flow_buttons(cv, x0 + 110, y, rect.right() - 24, &items, Some(30), None, 8, None) + 10;
+        }
+        m.text(cv, "Flies", (x0, y + 15), TEXT, &f.text, Anchor::MidLeft);
+        m.page_slider(
+            cv,
+            Rect::new(x0 + 110, y, 300, 30),
+            self.flies as f64,
+            (2.0, 30.0, 1.0),
+            "{:.0f}",
+            "assay_flies",
+            !busy,
+            Some("How many flies (seeds) to run. More gives tighter confidence intervals and takes longer."),
+        );
+        let base = q["base_seed"].as_i64().unwrap_or(1000);
+        m.text(
+            cv,
+            &format!("seeds {}-{}", base + 2000, base + 2000 + self.flies - 1),
+            (x0 + 430, y + 15),
+            LABEL,
+            &f.small,
+            Anchor::MidLeft,
+        );
+        y += 40;
+        let opts: Vec<(String, Vec<String>)> = q["options"]
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .filter_map(|o| {
+                        Some((o[0].as_str()?.to_string(), o[1].as_array()?.iter().filter_map(|s| s.as_str().map(String::from)).collect()))
+                    })
+                    .collect()
+            })
+            .unwrap_or_else(|| vec![("none".into(), vec![])]);
+        let si = self.surgery_i.min(opts.len().saturating_sub(1));
+        let (label, spec) = (&opts[si].0, &opts[si].1);
+        m.text(cv, "Surgery", (x0, y + 15), TEXT, &f.text, Anchor::MidLeft);
+        m.button(cv, Rect::new(x0 + 110, y, 44, 30), "<", Act::Custom("surg:-1".into()), "surg<", Style::Normal, !busy, None, false, None);
+        m.text(cv, label, (x0 + 170, y + 15), if spec.is_empty() { LABEL } else { INK }, &f.bold, Anchor::MidLeft);
+        m.button(cv, Rect::new(x0 + 520, y, 44, 30), ">", Act::Custom("surg:1".into()), "surg>", Style::Normal, !busy, None, false, None);
+        if !spec.is_empty() {
+            m.segmented(
+                cv,
+                Rect::new(x0 + 580, y, 220, 30),
+                &["Silence".into(), "Stimulate".into()],
+                usize::from(self.stimulate),
+                &[Act::Custom("mode:0".into()), Act::Custom("mode:1".into())],
+                "surg_mode",
+                !busy,
+                "",
+            );
+        }
+        y += 40;
+        if !spec.is_empty() {
+            m.text(
+                cv,
+                "Each fly also runs unperturbed with the same seed as its control; the results show both and a paired test.",
+                (x0, y),
+                LABEL,
+                &f.small,
+                Anchor::TopLeft,
+            );
+        }
+        y += 24;
+        if busy {
+            let (done, total) = (q["job"]["done"].as_f64().unwrap_or(0.0), q["job"]["total"].as_f64().unwrap_or(1.0));
+            let frac = done / total.max(1.0);
+            cv.fill_rect(Rect::new(x0, y, rect.w - 220, 14), [30, 36, 48], 7);
+            cv.fill_rect(Rect::new(x0, y, 8.max(((rect.w - 220) as f64 * frac) as i32), 14), AMBER, 7);
+            m.text(
+                cv,
+                &format!(
+                    "{done:.0}/{total:.0} flies  ·  {:.0}s  ·  {} worker threads",
+                    q["job"]["elapsed"].as_f64().unwrap_or(0.0),
+                    q["job"]["workers"]
+                ),
+                (x0, y + 20),
+                TEXT,
+                &f.small,
+                Anchor::TopLeft,
+            );
+            m.button(
+                cv,
+                Rect::new(rect.right() - 170, y - 8, 146, 36),
+                "Cancel",
+                Act::Custom("cancel".into()),
+                "assay_cancel",
+                Style::Danger,
+                true,
+                None,
+                false,
+                None,
+            );
+        } else {
+            m.button(
+                cv,
+                Rect::new(x0, y - 6, 180, 40),
+                "Run",
+                Act::Custom("run".into()),
+                "assay_run",
+                Style::Primary,
+                true,
+                Some("Runs in background worker processes while the game stays paused."),
+                false,
+                None,
+            );
+            if let Some(e) = q["job"]["error"].as_str() {
+                m.text(cv, e, (x0 + 200, y + 14), BAD, &f.small, Anchor::MidLeft);
+            }
+            if q["result"].is_object() {
+                m.button(
+                    cv,
+                    Rect::new(x0 + 200, y - 6, 200, 40),
+                    "Export results",
+                    Act::Custom("export".into()),
+                    "assay_export",
+                    Style::Normal,
+                    true,
+                    Some("Save these results as JSON and CSV in the exports folder."),
+                    false,
+                    None,
+                );
+            }
+        }
+        y += 40;
+        if q["result"].is_object() && !busy {
+            draw_assay_result(m, cv, Rect::new(rect.x + 24, y, rect.w - 48, rect.bottom() - 70 - y), &q["result"]);
+        }
+        m.button(
+            cv,
+            Rect::new(rect.right() - 164, rect.bottom() - 58, 140, 42),
+            "Back",
+            Act::Back,
+            "assays:back",
+            Style::Primary,
+            true,
+            None,
+            false,
+            None,
+        );
+    }
+
+    fn custom(&mut self, _m: &mut Menu, name: &str, text: Option<&str>, ctx: &mut Ctx) {
+        let q = ctx.host.query("assay_state");
+        let n_opts = q["options"].as_array().map_or(1, Vec::len).max(1);
+        match name.split_once(':') {
+            Some(("kind", k)) => self.kind = k.into(),
+            Some(("surg", d)) => {
+                let d: i64 = d.parse().unwrap_or(0);
+                self.surgery_i = ((self.surgery_i as i64 + d).rem_euclid(n_opts as i64)) as usize;
+            }
+            Some(("mode", i)) => self.stimulate = i == "1",
+            Some(("slide", "assay_flies")) => {
+                self.flies = text.and_then(|t| t.parse::<f64>().ok()).map_or(self.flies, |v| v.round() as i64)
+            }
+            _ if name == "run" => {
+                let opts = q["options"].as_array().cloned().unwrap_or_default();
+                let si = self.surgery_i.min(opts.len().saturating_sub(1));
+                let specs: Vec<String> = opts
+                    .get(si)
+                    .and_then(|o| o[1].as_array())
+                    .map(|a| a.iter().filter_map(|s| s.as_str().map(String::from)).collect())
+                    .unwrap_or_default();
+                let mode = if self.stimulate { 1 } else { -1 };
+                let surgery: serde_json::Map<String, serde_json::Value> = specs.into_iter().map(|s| (s, json!(mode))).collect();
+                let label = opts.get(si).and_then(|o| o[0].as_str()).unwrap_or("none").to_string();
+                ctx.host.command("start_assay", json!({"kind": self.kind, "flies": self.flies, "surgery": surgery, "label": label}));
+            }
+            _ if name == "cancel" => {
+                ctx.host.command("cancel_assay", json!({}));
+            }
+            _ if name == "export" => {
+                ctx.host.command("export_assay", json!({}));
+            }
+            _ => {}
+        }
+    }
+}
+
+/// `f"{x:.2g}"`
+fn py_g_2g(x: f64) -> String {
+    if x == 0.0 {
+        return "0".into();
+    }
+    let e = x.abs().log10().floor() as i32;
+    if !(-5..2).contains(&e) {
+        let m = x / 10f64.powi(e);
+        let m = format!("{m:.1}").trim_end_matches('0').trim_end_matches('.').to_string();
+        return format!("{m}e{}{:02}", if e < 0 { '-' } else { '+' }, e.abs());
+    }
+    let dec = (1 - e).max(0) as usize;
+    let s = format!("{x:.dec$}");
+    if s.contains('.') { s.trim_end_matches('0').trim_end_matches('.').to_string() } else { s }
+}

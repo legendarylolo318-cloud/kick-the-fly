@@ -277,3 +277,111 @@ mod tests {
         assert_eq!(holm(&[0.6, 0.9]), vec![1.0, 0.9_f64.max(1.0)]);
     }
 }
+
+// --- Lab result statistics (`lab/labstats.py`) ---------------------------------------------------------------------------------------
+/// Student t CDF.
+pub fn t_cdf(t: f64, df: f64) -> f64 {
+    let p = 0.5 * betainc(df / 2.0, 0.5, df / (df + t * t));
+    if t > 0.0 { 1.0 - p } else { p }
+}
+
+/// `scipy.stats.t.ppf(q, df)` by bisection on the CDF.
+pub fn t_ppf(q: f64, df: f64) -> f64 {
+    let (mut lo, mut hi) = (-1000.0, 1000.0);
+    for _ in 0..200 {
+        let mid = 0.5 * (lo + hi);
+        if t_cdf(mid, df) < q {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
+    }
+    0.5 * (lo + hi)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct MeanCi {
+    pub mean: f64,
+    pub sd: f64,
+    pub n: usize,
+    pub lo: f64,
+    pub hi: f64,
+}
+
+/// `labstats.mean_ci`: mean, SD, n and a t-distribution 95 % interval (NaN-safe; n < 2 gives no interval).
+pub fn mean_ci(values: &[f64]) -> MeanCi {
+    let v: Vec<f64> = values.iter().copied().filter(|x| !x.is_nan()).collect();
+    let n = v.len();
+    if n == 0 {
+        return MeanCi { mean: f64::NAN, sd: f64::NAN, n: 0, lo: f64::NAN, hi: f64::NAN };
+    }
+    let m = crate::validation::mean(&v);
+    if n < 2 {
+        return MeanCi { mean: m, sd: f64::NAN, n: 1, lo: f64::NAN, hi: f64::NAN };
+    }
+    let sd = crate::validation::sd(&v);
+    let half = t_ppf(0.975, (n - 1) as f64) * sd / (n as f64).sqrt();
+    MeanCi { mean: m, sd, n, lo: m - half, hi: m + half }
+}
+
+/// Two-sided paired Wilcoxon signed-rank p (`zero_method="wilcox"`).
+pub fn wilcoxon_two_sided(d: &[f64]) -> f64 {
+    let nz: Vec<f64> = d.iter().copied().filter(|v| *v != 0.0).collect();
+    let n = nz.len();
+    if n == 0 {
+        return 1.0;
+    }
+    let abs: Vec<f64> = nz.iter().map(|v| v.abs()).collect();
+    let (ranks, ties) = rank_avg(&abs);
+    let r_plus: f64 = nz.iter().zip(&ranks).filter(|(v, _)| **v > 0.0).map(|(_, r)| r).sum();
+    let total_rank = n as f64 * (n as f64 + 1.0) / 2.0;
+    let r_min = r_plus.min(total_rank - r_plus);
+    let clean = ties.iter().all(|&t| t == 1) && d.iter().all(|v| *v != 0.0);
+    if (clean && n <= 50) || (!clean && n <= 13) {
+        let w: Vec<usize> = ranks.iter().map(|r| (r * 2.0).round() as usize).collect();
+        let max: usize = w.iter().sum();
+        let mut c = vec![0.0f64; max + 1];
+        c[0] = 1.0;
+        for &x in &w {
+            for s in (x..=max).rev() {
+                c[s] += c[s - x];
+            }
+        }
+        let tot: f64 = c.iter().sum();
+        let upto = ((r_min * 2.0).round() as usize).min(max);
+        return (2.0 * c[..=upto].iter().sum::<f64>() / tot).min(1.0);
+    }
+    let nf = n as f64;
+    let mn = nf * (nf + 1.0) / 4.0;
+    let tie_term: f64 = ties.iter().map(|&t| (t as f64).powi(3) - t as f64).sum::<f64>() / 48.0;
+    let se = (nf * (nf + 1.0) * (2.0 * nf + 1.0) / 24.0 - tie_term).sqrt();
+    (2.0 * norm_cdf((r_min - mn) / se)).min(1.0)
+}
+
+/// `scipy.stats.ttest_rel(a, b).pvalue` (two-sided); NaN when the differences have no spread.
+pub fn ttest_rel_p(a: &[f64], b: &[f64]) -> f64 {
+    let d: Vec<f64> = a.iter().zip(b).map(|(x, y)| x - y).collect();
+    let n = d.len();
+    if n < 2 {
+        return f64::NAN;
+    }
+    let (m, s) = (crate::validation::mean(&d), crate::validation::sd(&d));
+    if s == 0.0 {
+        return f64::NAN;
+    }
+    t_two_sided(m / (s / (n as f64).sqrt()), (n - 1) as f64)
+}
+
+/// `scipy.stats.fisher_exact([[yes_a, n_a - yes_a], [yes_b, n_b - yes_b]]).pvalue` (two-sided).
+pub fn fisher_exact(yes_a: u64, n_a: u64, yes_b: u64, n_b: u64) -> f64 {
+    let (k_total, n_total, row) = (yes_a + yes_b, n_a + n_b, n_a);
+    // hypergeometric: P(X = x) with the first row's size n_a, successes k_total, population n_total
+    let lf = |n: u64| -> f64 { (1..=n).map(|i| (i as f64).ln()).sum() };
+    let ln_choose = |n: u64, k: u64| lf(n) - lf(k) - lf(n - k);
+    let pmf = |x: u64| -> f64 { (ln_choose(k_total, x) + ln_choose(n_total - k_total, row - x) - ln_choose(n_total, row)).exp() };
+    let lo = row.saturating_sub(n_total - k_total);
+    let hi = k_total.min(row);
+    let p_obs = pmf(yes_a);
+    let rel = 1.0 + 1e-7;
+    (lo..=hi).map(pmf).filter(|&p| p <= p_obs * rel).sum::<f64>().min(1.0)
+}

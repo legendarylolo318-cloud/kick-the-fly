@@ -246,6 +246,7 @@ pub enum Anchor {
     Center,
     MidTop,
     TopRight,
+    MidRight,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -901,6 +902,7 @@ impl Menu {
             Anchor::Center => (pos.0 - w / 2, pos.1 - h / 2),
             Anchor::MidTop => (pos.0 - w / 2, pos.1),
             Anchor::TopRight => (pos.0 - w, pos.1),
+            Anchor::MidRight => (pos.0 - w, pos.1 - h / 2),
         };
         font.draw(cv, s, x, y, color);
         Rect::new(x, y, w, h)

@@ -41,6 +41,11 @@ pub fn utc_stamp_pub() -> String {
     utc_stamp(false)
 }
 
+/// `YYYYMMDD-HHMMSS` in UTC.
+pub fn utc_stamp_compact() -> String {
+    utc_stamp(true)
+}
+
 fn utc_stamp(fmt_dash: bool) -> String {
     let secs = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs()) as i64;
     let (days, rem) = (secs.div_euclid(86_400), secs.rem_euclid(86_400));

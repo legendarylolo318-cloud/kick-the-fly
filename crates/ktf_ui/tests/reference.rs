@@ -516,3 +516,58 @@ fn lab_validation_page() {
         compare(name, &cv.to_rgb_over(BG), 0.02);
     }
 }
+
+#[test]
+fn lab_assays_page() {
+    use ktf_ui::pages::lab::LabAssays;
+    struct H(serde_json::Value, Option<String>);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            match key {
+                "assay_state" => {
+                    let result = self.1.as_ref().map_or(serde_json::Value::Null, |k| {
+                        let mut r = self.0["results"][k].clone();
+                        r["label"] = serde_json::json!(match r["kind"].as_str().unwrap_or("") {
+                            "tmaze" => "T-maze conditioning",
+                            "looming" => "Looming escape",
+                            _ => "Sugar response",
+                        });
+                        r
+                    });
+                    serde_json::json!({"job": null, "result": result, "options": self.0["options"], "kinds": self.0["kinds"], "base_seed": 1000})
+                }
+                _ => serde_json::Value::Null,
+            }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    let fx: serde_json::Value = serde_json::from_slice(
+        &std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/ui_reference/lab_assays_fixture.json")).unwrap(),
+    )
+    .unwrap();
+    for (name, kind, result, flies, surgery_i) in [
+        ("page_lab_assays_empty.png", "tmaze", None, 6, 0),
+        ("page_lab_assays_tmaze.png", "tmaze", Some("tmaze"), 6, 0),
+        ("page_lab_assays_looming_surgery.png", "looming", Some("looming_surgery"), 6, 7),
+        ("page_lab_assays_sugar.png", "sugar", Some("sugar"), 2, 0),
+    ] {
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        m.show("lab_assays");
+        m.page_mut::<LabAssays>("lab_assays").unwrap().set_view(kind, flies, surgery_i, false);
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(fx.clone(), result.map(String::from)));
+        if let Ok(dir) = std::env::var("KTF_DUMP") {
+            let rgb = cv.to_rgb_over(BG);
+            let file = std::fs::File::create(format!("{dir}/rust_{name}")).unwrap();
+            let mut enc = png::Encoder::new(std::io::BufWriter::new(file), 1280, 720);
+            enc.set_color(png::ColorType::Rgb);
+            enc.set_depth(png::BitDepth::Eight);
+            enc.write_header().unwrap().write_image_data(&rgb).unwrap();
+        }
+        compare(name, &cv.to_rgb_over(BG), 0.02);
+    }
+}

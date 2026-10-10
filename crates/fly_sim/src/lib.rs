@@ -10,6 +10,7 @@
 //! Nothing here depends on Bevy or on a window; everything runs headless.
 
 pub mod activity;
+pub mod assay_jobs;
 pub mod assays;
 pub mod autopsy;
 pub mod brain;
