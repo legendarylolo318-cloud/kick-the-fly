@@ -28,6 +28,7 @@ pub mod duel;
 pub mod environment;
 pub mod feedback;
 pub mod first_run;
+pub mod flies_play;
 pub mod fly;
 pub mod fly_visuals;
 pub mod flyeye;
@@ -188,6 +189,6 @@ impl Plugin for GamePlugin {
                 fly::FlyPlugin,
                 fly_visuals::FlyVisualsPlugin,
             ))
-            .add_plugins(arcade_hub::ArcadeHubPlugin);
+            .add_plugins((arcade_hub::ArcadeHubPlugin, flies_play::FliesPlugin));
     }
 }

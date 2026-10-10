@@ -149,6 +149,26 @@ pub enum Command {
     ExportState,
     /// Put a saved brain state back (a loaded save).
     ImportState(Box<fly_sim::brain::BrainState>),
+    /// Add a fly: a second (third...) brain with its own individuality (`sigma`) and noise, stepped with the first. `slot` is the id the
+    /// render side gave its body; slot 0 is the first fly.
+    SpawnFly {
+        slot: u32,
+        seed: u64,
+        sigma: f64,
+    },
+    /// Take a fly's brain away (its body is gone).
+    RemoveFly(u32),
+    /// Make this fly's brain the one the HUD, the brain views and every single-brain command (surgery, challenges, memory) address.
+    FocusFly(u32),
+    /// `Command::Poke` on one fly's brain.
+    PokeFly {
+        slot: u32,
+        region: String,
+        side: Option<char>,
+        strength: f32,
+    },
+    KillFly(u32),
+    ReviveFly(u32),
     Shutdown,
 }
 
@@ -322,6 +342,8 @@ fn run(
     let params = LifParams::default();
     let dt = Duration::from_secs_f64(params.dt_ms / 1000.0);
     let info = Arc::new(brain_info(&labels, &weights));
+    let (spawn_weights, spawn_labels) = (weights.clone(), labels.clone());
+    let mut multi = Multi { extras: Vec::new(), focus: 0 };
     let mut brain = Brain::new(LifSim::new(weights, params, cfg.seed), labels);
     let mut mem = MemState::new(cfg.memory_dir.clone());
     if mem.dir.is_some() && brain.enable_memory() {
@@ -336,7 +358,7 @@ fn run(
     let mut dropped: u64 = 0;
     let mut driving = false;
     let mut dex = DexState { tracker: None, table: None, enabled: true };
-    publish(&mailbox, &brain, &source, &state, steps_per_s, dropped, driving, &info, &mem);
+    publish(&mailbox, &brain, &multi, &source, &state, steps_per_s, dropped, driving, &info, &mem);
 
     while !stop.load(Ordering::Relaxed) {
         let before = (state.speed, state.paused);
@@ -346,6 +368,44 @@ fn run(
                     mem.save_if_dirty(&mut brain);
                     return;
                 }
+                Ok(Command::SpawnFly { slot, seed, sigma }) => {
+                    if slot != multi.focus && !multi.extras.iter().any(|e| e.0 == slot) {
+                        let mut sim = LifSim::new(spawn_weights.clone(), LifParams::default(), seed);
+                        sim.set_individuality(fly_sim::lif::Individuality::compute(seed, spawn_weights.n(), sigma));
+                        let mut b = Brain::new(sim, spawn_labels.clone());
+                        b.warmup(cfg.warmup);
+                        b.steps = brain.steps; // one clock: a focus change must not make the step counter jump
+                        multi.extras.push((slot, b));
+                    }
+                }
+                Ok(Command::RemoveFly(slot)) => multi.extras.retain(|e| e.0 != slot),
+                Ok(Command::FocusFly(slot)) => {
+                    if slot != multi.focus
+                        && let Some(i) = multi.extras.iter().position(|e| e.0 == slot)
+                    {
+                        std::mem::swap(&mut brain, &mut multi.extras[i].1);
+                        // the learning state belongs to whoever is in front
+                        std::mem::swap(&mut brain.memory, &mut multi.extras[i].1.memory);
+                        multi.extras[i].0 = multi.focus;
+                        multi.focus = slot;
+                        driving = brain.driven();
+                    }
+                }
+                Ok(Command::PokeFly { slot, region, side, strength }) => {
+                    if let Some(b) = multi.brain_of(&mut brain, slot) {
+                        b.poke(&region, side, strength);
+                    }
+                }
+                Ok(Command::KillFly(slot)) => {
+                    if let Some(b) = multi.brain_of(&mut brain, slot) {
+                        b.kill();
+                    }
+                }
+                Ok(Command::ReviveFly(slot)) => {
+                    if let Some(b) = multi.brain_of(&mut brain, slot) {
+                        b.revive();
+                    }
+                }
                 Ok(cmd) => driving |= apply(&mut brain, &mut state, &mut dex, &mut mem, cfg.seed, &events, cmd),
                 Err(TryRecvError::Empty) => break,
             }
@@ -353,14 +413,17 @@ fn run(
         if (state.speed, state.paused) != before {
             t0 = Instant::now(); // re-anchor the clock when the speed changes, as Brain._loop does
             done = 0;
-            publish(&mailbox, &brain, &source, &state, steps_per_s, dropped, driving, &info, &mem);
+            publish(&mailbox, &brain, &multi, &source, &state, steps_per_s, dropped, driving, &info, &mem);
         }
         if state.pending_steps > 0 {
             for _ in 0..state.pending_steps {
                 brain.step();
+                for (_, b) in &mut multi.extras {
+                    b.step();
+                }
             }
             state.pending_steps = 0;
-            publish(&mailbox, &brain, &source, &state, steps_per_s, dropped, driving, &info, &mem);
+            publish(&mailbox, &brain, &multi, &source, &state, steps_per_s, dropped, driving, &info, &mem);
         }
         if state.paused {
             thread::sleep(Duration::from_millis(2));
@@ -380,6 +443,9 @@ fn run(
             continue;
         }
         brain.step();
+        for (_, b) in &mut multi.extras {
+            b.step();
+        }
         done += 1;
         dex_check(&brain, &mut dex, &events);
         mem.after_step(&mut brain, &events);
@@ -390,15 +456,31 @@ fn run(
             }
         }
         if rate_t.elapsed() >= Duration::from_secs(1) {
-            steps_per_s = (brain.steps - rate_steps) as f32 / rate_t.elapsed().as_secs_f32();
+            steps_per_s = brain.steps.saturating_sub(rate_steps) as f32 / rate_t.elapsed().as_secs_f32();
             rate_t = Instant::now();
             rate_steps = brain.steps;
         }
         if brain.steps.is_multiple_of(cfg.publish_every) {
-            publish(&mailbox, &brain, &source, &state, steps_per_s, dropped, driving, &info, &mem);
+            publish(&mailbox, &brain, &multi, &source, &state, steps_per_s, dropped, driving, &info, &mem);
         }
     }
     mem.save_if_dirty(&mut brain);
+}
+
+/// The other flies' brains. The focused fly's brain is the loop's `brain` (everything single-brain keeps working on it); a focus change
+/// swaps it with the new one's, and the learning state travels with the focus so training and memory stay with the fly in front.
+struct Multi {
+    extras: Vec<(u32, Brain)>,
+    focus: u32,
+}
+
+impl Multi {
+    fn brain_of<'a>(&'a mut self, primary: &'a mut Brain, slot: u32) -> Option<&'a mut Brain> {
+        if slot == self.focus {
+            return Some(primary);
+        }
+        self.extras.iter_mut().find(|e| e.0 == slot).map(|e| &mut e.1)
+    }
 }
 
 struct LoopState {
@@ -441,6 +523,13 @@ fn apply(
             state.pending_steps += k;
             false
         }
+        // the multi-fly commands are handled in the loop, where the other brains are
+        Command::SpawnFly { .. }
+        | Command::RemoveFly(_)
+        | Command::FocusFly(_)
+        | Command::PokeFly { .. }
+        | Command::KillFly(_)
+        | Command::ReviveFly(_) => false,
         Command::Kill => {
             brain.kill();
             false
@@ -642,6 +731,7 @@ fn dex_check(brain: &Brain, dex: &mut DexState, events: &Sender<SimEvent>) {
 fn publish(
     mailbox: &Mailbox<Snapshot>,
     brain: &Brain,
+    multi: &Multi,
     source: &str,
     state: &LoopState,
     steps_per_s: f32,
@@ -674,6 +764,16 @@ fn publish(
         s.hz.extend_from_slice(&brain.groups.fast);
         s.levels.clear();
         s.levels.extend(brain.groups.names.iter().map(|n| brain.groups.level(n)));
+        s.focus = multi.focus;
+        s.others.clear();
+        for (slot, b) in &multi.extras {
+            s.others.push(crate::snapshot::OtherFly {
+                slot: *slot,
+                levels: b.groups.names.iter().map(|n| b.groups.level(n)).collect(),
+                hz: b.groups.fast.clone(),
+                dead: b.dead(),
+            });
+        }
         let level = brain.groups.pain_level;
         s.pain_parts = brain.groups.pain_parts(level);
         s.pain_neurons = brain.groups.pain_neurons(level) as u32;

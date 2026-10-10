@@ -159,7 +159,13 @@ fn count_events(
 
 /// `Game.update`'s pain block, once per frame at 60 Hz: the pain index follows the sim's pain parts, the DN alarm held a little, a fly in
 /// pain pokes its punishment neurons, reward follows the dopamine level.
-fn update_stats(snap: Res<LatestSnapshot>, flies: Query<&Fly>, link: Res<SimLink>, mut st: ResMut<HudStats>) {
+fn update_stats(
+    snap: Res<LatestSnapshot>,
+    flies: Query<(&Fly, &crate::fly::Slot)>,
+    which: Res<crate::flies_play::Flies>,
+    link: Res<SimLink>,
+    mut st: ResMut<HudStats>,
+) {
     let Some(s) = snap.0.as_deref() else { return };
     let Some(info) = s.info.as_deref() else { return };
     st.frame += 1;
@@ -172,7 +178,7 @@ fn update_stats(snap: Res<LatestSnapshot>, flies: Query<&Fly>, link: Res<SimLink
     st.pain += (idx - st.pain) * 0.15;
     let reward_level = info.group_names.iter().position(|n| n == "reward").map_or(1.0, |i| s.levels.get(i).copied().unwrap_or(1.0));
     st.reward += (((reward_level - 1.0) / 0.6).clamp(0.0, 1.0) * 100.0 - st.reward) * 0.1;
-    let dead = flies.iter().next().is_none_or(|f| f.dead());
+    let dead = flies.iter().find(|(_, sl)| sl.0 == which.focus).is_none_or(|(f, _)| f.dead());
     if !dead && st.pain > 25.0 && st.frame.is_multiple_of(3) {
         link.0.send(Command::Poke { region: "punish".into(), side: None, strength: st.pain / 100.0 });
     }
@@ -261,7 +267,8 @@ struct HudIn<'w, 's> {
     kitchen: Res<'w, crate::environment::Kitchen>,
     weather: Res<'w, crate::weather_play::WeatherRes>,
     lost: Query<'w, 's, &'static crate::environment::Forage>,
-    flies: Query<'w, 's, &'static Fly>,
+    flies: Query<'w, 's, (&'static Fly, &'static crate::fly::Slot)>,
+    which: Res<'w, crate::flies_play::Flies>,
 }
 
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
@@ -306,6 +313,7 @@ fn draw(
         weather,
         lost,
         flies,
+        which,
     } = i;
     let l = lay.0;
     let crisp = (l.scale.fract() == 0.0) && l.scale >= 1.0;
@@ -350,7 +358,13 @@ fn draw(
             })
         })
         .collect();
-    let fly = flies.iter().next();
+    let fly = flies.iter().find(|(_, sl)| sl.0 == which.focus).map(|(f, _)| f);
+    let n_flies = flies.iter().count();
+    let focus_index = {
+        let mut slots: Vec<u32> = flies.iter().map(|(_, s)| s.0).collect();
+        slots.sort_unstable();
+        slots.iter().position(|&s| s == which.focus).unwrap_or(0)
+    };
     let (health, dead) = fly.map_or((0.0, true), |f| (f.health, f.dead()));
     // the hotbar: the loadout's page of ten (`Game._draw_toolbar`), keys from the rebindable slot actions
     let slots: Vec<ToolSlot> = loadout
@@ -422,9 +436,9 @@ fn draw(
         fly_state: fly.map_or("waiting".into(), |f| pygame_state(f, now, arena.name())),
         hits: st.hits,
         kills: st.kills,
-        flies: 1,
-        focus: 0,
-        max_flies: 16,
+        flies: n_flies.max(1) as u32,
+        focus: focus_index as u32,
+        max_flies: crate::flies_play::MAX_FLIES as u32,
         health,
         max_health: MAX_HEALTH,
         immortal: settings.immortal,

@@ -97,7 +97,7 @@ Entry: `kick_the_fly.py` shim → `kickthefly/__main__.py:main` → `game/kick_t
 - [ ] Play / Lab split (`Esc > Mode`; `core/config.py` `brain.mode`), Pet mode (`core/pet.py:PetManager`, `pet.ktfsave`+`.bak`, sleep pressure, real-stakes option), Spectator/autopilot (`Y`, `--autopilot`), tutorial (`ui/tutorial.py`), What's New screen (`ui/whatsnew_ui.py`), first-run notices (`Game.show_first_run_notices`).
 - [~] Time: pause / slow-mo 0.1×–1× / single step (`core/simclock.py:SimClock`, `Game.time_action`). **Rust:** Z (pause time), P (pause the brain), `[` `]` (0.1x-1x), `.` (single step) in `controls.rs`: they scale Bevy's virtual clock (physics, predators, weather) and the brain's speed together. Implemented, not covered by an automatic test.
 - [ ] Larva brain + crawler body (`game/larva.py`, `sim/connectome/larva_loader.py`; arenas restricted by `is_arena_allowed_for_larva`).
-- [~] Multiple flies (up to N), focus cycling (`F`), spawn (`N`), reset (`R`), recall lost flies (`J`). **Rust:** Reset (R) and arena switch re-create the fly. ONE fly and one brain only: no spawning more (N), no focus cycling (F); lost-fly detection outdoors is implemented but R resets rather than recalls (J).
+- [~] Multiple flies (up to N), focus cycling (`F`), spawn (`N`), reset (`R`), recall lost flies (`J`). **Rust:** Reset (R) and arena switch re-create the fly. (superseded: see "Multiple flies" below) no focus cycling (F); lost-fly detection outdoors is implemented but R resets rather than recalls (J).
 
 ## 4. The 2D and 3D games
 
@@ -303,3 +303,17 @@ against the pygame version (screenshot pair, or the code read side by side). Any
 - **Font**: Python used the first installed of Segoe UI, DejaVu Sans, Liberation Sans, Arial: the look depended on the OS. The Rust game bundles GNU FreeSans (what that list resolved to on the reference Linux machine) so all OSes look like it. FreeSans is GPL-3.0+ with the GNU font exception: **check this is acceptable for redistribution before a release**; swapping in DejaVu (permissive) changes only `assets/fonts/` and `crates/ktf_ui/data/advances.json` (regenerate with `legacy-python/make_ui_metrics.py`).
 - **Veil**: pygame blends the dark veil in sRGB space, Bevy in linear light; the in-game veil alpha is 240 instead of 196 so the room is as dark as in pygame (measured within 3 levels).
 - **Window**: the menu canvas is the window's logical size (Python: the fixed HUD surface scaled to the window), so layout is identical at 1280x720 and reflows like Python's at other sizes only approximately.
+
+### Multiple flies (session of 2026-10-10)
+Each fly body has its own brain: `fly::Slot` names it, the sim thread steps the focused brain plus `Multi.extras` every 5 ms (`Command::SpawnFly`,
+`RemoveFly`, `FocusFly`, `PokeFly`, `KillFly`; the snapshot carries the focus and the other flies' group levels, `snapshot::OtherFly`). `flies_play`:
+**N** spawns a fly (cap 16, GAME RULE; the new fly takes the focus), **F** (`cycle_fly`) cycles the focus (held 5 s), the focus otherwise follows the fly
+nearest to you unless a challenge, training, the arcade or a dead world needs it to stay (`_update_focus`), **J** (`recall`) puts lost flies back,
+a real bump between two flies pokes body and legs on both brains (`_fly_collisions3d`; the push-apart is the physics engine's). Hits, damage, death and
+every environment poke inside the per-fly loops (`environment.rs`: wind, light, heat, taste, rain, fruit...) go to that fly's brain; the HUD, the brain
+panel and single-brain features (surgery, memory, challenges, autopsy) follow the focused fly (the learning state moves with the focus). Checked in the
+game (`KTF_FLIES=3` spawns three after start): HUD `flies 4/16 · #2`, four bodies reacting on their own brains, sim still 200 steps/s.
+**Not done:** pokes that are not per-fly yet go to the focused brain (looming objects in `senses.rs`, the contraption's wind, the memory scent), the
+arcade/tool wheel/puppeteer assume one fly, fly-vs-fly personality cards are not shown on the bodies, saves keep one fly's state (loading a save puts
+back one fly), and the cap is not adapted to the machine (each extra brain costs about 0.3 ms per step here, so ~16 flies still ran real time on
+paper but this was only measured at 4).

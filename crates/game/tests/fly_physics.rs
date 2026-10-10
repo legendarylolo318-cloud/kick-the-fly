@@ -47,7 +47,7 @@ fn spawn(app: &mut App, pos: Vec3) -> Entity {
     let mut commands_state =
         bevy::ecs::system::SystemState::<(Commands, ResMut<Assets<Mesh>>, ResMut<Assets<StandardMaterial>>)>::new(app.world_mut());
     let (mut commands, mut meshes, mut mats) = commands_state.get_mut(app.world_mut()).expect("system state");
-    let e = spawn_fly(&mut commands, &mut meshes, &mut mats, pos, std::f32::consts::FRAC_PI_2, 1);
+    let e = spawn_fly(&mut commands, &mut meshes, &mut mats, pos, std::f32::consts::FRAC_PI_2, 1, 0);
     commands_state.apply(app.world_mut());
     e
 }

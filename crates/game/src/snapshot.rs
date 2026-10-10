@@ -118,6 +118,9 @@ pub struct Snapshot {
     /// Per group (`BrainInfo::group_names`): firing in Hz per neuron, and as a multiple of the calm baseline.
     pub hz: Vec<f32>,
     pub levels: Vec<f32>,
+    /// Which fly the fields above are about (the focused one), and the other flies' readouts.
+    pub focus: u32,
+    pub others: Vec<OtherFly>,
     /// `Brain.pain_parts` now: touch overload, thermal, chemical, DN alarm, body relay (0..1).
     pub pain_parts: [f32; 5],
     /// How many real neurons the pain index listens to at this pain level.
@@ -139,6 +142,15 @@ pub struct Snapshot {
     pub challenge_speed: f32,
     /// When the sim thread made this snapshot, to measure how stale the render side's view is.
     pub published_at: Option<Instant>,
+}
+
+/// Another fly's brain: what the render side needs to let its body react.
+#[derive(Debug, Clone, Default)]
+pub struct OtherFly {
+    pub slot: u32,
+    pub levels: Vec<f32>,
+    pub hz: Vec<f32>,
+    pub dead: bool,
 }
 
 /// One-slot latest-value box with buffer recycling. See the module docs.

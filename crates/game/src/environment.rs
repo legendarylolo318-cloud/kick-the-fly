@@ -34,6 +34,8 @@ pub struct Kitchen(pub Option<KitchenState>);
 /// Per-fly foraging state (flying to a fruit and feeding).
 #[derive(Component, Default)]
 pub struct Forage {
+    /// The brain this fly's senses poke (`fly::Slot`).
+    pub slot: u32,
     pub fruit: Option<usize>,
     pub landed: bool,
     pub since: f32,
@@ -53,9 +55,9 @@ pub struct EscapeRoom {
     pub cleared: Option<f32>,
 }
 
-fn attach(mut commands: Commands, new: Query<Entity, (With<Fly>, Without<Forage>)>) {
-    for e in &new {
-        commands.entity(e).insert(Forage::default());
+fn attach(mut commands: Commands, new: Query<(Entity, &crate::fly::Slot), (With<Fly>, Without<Forage>)>) {
+    for (e, slot) in &new {
+        commands.entity(e).insert(Forage { slot: slot.0, ..default() });
     }
 }
 
@@ -149,7 +151,7 @@ fn arena_effects(
             let w = 0.55 * gust * (1.15 - dx / 7.0).clamp(0.25, 1.0) * lateral;
             f.wind = Vec3::new(w * S * 60.0, 0.0, 0.0);
             if !dead && tick.is_multiple_of(3) {
-                link.0.send(Command::Poke { region: "wind".into(), side: None, strength: (w * 1.4).min(1.0) });
+                link.0.send(Command::PokeFly { slot: fo.slot, region: "wind".into(), side: None, strength: (w * 1.4).min(1.0) });
             }
             if rng.chance(0.8) {
                 let at = Vec3::new(FAN3.x + 0.5, rng.uniform(0.4, 1.6), FAN3.z + rng.uniform(-1.2, 1.2));
@@ -175,9 +177,9 @@ fn arena_effects(
                 f.stuck.retain(|_| !rng.chance(p));
                 if !dead {
                     if tick.is_multiple_of(6) {
-                        link.0.send(Command::Poke { region: "legs".into(), side: Some('L'), strength: 0.4 });
-                        link.0.send(Command::Poke { region: "legs".into(), side: Some('R'), strength: 0.4 });
-                        link.0.send(Command::Poke { region: "body".into(), side: None, strength: 0.2 });
+                        link.0.send(Command::PokeFly { slot: fo.slot, region: "legs".into(), side: Some('L'), strength: 0.4 });
+                        link.0.send(Command::PokeFly { slot: fo.slot, region: "legs".into(), side: Some('R'), strength: 0.4 });
+                        link.0.send(Command::PokeFly { slot: fo.slot, region: "body".into(), side: None, strength: 0.2 });
                     }
                     if f.stuck.len() >= 3 {
                         dmg.write(FlyDamage { fly: e, amount: 0.012, source: "the flypaper" });
@@ -190,10 +192,10 @@ fn arena_effects(
             if !dead {
                 let light = (1.2 - dist / 3.0).clamp(0.15, 1.0);
                 if tick.is_multiple_of(2) {
-                    link.0.send(Command::Poke { region: "light".into(), side: None, strength: light });
+                    link.0.send(Command::PokeFly { slot: fo.slot, region: "light".into(), side: None, strength: light });
                 }
                 if dist < 0.36 {
-                    link.0.send(Command::Poke { region: "heat".into(), side: None, strength: 0.8 });
+                    link.0.send(Command::PokeFly { slot: fo.slot, region: "heat".into(), side: None, strength: 0.8 });
                     dmg.write(FlyDamage { fly: e, amount: 0.08, source: "the hot lamp" });
                     let away = (head - LAMP3) / dist.max(1e-6);
                     for (p, mut v) in &mut vels {
@@ -237,8 +239,8 @@ fn arena_effects(
                     f.wet = 3.0;
                     if !dead {
                         if tick.is_multiple_of(4) {
-                            link.0.send(Command::Poke { region: "humid".into(), side: None, strength: 0.9 });
-                            link.0.send(Command::Poke { region: "body".into(), side: None, strength: 0.25 });
+                            link.0.send(Command::PokeFly { slot: fo.slot, region: "humid".into(), side: None, strength: 0.9 });
+                            link.0.send(Command::PokeFly { slot: fo.slot, region: "body".into(), side: None, strength: 0.25 });
                         }
                         if head.y < WATER3 - 6.0 * S {
                             dmg.write(FlyDamage { fly: e, amount: 0.05, source: "drowning" });
@@ -251,10 +253,10 @@ fn arena_effects(
                 let (cold, hot) = (t.clamp(-1.0, 1.0).min(0.0).abs(), t.clamp(-1.0, 1.0).max(0.0));
                 if !dead && tick.is_multiple_of(3) {
                     if cold > 0.05 {
-                        link.0.send(Command::Poke { region: "cold".into(), side: None, strength: cold });
+                        link.0.send(Command::PokeFly { slot: fo.slot, region: "cold".into(), side: None, strength: cold });
                     }
                     if hot > 0.05 {
-                        link.0.send(Command::Poke { region: "heat".into(), side: None, strength: hot });
+                        link.0.send(Command::PokeFly { slot: fo.slot, region: "heat".into(), side: None, strength: hot });
                     }
                 }
                 if thx.y < STAND3 + 20.0 * S && !dead {
@@ -269,7 +271,7 @@ fn arena_effects(
                 let sugar = Vec3::new(RX - 0.7, 0.04, 0.0);
                 if (head - sugar).length() < 0.4 && !dead {
                     if tick.is_multiple_of(3) {
-                        link.0.send(Command::Poke { region: "taste".into(), side: None, strength: 1.0 });
+                        link.0.send(Command::PokeFly { slot: fo.slot, region: "taste".into(), side: None, strength: 1.0 });
                     }
                     if room.cleared.is_none() {
                         let t = now - room.start.unwrap_or(now);
@@ -329,10 +331,10 @@ fn outdoor_effects(
             if !dead && tick.is_multiple_of(3) && ws > 0.0 {
                 let (l, r) = world::wind_drive(f.yaw, wd, ws);
                 if l > 0.02 {
-                    link.0.send(Command::Poke { region: "wind".into(), side: Some('L'), strength: l });
+                    link.0.send(Command::PokeFly { slot: fo.slot, region: "wind".into(), side: Some('L'), strength: l });
                 }
                 if r > 0.02 {
-                    link.0.send(Command::Poke { region: "wind".into(), side: Some('R'), strength: r });
+                    link.0.send(Command::PokeFly { slot: fo.slot, region: "wind".into(), side: Some('R'), strength: r });
                 }
             }
             if field && fx.rng.chance(0.25 * (ws / 4.0).min(1.0)) {
@@ -345,11 +347,11 @@ fn outdoor_effects(
         if wx.0.rain > 0.0 && !dead {
             let mut wing_hits = 0;
             for (region, side, s) in wx.0.hits(dt, true) {
-                link.0.send(Command::Poke { region: region.into(), side, strength: s });
+                link.0.send(Command::PokeFly { slot: fo.slot, region: region.into(), side, strength: s });
                 wing_hits += u32::from(region == "wing");
             }
             if humid > 0.0 {
-                link.0.send(Command::Poke { region: "humid".into(), side: None, strength: humid });
+                link.0.send(Command::PokeFly { slot: fo.slot, region: "humid".into(), side: None, strength: humid });
             }
             fo.rain_wet = weather::soak(fo.rain_wet, dt, wx.0.rain, wing_hits);
             if fo.rain_wet >= 1.0 {
@@ -360,21 +362,21 @@ fn outdoor_effects(
         }
         let light = wx.0.lightning();
         if light > 0.0 && !dead {
-            link.0.send(Command::Poke { region: "light".into(), side: Some('L'), strength: light });
-            link.0.send(Command::Poke { region: "light".into(), side: Some('R'), strength: light });
+            link.0.send(Command::PokeFly { slot: fo.slot, region: "light".into(), side: Some('L'), strength: light });
+            link.0.send(Command::PokeFly { slot: fo.slot, region: "light".into(), side: Some('R'), strength: light });
         }
         if !dead && tick.is_multiple_of(2) {
             let (l, r) = world::sun_light(f.yaw, az, el);
             if l > 0.02 {
-                link.0.send(Command::Poke { region: "light".into(), side: Some('L'), strength: l });
+                link.0.send(Command::PokeFly { slot: fo.slot, region: "light".into(), side: Some('L'), strength: l });
             }
             if r > 0.02 {
-                link.0.send(Command::Poke { region: "light".into(), side: Some('R'), strength: r });
+                link.0.send(Command::PokeFly { slot: fo.slot, region: "light".into(), side: Some('R'), strength: r });
             }
             if settings.day_night_s > 0.0 {
                 let clock = world::circadian_clock_drive(el);
                 if clock > 0.02 {
-                    link.0.send(Command::Poke { region: "clock".into(), side: None, strength: clock });
+                    link.0.send(Command::PokeFly { slot: fo.slot, region: "clock".into(), side: None, strength: clock });
                 }
             }
         }
@@ -385,7 +387,7 @@ fn outdoor_effects(
             let far = d > r || thx.y > 15.0;
             if far && !fo.lost {
                 fo.lost = true;
-                notes.push(now, format!("LOST     flew out of sight, {d:.0} m away (R resets it)"), Tag::GameRule);
+                notes.push(now, format!("LOST     flew out of sight, {d:.0} m away (J calls it back)"), Tag::GameRule);
             } else if !far {
                 fo.lost = false;
             }
@@ -466,12 +468,12 @@ fn foraging(
             }
             f.react.eating_until = now + 0.4;
             let ferm = o.fruit[i].fermented;
-            link.0.send(Command::Poke { region: "taste".into(), side: None, strength: 0.5 });
-            link.0.send(Command::Poke { region: "reward".into(), side: None, strength: if ferm { 0.6 } else { 0.4 } });
+            link.0.send(Command::PokeFly { slot: fo.slot, region: "taste".into(), side: None, strength: 0.5 });
+            link.0.send(Command::PokeFly { slot: fo.slot, region: "reward".into(), side: None, strength: if ferm { 0.6 } else { 0.4 } });
             if ferm {
                 f.inebriation = (f.inebriation + 0.008).min(1.0);
                 if (*counter).is_multiple_of(10) {
-                    link.0.send(Command::Poke { region: "scent:alcohol".into(), side: None, strength: 0.35 });
+                    link.0.send(Command::PokeFly { slot: fo.slot, region: "scent:alcohol".into(), side: None, strength: 0.35 });
                 }
             }
             f.health = (f.health + 0.15).min(MAX_HEALTH);
@@ -563,8 +565,8 @@ fn kitchen_tick(
             }
             f.wet = 3.0;
             if tick.is_multiple_of(4) {
-                link.0.send(Command::Poke { region: "humid".into(), side: None, strength: 0.9 });
-                link.0.send(Command::Poke { region: "body".into(), side: None, strength: 0.25 });
+                link.0.send(Command::PokeFly { slot: fo.slot, region: "humid".into(), side: None, strength: 0.9 });
+                link.0.send(Command::PokeFly { slot: fo.slot, region: "body".into(), side: None, strength: 0.25 });
             }
             if head.y < kit::SINK_WATER - 6.0 * S {
                 ff.dmg.write(FlyDamage { fly: e, amount: 0.05, source: "drowning in the sink" });
@@ -573,11 +575,11 @@ fn kitchen_tick(
         // the burner: the lamp's heat rules
         let (heat, touching) = kit::burner_heat(head);
         if heat > 0.05 && tick.is_multiple_of(2) {
-            link.0.send(Command::Poke { region: "heat".into(), side: None, strength: 0.8 * heat });
+            link.0.send(Command::PokeFly { slot: fo.slot, region: "heat".into(), side: None, strength: 0.8 * heat });
         }
         if touching {
-            link.0.send(Command::Poke { region: "legs".into(), side: Some('L'), strength: 0.5 });
-            link.0.send(Command::Poke { region: "legs".into(), side: Some('R'), strength: 0.5 });
+            link.0.send(Command::PokeFly { slot: fo.slot, region: "legs".into(), side: Some('L'), strength: 0.5 });
+            link.0.send(Command::PokeFly { slot: fo.slot, region: "legs".into(), side: Some('R'), strength: 0.5 });
             ff.dmg.write(FlyDamage { fly: e, amount: 0.1, source: "the stove burner" });
             let away = Vec3::new(thx.x - kit::BURNER_POS.x, 0.0, thx.z - kit::BURNER_POS.z).normalize_or_zero();
             for (p, mut v) in &mut vels {
@@ -589,7 +591,7 @@ fn kitchen_tick(
         // the vinegar's smell on DM1/DM2/DP1m, and whether those neurons say "go there"
         let s = kit::scent_strength(head);
         if s > 0.0 && tick.is_multiple_of(2) {
-            link.0.send(Command::Poke { region: "scent:alcohol".into(), side: None, strength: s });
+            link.0.send(Command::PokeFly { slot: fo.slot, region: "scent:alcohol".into(), side: None, strength: s });
         }
         if tick.is_multiple_of(6) {
             k.tracker(key).update(6.0 / 60.0, alcohol_hz, s > 0.0);
@@ -628,9 +630,9 @@ fn kitchen_tick(
             f.hold = k.inside_point(key, held_for);
             f.wet = 3.0;
             if tick.is_multiple_of(6) {
-                link.0.send(Command::Poke { region: "legs".into(), side: Some('L'), strength: 0.4 });
-                link.0.send(Command::Poke { region: "legs".into(), side: Some('R'), strength: 0.4 });
-                link.0.send(Command::Poke { region: "humid".into(), side: None, strength: 0.5 });
+                link.0.send(Command::PokeFly { slot: fo.slot, region: "legs".into(), side: Some('L'), strength: 0.4 });
+                link.0.send(Command::PokeFly { slot: fo.slot, region: "legs".into(), side: Some('R'), strength: 0.4 });
+                link.0.send(Command::PokeFly { slot: fo.slot, region: "humid".into(), side: None, strength: 0.5 });
             }
             ff.dmg.write(FlyDamage { fly: e, amount: kit::TRAP_DROWN, source: "the vinegar trap" });
             if settings.immortal && held_for > kit::TRAP_IMMORTAL_ESCAPE_S {

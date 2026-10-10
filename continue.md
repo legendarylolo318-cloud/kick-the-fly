@@ -44,6 +44,9 @@ Done, committed: `fly_sim::{duel,cards,race}`, NumPy-exact `choice` in pokes, go
    (measure cards with `cards::measure_card`, play with `Build::brain(seed, Some(noise), 600)` + `lane_noise`), then the arcade page in `ktf_ui::pages` from `ui/arcade_ui.py`. Do not wait on background jobs with `pgrep`; read the task output file.
 3. Then the list below, in order. Venv: `python3 -m venv V; V/bin/pip install numpy scipy pygame-ce pytest pillow pyyaml pyarrow fonttools`.
 
+## Multiple flies (done this session, see PORTING.md "Multiple flies")
+N spawn, F focus, J recall, per-fly brains. Left: per-fly looming/contraption/memory pokes, saves of several flies, a cap tuned to the machine.
+
 ## Next, in order
 1. Commit anything uncommitted (`git status`); the real-shapes commit may still be pending.
 2. Remaining UI pages (port line by line from `legacy-python/kickthefly/ui/*.py`, `lab/*.py`): `arcade` + battle (`arcade_ui.py`, `battle_ui.py`; needs personality cards

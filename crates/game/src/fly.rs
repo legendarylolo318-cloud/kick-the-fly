@@ -59,6 +59,10 @@ pub struct FlyPart {
     pub part: Part,
 }
 
+/// Which brain a fly's body listens to (slot 0 is the first fly; see `flies_play`).
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Slot(pub u32);
+
 #[derive(Component)]
 pub struct Fly {
     pub parts: [Entity; 3],
@@ -256,6 +260,7 @@ pub fn spawn_fly(
     pos: Vec3,
     yaw: f32,
     seed: u64,
+    slot: u32,
 ) -> Entity {
     let body = materials.add(StandardMaterial {
         base_color: Color::srgb(0.16, 0.13, 0.11),
@@ -381,12 +386,13 @@ pub fn spawn_fly(
             joints: joints_spawned,
         },
         FlyLook { body, wing, eye },
+        Slot(slot),
     ));
     root
 }
 
 fn spawn_primary_fly(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut materials: ResMut<Assets<StandardMaterial>>) {
-    spawn_fly(&mut commands, &mut meshes, &mut materials, Vec3::new(0.0, STAND3 + 0.05, -0.8), std::f32::consts::FRAC_PI_2, 1000);
+    spawn_fly(&mut commands, &mut meshes, &mut materials, Vec3::new(0.0, STAND3 + 0.05, -0.8), std::f32::consts::FRAC_PI_2, 1000, 0);
 }
 
 // --- reactions: the brain decides, the body does ---------------------------------------------------------------------------------
@@ -399,7 +405,7 @@ fn brain_reactions(
     virt: Res<Time<Virtual>>,
     snap: Res<LatestSnapshot>,
     arena: Res<Arena>,
-    mut flies: Query<(Entity, &mut Fly)>,
+    mut flies: Query<(Entity, &mut Fly, &Slot)>,
     mut parts: Query<(&FlyPart, &mut LinearVelocity)>,
     transforms: Query<&Transform, With<FlyPart>>,
     mut notes: ResMut<Notes>,
@@ -414,13 +420,22 @@ fn brain_reactions(
     }
     let now = virt.elapsed_secs();
     let outdoor = world::is_outdoor(arena.name());
-    for (e, mut f) in &mut flies {
+    for (e, mut f, slot) in &mut flies {
         if f.dead() || f.frozen_at.is_some() || f.gone() {
             continue;
         }
+        // the focused fly's levels are the snapshot's own; the others' travel beside them
+        let values: &[f32] = if slot.0 == s.focus {
+            &s.levels
+        } else {
+            match s.others.iter().find(|o| o.slot == slot.0) {
+                Some(o) if o.levels.len() == info.group_names.len() => &o.levels,
+                _ => continue,
+            }
+        };
         let thx_e = f.parts[Part::Thorax.index()];
         let Ok(thx) = transforms.get(thx_e).map(|t| t.translation) else { continue };
-        let lv = Levels { names: &info.group_names, values: &s.levels };
+        let lv = Levels { names: &info.group_names, values };
         f.power = lv.get("fly");
         let body = Body {
             can_fly: f.can_fly(),
@@ -798,6 +813,7 @@ fn apply_hits_and_damage(
     link: Res<SimLink>,
     settings: Res<Settings>,
     mut flies: Query<&mut Fly>,
+    slots: Query<&Slot>,
     tools: Res<crate::tools::ToolState>,
     mut hits: MessageReader<FlyHit>,
     mut dmg: MessageReader<FlyDamage>,
@@ -816,12 +832,13 @@ fn apply_hits_and_damage(
         }
         let s = h.strength.clamp(0.0, 1.0);
         let region = h.part.region();
-        link.0.send(Command::Poke { region: region.into(), side: None, strength: s });
+        let slot = slots.get(h.fly).map_or(0, |s| s.0);
+        link.0.send(Command::PokeFly { slot, region: region.into(), side: None, strength: s });
         if h.part != Part::Head {
             // the legs and wings are not separate bodies here: a body blow is felt there too
-            link.0.send(Command::Poke { region: "legs".into(), side: Some('L'), strength: 0.6 * s });
-            link.0.send(Command::Poke { region: "legs".into(), side: Some('R'), strength: 0.6 * s });
-            link.0.send(Command::Poke { region: "wing".into(), side: None, strength: 0.4 * s });
+            link.0.send(Command::PokeFly { slot, region: "legs".into(), side: Some('L'), strength: 0.6 * s });
+            link.0.send(Command::PokeFly { slot, region: "legs".into(), side: Some('R'), strength: 0.6 * s });
+            link.0.send(Command::PokeFly { slot, region: "wing".into(), side: None, strength: 0.4 * s });
         }
     }
     for d in dmg.read() {
@@ -837,7 +854,7 @@ fn apply_hits_and_damage(
         if f.health <= 0.0 {
             f.dead_at = Some(now);
             f.grabbed = None;
-            link.0.send(Command::Kill);
+            link.0.send(Command::KillFly(slots.get(d.fly).map_or(0, |s| s.0)));
             sfx.write(Sfx::new("death"));
             notes.push(now, "DIED     brain drive cut, activity fading", Tag::GameRule);
             if let Ok(t) = transforms.get(f.parts[Part::Head.index()]) {
@@ -886,8 +903,9 @@ pub struct ResetFly {
 fn reset_fly(
     mut commands: Commands,
     mut msgs: MessageReader<ResetFly>,
-    flies: Query<(Entity, &Fly, Option<&crate::fly_visuals::FlyVisuals>)>,
+    flies: Query<(Entity, &Fly, &Slot, Option<&crate::fly_visuals::FlyVisuals>)>,
     link: Res<SimLink>,
+    flies_res: Res<crate::flies_play::Flies>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut seed: Local<u64>,
@@ -895,7 +913,11 @@ fn reset_fly(
     let Some(req) = msgs.read().last().copied() else {
         return;
     };
-    for (e, f, vis) in &flies {
+    for (e, f, slot, vis) in &flies {
+        // every brain but the focused fly's goes with its body; the new fly takes the focused fly's brain (revived)
+        if slot.0 != flies_res.focus {
+            link.0.send(Command::RemoveFly(slot.0));
+        }
         for p in f.parts {
             commands.entity(p).despawn();
         }
@@ -914,14 +936,15 @@ fn reset_fly(
     link.0.send(Command::Revive);
     *seed += 1;
     let (x, yaw) = req.place.unwrap_or((0.0, std::f32::consts::FRAC_PI_2));
-    spawn_fly(&mut commands, &mut meshes, &mut materials, Vec3::new(x, STAND3 + 0.05, -0.8), yaw, 1000 + *seed);
+    spawn_fly(&mut commands, &mut meshes, &mut materials, Vec3::new(x, STAND3 + 0.05, -0.8), yaw, 1000 + *seed, flies_res.focus);
 }
 
 pub struct FlyPlugin;
 
 impl Plugin for FlyPlugin {
     fn build(&self, app: &mut App) {
-        app.add_message::<ReactionFired>()
+        app.init_resource::<crate::flies_play::Flies>()
+            .add_message::<ReactionFired>()
             .add_message::<ResetFly>()
             .add_message::<FlyHit>()
             .add_message::<FlyDamage>()
