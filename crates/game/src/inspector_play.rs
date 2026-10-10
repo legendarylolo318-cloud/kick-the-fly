@@ -60,7 +60,14 @@ fn update(
     link: Res<SimLink>,
     cfg: Res<UserConfig>,
     time: Res<Time<Real>>,
+    shapes: Res<crate::shapes_play::Shapes>,
+    mut was_opted: Local<bool>,
 ) {
+    let opted_now = cfg.0.get_bool("brain.neuron_shapes");
+    if opted_now && !*was_opted {
+        shapes.reset_offline(); // the player just turned the download on: ask again for what was refused
+    }
+    *was_opted = opted_now;
     let Some(s) = snap.0.as_deref() else { return };
     let ins = &mut *ins;
     // the calm rate per neuron (`BrainView.calm`: a slow EMA)
@@ -194,14 +201,29 @@ fn update(
         yy += 34;
     }
     yy += 2;
-    let shape = if n.body_id <= 0 {
-        "estimated fiber (no body id)"
-    } else if cfg.0.get_str("brain.neuron_shapes") == "on" || cfg.0.get_bool("brain.neuron_shapes") {
-        "estimated fiber (real shapes are not in this build yet)"
+    let opted = cfg.0.get_bool("brain.neuron_shapes");
+    let state = if n.body_id > 0 {
+        shapes.request(n.body_id, opted);
+        shapes.state(n.body_id)
     } else {
-        "estimated fiber (real shapes are off: Settings > Brain)"
+        None
     };
-    text(&mut ops, shape, (x, yy), DIM, FontSel::Small);
+    let shape =
+        if n.body_id <= 0 { "estimated fiber (no body id)".to_string() } else { crate::shapes_play::status_line(state.as_ref(), opted) };
+    text(&mut ops, &shape, (x, yy), if shape.starts_with("real shape:") { [255, 236, 140] } else { DIM }, FontSel::Small);
+    if let Some(skel) = crate::shapes_play::skeleton_of(state.as_ref()) {
+        // the inset: the whole skeleton fitted to a 236 x 118 box with its credit (`shape_draw.thumbnail`)
+        let boxr = Rect::new(10, lh_hud(lh, k) - 150, 244, 140);
+        ops.push(Op::Card { rect: boxr, fill: [8, 10, 16], alpha: 215, radius: 8 });
+        thumbnail(&mut ops, &skel, Rect::new(boxr.x + 4, boxr.y + 4, 236, 118));
+        ops.push(Op::Text {
+            s: ktf_data::shapes::CREDIT_SHORT.into(),
+            pos: (boxr.x + 6, boxr.bottom() - 16),
+            color: DIM,
+            font: FontSel::Small,
+            anchor: "topleft",
+        });
+    }
     yy += 14;
     for (title, list, col) in [
         ("strongest inputs (% of its input)", &n.ins, [110u8, 200, 255]),
@@ -237,6 +259,42 @@ fn update(
     }
     ins.ops = ops;
     ins.hits = hits;
+}
+
+fn lh_hud(lh: f32, k: f32) -> i32 {
+    (lh * k) as i32
+}
+
+/// `shape_draw.fit_camera` + `thumbnail`: the skeleton from a slightly turned front view (25 deg yaw, -15 deg pitch), fitted to the box.
+fn thumbnail(ops: &mut Vec<Op>, skel: &ktf_data::shapes::Skeleton, r: Rect) {
+    let (lo, hi) = skel.bounds();
+    let centre = [(lo[0] + hi[0]) / 2.0, (lo[1] + hi[1]) / 2.0, (lo[2] + hi[2]) / 2.0];
+    let (yaw, pitch) = (25f32.to_radians(), (-15f32).to_radians());
+    let (sy, cy, sp, cp) = (yaw.sin(), yaw.cos(), pitch.sin(), pitch.cos());
+    let rot = |p: [f32; 3]| -> (f32, f32) {
+        let (x, y, z) = (p[0] - centre[0], p[1] - centre[1], p[2] - centre[2]);
+        let (x1, z1) = (x * cy + z * sy, -x * sy + z * cy);
+        (x1, y * cp - z1 * sp)
+    };
+    let pts: Vec<(f32, f32)> = skel.xyz.iter().map(|p| rot(*p)).collect();
+    let (mut x0, mut x1, mut y0, mut y1) = (f32::INFINITY, f32::NEG_INFINITY, f32::INFINITY, f32::NEG_INFINITY);
+    for p in &pts {
+        x0 = x0.min(p.0);
+        x1 = x1.max(p.0);
+        y0 = y0.min(p.1);
+        y1 = y1.max(p.1);
+    }
+    let (ex, ey) = ((x1 - x0).max(1.0), (y1 - y0).max(1.0));
+    let zoom = 0.92 * (r.w as f32 / ex).min(r.h as f32 / ey);
+    let (mx, my) = ((x0 + x1) / 2.0, (y0 + y1) / 2.0);
+    let to = |p: (f32, f32)| ((r.centerx() as f32 + (p.0 - mx) * zoom) as i32, (r.centery() as f32 + (p.1 - my) * zoom) as i32);
+    // at most about 4,000 segments: a thumbnail needs no more
+    let step = (skel.n() / 4000).max(1);
+    for (i, &p) in skel.parent.iter().enumerate().step_by(step) {
+        if p >= 0 {
+            ops.push(Op::Line { a: to(pts[i]), b: to(pts[p as usize]), w: 1, color: [255, 237, 140] });
+        }
+    }
 }
 
 fn card_rect(play_w: i32) -> Rect {

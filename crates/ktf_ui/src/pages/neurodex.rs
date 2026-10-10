@@ -78,6 +78,8 @@ pub struct NeurodexPage {
     rows_key: Option<(usize, String)>,
     rows: Vec<(String, u32, u32)>,
     notd: Option<(i64, bool, Option<Card>)>,
+    /// The type whose cached skeleton `skel` is, and its 80 sample points (`Extras`: `st.skel_key`, `st.skel`).
+    skel: std::sync::Mutex<(String, Option<Vec<[f32; 3]>>)>,
 }
 
 impl NeurodexPage {
@@ -95,6 +97,7 @@ impl NeurodexPage {
             rows_key: None,
             rows: vec![],
             notd: None,
+            skel: Default::default(),
         }
     }
 }
@@ -472,7 +475,42 @@ impl NeurodexPage {
         let sk = Rect::new(x, y, 150, bx.bottom() - y - 4);
         if sk.h > 60 {
             cv.fill_rect(sk, [8, 10, 14], 6);
-            m.wrapped(cv, &tr("no skeleton cached for this type"), (sk.x + 8, sk.centery() - 10), sk.w - 16, DIM, &f.small, 3);
+            let pts = {
+                let mut g = self.skel.lock().unwrap_or_else(|e| e.into_inner());
+                if g.0 != name {
+                    let ids: Vec<i64> =
+                        tab.rows(name).iter().take(40).map(|&r| tab.body_id.get(r as usize).copied().unwrap_or(0)).collect();
+                    let p = ktf_data::paths::get();
+                    let folders = vec![p.data_dir.join("skeletons"), p.data_dir.join("shapes")];
+                    *g = (name.to_string(), ktf_data::shapes::skeleton_points(&ids, &folders, 80));
+                }
+                g.1.clone()
+            };
+            match pts {
+                Some(pts) => {
+                    // `pygame.draw.lines(... ACCENT, 2)` of the x, y of the samples, fitted to the box
+                    let (mut lo, mut hi) = ([f32::INFINITY; 2], [f32::NEG_INFINITY; 2]);
+                    for p in &pts {
+                        for k in 0..2 {
+                            lo[k] = lo[k].min(p[k]);
+                            hi[k] = hi[k].max(p[k]);
+                        }
+                    }
+                    let span = (hi[0] - lo[0]).max(hi[1] - lo[1]).max(1.0);
+                    let sc = (sk.w.min(sk.h) - 16) as f32 / span;
+                    let px: Vec<(i32, i32)> = pts
+                        .iter()
+                        .map(|p| ((sk.x as f32 + 8.0 + (p[0] - lo[0]) * sc) as i32, (sk.y as f32 + 8.0 + (p[1] - lo[1]) * sc) as i32))
+                        .collect();
+                    for w in px.windows(2) {
+                        cv.line(w[0], w[1], 2, ACCENT, 255);
+                    }
+                    m.text(cv, &tr("EM skeleton (cached)"), (sk.x + 6, sk.bottom() - 16), DIM, &f.small, Anchor::TopLeft);
+                }
+                None => {
+                    m.wrapped(cv, &tr("no skeleton cached for this type"), (sk.x + 8, sk.centery() - 10), sk.w - 16, DIM, &f.small, 3);
+                }
+            }
         }
         // the curated fact
         let (fx, fw) = (x + 162, bx.w - 162);

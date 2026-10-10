@@ -16,5 +16,6 @@ pub mod notd;
 pub mod paths;
 pub mod pyrandom;
 pub mod savestate;
+pub mod shapes;
 pub mod sharecode;
 pub mod stores;

@@ -57,6 +57,7 @@ pub mod rng;
 pub mod savestate_play;
 pub mod selftest;
 pub mod senses;
+pub mod shapes_play;
 pub mod sim_thread;
 pub mod snapshot;
 pub mod stethoscope_play;
@@ -163,6 +164,7 @@ impl Plugin for GamePlugin {
                 wheel_play::WheelPlugin,
                 stethoscope_play::StethoscopePlugin,
                 inspector_play::InspectorPlugin,
+                shapes_play::ShapesPlugin,
                 actions::ActionsPlugin,
                 tutorial_play::TutorialPlugin,
                 first_run::FirstRunPlugin,

@@ -33,6 +33,9 @@ cpal.workspace = true
 sha2.workspace = true
 fs4 = "=1.1.0"
 wgpu = { version = "=29.0.4", default-features = false }
+ureq = { version = "=3.4.2", default-features = false, features = ["rustls"] }
+md-5 = "=0.11.0"
+base64 = "=0.23.1"
 
 [dev-dependencies]
 png.workspace = true
