@@ -545,3 +545,439 @@ impl Page for LabThermo {
         }
     }
 }
+
+// ==== shared plot ===================================================================================================================
+/// `_plot`: a small line plot. `series`: `(points, color, width)`; `markers`: `(x, y, color)`.
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
+pub fn plot(
+    m: &Menu,
+    cv: &mut Canvas,
+    rect: Rect,
+    series: &[(Vec<(f64, f64)>, Color, i32)],
+    xlim: (f64, f64),
+    ylim: (f64, f64),
+    xlabel: &str,
+    ylabel: &str,
+    markers: &[(f64, f64, Color)],
+) {
+    let f = m.fonts();
+    cv.fill_rect(rect, [12, 14, 20], 8);
+    let pl = Rect::new(rect.x + 46, rect.y + 24, rect.w - 60, rect.h - 54);
+    let (sx, sy) = (f64::from(pl.w) / (xlim.1 - xlim.0).max(1e-9), f64::from(pl.h) / (ylim.1 - ylim.0).max(1e-9));
+    let px = |x: f64, y: f64| -> (f64, f64) { (f64::from(pl.x) + (x - xlim.0) * sx, f64::from(pl.bottom()) - (y - ylim.0) * sy) };
+    for k in 0..5 {
+        let yy = ylim.0 + (ylim.1 - ylim.0) * f64::from(k) / 4.0;
+        let py = f64::from(pl.bottom()) - (yy - ylim.0) * sy;
+        cv.line((pl.x, py as i32), (pl.right(), py as i32), 1, [36, 40, 50], 255);
+        m.text(cv, &super::day4::fmt_gp(yy, 3), (pl.x - 6, py as i32), LABEL, &f.small, Anchor::MidRight);
+    }
+    let prev = cv.clip;
+    cv.clip = Some(pl);
+    for (pts, col, w) in series {
+        if pts.len() > 1 {
+            for win in pts.windows(2) {
+                let (a, b) = (px(win[0].0, win[0].1), px(win[1].0, win[1].1));
+                cv.line((a.0 as i32, a.1 as i32), (b.0 as i32, b.1 as i32), *w, *col, 255);
+            }
+        }
+    }
+    for (x, y, col) in markers {
+        let q = px(*x, *y);
+        cv.circle((q.0 as i32, q.1 as i32), 4, *col);
+    }
+    cv.clip = prev;
+    if !xlabel.is_empty() {
+        m.text(cv, xlabel, (pl.center().0, rect.bottom() - 4), LABEL, &f.small, Anchor::MidBottom);
+    }
+    if !ylabel.is_empty() {
+        m.text(cv, ylabel, (rect.x + 6, rect.y + 2), LABEL, &f.small, Anchor::TopLeft);
+    }
+}
+
+/// `labwiring._draw_inhibition`: the firing-rate distribution report.
+pub fn draw_inhibition(m: &Menu, cv: &mut Canvas, area: Rect, res: &Value) {
+    let f = m.fonts();
+    let (b, a) = (&res["before"], &res["after"]);
+    let scale = num(&res["scale"]);
+    let seeds: Vec<String> = res["seeds"].as_array().into_iter().flatten().map(|s| s.to_string()).collect();
+    m.text(
+        cv,
+        &format!(
+            "Firing Rate Distribution Report  ·  Severity: {:.0}% (scale x{scale:.2})  ·  seeds [{}]  ·  {:.1}s",
+            num(&res["severity"]) * 100.0,
+            seeds.join(", "),
+            num(&res["seconds"])
+        ),
+        (area.x, area.y),
+        INK,
+        &f.small,
+        Anchor::TopLeft,
+    );
+    let mut y = area.y + 20;
+    let (bm, am) = (num(&b["mean"]), num(&a["mean"]));
+    m.text(
+        cv,
+        &format!(
+            "Mean rate: {bm:.1} Hz -> {am:.1} Hz ({:.1}x)   Median: {:.1} Hz -> {:.1} Hz   95th percentile: {:.1} Hz -> {:.1} Hz   Max: {:.1} Hz -> {:.1} Hz",
+            am / bm.max(0.01),
+            num(&b["median"]),
+            num(&a["median"]),
+            num(&b["p95"]),
+            num(&a["p95"]),
+            num(&b["max"]),
+            num(&a["max"])
+        ),
+        (area.x, y),
+        if am > bm * 2.0 { BAD } else { GOOD },
+        &f.small,
+        Anchor::TopLeft,
+    );
+    y += 24;
+    let xs = [area.x, area.x + 130, area.x + 310, area.x + 500];
+    for (hx, label) in xs.iter().zip([
+        "Rate bin".to_string(),
+        "Control (100% inhib)".to_string(),
+        format!("Treated (x{scale:.2} inhib)"),
+        "Shift".to_string(),
+    ]) {
+        m.text(cv, &label, (*hx, y), LABEL, &f.small, Anchor::TopLeft);
+    }
+    y += 18;
+    let sg = |s: f64| format!("{:.1}%", s * 100.0);
+    for i in 0..6 {
+        let lbl = b["bin_labels"][i].as_str().unwrap_or("");
+        let (bc, bs, ac, as_) = (
+            b["histogram"][i].as_i64().unwrap_or(0),
+            num(&b["bin_shares"][i]),
+            a["histogram"][i].as_i64().unwrap_or(0),
+            num(&a["bin_shares"][i]),
+        );
+        m.text(cv, lbl, (xs[0], y), TEXT, &f.small, Anchor::TopLeft);
+        m.text(cv, &format!("{} ({})", super::day4::grp(bc as f64, 0), sg(bs)), (xs[1], y), LABEL, &f.small, Anchor::TopLeft);
+        m.text(cv, &format!("{} ({})", super::day4::grp(ac as f64, 0), sg(as_)), (xs[2], y), INK, &f.small, Anchor::TopLeft);
+        let diff = as_ - bs;
+        let col = if diff > 0.0 && (lbl.contains('>') || lbl.contains("40") || lbl.contains("20")) {
+            BAD
+        } else if diff < 0.0 {
+            GOOD
+        } else {
+            TEXT
+        };
+        m.text(cv, &format!("{:+.1}%", diff * 100.0), (xs[3], y), col, &f.small, Anchor::TopLeft);
+        y += 18;
+    }
+    y += 6;
+    m.wrapped(
+        cv,
+        "Runaway activity is an observed emergent outcome of uninhibited recurrent excitation across 166.7k neurons, not a scripted seizure.",
+        (area.x, y),
+        area.w,
+        LABEL,
+        &f.small,
+        3,
+    );
+}
+
+// ==== Pharmacology ===================================================================================================================
+/// Host: query `lab.pharm_state` = `{drug, dose, low, cut, affected, applied, has_nt, live_label, busy, dr, dr_running, report, report_note,
+/// report_running, error}`; commands `lab.pharm_set {drug?, dose?, low?, cut?}`, `lab.pharm_apply`, `lab.pharm_wash`, `lab.pharm_dr`,
+/// `lab.pharm_report`.
+#[derive(Default)]
+pub struct LabPharm;
+
+const DRUG_LABELS: [(&str, &str); 4] = [
+    ("picrotoxin", "Picrotoxin"),
+    ("cholinergic", "Cholinergic block"),
+    ("glucl", "Glutamate-Cl block"),
+    ("gabaa_agonist", "GABA-A agonist"),
+];
+
+impl Page for LabPharm {
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
+    fn draw(&mut self, m: &mut Menu, cv: &mut Canvas, rect: Rect, ctx: &mut Ctx) {
+        let f = m.fonts();
+        let q = ctx.host.query("lab.pharm_state");
+        let mut y = title(
+            m,
+            cv,
+            rect,
+            "PHARMACOLOGY",
+            "Drugs scale synapses by the dataset's predicted transmitter. Picrotoxin moved here from Robustness.",
+            &[
+                ("MODEL", "PREDICTION: a synaptic scale only, no receptor or kinetic model"),
+                ("CONNECTOME", "which synapses: transmitter predictions and their confidence"),
+            ],
+        );
+        let x = rect.x + 24;
+        let drug = q["drug"].as_str().unwrap_or("picrotoxin").to_string();
+        let dose = num(&q["dose"]);
+        let low = q["low"].as_bool().unwrap_or(true);
+        let fh = 30.max(f.small.linesize + 10);
+        let lw = ["Drug", "Dose", "Low-confidence predictions"].iter().map(|t| f.text.size(t)).max().unwrap_or(0) + 16;
+        let avail = rect.right() - 24 - (x + lw);
+        m.text(cv, "Drug", (x, y + fh / 2), TEXT, &f.text, Anchor::MidLeft);
+        let items: Vec<_> = DRUG_LABELS
+            .iter()
+            .map(|(k, l)| {
+                (
+                    l.to_string(),
+                    Act::Custom(format!("drug:{k}")),
+                    format!("ph_drug:{k}"),
+                    drug == *k,
+                    Some("Octopamine and dopamine modulation are left out: those neurons' synapses are not in the simulated matrix and there is no existing gain to scale honestly.".to_string()),
+                )
+            })
+            .collect();
+        y = m.flow_buttons(cv, x + lw, y, rect.right() - 24, &items, Some(fh), None, 8, None) + 10;
+        m.text(cv, "Dose", (x, y + fh / 2), TEXT, &f.text, Anchor::MidLeft);
+        m.page_slider(
+            cv,
+            Rect::new(x + lw, y, 320.min(avail), fh),
+            dose,
+            (0.0, 1.0, 0.05),
+            "{:.0%}",
+            "ph_dose",
+            true,
+            Some("Blockers scale by (1 - dose). The GABA-A agonist scales by 1 + dose (x2 at full dose, a game rule)."),
+        );
+        let scale = if drug == "gabaa_agonist" { 1.0 + dose } else { 1.0 - dose };
+        let mut sx = x + lw + 320.min(avail) + 20;
+        let stext = format!("synapse weight scale x{scale:.2}");
+        if sx + f.text.size(&stext) > rect.right() - 24 {
+            y += fh + 4;
+            sx = x + lw;
+        }
+        m.text(cv, &stext, (sx, y + fh / 2), INK, &f.text, Anchor::MidLeft);
+        y += fh + 8;
+        m.text(cv, "Low-confidence predictions", (x, y + fh / 2), TEXT, &f.text, Anchor::MidLeft);
+        let sw = 240.min(avail / 2);
+        m.segmented(
+            cv,
+            Rect::new(x + lw, y, sw, fh),
+            &["Include".into(), "Exclude".into()],
+            usize::from(!low),
+            &[Act::Custom("low:1".into()), Act::Custom("low:0".into())],
+            "ph_low",
+            true,
+            "Exclude leaves the drug off neurons whose transmitter is a prediction below the cut (and those with no confidence); measured transmitters always count.",
+        );
+        let mut cx = x + lw + sw + 16;
+        m.text(cv, "cut", (cx, y + fh / 2), TEXT, &f.text, Anchor::MidLeft);
+        cx += f.text.size("cut") + 10;
+        m.page_slider(
+            cv,
+            Rect::new(cx, y, 160.max(200.min(rect.right() - 24 - cx)), fh),
+            num(&q["cut"]),
+            (0.5, 0.95, 0.05),
+            "{:.2f}",
+            "ph_cut",
+            !low,
+            Some("A predicted transmitter below this confidence is 'low confidence' (a game rule)."),
+        );
+        y += fh + 12;
+        let a = &q["affected"];
+        if !a.is_object() {
+            let e = q["error"].as_str().unwrap_or("the brain pack is not loaded");
+            m.wrapped(cv, &format!("needs an adult brain pack with transmitter predictions: {e}"), (x, y), rect.w - 48, BAD, &f.small, 3);
+            back(m, cv, rect, "pharm");
+            return;
+        }
+        let rows = a["rows"].as_array().cloned().unwrap_or_default();
+        let g = |v: &Value| super::day4::grp(num(v), 0);
+        let heads = ["confidence level", "neurons", "connections", "synapses", "scaled?"];
+        let yes_no: Vec<String> = ["yes", "no", "-"].iter().map(|s| s.to_string()).collect();
+        let cols: Vec<Vec<String>> = vec![
+            rows.iter().map(|r| r["level"].as_str().unwrap_or("").to_string()).collect(),
+            rows.iter().map(|r| g(&r["neurons"])).collect(),
+            rows.iter().map(|r| g(&r["connections"])).collect(),
+            rows.iter().map(|r| g(&r["synapses"])).collect(),
+            yes_no,
+        ];
+        let mut xs = Vec::new();
+        let mut cxx = x;
+        for (h, vals) in heads.iter().zip(&cols) {
+            xs.push(cxx);
+            cxx += std::iter::once(&h.to_string()).chain(vals).map(|v| f.small.size(v)).max().unwrap_or(0) + 28;
+        }
+        let rh = f.small.linesize;
+        for (hx, label) in xs.iter().zip(heads) {
+            m.text(cv, label, (*hx, y), LABEL, &f.small, Anchor::TopLeft);
+        }
+        y += rh + 2;
+        for r in &rows {
+            let applied = r["applied"].as_bool().unwrap_or(false);
+            let col = if applied { TEXT } else { LABEL };
+            m.text(cv, r["level"].as_str().unwrap_or(""), (xs[0], y), col, &f.small, Anchor::TopLeft);
+            m.text(cv, &g(&r["neurons"]), (xs[1], y), col, &f.small, Anchor::TopLeft);
+            m.text(cv, &g(&r["connections"]), (xs[2], y), col, &f.small, Anchor::TopLeft);
+            m.text(cv, &g(&r["synapses"]), (xs[3], y), col, &f.small, Anchor::TopLeft);
+            let sa = num(&r["synapses_applied"]) > 0.0;
+            let word = if num(&r["synapses"]) == 0.0 {
+                "-"
+            } else if sa {
+                "yes"
+            } else {
+                "no"
+            };
+            m.text(cv, word, (xs[4], y), if sa { GOOD } else { LABEL }, &f.small, Anchor::TopLeft);
+            y += rh;
+        }
+        y = m.wrapped(
+            cv,
+            &format!(
+                "affected: {} of {} synapses  ·  {} connections  ·  {} presynaptic neurons",
+                g(&a["synapses_applied"]),
+                g(&a["synapses"]),
+                g(&a["connections_applied"]),
+                g(&a["neurons_applied"])
+            ),
+            (x, y + 4),
+            rect.w - 48,
+            INK,
+            &f.small,
+            2,
+        ) - 16;
+        y += 28;
+        let applied = q["applied"].as_bool().unwrap_or(false);
+        let busy_dr = q["dr_running"].as_bool().unwrap_or(false);
+        let wbusy = !q["busy"].as_str().unwrap_or("").is_empty();
+        let apply_label = if applied { "Applied" } else { "Apply to every fly" };
+        let x_dr = x + m.bw(apply_label, 250) + 10 + m.bw("Wash out", 200) + 10;
+        let items = [
+            RowButton {
+                label: apply_label.into(),
+                click: Act::Custom("apply".into()),
+                id: "ph_apply".into(),
+                style: Style::Primary,
+                enabled: !applied && !wbusy,
+                tip: Some("Reversibly scales those synapses on the live flies (the wiring machinery of Lab > Robustness).".into()),
+                w: 250,
+            },
+            RowButton {
+                label: "Wash out".into(),
+                click: Act::Custom("wash".into()),
+                id: "ph_wash".into(),
+                style: Style::Normal,
+                enabled: q["has_nt"].as_bool().unwrap_or(false) && !wbusy,
+                tip: None,
+                w: 200,
+            },
+            RowButton {
+                label: if busy_dr { "measuring…".into() } else { "Measure dose-response".into() },
+                click: Act::Custom("dr".into()),
+                id: "ph_dr".into(),
+                style: Style::Normal,
+                enabled: !busy_dr,
+                tip: Some(
+                    "Whole-brain firing (Hz) at 0, 25, 50, 75 and 100% dose of this drug, seed 1000, 1 s each, on fresh brains.".into(),
+                ),
+                w: 250,
+            },
+        ];
+        let (x_after, _) = m.button_row(cv, x, y, 36, &items, 10, None);
+        if q["has_nt"].as_bool().unwrap_or(false) {
+            m.wrapped(
+                cv,
+                &format!("live on the flies: {}", q["live_label"].as_str().unwrap_or("")),
+                (x_after, y + 4),
+                rect.right() - 24 - x_after,
+                AMBER,
+                &f.small,
+                2,
+            );
+        }
+        y += 46;
+        if drug == "picrotoxin" && low {
+            if !q["report_running"].as_bool().unwrap_or(false) {
+                let label = "Firing-rate distribution report";
+                m.button(
+                    cv,
+                    Rect::new(x_dr, y - 46 + 42, 250.max(f.small.size(label) + 28), 26.max(f.small.linesize + 6)),
+                    label,
+                    Act::Custom("report".into()),
+                    "ph_report",
+                    Style::Normal,
+                    true,
+                    Some("The original picrotoxin report: firing-rate histogram before and after, seed 1000."),
+                    false,
+                    Some(f.small.clone()),
+                );
+            } else {
+                m.text(
+                    cv,
+                    &format!("report: {}", q["report_note"].as_str().unwrap_or("")),
+                    (x_dr, y - 46 + 50),
+                    LABEL,
+                    &f.small,
+                    Anchor::TopLeft,
+                );
+            }
+            if q["report"].is_object() {
+                draw_inhibition(m, cv, Rect::new(x, y + 6, rect.w - 48, rect.bottom() - y - 80), &q["report"]);
+                back(m, cv, rect, "pharm");
+                return;
+            }
+        }
+        if let Some(dr) = q["dr"].as_object().filter(|_| q["dr"].is_object()) {
+            let rows = dr["rows"].as_array().cloned().unwrap_or_default();
+            let pts: Vec<(f64, f64)> = rows.iter().map(|r| (num(&r["dose"]), num(&r["mean_hz"]))).collect();
+            let top = pts.iter().map(|p| p.1).fold(f64::NEG_INFINITY, f64::max);
+            let rect_p = Rect::new(x, y, 420, 120.max(rect.bottom() - y - 80));
+            let markers: Vec<(f64, f64, Color)> = pts.iter().map(|p| (p.0, p.1, [255, 160, 80])).collect();
+            plot(
+                m,
+                cv,
+                rect_p,
+                &[(pts.clone(), [255, 160, 80], 2)],
+                (0.0, 1.0),
+                (0.0, 1.0f64.max(top * 1.1)),
+                "dose",
+                "mean firing (Hz)",
+                &markers,
+            );
+            let label = DRUG_LABELS.iter().find(|d| Some(d.0) == dr["drug"].as_str()).map_or("", |d| d.1);
+            m.wrapped(
+                cv,
+                &format!(
+                    "{label}: mean whole-brain firing over {:.1} s, seed [{}]. The simulator's slow global gain pushes back on anything that changes overall synaptic strength, so this is the drug plus a little of that compensation.",
+                    num(&dr["steps"]) * 0.005,
+                    dr["seeds"].as_array().into_iter().flatten().map(|s| s.to_string()).collect::<Vec<_>>().join(", ")
+                ),
+                (x + 440, y + 6),
+                rect.w - 500,
+                LABEL,
+                &f.small,
+                6,
+            );
+        }
+        back(m, cv, rect, "pharm");
+    }
+
+    fn custom(&mut self, _m: &mut Menu, name: &str, text: Option<&str>, ctx: &mut Ctx) {
+        let val = text.and_then(|t| t.parse::<f64>().ok());
+        if let Some(k) = name.strip_prefix("drug:") {
+            ctx.host.command("lab.pharm_set", json!({"drug": k}));
+        } else if let Some(k) = name.strip_prefix("low:") {
+            ctx.host.command("lab.pharm_set", json!({"low": k == "1"}));
+        } else if name == "slide:ph_dose" {
+            if let Some(v) = val {
+                ctx.host.command("lab.pharm_set", json!({"dose": v}));
+            }
+        } else if name == "slide:ph_cut" {
+            if let Some(v) = val {
+                ctx.host.command("lab.pharm_set", json!({"cut": v}));
+            }
+        } else {
+            match name {
+                "apply" => drop(ctx.host.command("lab.pharm_apply", Value::Null)),
+                "wash" => drop(ctx.host.command("lab.pharm_wash", Value::Null)),
+                "dr" => drop(ctx.host.command("lab.pharm_dr", Value::Null)),
+                "report" => drop(ctx.host.command("lab.pharm_report", Value::Null)),
+                _ => {}
+            }
+        }
+    }
+}

@@ -245,6 +245,7 @@ pub enum Anchor {
     MidLeft,
     Center,
     MidTop,
+    MidBottom,
     TopRight,
     MidRight,
 }
@@ -901,6 +902,7 @@ impl Menu {
             Anchor::MidLeft => (pos.0, pos.1 - h / 2),
             Anchor::Center => (pos.0 - w / 2, pos.1 - h / 2),
             Anchor::MidTop => (pos.0 - w / 2, pos.1),
+            Anchor::MidBottom => (pos.0 - w / 2, pos.1 - h),
             Anchor::TopRight => (pos.0 - w, pos.1),
             Anchor::MidRight => (pos.0 - w, pos.1 - h / 2),
         };

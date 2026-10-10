@@ -1026,3 +1026,43 @@ fn lab_assays_thermo_and_sleep_results() {
         compare(name, &cv.to_rgb_over(BG), 0.02);
     }
 }
+
+#[test]
+fn lab_pharm_page() {
+    struct H(serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            if key == "lab.pharm_state" { self.0.clone() } else { serde_json::Value::Null }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    let root = env!("CARGO_MANIFEST_DIR");
+    let fx: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(format!("{root}/../../tests/ui_reference/lab_pharm_fixture.json")).unwrap()).unwrap();
+    let gold: serde_json::Value = serde_json::from_slice(&std::fs::read(format!("{root}/../../tests/golden/pharm.json")).unwrap()).unwrap();
+    for (name, st) in [
+        (
+            "page_lab_pharm.png",
+            serde_json::json!({"drug": "picrotoxin", "dose": 0.5, "low": true, "cut": 0.7, "affected": fx["picrotoxin:0.5:True:0.7"], "applied": false,
+                               "has_nt": false, "live_label": "", "busy": "", "dr": null, "dr_running": false, "report": null,
+                               "report_running": false, "report_note": null, "error": ""}),
+        ),
+        (
+            "page_lab_pharm_agonist.png",
+            serde_json::json!({"drug": "gabaa_agonist", "dose": 1.0, "low": false, "cut": 0.9, "affected": fx["gabaa_agonist:1.0:False:0.9"],
+                               "applied": true, "has_nt": true,
+                               "live_label": "gaba synapses x2 (confidence >= 0.9 only)", "busy": "", "dr": gold["dose_response"],
+                               "dr_running": false, "report": null, "report_running": false, "report_note": null, "error": ""}),
+        ),
+    ] {
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        m.show("lab_pharm");
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(st));
+        compare(name, &cv.to_rgb_over(BG), 0.02);
+    }
+}

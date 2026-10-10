@@ -59,5 +59,6 @@ pub fn install_with(menu: &mut Menu, dex: neurodex::SharedDex) {
     menu.register_page("lab_autopsy", Box::<autopsy_lab::LabAutopsy>::default());
     menu.register_page("lab_genetics", Box::<toolkit::LabGenetics>::default());
     menu.register_page("lab_thermo", Box::<toolkit::LabThermo>::default());
+    menu.register_page("lab_pharm", Box::<toolkit::LabPharm>::default());
     menu.register_page("whatsnew", Box::new(whatsnew::WhatsNew));
 }

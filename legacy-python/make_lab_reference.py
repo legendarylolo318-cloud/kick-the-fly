@@ -289,4 +289,21 @@ if __name__ == "__main__":
 
     R.render("lab_assays", "Graphics", out / "page_lab_assays_thermo.png", prep=ext_prep("thermo_escape"))
     R.render("lab_assays", "Graphics", out / "page_lab_assays_sleep.png", prep=ext_prep("sleep_deprivation"))
+    from kickthefly.lab import pharmacology as ph_mod
+    pharm_gold = json.loads((gd / "pharm.json").read_text())
+
+    def pharm_prep(drug="picrotoxin", dose=0.5, low=True, cut=0.7, live=None, dr=None):
+        def prep(m):
+            prep_for("lab_pharm")(m)
+            m.host.wiring = live or Wiring()
+            m.host.wiring_busy = ""
+            st = labtoolkit._st(m)
+            st.d_drug, st.d_dose, st.d_low, st.d_cut, st.d_dr = drug, dose, low, cut, dr
+        return prep
+
+    R.render("lab_pharm", "Graphics", out / "page_lab_pharm.png", prep=pharm_prep())
+    R.render("lab_pharm", "Graphics", out / "page_lab_pharm_agonist.png",
+             prep=pharm_prep("gabaa_agonist", 1.0, False, 0.9, live=ph_mod.wiring_for({"gabaa_agonist": 1.0}, False, 0.9),
+                             dr=pharm_gold["dose_response"]))
+    (out / "lab_pharm_fixture.json").write_text(json.dumps({k: v for k, v in pharm_gold.items() if ":" in k}))
     print("wrote", out)

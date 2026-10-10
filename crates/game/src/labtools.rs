@@ -92,6 +92,11 @@ pub struct LabTools {
     gen_describe: Value,
     thermo_cfg: (Vec<(String, String, f64)>, bool, bool, f64),
     thermo_note: String,
+    pharm: (String, f64, bool, f64),
+    pharm_aff: Option<((String, i64, bool, i64), Value)>,
+    pharm_dr: Option<Value>,
+    pharm_report: Option<Value>,
+    pharm_error: String,
     thermo_t: String,
     thermo_eff: usize,
     all_type_ops: Vec<(String, i8)>,
@@ -135,6 +140,11 @@ impl Default for LabTools {
             gen_describe: Value::Null,
             thermo_cfg: (Vec::new(), false, false, 22.0),
             thermo_note: String::new(),
+            pharm: ("picrotoxin".into(), 0.5, true, 0.7),
+            pharm_aff: None,
+            pharm_dr: None,
+            pharm_report: None,
+            pharm_error: String::new(),
             thermo_t: "type:DNp01".into(),
             thermo_eff: 0,
             all_type_ops: Vec::new(),
@@ -331,6 +341,8 @@ impl LabTools {
                 "Neural clamp" => self.clamp = Some(v),
                 "Connectome diff" => self.diff = Some(v),
                 "Psych sweep" => self.psych = Some(v),
+                "Pharm dose-response" => self.pharm_dr = Some(v),
+                "Inhibition report" => self.pharm_report = Some(v),
                 "Failure autopsy" => {
                     for a in v.as_array().into_iter().flatten() {
                         if let Some(id) = a["test"]["id"].as_str() {
@@ -363,6 +375,22 @@ impl LabTools {
                 }
             }),
             "lab_laser" => json!({"lab.laser_state": self.laser}),
+            "lab_pharm" => {
+                let busy = |l: &str| self.job.as_ref().is_some_and(|j| j.label == l);
+                let new = self.pharm_wiring();
+                let note = self.job.as_ref().filter(|j| j.label == "Inhibition report").map(|j| j.json()["note"].clone());
+                json!({"lab.pharm_state": {
+                    "drug": self.pharm.0, "dose": self.pharm.1, "low": self.pharm.2, "cut": self.pharm.3,
+                    "affected": self.pharm_aff.as_ref().map(|a| a.1.clone()),
+                    "applied": new.as_ref().is_some_and(|n| *n == self.live),
+                    "has_nt": !self.live.nt_scales.is_empty(), "live_label": self.live.label(),
+                    "busy": if crate::sim_thread::WIRING_BUSY.load(Ordering::Relaxed) { self.live.label() } else { String::new() },
+                    "dr": self.pharm_dr, "dr_running": busy("Pharm dose-response"),
+                    "report": self.pharm_report, "report_running": busy("Inhibition report"),
+                    "report_note": note.unwrap_or(Value::Null),
+                    "error": self.pharm_error,
+                }})
+            }
             "lab_thermo" => {
                 let st = crate::sim_thread::THERMO_STATUS.lock().unwrap_or_else(PoisonError::into_inner).clone();
                 json!({"lab.thermo_state": {
@@ -605,6 +633,21 @@ impl LabTools {
         }));
     }
 
+    /// `ph.wiring_for({drug: dose}, low, cut, base=live)` (the live wiring without drugs at dose 0).
+    fn pharm_wiring(&self) -> Option<fly_sim::wiring::Wiring> {
+        let (drug, dose, low, cut) = (&self.pharm.0, self.pharm.1, self.pharm.2, self.pharm.3);
+        if dose > 0.0 {
+            fly_sim::pharmacology::wiring_for(&[(drug.as_str(), dose)], low, cut, &self.live).ok()
+        } else {
+            Some(fly_sim::wiring::Wiring {
+                min_synapses: self.live.min_synapses,
+                flip_rows: self.live.flip_rows.clone(),
+                inhibition_scale: self.live.inhibition_scale,
+                ..Default::default()
+            })
+        }
+    }
+
     fn send_thermo(&self, link: &crate::app::SimLink) {
         let (e, steady, arena, t) = self.thermo_cfg.clone();
         link.0.send(crate::sim_thread::Command::ThermoConfig { expressions: e, steady, arena_source: arena, temperature_c: t });
@@ -697,6 +740,24 @@ fn tick(
             "pulse_ms": l.pulse_duration * 1000.0, "current": l.current_value(),
             "has_tool": laser_idx.is_some(), "equipped": laser_idx == Some(tool_state.selected),
         });
+    }
+    if screen.0 == "lab_pharm" {
+        let key = (tools.pharm.0.clone(), (tools.pharm.1 * 1000.0).round() as i64, tools.pharm.2, (tools.pharm.3 * 1000.0).round() as i64);
+        if tools.pharm_aff.as_ref().map(|a| &a.0) != Some(&key) {
+            let shared = link.0.shared.lock().unwrap_or_else(PoisonError::into_inner).clone();
+            if let (Some(counts), Some(sh)) = (tools.ensure_counts(&pack), shared) {
+                let (d, dose, low, cut) = tools.pharm.clone();
+                match fly_sim::pharmacology::affected(&sh.labels, &sh.weights.csr, &counts, &d, dose, low, cut) {
+                    Ok(v) => {
+                        tools.pharm_aff = Some((key, v));
+                        tools.pharm_error.clear();
+                    }
+                    Err(e) => tools.pharm_error = e,
+                }
+            } else {
+                tools.pharm_error = "needs the brain pack".into();
+            }
+        }
     }
     if screen.0 == "lab_genetics" {
         tools.all_type_ops = snap.0.as_deref().map_or_else(Vec::new, |s| s.surgery_types.clone());
@@ -1049,6 +1110,65 @@ fn tick(
             }
             "lab.thermo_assay" => {
                 tools.thermo_note.clear();
+            }
+            "lab.pharm_set" => {
+                if let Some(v) = a["drug"].as_str() {
+                    tools.pharm.0 = v.to_string();
+                }
+                if let Some(v) = a["dose"].as_f64() {
+                    tools.pharm.1 = v;
+                }
+                if let Some(v) = a["low"].as_bool() {
+                    tools.pharm.2 = v;
+                }
+                if let Some(v) = a["cut"].as_f64() {
+                    tools.pharm.3 = v;
+                }
+            }
+            "lab.pharm_apply" | "lab.pharm_wash" => {
+                let shared = link.0.shared.lock().unwrap_or_else(PoisonError::into_inner).clone();
+                if let (Some(counts), Some(_)) = (tools.ensure_counts(&pack), shared) {
+                    let new = if cmd == "lab.pharm_wash" {
+                        let l = &tools.live;
+                        Some(fly_sim::wiring::Wiring {
+                            min_synapses: l.min_synapses,
+                            flip_rows: l.flip_rows.clone(),
+                            inhibition_scale: l.inhibition_scale,
+                            ..Default::default()
+                        })
+                    } else {
+                        tools.pharm_wiring()
+                    };
+                    if let Some(w) = new {
+                        tools.live = w.clone();
+                        link.0.send(crate::sim_thread::Command::SetWiring { wiring: Box::new(w), counts });
+                    }
+                }
+            }
+            "lab.pharm_dr" if !busy => {
+                let shared = link.0.shared.lock().unwrap_or_else(PoisonError::into_inner).clone();
+                if let (Some(counts), Some(sh)) = (tools.ensure_counts(&pack), shared) {
+                    let (d, _, low, cut) = tools.pharm.clone();
+                    tools.error.clear();
+                    tools.job = Some(BgJob::start("Pharm dose-response", move |upd, _c| {
+                        upd(0.5, "measuring");
+                        let ctx = fly_sim::robustness::Ctx { weights: &sh.weights, labels: &sh.labels, counts: &counts, workers: 1 };
+                        fly_sim::pharmacology::dose_response(&ctx, &d, &[0.0, 0.25, 0.5, 0.75, 1.0], low, cut, &[1000], 200)
+                    }));
+                }
+            }
+            "lab.pharm_report" if !busy => {
+                let shared = link.0.shared.lock().unwrap_or_else(PoisonError::into_inner).clone();
+                if let (Some(counts), Some(sh)) = (tools.ensure_counts(&pack), shared) {
+                    let scale = 1.0 - tools.pharm.1;
+                    tools.error.clear();
+                    tools.job = Some(BgJob::start("Inhibition report", move |upd, _c| {
+                        upd(0.5, "measuring before (control x1.00) …");
+                        let ctx = fly_sim::robustness::Ctx { weights: &sh.weights, labels: &sh.labels, counts: &counts, workers: 1 };
+                        let created = crate::savestate_play::utc_stamp_pub();
+                        Ok(fly_sim::robustness::inhibition_report(&ctx, scale, &[1000], 200, &created))
+                    }));
+                }
             }
             "lab.psych_run" if !busy => {
                 if let Some(shared) = link.0.shared.lock().unwrap_or_else(PoisonError::into_inner).clone() {
