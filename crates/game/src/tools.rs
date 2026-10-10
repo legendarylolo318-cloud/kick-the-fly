@@ -127,6 +127,11 @@ pub struct ToolState {
     pub laser_target: usize,
     pub laser_silence: bool,
     pub laser_on: Option<(usize, bool)>,
+    /// The Lab's laser (`lab/laser.py:LaserState`): target text, effect, intensity, hold or pulse; and the rows it currently drives.
+    pub laser: fly_sim::laser::LaserState,
+    laser_rows: (String, Vec<u32>),
+    laser_applied: (Vec<u32>, f32),
+    laser_was_held: bool,
     /// Puppeteer: every tool but the laser is locked and nothing of yours touches the fly.
     pub puppet: bool,
     /// How many times a tool was used (`Game.tool_uses`) and which one last (`last_tool_used`): the tutorial reads them.
@@ -150,6 +155,10 @@ impl Default for ToolState {
             laser_target: 2,
             laser_silence: false,
             laser_on: None,
+            laser: fly_sim::laser::LaserState::default(),
+            laser_rows: (String::new(), Vec::new()),
+            laser_applied: (Vec::new(), 0.0),
+            laser_was_held: false,
             puppet: false,
             uses: 0,
             last_used: "",
@@ -311,9 +320,15 @@ fn select(
     }
     if keys.just_pressed(KeyCode::Semicolon) && TOOLS[st.selected].0 == "laser" {
         st.laser_target = (st.laser_target + 1) % LASER_TARGETS.len();
+        // the Lab laser steps through its own quick targets (`DEFAULT_TARGETS`)
+        let cur = fly_sim::laser::DEFAULT_TARGETS.iter().position(|t| t.eq_ignore_ascii_case(&st.laser.target_type));
+        let next = fly_sim::laser::DEFAULT_TARGETS[cur.map_or(0, |i| (i + 1) % fly_sim::laser::DEFAULT_TARGETS.len())];
+        st.laser.set_target(next);
     }
     if keys.just_pressed(KeyCode::Quote) && TOOLS[st.selected].0 == "laser" {
         st.laser_silence = !st.laser_silence;
+        let mode = if st.laser.mode == "activate" { "silence" } else { "activate" };
+        st.laser.set_mode(mode);
     }
 }
 
@@ -801,29 +816,71 @@ fn continuous(
         }
     }
 
-    // the laser: while held, the chosen cell type is driven (or silenced) if the beam is on a fly
+    // the laser: while it is on (held, or a timed pulse) and the beam is on a fly, the chosen cell type is driven (or silenced)
     if name == "laser" {
         let hit = nearest_to_ray(&parts, &flies, eye, dir, 15.0, 0.25);
-        let want = if held && hit.is_some() { Some((st.laser_target, st.laser_silence)) } else { None };
-        if want != st.laser_on {
-            if let Some((t, sil)) = st.laser_on {
-                link.0.send(Command::DriveSpec { spec: laser_spec(t, st.puppet).into(), amp: 0.0 });
-                let _ = sil;
+        if st.puppet {
+            let want = if held && hit.is_some() { Some((st.laser_target, st.laser_silence)) } else { None };
+            if want != st.laser_on {
+                if let Some((t, _)) = st.laser_on {
+                    link.0.send(Command::DriveSpec { spec: laser_spec(t, true).into(), amp: 0.0 });
+                }
+                if let Some((t, sil)) = want {
+                    link.0.send(Command::DriveSpec { spec: laser_spec(t, true).into(), amp: if sil { LASER_SILENCE } else { LASER_STIM } });
+                }
+                st.laser_on = want;
             }
-            if let Some((t, sil)) = want {
-                link.0
-                    .send(Command::DriveSpec { spec: laser_spec(t, st.puppet).into(), amp: if sil { LASER_SILENCE } else { LASER_STIM } });
+            if held {
+                let end = hit.map_or(eye + dir * 15.0, |h| eye + dir * h.2);
+                let c = if st.laser_silence { Color::srgb(0.3, 0.8, 1.0) } else { Color::srgb(1.0, 0.3, 0.2) };
+                gizmos.line(tip, end, c);
+                gizmos.sphere(Isometry3d::from_translation(end), 0.025, c);
             }
-            st.laser_on = want;
+        } else {
+            let t = f64::from(now);
+            if held && !st.laser_was_held {
+                st.laser.trigger_press(t);
+            } else if !held && st.laser_was_held {
+                st.laser.trigger_release();
+            }
+            st.laser_was_held = held;
+            let on = st.laser.is_active(t) && hit.is_some();
+            // the quick targets and typed ones resolve the way Python's `_scan_rows` does, once per target text
+            if st.laser_rows.0 != st.laser.target_type {
+                let shared = link.0.shared.lock().unwrap_or_else(std::sync::PoisonError::into_inner).clone();
+                if let Some(sh) = shared {
+                    st.laser_rows = (st.laser.target_type.clone(), fly_sim::laser::resolve_rows(&sh.labels, &st.laser.target_type));
+                }
+            }
+            // the drive current is the surgery scale: Python's 0.48 / -2.40 is after the simulator's external gain of 4
+            let amp = if on { (st.laser.current_value() / 4.0) as f32 } else { 0.0 };
+            let want = (if on { st.laser_rows.1.clone() } else { Vec::new() }, amp);
+            if want != st.laser_applied {
+                if !st.laser_applied.0.is_empty() {
+                    link.0.send(Command::DriveRows { rows: st.laser_applied.0.clone(), amp: 0.0 });
+                }
+                if !want.0.is_empty() {
+                    link.0.send(Command::DriveRows { rows: want.0.clone(), amp });
+                }
+                st.laser_applied = want;
+            }
+            if st.laser.is_active(t) {
+                let end = hit.map_or(eye + dir * 15.0, |h| eye + dir * h.2);
+                let c = if st.laser.mode == "silence" { Color::srgb(0.3, 0.8, 1.0) } else { Color::srgb(1.0, 0.3, 0.2) };
+                gizmos.line(tip, end, c);
+                gizmos.sphere(Isometry3d::from_translation(end), 0.025, c);
+            }
         }
-        if held {
-            let end = hit.map_or(eye + dir * 15.0, |h| eye + dir * h.2);
-            let c = if st.laser_silence { Color::srgb(0.3, 0.8, 1.0) } else { Color::srgb(1.0, 0.3, 0.2) };
-            gizmos.line(tip, end, c);
-            gizmos.sphere(Isometry3d::from_translation(end), 0.025, c);
+    } else {
+        if let Some((t, _)) = st.laser_on.take() {
+            link.0.send(Command::DriveSpec { spec: laser_spec(t, st.puppet).into(), amp: 0.0 });
         }
-    } else if let Some((t, _)) = st.laser_on.take() {
-        link.0.send(Command::DriveSpec { spec: laser_spec(t, st.puppet).into(), amp: 0.0 });
+        if !st.laser_applied.0.is_empty() {
+            link.0.send(Command::DriveRows { rows: std::mem::take(&mut st.laser_applied.0), amp: 0.0 });
+            st.laser_applied.1 = 0.0;
+        }
+        st.laser_was_held = false;
+        st.laser.trigger_release();
     }
 }
 

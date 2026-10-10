@@ -796,3 +796,36 @@ fn lab_diff_page() {
         compare(name, &cv.to_rgb_over(BG), 0.02);
     }
 }
+
+#[test]
+fn lab_laser_page() {
+    struct H(serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            if key == "lab.laser_state" { self.0.clone() } else { serde_json::Value::Null }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    for (name, st) in [
+        (
+            "page_lab_laser.png",
+            serde_json::json!({"target": "dnp01", "mode": "activate", "intensity": 1.0, "trigger": "hold", "pulse_ms": 200.0,
+                               "current": 0.48, "has_tool": true, "equipped": false}),
+        ),
+        (
+            "page_lab_laser_pulse.png",
+            serde_json::json!({"target": "MDN", "mode": "silence", "intensity": 1.5, "trigger": "pulse", "pulse_ms": 300.0,
+                               "current": -3.6, "has_tool": true, "equipped": true}),
+        ),
+    ] {
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        m.show("lab_laser");
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(st));
+        compare(name, &cv.to_rgb_over(BG), 0.02);
+    }
+}

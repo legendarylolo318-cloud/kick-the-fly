@@ -51,7 +51,7 @@ the Python `labclamp.py` and `labdiff.py` forget `import numpy as np` (their les
 
 ## Next, in order
 1. (done) `lab_diff` page.
-2. Remaining Lab pages: `lab_laser` (`laser.py` 204, `lablaser.py` 112), `lab_psych` (`psychometrics.py` 451: SVG/PDF/CSV), `lab_classroom` (`classroom.py` 499),
+2. Remaining Lab pages: (`lab_laser` done) `lab_psych` (`psychometrics.py` 451: SVG/PDF/CSV), `lab_classroom` (`classroom.py` 499),
    `lab_minipapers` (`minipapers.py` 487 + `ui/minipaper_ui.py`), `lab_autopsy` (failure autopsy), `lab_activation` / `lab_knockout` (`screens.py`, `labscreen.py`).
 3. Toolkit: `lab_genetics`, `lab_thermo`, `lab_patch`, `lab_imaging`, `lab_pharm` (`labtoolkit.py` 871, `thermogenetics.py`, `patchclamp.py`, `pharmacology.py`; the wiring
    engine already has `nt_scales` for pharmacology); `lab_rigs` (`labrigs.py`, `rigassay.py`).

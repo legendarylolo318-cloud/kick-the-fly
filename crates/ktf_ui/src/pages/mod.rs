@@ -10,6 +10,7 @@ pub mod day4;
 pub mod diag;
 pub mod diff;
 pub mod lab;
+pub mod laser;
 pub mod load_state;
 pub mod loadout;
 pub mod neurodex;
@@ -48,5 +49,6 @@ pub fn install_with(menu: &mut Menu, dex: neurodex::SharedDex) {
     menu.register_page("lab_critical", Box::<critical::LabCritical>::default());
     menu.register_page("lab_clamp", Box::<clamp::LabClamp>::default());
     menu.register_page("lab_diff", Box::<diff::LabDiff>::default());
+    menu.register_page("lab_laser", Box::<laser::LabLaser>::default());
     menu.register_page("whatsnew", Box::new(whatsnew::WhatsNew));
 }

@@ -79,6 +79,7 @@ pub struct LabTools {
     type_ops: Vec<String>,
     clamp: Option<Value>,
     diff: Option<Value>,
+    laser: Value,
 }
 
 impl Default for LabTools {
@@ -102,6 +103,7 @@ impl Default for LabTools {
             type_ops: Vec::new(),
             clamp: None,
             diff: None,
+            laser: Value::Null,
         }
     }
 }
@@ -314,6 +316,7 @@ impl LabTools {
                     "sens": self.sens,
                 }
             }),
+            "lab_laser" => json!({"lab.laser_state": self.laser}),
             "lab_diff" => json!({
                 "lab.diff_state": {
                     "job": self.job.as_ref().map(BgJob::json),
@@ -517,8 +520,18 @@ fn tick(
     mut flash: MessageWriter<crate::menu_ui::MenuFlash>,
     screen: Res<crate::menu_ui::MenuScreen>,
     snap: Res<crate::app::LatestSnapshot>,
+    mut tool_state: ResMut<crate::tools::ToolState>,
 ) {
     tools.pack = pack.clone();
+    if screen.0 == "lab_laser" {
+        let l = &tool_state.laser;
+        let laser_idx = crate::tools::TOOLS.iter().position(|t| t.0 == "laser");
+        tools.laser = json!({
+            "target": l.target_type, "mode": l.mode, "intensity": l.intensity, "trigger": l.trigger_mode,
+            "pulse_ms": l.pulse_duration * 1000.0, "current": l.current_value(),
+            "has_tool": laser_idx.is_some(), "equipped": laser_idx == Some(tool_state.selected),
+        });
+    }
     if screen.0 == "lab_critical" {
         tools.type_ops =
             snap.0.as_deref().map_or_else(Vec::new, |s| s.surgery_types.iter().filter(|t| t.1 == -1).map(|t| t.0.clone()).collect());
@@ -663,6 +676,29 @@ fn tick(
                             flash.write(crate::menu_ui::MenuFlash(e.to_string(), false));
                         }
                     }
+                }
+            }
+            "lab.laser_set" => {
+                let l = &mut tool_state.laser;
+                if let Some(t) = a["target"].as_str() {
+                    l.set_target(t);
+                }
+                if let Some(m) = a["mode"].as_str() {
+                    l.set_mode(m);
+                }
+                if let Some(v) = a["intensity"].as_f64() {
+                    l.set_intensity(v);
+                }
+                if let Some(t) = a["trigger"].as_str() {
+                    l.set_trigger_mode(t);
+                }
+                if let Some(ms) = a["pulse_ms"].as_f64() {
+                    l.set_pulse_duration(ms / 1000.0);
+                }
+            }
+            "lab.laser_equip" => {
+                if let Some(i) = crate::tools::TOOLS.iter().position(|t| t.0 == "laser") {
+                    tool_state.selected = i;
                 }
             }
             "lab.cp_run" if !busy => {

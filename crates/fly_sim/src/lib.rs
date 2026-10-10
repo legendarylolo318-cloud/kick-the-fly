@@ -24,6 +24,7 @@ pub mod diffmode;
 pub mod duel;
 pub mod groups;
 pub mod inspect;
+pub mod laser;
 pub mod lesions;
 pub mod lif;
 pub mod memory;

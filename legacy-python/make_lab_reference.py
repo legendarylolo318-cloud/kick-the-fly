@@ -169,4 +169,18 @@ if __name__ == "__main__":
 
     R.render("lab_diff", "Graphics", out / "page_lab_diff_empty.png", prep=diff_prep())
     R.render("lab_diff", "Graphics", out / "page_lab_diff.png", prep=diff_prep(diff_gold["looming"], "looming", "hemi_vis"))
+    from kickthefly.lab.laser import LaserState
+
+    def laser_prep(ls=None, equipped=False):
+        def prep(m):
+            prep_for("lab_laser")(m)
+            m.host.laser_state = ls or LaserState()
+            if equipped:
+                from kickthefly.game.kick_the_fly import TOOLS
+                m.host.tool = [i for i, t in enumerate(TOOLS) if t[0] == "laser"][0]
+        return prep
+
+    R.render("lab_laser", "Graphics", out / "page_lab_laser.png", prep=laser_prep())
+    R.render("lab_laser", "Graphics", out / "page_lab_laser_pulse.png",
+             prep=laser_prep(LaserState("MDN", "silence", 1.5, "pulse", 0.3), equipped=True))
     print("wrote", out)
