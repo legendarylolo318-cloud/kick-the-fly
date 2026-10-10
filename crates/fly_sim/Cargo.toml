@@ -10,10 +10,10 @@ rust-version.workspace = true
 rayon.workspace = true
 zip.workspace = true
 sha2.workspace = true
+serde_json.workspace = true
 
 [dev-dependencies]
 serde.workspace = true
-serde_json.workspace = true
 criterion.workspace = true
 
 [[bench]]

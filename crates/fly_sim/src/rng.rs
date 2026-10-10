@@ -189,6 +189,16 @@ impl Generator {
         self.bits.import_state(s);
     }
 
+    /// `rng.random()` (one float64 in [0, 1)).
+    pub fn random(&mut self) -> f64 {
+        self.bits.next_f64()
+    }
+
+    /// `rng.uniform(low, high)`.
+    pub fn uniform(&mut self, low: f64, high: f64) -> f64 {
+        low + (high - low) * self.bits.next_f64()
+    }
+
     /// `bit_generator.random_raw()`.
     pub fn random_raw(&mut self) -> u64 {
         self.bits.next_u64()
@@ -335,6 +345,61 @@ impl Generator {
                 return v;
             }
         }
+    }
+
+    /// `random_bounded_uint64(0, max)`: what `choice` and its shuffle draw (32-bit Lemire when the range fits, with no buffering).
+    fn bounded(&mut self, max: u64) -> u64 {
+        self.integers(0, max + 1)
+    }
+
+    /// `_shuffle_int(n, first, data)` of NumPy's `choice`.
+    fn shuffle_int(&mut self, n: usize, first: usize, data: &mut [i64]) {
+        for i in (first..n).rev() {
+            let j = self.bounded(i as u64) as usize;
+            data.swap(i, j);
+        }
+    }
+
+    /// `rng.choice(arange(pop_size), size=size, replace=False)` (the indices): Floyd's algorithm with a final shuffle, or the tail of a
+    /// partial shuffle when the population is above 10,000 and the sample more than 1/50 of it.
+    pub fn choice_indices(&mut self, pop_size: usize, size: usize) -> Vec<usize> {
+        assert!(size <= pop_size, "Cannot take a larger sample than population when 'replace=False'");
+        if pop_size > 10_000 && size > pop_size / 50 {
+            let mut idx: Vec<i64> = (0..pop_size as i64).collect();
+            self.shuffle_int(pop_size, (pop_size - size).max(1), &mut idx);
+            return idx[pop_size - size..].iter().map(|&v| v as usize).collect();
+        }
+        let mut idx = vec![0i64; size];
+        // smallest power of 2 larger than 1.2 * size
+        let set = (1.2 * size as f64) as u64;
+        let mut mask = set;
+        mask |= mask >> 1;
+        mask |= mask >> 2;
+        mask |= mask >> 4;
+        mask |= mask >> 8;
+        mask |= mask >> 16;
+        mask |= mask >> 32;
+        let mut hash = vec![u64::MAX; (mask + 1) as usize];
+        for j in (pop_size - size)..pop_size {
+            let val = self.bounded(j as u64);
+            let mut loc = (val & mask) as usize;
+            while hash[loc] != u64::MAX && hash[loc] != val {
+                loc = (loc + 1) & mask as usize;
+            }
+            if hash[loc] == u64::MAX {
+                hash[loc] = val;
+                idx[j - (pop_size - size)] = val as i64;
+            } else {
+                let mut loc = j & mask as usize;
+                while hash[loc] != u64::MAX {
+                    loc = (loc + 1) & mask as usize;
+                }
+                hash[loc] = j as u64;
+                idx[j - (pop_size - size)] = j as i64;
+            }
+        }
+        self.shuffle_int(size, 1, &mut idx);
+        idx.into_iter().map(|v| v as usize).collect()
     }
 
     /// `rng.shuffle(x)` for a 1-D array: Fisher-Yates from the back with `random_interval`, as NumPy does.

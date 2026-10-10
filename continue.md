@@ -34,6 +34,15 @@ stethoscope; arena status text; neuron inspector; real shapes (last piece: Neuro
 download). Everything above has its PORTING.md entry with the verification and the Python defects found (TEST trains liking, Mystery defect silences nothing,
 Predict KeyError, x-goog-hash first-header bug, stethoscope central_complex/optic_lobes silent).
 
+## Session 2026-10-10 (stopped early on the user's usage budget)
+Done, committed: `fly_sim::{duel,cards,race}`, NumPy-exact `choice` in pokes, goldens `duel_engine.json`, `choice.json`, `arcade.json`
+(`tests/golden/make_{duel_engine,choice,arcade}.py`), see the PORTING.md section "Arcade engine parity". `serde_json` now has `float_roundtrip`
+(goldens with 17-digit floats need it). NOT touched: every item below. First steps next time:
+1. Make `game/{duel,tournament,race}.rs` thin wrappers over `fly_sim::{duel,race}` and `cards::Build::brain` (the arcade's `build_brain` warms
+   up with the noise seed; Python warms with the individuality seed, THEN reseeds: use `Build::brain(seed, Some(noise), 600)`).
+2. `fly_sim::stats` (binomtest, spearmanr, wilcoxon, holm) -> tournament/race analysis; then the arcade page in `ktf_ui::pages` from `ui/arcade_ui.py`.
+3. Then the list below, in order. Venv: `python3 -m venv V; V/bin/pip install numpy scipy pygame-ce pytest pillow pyyaml pyarrow fonttools`.
+
 ## Next, in order
 1. Commit anything uncommitted (`git status`); the real-shapes commit may still be pending.
 2. Remaining UI pages (port line by line from `legacy-python/kickthefly/ui/*.py`, `lab/*.py`): `arcade` + battle (`arcade_ui.py`, `battle_ui.py`; needs personality cards

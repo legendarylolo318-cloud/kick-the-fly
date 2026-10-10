@@ -150,6 +150,11 @@ impl Brain {
         brain
     }
 
+    /// `Brain.seed`/`Brain.rng` as `simcore.new_brain(seed)` sets them (the pokes' sampler is `default_rng(seed)`).
+    pub fn set_poke_seed(&mut self, seed: u64) {
+        self.groups.set_rng_seed(seed);
+    }
+
     pub fn n(&self) -> usize {
         self.sim.n
     }

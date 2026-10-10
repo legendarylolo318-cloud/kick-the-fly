@@ -389,6 +389,11 @@ impl Groups {
         self.spill = spill;
     }
 
+    /// `Brain.rng = default_rng(seed)`: the generator the pokes sample with.
+    pub fn set_rng_seed(&mut self, seed: u64) {
+        self.rng = Generator::new(seed);
+    }
+
     /// `Brain.poke`: drive a random share of a region's neurons for `8 + 40 * strength` steps. `step` is the brain's step counter.
     pub fn poke(&mut self, region: &str, side: Option<char>, strength: f32, recruit: Option<f32>, step: u64) {
         let s = strength.clamp(0.0, 1.0);
@@ -399,13 +404,8 @@ impl Groups {
         }
         let share = recruit.unwrap_or(self.recruit + (1.0 - self.recruit) * s);
         let k = ((pop.len() as f32 * share) as usize).clamp(1, pop.len());
-        let mut rows = pop.clone();
-        // partial Fisher-Yates: the first k entries are a uniform sample without replacement
-        for i in 0..k {
-            let j = i + self.rng.integers(0, (rows.len() - i) as u64) as usize;
-            rows.swap(i, j);
-        }
-        rows.truncate(k);
+        // NumPy's `rng.choice(pop, size=k, replace=False)`, draw for draw
+        let rows: Vec<u32> = self.rng.choice_indices(pop.len(), k).into_iter().map(|i| pop[i]).collect();
         let steps = 8 + (40.0 * s) as i32;
         self.last_poke = step as i64;
         match self.pending.iter_mut().find(|p| p.region == region && p.side == side) {

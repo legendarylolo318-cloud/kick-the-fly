@@ -266,6 +266,23 @@ against the pygame version (screenshot pair, or the code read side by side). Any
 - [~] Neurodex, Neuron of the Day (done, see the page entry), guided mini-papers (not yet)
 - [ ] Transitions and animations (menu open/close, fades, flashes honoring `reduced_flashing`)
 
+
+### Arcade engine parity (session of 2026-10-10; engine only, the UI page is not ported yet)
+- `fly_sim::duel` = `game/flyduel.py` line for line in f64 with NumPy's own `Generator` (`rng.random`, `uniform`, `normal`). **Verified exactly** on
+  deterministic fake brains (`tests/golden/make_duel_engine.py` -> `duel_engine.json`, `fly_sim/tests/duel_golden.rs`): every frame, event, health,
+  poke sequence and the driver tables (top/named) of 6 matches. This also fixed two defects of the old `game/duel.rs`: the second fighter saw the
+  first one's position before it moved, and hits did not poke the body in order.
+- `fly_sim::cards` = `lab/tournament.measure_card` + `core/cards.py` key. **Verified:** `card_key` and pack SHA equal Python's; measured cards for
+  seeds 2000, 2001 (subtle) and 5 (off) equal Python's (latency, sugar ratio, turning ratio exactly; walk level to 1e-7). Seed 7 `strong` differs:
+  the individuality gains' f32 `exp` is not NumPy's SIMD `exp`, and sigma 0.15 amplifies the last-bit difference (same documented limit as section 2.2).
+- `Generator::choice_indices` = `rng.choice(pop, size, replace=False)` (Floyd + shuffle, or tail shuffle above 10,000), **verified draw for draw**
+  against NumPy (`tests/golden/make_choice.py`). `Groups::poke` now uses it, so which neurons a poke recruits equals Python's for the same seed
+  (the old header of `groups.rs` said it could not; that is fixed). `Brain::set_poke_seed` = `Brain.rng = default_rng(seed)`.
+- Real-pack duel (subtle, seeds 2000 v 2001, 6 s): the first 12 events (3.1 s) are identical to Python's, then a readout sitting on its threshold moves a
+  shot by one tick (the engine reads f32 levels). Race lane: walking level, lures touched equal; distance within 0.1 m (2 %). Not ticked.
+- Not done: `fly_sim::tournament` driver + analysis (needs a `stats` module: binomtest, spearman, wilcoxon), `game/{duel,tournament,race}.rs` still
+  use the old f32 engines, the arcade page itself (`ui/arcade_ui.py`, `battle_ui.py`), the personality-card cache file reader/writer.
+
 ### Cannot be matched exactly
 - **Text rasterization**: pygame renders hinted glyphs with FreeType; `ab_glyph` renders unhinted outlines. Widths and positions are identical (pygame's advances are a lookup table), edges differ by anti-aliasing (a few percent of text pixels).
 - **Font**: Python used the first installed of Segoe UI, DejaVu Sans, Liberation Sans, Arial: the look depended on the OS. The Rust game bundles GNU FreeSans (what that list resolved to on the reference Linux machine) so all OSes look like it. FreeSans is GPL-3.0+ with the GNU font exception: **check this is acceptable for redistribution before a release**; swapping in DejaVu (permissive) changes only `assets/fonts/` and `crates/ktf_ui/data/advances.json` (regenerate with `legacy-python/make_ui_metrics.py`).
