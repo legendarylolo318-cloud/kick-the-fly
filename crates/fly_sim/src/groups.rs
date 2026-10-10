@@ -108,7 +108,7 @@ pub fn pain_index(parts: &[f32; 5]) -> f32 {
 }
 
 /// `PAIN_LEVELS`: share of a region's neurons a light touch recruits, and how hard the rest of the body's sensors join.
-pub const PAIN_LEVELS: [(&str, f32, f32); 3] = [("normal", 0.3, 0.0), ("more", 0.6, 0.5), ("max", 1.0, 1.0)];
+pub const PAIN_LEVELS: [(&str, f64, f64); 3] = [("normal", 0.3, 0.0), ("more", 0.6, 0.5), ("max", 1.0, 1.0)];
 
 struct Pending {
     region: String,
@@ -139,8 +139,8 @@ pub struct Groups {
     pub last_poke: i64,
     /// Pain level 0..2 (`PAIN_LEVELS`).
     pub pain_level: usize,
-    pub recruit: f32,
-    pub spill: f32,
+    pub recruit: f64,
+    pub spill: f64,
     rng: Generator,
     dt_s: f32,
     counts: Vec<u32>,
@@ -395,7 +395,7 @@ impl Groups {
     }
 
     /// `Brain.poke`: drive a random share of a region's neurons for `8 + 40 * strength` steps. `step` is the brain's step counter.
-    pub fn poke(&mut self, region: &str, side: Option<char>, strength: f32, recruit: Option<f32>, step: u64) {
+    pub fn poke(&mut self, region: &str, side: Option<char>, strength: f64, recruit: Option<f64>, step: u64) {
         let s = strength.clamp(0.0, 1.0);
         let pop = self.sense.get(&(region.to_string(), side)).or_else(|| self.sense.get(&(region.to_string(), None)));
         let Some(pop) = pop else { return };
@@ -403,7 +403,7 @@ impl Groups {
             return;
         }
         let share = recruit.unwrap_or(self.recruit + (1.0 - self.recruit) * s);
-        let k = ((pop.len() as f32 * share) as usize).clamp(1, pop.len());
+        let k = ((pop.len() as f64 * share) as usize).clamp(1, pop.len());
         // NumPy's `rng.choice(pop, size=k, replace=False)`, draw for draw
         let rows: Vec<u32> = self.rng.choice_indices(pop.len(), k).into_iter().map(|i| pop[i]).collect();
         let steps = 8 + (40.0 * s) as i32;

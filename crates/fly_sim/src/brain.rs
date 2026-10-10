@@ -270,6 +270,11 @@ impl Brain {
 
     /// `Brain.poke` on this brain.
     pub fn poke(&mut self, region: &str, side: Option<char>, strength: f32) {
+        self.poke64(region, side, f64::from(strength));
+    }
+
+    /// `Brain.poke` with Python's own double-precision strength (the share of neurons recruited depends on it).
+    pub fn poke64(&mut self, region: &str, side: Option<char>, strength: f64) {
         if self.dead() {
             return;
         }
@@ -279,6 +284,10 @@ impl Brain {
 
     /// `Brain.poke` with an explicit share of the region's neurons recruited.
     pub fn poke_recruit(&mut self, region: &str, side: Option<char>, strength: f32, recruit: Option<f32>) {
+        self.poke_recruit64(region, side, f64::from(strength), recruit.map(f64::from));
+    }
+
+    pub fn poke_recruit64(&mut self, region: &str, side: Option<char>, strength: f64, recruit: Option<f64>) {
         if self.dead() {
             return;
         }

@@ -32,6 +32,7 @@ pub mod synthetic;
 pub mod tournament;
 pub mod training;
 pub mod util;
+pub mod validation;
 mod ziggurat_tables;
 
 use std::fmt;

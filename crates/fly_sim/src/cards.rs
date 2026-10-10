@@ -236,6 +236,11 @@ impl Build<'_> {
     /// `simcore.new_brain(seed, individuality=mode, warmup=600)`, then `Brain.reseed(noise)` when a match noise stream is given
     /// (`tournament.build_fighter`).
     pub fn brain(&self, seed: u64, noise: Option<u64>, warmup: usize) -> Brain {
+        self.brain_with(seed, noise, warmup, false)
+    }
+
+    /// As [`Build::brain`]; `memory` switches the mushroom-body learning on before the warm-up, as `simcore.new_brain(memory=True)` does.
+    pub fn brain_with(&self, seed: u64, noise: Option<u64>, warmup: usize, memory: bool) -> Brain {
         let mut sim = LifSim::new(self.weights.clone(), lif_params(&self.lif), seed);
         let s = sigma_of(self.mode, self.sigma);
         if !self.mode.eq_ignore_ascii_case("off") {
@@ -243,6 +248,9 @@ impl Build<'_> {
         }
         let mut b = Brain::new(sim, self.labels.clone());
         b.set_poke_seed(seed);
+        if memory {
+            b.enable_memory();
+        }
         b.warmup(warmup);
         if let Some(n) = noise {
             b.sim.reseed(n & 0x7FFF_FFFF);

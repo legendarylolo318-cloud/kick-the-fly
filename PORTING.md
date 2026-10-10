@@ -331,3 +331,19 @@ has was ported from the 3D side, and the 2D game shares none of its rendering or
 engine for a mode the Python game itself only keeps as a fallback when OpenGL 3.3 is missing (which wgpu/Vulkan/Metal/DX12 make moot).
 What the Rust build does instead: `--2d` is accepted and ignored with a note; a 2D save is refused with its reason ("made in the 2D game"; the compat
 check); the `--2d` rows of section 1 are written off with this reason, not ticked.
+
+### Validation engine (`fly_sim::validation`, session of 2026-10-10)
+- **Pathway tests** (16 incl. the grooming hierarchy and the optomotor EMD stage): `assays.groups`, `pathway_response`, `random_like`, `emd_stage`,
+  the seeded control draws and the one-sided paired Wilcoxon pass rule. Compared with the **published Python results**
+  (`docs/results/3.0-release/validate_after.json`, seeds 1000 and 1001): **71 of 72 responses equal to the spike.** The one difference
+  (seed 1000, `da1pn_to_lh_asp`, a driven *control*: 26.25 against 26.16 Hz, 6 spikes) also appears from a fresh warm brain with no snapshot restore
+  and in none of the other tests: a rare float summation-order difference in the sim, not in the assay (`validation_real.rs` allows exactly that one).
+- **Conditioning assays** `tmaze_fly`, `extinction_fly`, `second_order_fly` (reciprocal halves, paired and unpaired): seed 1000 equals the published
+  PIs (paired 1.0, unpaired 0.15, extinguished/unextinguished 1.0/1.0, second order -0.1/-0.1).
+- **EPG compass probes** (`probe_epg_compass`, `probe_epg_wind`): per-seed baseline contrast, wind contrast, persistence and both circular
+  correlations equal to the published ones for seeds 1000 and 1001. Python defect kept: the visual probe's wedge drive (`br.override[wedge] = 1.0`
+  without `br.surgery`) is never applied, so the "driven" wedge is not driven.
+- Needed on the way, and fixed for the whole game: `Brain.poke` takes Python's double-precision strength (`poke64`) and the share recruited is
+  `int(len(pop) * share)` in f64 (the f32 version recruited one neuron fewer at some boundaries, which changed the wind probe); NumPy's pairwise
+  summation (`np_sum`, `np_sum_complex`) for means and the circular statistics.
+- **Not done yet:** the run-all driver + results file, the validation page, the larva tests (2), `--validate`; the sensitivity/robustness sweeps.

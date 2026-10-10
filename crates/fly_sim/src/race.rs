@@ -44,7 +44,7 @@ pub trait LaneBrain {
 
 impl LaneBrain for crate::Brain {
     fn poke(&mut self, region: &str, side: Option<char>, strength: f64) {
-        crate::Brain::poke(self, region, side, strength as f32);
+        self.poke64(region, side, strength);
     }
     fn step(&mut self) {
         crate::Brain::step(self);

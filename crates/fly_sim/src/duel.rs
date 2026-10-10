@@ -75,7 +75,7 @@ impl Fighter for crate::Brain {
         f64::from(crate::Brain::hz(self, name))
     }
     fn poke(&mut self, region: &str, side: Option<char>, strength: f64, recruit: Option<f64>) {
-        self.poke_recruit(region, side, strength as f32, recruit.map(|r| r as f32));
+        self.poke_recruit64(region, side, strength, recruit);
     }
     fn step(&mut self) -> &[u32] {
         crate::Brain::step(self)
