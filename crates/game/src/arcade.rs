@@ -17,7 +17,6 @@ use std::sync::{Arc, Mutex, PoisonError};
 use std::thread;
 
 use bevy::prelude::*;
-use fly_sim::lif::{Individuality, LifParams, LifSim};
 use fly_sim::{Brain, brain::rows_of};
 
 use crate::app::{LatestSnapshot, SimLink};
@@ -166,11 +165,14 @@ fn setup(mut commands: Commands) {
 // --- background brains -------------------------------------------------------------------------------------------------------------
 /// A warmed-up brain of individuality `seed` with its own noise stream (`tournament.build_fighter`).
 pub fn build_brain(shared: &Shared, seed: u64, noise_seed: u64, sigma: f64) -> Brain {
-    let mut sim = LifSim::new(shared.weights.clone(), LifParams::default(), noise_seed);
-    sim.set_individuality(Individuality::compute(seed, shared.weights.n(), sigma));
-    let mut b = Brain::new(sim, shared.labels.clone());
-    b.warmup(600);
-    b
+    let build = fly_sim::cards::Build {
+        weights: &shared.weights,
+        labels: &shared.labels,
+        mode: "subtle",
+        sigma: Some(sigma),
+        lif: fly_sim::cards::LIF_DEFAULTS,
+    };
+    build.brain(seed, Some(noise_seed), 600)
 }
 
 pub fn apply_loadout(brain: &mut Brain, l: &Loadout) {
@@ -183,7 +185,7 @@ pub fn apply_loadout(brain: &mut Brain, l: &Loadout) {
 
 struct RealMatches<'a> {
     shared: &'a Shared,
-    seconds: f32,
+    seconds: f64,
     sigma: f64,
     bracket_seed: u64,
     progress: &'a Arc<Mutex<String>>,
@@ -198,7 +200,7 @@ impl MatchRunner for RealMatches<'_> {
             format!("match {} of {}: fly {a} v fly {b}{}", self.played + 1, self.total, if attempt > 0 { " (rematch)" } else { "" });
         let (mut ba, mut bb) =
             (build_brain(self.shared, u64::from(a), na, self.sigma), build_brain(self.shared, u64::from(b), nb, self.sigma));
-        let r = duel::run_duel(&mut ba, &mut bb, match_seed, self.seconds);
+        let r = duel::run_duel(&mut ba, &mut bb, match_seed, self.seconds, false, false, |_| true);
         if attempt == 0 || r.winner.is_some() {
             self.played += 1;
         }
@@ -250,7 +252,7 @@ fn spawn_lesion(shared: Shared, picks: [Loadout; 2], rounds: u32) -> Job {
                     (build_brain(&shared, 1, 100 + u64::from(round), 0.05), build_brain(&shared, 2, 200 + u64::from(round), 0.05));
                 apply_loadout(&mut a, &picks[0]);
                 apply_loadout(&mut b, &picks[1]);
-                let r = duel::run_duel(&mut a, &mut b, 7 + u64::from(round), duel::DEFAULT_SECONDS);
+                let r = duel::run_duel(&mut a, &mut b, 7 + u64::from(round), duel::DEFAULT_SECONDS, false, false, |_| true);
                 match r.winner {
                     Some(Side::A) => wins[0] += 1,
                     Some(Side::B) => wins[1] += 1,
@@ -264,12 +266,12 @@ fn spawn_lesion(shared: Shared, picks: [Loadout; 2], rounds: u32) -> Job {
                         Some(Side::B) => "player 2",
                         None => "a draw",
                     },
-                    r.hp.0,
-                    r.hp.1,
-                    r.shots.0,
-                    r.shots.1,
-                    r.hits.0,
-                    r.hits.1
+                    r.hp[0],
+                    r.hp[1],
+                    r.shots[0],
+                    r.shots[1],
+                    r.hits[0],
+                    r.hits[1]
                 ));
             }
             let verdict = if wins[0] > wins[1] {
@@ -297,7 +299,7 @@ fn spawn_race(shared: Shared, lanes: usize, pick: usize, stake: i64) -> Job {
             for lane in 0..lanes {
                 *p.lock().unwrap_or_else(PoisonError::into_inner) = format!("lane {} of {lanes}", lane + 1);
                 let mut b = build_brain(&shared, lane as u64 + 1, 300 + lane as u64, 0.05);
-                results.push(race::run_lane(&mut b, race::TIME_CAP_S, race::TRACK_LENGTH));
+                results.push(race::run_lane(&mut b, race::TIME_CAP_S, race::TRACK_LENGTH, |_| true));
             }
             let order = race::order(&results);
             let _ = tx.send(JobDone::Race { lanes: results, order, pick, stake });

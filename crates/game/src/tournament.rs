@@ -110,7 +110,7 @@ mod tests {
             } else {
                 Some(Side::B)
             };
-            DuelResult { winner, hp: (0.0, 0.0), shots: (0, 0), hits: (0, 0), seconds: 1.0, knockout: false }
+            DuelResult { winner, seconds: 1.0, ..Default::default() }
         }
     }
 

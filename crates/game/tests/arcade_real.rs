@@ -24,11 +24,11 @@ fn two_real_brains_duel_and_one_runs_the_track() {
     };
     let mut a = build_brain(&sh, 1, 11, 0.05);
     let mut b = build_brain(&sh, 2, 12, 0.05);
-    let r = duel::run_duel(&mut a, &mut b, 3, 2.0);
+    let r = duel::run_duel(&mut a, &mut b, 3, 2.0, false, false, |_| true);
     assert!(r.seconds > 1.9, "the match ran its 2 s: {}", r.seconds);
-    assert!(r.hp.0 <= 100.0 && r.hp.1 <= 100.0);
+    assert!(r.hp[0] <= 100.0 && r.hp[1] <= 100.0);
     let mut c = build_brain(&sh, 3, 13, 0.05);
-    let lane = race::run_lane(&mut c, 3.0, race::TRACK_LENGTH);
+    let lane = race::run_lane(&mut c, 3.0, race::TRACK_LENGTH, |_| true);
     assert!(lane.distance >= 0.0 && lane.seconds > 2.9 || lane.finish_s.is_some());
     assert!(lane.trace.len() > 3);
 }

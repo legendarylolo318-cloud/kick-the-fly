@@ -38,8 +38,7 @@ Predict KeyError, x-goog-hash first-header bug, stethoscope central_complex/opti
 Done, committed: `fly_sim::{duel,cards,race}`, NumPy-exact `choice` in pokes, goldens `duel_engine.json`, `choice.json`, `arcade.json`
 (`tests/golden/make_{duel_engine,choice,arcade}.py`), see the PORTING.md section "Arcade engine parity". `serde_json` now has `float_roundtrip`
 (goldens with 17-digit floats need it). NOT touched: every item below. First steps next time:
-1. Make `game/{duel,tournament,race}.rs` thin wrappers over `fly_sim::{duel,race}` and `cards::Build::brain` (the arcade's `build_brain` warms
-   up with the noise seed; Python warms with the individuality seed, THEN reseeds: use `Build::brain(seed, Some(noise), 600)`).
+1. (done) `game/{duel,race}.rs` are shims over `fly_sim::{duel,race}`; the arcade's `build_brain` uses `cards::Build::brain`.
 2. `fly_sim::stats` (binomtest, spearmanr, wilcoxon, holm) -> tournament/race analysis; then the arcade page in `ktf_ui::pages` from `ui/arcade_ui.py`.
 3. Then the list below, in order. Venv: `python3 -m venv V; V/bin/pip install numpy scipy pygame-ce pytest pillow pyyaml pyarrow fonttools`.
 
