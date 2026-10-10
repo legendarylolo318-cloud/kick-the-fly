@@ -280,8 +280,11 @@ against the pygame version (screenshot pair, or the code read side by side). Any
   (the old header of `groups.rs` said it could not; that is fixed). `Brain::set_poke_seed` = `Brain.rng = default_rng(seed)`.
 - Real-pack duel (subtle, seeds 2000 v 2001, 6 s): the first 12 events (3.1 s) are identical to Python's, then a readout sitting on its threshold moves a
   shot by one tick (the engine reads f32 levels). Race lane: walking level, lures touched equal; distance within 0.1 m (2 %). Not ticked.
-- Not done: `fly_sim::tournament` driver + analysis (needs a `stats` module: binomtest, spearman, wilcoxon), `game/{duel,tournament,race}.rs` still
-  use the old f32 engines, the arcade page itself (`ui/arcade_ui.py`, `battle_ui.py`), the personality-card cache file reader/writer.
+- `fly_sim::stats` (exact binomial test, Spearman + t p-value, one-sided Wilcoxon, Holm) and `fly_sim::tournament` (`match_noise`, `coin`,
+  `analyze`) **verified against scipy / `tournament.analyze`** (`tests/golden/make_stats.py`, `stats_golden.rs`). Wilcoxon note: scipy 1.18 gave exact
+  p-values at <= 11 non-zero differences with ties or zeros and the normal approximation at 23; the cut-off (13) is inferred, not verified.
+- `game/{duel,race}.rs` are now shims over the verified `fly_sim` engines; the arcade brains warm up on the individuality seed, then reseed.
+- Not done: the tournament/race *drivers* with cards (`run_bracket` with frames, `run_race`, `odds_table`, `settle_bets` in `fly_sim`), the arcade page itself (`ui/arcade_ui.py`, `battle_ui.py`), the personality-card cache file reader/writer.
 
 ### Cannot be matched exactly
 - **Text rasterization**: pygame renders hinted glyphs with FreeType; `ab_glyph` renders unhinted outlines. Widths and positions are identical (pygame's advances are a lookup table), edges differ by anti-aliasing (a few percent of text pixels).
