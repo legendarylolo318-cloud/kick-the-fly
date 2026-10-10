@@ -122,3 +122,170 @@ pub fn analyze(brackets: &[BracketIn]) -> Analysis {
         tests,
     }
 }
+
+// --- the bracket driver (`tournament.run_bracket`) ----------------------------------------------------------------------------------
+use crate::duel::{DriverRow, DuelResult, Event, Frame, Side, TIEBREAK_REMATCHES, TypeSums, combine_drivers, named_drivers, top_drivers};
+
+pub const SIZES: [usize; 3] = [4, 8, 16];
+
+#[derive(Debug, Clone)]
+pub struct MatchOut {
+    pub a: u64,
+    pub b: u64,
+    pub winner: u64,
+    pub coin_toss: bool,
+    pub attempts: usize,
+    pub decided_by: &'static str,
+    pub hp: [f64; 2],
+    pub shots: [u32; 2],
+    pub hits: [u32; 2],
+    pub seconds: f64,
+    pub knockout: bool,
+    pub max_levels: [[f64; 4]; 2],
+    pub events: Vec<Event>,
+    pub frames: Vec<Frame>,
+    pub match_seed: u64,
+}
+
+#[derive(Debug, Clone)]
+pub struct BracketOut {
+    pub seeds: Vec<u64>,
+    pub match_seconds: f64,
+    pub bracket_seed: u64,
+    pub favorite: Option<u64>,
+    pub favorite_won: Option<bool>,
+    pub favorite_rounds_won: Option<u32>,
+    pub rounds: Vec<Vec<MatchOut>>,
+    pub champion: u64,
+    /// `(seed, rounds won)` in seed order.
+    pub rounds_won: Vec<(u64, u32)>,
+    pub champion_drivers: Vec<DriverRow>,
+    pub champion_readouts: Vec<DriverRow>,
+}
+
+/// Plays one match: returns `(match seed, result)`. A rematch is another `attempt` (new noise). `Err` aborts (a cancel).
+pub trait MatchPlayer {
+    fn play(&mut self, a: u64, b: u64, attempt: u64, seconds: f64, drivers: bool) -> Result<(u64, DuelResult), String>;
+}
+
+/// Run a bracket of 4, 8 or 16 flies (seeds in the order given: 1 v 2, 3 v 4, ... then the winners in order). A draw is replayed twice
+/// with new noise, then decided by a seeded coin toss that is labelled as one.
+pub fn run_bracket(
+    seeds: &[u64],
+    seconds: f64,
+    favorite: Option<u64>,
+    bracket_seed: u64,
+    drivers: bool,
+    player: &mut dyn MatchPlayer,
+) -> Result<BracketOut, String> {
+    if !SIZES.contains(&seeds.len()) {
+        return Err(format!("a bracket has 4, 8, 16 flies, not {}", seeds.len()));
+    }
+    let mut uniq = seeds.to_vec();
+    uniq.sort_unstable();
+    uniq.dedup();
+    if uniq.len() != seeds.len() {
+        return Err("every fly needs its own individuality seed".into());
+    }
+    if favorite.is_some_and(|f| !seeds.contains(&f)) {
+        return Err("the favorite must be one of the flies".into());
+    }
+    let mut wins: Vec<(u64, u32)> = seeds.iter().map(|&s| (s, 0)).collect();
+    let mut by_seed: HashMap<u64, Vec<TypeSums>> = seeds.iter().map(|&s| (s, Vec::new())).collect();
+    let mut fighters = seeds.to_vec();
+    let mut rounds = Vec::new();
+    while fighters.len() > 1 {
+        let pairs: Vec<(u64, u64)> = fighters.chunks(2).map(|c| (c[0], c[1])).collect();
+        let mut results: Vec<Vec<(u64, DuelResult)>> = vec![Vec::new(); pairs.len()];
+        let mut pending: Vec<usize> = (0..pairs.len()).collect();
+        for attempt in 0..=TIEBREAK_REMATCHES as u64 {
+            let mut still = Vec::new();
+            for &i in &pending {
+                let r = player.play(pairs[i].0, pairs[i].1, attempt, seconds, drivers)?;
+                if r.1.winner.is_none() {
+                    still.push(i);
+                }
+                results[i].push(r);
+            }
+            pending = still;
+            if pending.is_empty() {
+                break;
+            }
+        }
+        let mut matches = Vec::new();
+        for (i, &(a, b)) in pairs.iter().enumerate() {
+            let rs = &results[i];
+            let (mseed, fin) = rs.last().expect("a match was played");
+            let coin_toss = fin.winner.is_none();
+            let winner = match fin.winner {
+                Some(Side::A) => a,
+                Some(Side::B) => b,
+                None => {
+                    if coin(bracket_seed, a, b) {
+                        a
+                    } else {
+                        b
+                    }
+                }
+            };
+            if let Some(e) = wins.iter_mut().find(|e| e.0 == winner) {
+                e.1 += 1;
+            }
+            for (_, r) in rs {
+                if let Some(d) = &r.drivers {
+                    if let Some(v) = by_seed.get_mut(&a) {
+                        v.push(d[0].clone());
+                    }
+                    if let Some(v) = by_seed.get_mut(&b) {
+                        v.push(d[1].clone());
+                    }
+                }
+            }
+            matches.push(MatchOut {
+                a,
+                b,
+                winner,
+                coin_toss,
+                attempts: rs.len(),
+                decided_by: if fin.winner.is_none() {
+                    "draw"
+                } else if fin.knockout {
+                    "knockout"
+                } else {
+                    "health at the time limit"
+                },
+                hp: fin.hp,
+                shots: fin.shots,
+                hits: fin.hits,
+                seconds: fin.seconds,
+                knockout: fin.knockout,
+                max_levels: fin.max_levels,
+                events: fin.events.clone(),
+                frames: fin.frames.clone(),
+                match_seed: *mseed,
+            });
+        }
+        fighters = matches.iter().map(|m| m.winner).collect();
+        rounds.push(matches);
+    }
+    let champion = fighters[0];
+    let sums = if drivers {
+        let parts: Vec<&TypeSums> = by_seed[&champion].iter().collect();
+        combine_drivers(&parts)
+    } else {
+        None
+    };
+    Ok(BracketOut {
+        seeds: seeds.to_vec(),
+        match_seconds: seconds,
+        bracket_seed,
+        favorite,
+        favorite_won: favorite.map(|f| f == champion),
+        favorite_rounds_won: favorite.and_then(|f| wins.iter().find(|e| e.0 == f).map(|e| e.1)),
+        rounds,
+        champion,
+        rounds_won: wins,
+        champion_drivers: if drivers { top_drivers(sums.as_ref(), 10, 50.0, 5.0, 3) } else { Vec::new() },
+        champion_readouts: if drivers { named_drivers(sums.as_ref()) } else { Vec::new() },
+    })
+}

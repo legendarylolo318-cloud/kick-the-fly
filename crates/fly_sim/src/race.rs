@@ -163,6 +163,222 @@ pub fn win_probabilities(sugar_ratio: &[f64], walk_level_calm: &[f64]) -> Vec<f6
     e.iter().map(|v| v / s).collect()
 }
 
+// --- odds, the race and its analysis (`lab/racing.py`) -----------------------------------------------------------------------------
+pub const HOUSE_TAKE: f64 = 0.10;
+pub const MIN_ODDS: f64 = 1.1;
+
+/// `points.decimal_odds`: a fair 1/p less the house take, to one decimal, at least 1.1.
+pub fn decimal_odds(p: f64) -> f64 {
+    let p = p.clamp(1e-6, 1.0);
+    MIN_ODDS.max(round_to((1.0 - HOUSE_TAKE) / p, 1))
+}
+
+/// What the odds and the analysis read of a measured card.
+#[derive(Debug, Clone, Copy)]
+pub struct CardNumbers {
+    pub sugar_ratio: f64,
+    pub walk_level_calm: f64,
+    pub loom_latency_s: f64,
+    pub turning_log_ratio: f64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct OddsRow {
+    pub fly: u64,
+    pub form: f64,
+    pub p_win: f64,
+    pub decimal_odds: f64,
+}
+
+/// `racing.odds_table` (without the titles).
+pub fn odds_table(seeds: &[u64], cards: &[CardNumbers]) -> Vec<OddsRow> {
+    let sugar: Vec<f64> = cards.iter().map(|c| c.sugar_ratio).collect();
+    let walk: Vec<f64> = cards.iter().map(|c| c.walk_level_calm).collect();
+    let (p, f) = (win_probabilities(&sugar, &walk), form_scores(&sugar, &walk));
+    seeds
+        .iter()
+        .zip(p.iter().zip(&f))
+        .map(|(&fly, (&pi, &fi))| OddsRow { fly, form: fi, p_win: pi, decimal_odds: decimal_odds(pi) })
+        .collect()
+}
+
+#[derive(Debug, Clone)]
+pub struct RaceOut {
+    pub seeds: Vec<u64>,
+    pub race_seed: u64,
+    pub repeats: usize,
+    /// `runs[repeat][lane]`, lanes in `seeds` order.
+    pub runs: Vec<Vec<LaneResult>>,
+    /// Finishing order per repeat, as seeds.
+    pub orders: Vec<Vec<u64>>,
+    pub winner: u64,
+    pub odds: Vec<OddsRow>,
+}
+
+/// `racing.run_race`: every fly runs the same race `repeats` times; `lane(seed, repeat)` plays one lane (the caller builds the brain with
+/// `lane_noise(race_seed, seed, repeat)`).
+pub fn run_race(
+    seeds: &[u64],
+    repeats: usize,
+    race_seed: u64,
+    cards: &[CardNumbers],
+    lane: &mut dyn FnMut(u64, usize) -> Result<LaneResult, String>,
+) -> Result<RaceOut, String> {
+    if !(2..=MAX_LANES).contains(&seeds.len()) {
+        return Err(format!("a race has 2 to {MAX_LANES} lanes"));
+    }
+    let mut uniq = seeds.to_vec();
+    uniq.sort_unstable();
+    uniq.dedup();
+    if uniq.len() != seeds.len() {
+        return Err("every fly needs its own individuality seed".into());
+    }
+    let mut runs = Vec::new();
+    for r in 0..repeats {
+        let mut one = Vec::new();
+        for &s in seeds {
+            one.push(lane(s, r)?);
+        }
+        runs.push(one);
+    }
+    let orders: Vec<Vec<u64>> = runs.iter().map(|r| order(r).into_iter().map(|i| seeds[i]).collect()).collect();
+    let winner = orders[0][0];
+    let odds = if cards.is_empty() { Vec::new() } else { odds_table(seeds, cards) };
+    Ok(RaceOut { seeds: seeds.to_vec(), race_seed, repeats, runs, orders, winner, odds })
+}
+
+#[derive(Debug, Clone)]
+pub struct RaceTest {
+    pub id: &'static str,
+    pub n: usize,
+    pub rho: Option<f64>,
+    pub mean_brier_diff: Option<f64>,
+    pub p: f64,
+    pub p_holm: f64,
+    pub significant: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct RaceAnalysis {
+    pub races: usize,
+    pub flies: usize,
+    pub tests: Vec<RaceTest>,
+    /// `(trait, rho, p)` uncorrected, two-sided.
+    pub secondary: Vec<(&'static str, f64, f64)>,
+    pub individuality_predicts_finish: bool,
+    pub winners_were_favorite: Option<usize>,
+}
+
+fn effective_time(l: &LaneResult, track: f64) -> f64 {
+    l.finish_s.unwrap_or(l.seconds * track / l.distance.max(1e-3))
+}
+
+/// `racing.analyze`: R1 repeatability, R2 form vs finishing time, R3 the odds' Brier score against a uniform field; Holm over the three.
+pub fn analyze(races: &[(RaceOut, Vec<CardNumbers>)]) -> RaceAnalysis {
+    use crate::stats;
+    struct Fly {
+        form: f64,
+        times: Vec<f64>,
+        mean: f64,
+        traits: [f64; 4],
+    }
+    let mut flies: Vec<Fly> = Vec::new();
+    for (r, cards) in races {
+        let f = form_scores(
+            &cards.iter().map(|c| c.sugar_ratio).collect::<Vec<_>>(),
+            &cards.iter().map(|c| c.walk_level_calm).collect::<Vec<_>>(),
+        );
+        for (i, c) in cards.iter().enumerate() {
+            let times: Vec<f64> = (0..r.repeats).map(|k| effective_time(&r.runs[k][i], TRACK_LENGTH)).collect();
+            let mean = times.iter().sum::<f64>() / times.len().max(1) as f64;
+            flies.push(Fly { form: f[i], times, mean, traits: [c.sugar_ratio, c.walk_level_calm, c.loom_latency_s, c.turning_log_ratio] });
+        }
+    }
+    let mut tests = Vec::new();
+    if flies.first().is_some_and(|f| f.times.len() >= 2) {
+        let a: Vec<f64> = flies.iter().map(|f| f.times[0]).collect();
+        let b: Vec<f64> = flies.iter().map(|f| f.times[1]).collect();
+        let (rho, p2) = stats::spearman(&a, &b);
+        tests.push(RaceTest {
+            id: "R1",
+            n: flies.len(),
+            rho: Some(rho),
+            mean_brier_diff: None,
+            p: if rho > 0.0 { p2 / 2.0 } else { 1.0 - p2 / 2.0 },
+            p_holm: 0.0,
+            significant: false,
+        });
+    }
+    let mt: Vec<f64> = flies.iter().map(|f| f.mean).collect();
+    let (rho, p2) = stats::spearman(&flies.iter().map(|f| f.form).collect::<Vec<_>>(), &mt);
+    tests.push(RaceTest {
+        id: "R2",
+        n: flies.len(),
+        rho: Some(rho),
+        mean_brier_diff: None,
+        p: if rho < 0.0 { p2 / 2.0 } else { 1.0 - p2 / 2.0 },
+        p_holm: 0.0,
+        significant: false,
+    });
+    let diffs: Vec<f64> = races
+        .iter()
+        .map(|(r, cards)| {
+            let p = win_probabilities(
+                &cards.iter().map(|c| c.sugar_ratio).collect::<Vec<_>>(),
+                &cards.iter().map(|c| c.walk_level_calm).collect::<Vec<_>>(),
+            );
+            let w = r.seeds.iter().position(|&s| s == r.winner).unwrap_or(0);
+            let uni = 1.0 / p.len() as f64;
+            let (mut a, mut b) = (0.0, 0.0);
+            for (i, pi) in p.iter().enumerate() {
+                let y = if i == w { 1.0 } else { 0.0 };
+                a += (pi - y).powi(2);
+                b += (uni - y).powi(2);
+            }
+            a - b
+        })
+        .collect();
+    let pw = if !diffs.is_empty() && diffs.iter().any(|d| *d != 0.0) { stats::wilcoxon_less(&diffs) } else { 1.0 };
+    tests.push(RaceTest {
+        id: "R3",
+        n: diffs.len(),
+        rho: None,
+        mean_brier_diff: Some(diffs.iter().sum::<f64>() / diffs.len().max(1) as f64),
+        p: pw,
+        p_holm: 0.0,
+        significant: false,
+    });
+    let adj = stats::holm(&tests.iter().map(|t| t.p).collect::<Vec<_>>());
+    for (t, ph) in tests.iter_mut().zip(adj) {
+        t.p_holm = ph;
+        t.significant = ph < 0.05;
+    }
+    let distinct = |v: &[f64]| v.iter().any(|x| *x != v[0]);
+    let names = ["sugar_ratio", "walk_level_calm", "loom_latency_s", "turning_log_ratio"];
+    let secondary = (0..4)
+        .map(|k| {
+            let xs: Vec<f64> = flies.iter().map(|f| f.traits[k]).collect();
+            let (rho, p) = if distinct(&xs) && distinct(&mt) { stats::spearman(&xs, &mt) } else { (f64::NAN, f64::NAN) };
+            (names[k], rho, p)
+        })
+        .collect();
+    let winners = races
+        .iter()
+        .filter(|(r, _)| {
+            let mx = r.odds.iter().map(|o| o.p_win).fold(f64::NEG_INFINITY, f64::max);
+            r.odds.iter().any(|o| o.fly == r.winner && o.p_win == mx)
+        })
+        .count();
+    RaceAnalysis {
+        races: races.len(),
+        flies: flies.len(),
+        individuality_predicts_finish: tests.iter().any(|t| t.significant),
+        tests,
+        secondary,
+        winners_were_favorite: races.iter().all(|(r, _)| !r.odds.is_empty()).then_some(winners),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
