@@ -62,6 +62,7 @@ fn spawn_and_cycle(
     mut popups: MessageWriter<Popup>,
     mut pending: Local<Option<u32>>,
     mut tick: Local<u32>,
+    lab: Res<crate::share_play::LabState>,
 ) {
     let now = virt.elapsed_secs();
     let count = bodies.iter().count();
@@ -83,6 +84,7 @@ fn spawn_and_cycle(
             let pos = spawn_point(slot);
             spawn_fly(&mut commands, &mut meshes, &mut materials, pos, std::f32::consts::FRAC_PI_2, 1000 + u64::from(slot), slot);
             link.0.send(Command::SpawnFly { slot, seed: 1000 + u64::from(slot), sigma });
+            crate::share_play::send_model_params(&link, &lab);
             link.0.send(Command::FocusFly(slot));
             flies.focus = slot;
             popups.write(Popup::new(pos + Vec3::Y * 0.45, "NEW FLY!", (170, 255, 200)));

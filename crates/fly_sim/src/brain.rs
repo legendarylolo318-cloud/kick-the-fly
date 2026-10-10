@@ -155,6 +155,20 @@ impl Brain {
         self.groups.set_rng_seed(seed);
     }
 
+    /// `Game.set_lab_param` for a model parameter on this brain (a dead brain's gain stays frozen until it revives).
+    pub fn set_model_param(&mut self, name: &str, v: f64) -> bool {
+        if !self.sim.set_model_param(name, v) {
+            return false;
+        }
+        if name == "gain_adapt" {
+            self.gain_adapt = v;
+            if self.dead() {
+                self.sim.p.gain_adapt = 0.0;
+            }
+        }
+        true
+    }
+
     pub fn n(&self) -> usize {
         self.sim.n
     }

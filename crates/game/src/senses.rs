@@ -11,7 +11,6 @@ use std::collections::HashMap;
 use bevy::prelude::*;
 
 use crate::app::SimLink;
-use crate::duel::{LOOM_FULL, LOOM_MIN};
 use crate::fly::{Fly, FlyPart, Part};
 use crate::sim_thread::Command;
 
@@ -104,7 +103,8 @@ fn seen(threats: &Threats, mem: &mut LoomMemory, f: &mut Fly, head: Vec3, dt: f3
     }
     mem.prev = now_seen;
     mem.rate += (best - mem.rate) * 0.5;
-    let strength = ((best - LOOM_MIN) / LOOM_FULL).clamp(0.0, 1.0);
+    let th = crate::reactions::thresholds();
+    let strength = ((best - th.loom_min) / th.loom_full).clamp(0.0, 1.0);
     if strength > 0.0
         && let Some(p) = best_pos
     {

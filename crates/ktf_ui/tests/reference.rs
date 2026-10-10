@@ -410,3 +410,74 @@ fn arcade_battle_tab() {
         compare(&format!("page_arcade_battle_{name}.png"), &cv.to_rgb_over(BG), 0.012);
     }
 }
+
+#[test]
+fn lab_pages() {
+    use ktf_ui::canvas::Rect;
+    use ktf_ui::menu::{Ctx, Page};
+    struct Stub;
+    impl Page for Stub {
+        fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+            self
+        }
+        fn draw(&mut self, _: &mut Menu, _: &mut Canvas, _: Rect, _: &mut Ctx) {}
+        fn custom(&mut self, _: &mut Menu, _: &str, _: Option<&str>, _: &mut Ctx) {}
+    }
+    struct H(serde_json::Value, bool);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            match key {
+                "lab_pages" => self.0["pages"].clone(),
+                "lab_params" => {
+                    if self.1 {
+                        self.0["params"].clone()
+                    } else {
+                        serde_json::json!({})
+                    }
+                }
+                "lab_engine" => serde_json::json!("CPU (NumPy) · CPU"),
+                _ => serde_json::Value::Null,
+            }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    let fx: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/ui_reference/lab_fixture.json")).unwrap())
+            .unwrap();
+    for (name, screen, modified, scroll) in [
+        ("page_lab_hub.png", "lab", false, 0),
+        ("page_lab_hub_modified.png", "lab", true, 0),
+        ("page_lab_params.png", "lab_params", true, 0),
+        ("page_lab_params_scrolled.png", "lab_params", true, 600),
+        ("page_lab_assumptions.png", "lab_assumptions", false, 0),
+        ("page_lab_assumptions_scrolled.png", "lab_assumptions", false, 700),
+    ] {
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        for p in fx["pages"].as_array().unwrap() {
+            let n = p[1].as_str().unwrap();
+            if !m.has_page(n) {
+                m.register_page(n, Box::new(Stub));
+            }
+        }
+        m.show(screen);
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(fx.clone(), modified));
+        m.set_scroll(screen, scroll);
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(fx.clone(), modified));
+        if let Ok(dir) = std::env::var("KTF_DUMP") {
+            let rgb = cv.to_rgb_over(BG);
+            let file = std::fs::File::create(format!("{dir}/rust_{name}")).unwrap();
+            let mut enc = png::Encoder::new(std::io::BufWriter::new(file), 1280, 720);
+            enc.set_color(png::ColorType::Rgb);
+            enc.set_depth(png::BitDepth::Eight);
+            enc.write_header().unwrap().write_image_data(&rgb).unwrap();
+        }
+        // a page of small text on dark cards: edges differ by glyph anti-aliasing (PORTING.md, 'Cannot be matched exactly')
+        compare(name, &cv.to_rgb_over(BG), if screen == "lab_assumptions" { 0.02 } else { 0.012 });
+    }
+}

@@ -176,6 +176,11 @@ pub enum Command {
     },
     KillFly(u32),
     ReviveFly(u32),
+    /// A Lab model parameter (`noise_std`, `bias`, `target_rate_hz`, `ext_gain`, `gain_adapt`) on every fly's brain.
+    SetModelParam {
+        name: String,
+        value: f64,
+    },
     Shutdown,
 }
 
@@ -429,6 +434,12 @@ fn run(
                         b.poke(&region, side, strength);
                     }
                 }
+                Ok(Command::SetModelParam { name, value }) => {
+                    brain.set_model_param(&name, value);
+                    for (_, b) in &mut multi.extras {
+                        b.set_model_param(&name, value);
+                    }
+                }
                 Ok(Command::KillFly(slot)) => {
                     if let Some(b) = multi.brain_of(&mut brain, slot) {
                         b.kill();
@@ -567,6 +578,7 @@ fn apply(
         | Command::FocusFly(_)
         | Command::PokeFly { .. }
         | Command::KillFly(_)
+        | Command::SetModelParam { .. }
         | Command::ReviveFly(_) => false,
         Command::Kill => {
             brain.kill();

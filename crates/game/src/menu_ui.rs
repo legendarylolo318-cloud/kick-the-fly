@@ -239,6 +239,7 @@ struct MenuCtx<'w, 's> {
     chal: ResMut<'w, crate::challenges::Challenges>,
     notes: ResMut<'w, crate::feedback::Notes>,
     share_q: Res<'w, crate::share_play::ShareQueue>,
+    lab: Res<'w, crate::share_play::LabState>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -274,6 +275,7 @@ fn input(
         mut chal,
         mut notes,
         share_q,
+        lab,
     } = mc;
     for f in flashes.read() {
         ui.menu.flash(&f.0, if f.1 { ktf_ui::theme::GOOD } else { ktf_ui::theme::BAD }, if f.1 { 4.0 } else { 6.0 });
@@ -343,7 +345,8 @@ fn input(
     let mut host = GameHost::new(&loadout.0.tools, crate::tools::TOOLS[tools.selected].0)
         .with_arcade(if ui.menu.is_open() { hub.snapshot(&palette) } else { Value::Null })
         .with_lesion(hub.sizes.clone(), hub.saved.clone())
-        .with_share(share_q.0.clone());
+        .with_share(share_q.0.clone())
+        .with_lab(lab.json());
     if let Some(text) = hub.flash.take() {
         ui.menu.flash(&text, ktf_ui::theme::GOOD, 5.0);
     }
@@ -496,6 +499,7 @@ fn draw(
     tools: Res<crate::tools::ToolState>,
     saves: Res<crate::savestate_play::SaveLoad>,
     hub: Res<crate::arcade_hub::ArcadeHub>,
+    lab: Res<crate::share_play::LabState>,
 ) {
     let Ok((mut v, mut node)) = vis.single_mut() else { return };
     if !ui.menu.is_open() {
@@ -521,7 +525,11 @@ fn draw(
         true,
         mouse,
         time.elapsed_secs_f64(),
-        &mut GameHost::new(&loadout.0.tools, crate::tools::TOOLS[tools.selected].0).with_saves(&saves.entries).with_arcade(arcade_json),
+        &mut GameHost::new(&loadout.0.tools, crate::tools::TOOLS[tools.selected].0)
+            .with_saves(&saves.entries)
+            .with_arcade(arcade_json)
+            .with_lesion(hub.sizes.clone(), hub.saved.clone())
+            .with_lab(lab.json()),
     );
     if let Some(mut img) = images.get_mut(&*image) {
         img.data = Some(canvas.px.clone());
@@ -570,6 +578,7 @@ pub struct GameHost {
     sizes: Arc<Value>,
     saved: Arc<Value>,
     share: Option<Arc<std::sync::Mutex<Vec<(String, Value)>>>>,
+    lab: Value,
 }
 
 impl GameHost {
@@ -581,6 +590,11 @@ impl GameHost {
     /// Where an applied share code goes for the game to act on (`share_play`).
     pub fn with_share(mut self, q: Arc<std::sync::Mutex<Vec<(String, Value)>>>) -> Self {
         self.share = Some(q);
+        self
+    }
+
+    pub fn with_lab(mut self, values: Value) -> Self {
+        self.lab = values;
         self
     }
 
@@ -604,6 +618,7 @@ impl GameHost {
             sizes: Arc::new(Value::Null),
             saved: Arc::new(Value::Null),
             share: None,
+            lab: Value::Null,
         }
     }
 }
@@ -638,6 +653,10 @@ impl PageHost for GameHost {
             "selected_tool" => json!(self.selected),
             "saves" => Value::Array(self.saves.clone()),
             "arcade" => self.arcade.clone(),
+            "lab_params" => self.lab.clone(),
+            "lab_pages" => ktf_data::labparams::pages().clone(),
+            "lab_engine" => json!("Rust · CPU (rayon)"),
+            "lab_notes" => json!([]),
             "arcade_sizes" => (*self.sizes).clone(),
             "lesion_saved" => (*self.saved).clone(),
             "saves_dir" => json!(ktf_data::paths::get().saves_dir.to_string_lossy()),
@@ -663,6 +682,13 @@ impl PageHost for GameHost {
                 }
                 (_, Err(e)) => json!({"error": e}),
                 (None, _) => json!({"error": "the game is not ready to apply a code"}),
+            },
+            "set_lab_param" => match &self.share {
+                Some(q) => {
+                    q.lock().unwrap_or_else(std::sync::PoisonError::into_inner).push(("lab_param".into(), args));
+                    Value::Null
+                }
+                None => Value::Null,
             },
             "protocol_payload" => json!({"error": "protocols are not part of this build yet"}),
             _ => crate::crash::diag_command(cmd, &args).unwrap_or(Value::Null),

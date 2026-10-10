@@ -20,6 +20,27 @@ use crate::sim_thread::Command;
 #[derive(Resource, Default, Clone)]
 pub struct ShareQueue(pub Arc<Mutex<Vec<(String, Value)>>>);
 
+/// The Lab's current parameter values by name (only those changed from their defaults are kept).
+#[derive(Resource, Default, Clone)]
+pub struct LabState {
+    pub values: std::collections::BTreeMap<String, f64>,
+}
+
+impl LabState {
+    pub fn json(&self) -> Value {
+        Value::Object(self.values.iter().map(|(k, v)| (k.clone(), json!(v))).collect())
+    }
+}
+
+/// `lab.apply_to_sim` for flies spawned or restored after a parameter was changed.
+pub fn send_model_params(link: &SimLink, lab: &LabState) {
+    for (name, value) in &lab.values {
+        if ktf_data::labparams::by_name(name).is_some_and(|p| p.kind == "model") {
+            link.0.send(Command::SetModelParam { name: name.clone(), value: *value });
+        }
+    }
+}
+
 fn surgery_switches(p: &Value) -> usize {
     p["groups"].as_object().map_or(0, |g| g.values().filter(|m| m.as_i64().unwrap_or(0) != 0).count())
         + p["types"].as_object().map_or(0, |g| g.values().filter(|m| m.as_i64().unwrap_or(0) != 0).count())
@@ -121,10 +142,28 @@ fn apply_queue(
     mut switch: MessageWriter<SwitchArena>,
     mut chal: ResMut<crate::challenges::Challenges>,
     mut flash: MessageWriter<MenuFlash>,
+    mut lab: ResMut<LabState>,
 ) {
     let todo: Vec<(String, Value)> = std::mem::take(&mut *queue.0.lock().unwrap_or_else(PoisonError::into_inner));
     for (kind, p) in todo {
         match kind.as_str() {
+            "lab_param" => {
+                let name = p["name"].as_str().unwrap_or("");
+                if let Some(v) = ktf_data::labparams::clamp(name, p["value"].as_f64().unwrap_or(0.0)) {
+                    let spec = ktf_data::labparams::by_name(name).expect("clamp found it");
+                    if (v - spec.default).abs() > 1e-9 {
+                        lab.values.insert(name.to_string(), v);
+                    } else {
+                        lab.values.remove(name);
+                    }
+                    if spec.kind == "model" {
+                        link.0.send(Command::SetModelParam { name: name.to_string(), value: v });
+                    } else {
+                        crate::reactions::set_rule(name, v as f32);
+                    }
+                }
+                continue; // no flash for a slider drag
+            }
             "surgery" => apply_surgery(&link, &p),
             "challenge" => {
                 if let Some(seed) = p.get("seed").and_then(Value::as_i64) {
@@ -176,7 +215,7 @@ pub struct SharePlugin;
 
 impl Plugin for SharePlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<ShareQueue>().add_systems(Update, apply_queue);
+        app.init_resource::<ShareQueue>().init_resource::<LabState>().add_systems(Update, apply_queue);
     }
 }
 

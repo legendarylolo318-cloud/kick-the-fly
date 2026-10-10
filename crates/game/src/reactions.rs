@@ -21,6 +21,91 @@ pub const T_FIRE: f32 = 3.0;
 pub const T_SONG: f32 = 1.8;
 pub const T_SLEEP: f32 = 2.0;
 
+/// The thresholds the reactions read (`kick_the_fly.THRESH`, `LOOM_MIN`, `LOOM_FULL`); the Lab's parameters change them live.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Thresholds {
+    pub groom: f32,
+    pub jump: f32,
+    pub run: f32,
+    pub kick: f32,
+    pub walk: f32,
+    pub back: f32,
+    pub turn: f32,
+    pub fly: f32,
+    pub escape: f32,
+    pub fire: f32,
+    pub song: f32,
+    pub aggression: f32,
+    pub sleep: f32,
+    pub co2: f32,
+    pub hot_pn: f32,
+    pub cold_pn: f32,
+    pub loom_min: f32,
+    pub loom_full: f32,
+}
+
+impl Thresholds {
+    pub const DEFAULT: Thresholds = Thresholds {
+        groom: T_GROOM,
+        jump: T_JUMP,
+        run: T_RUN,
+        kick: T_KICK,
+        walk: T_WALK,
+        back: T_BACK,
+        turn: T_TURN,
+        fly: T_FLY,
+        escape: T_ESCAPE,
+        fire: T_FIRE,
+        song: T_SONG,
+        aggression: 2.0,
+        sleep: T_SLEEP,
+        co2: 2.0,
+        hot_pn: 1.6,
+        cold_pn: 1.7,
+        loom_min: 1.5,
+        loom_full: 8.0,
+    };
+
+    /// `Lab > Parameters`: the rule named `thresh.<x>`, `loom_min` or `loom_full`. False for a name that is not a threshold.
+    pub fn set(&mut self, name: &str, v: f32) -> bool {
+        let slot = match name.strip_prefix("thresh.").unwrap_or(name) {
+            "groom" => &mut self.groom,
+            "jump" => &mut self.jump,
+            "run" => &mut self.run,
+            "kick" => &mut self.kick,
+            "walk" => &mut self.walk,
+            "back" => &mut self.back,
+            "turn" => &mut self.turn,
+            "fly" => &mut self.fly,
+            "escape" => &mut self.escape,
+            "fire" => &mut self.fire,
+            "song" => &mut self.song,
+            "aggression" => &mut self.aggression,
+            "sleep" => &mut self.sleep,
+            "co2" => &mut self.co2,
+            "hot_pn" => &mut self.hot_pn,
+            "cold_pn" => &mut self.cold_pn,
+            "loom_min" => &mut self.loom_min,
+            "loom_full" => &mut self.loom_full,
+            _ => return false,
+        };
+        *slot = v;
+        true
+    }
+}
+
+static LIVE: std::sync::RwLock<Thresholds> = std::sync::RwLock::new(Thresholds::DEFAULT);
+
+/// The thresholds in force now.
+pub fn thresholds() -> Thresholds {
+    *LIVE.read().unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
+/// Change one rule (the Lab's parameters page); returns whether the name was a threshold.
+pub fn set_rule(name: &str, v: f32) -> bool {
+    LIVE.write().unwrap_or_else(std::sync::PoisonError::into_inner).set(name, v)
+}
+
 /// A lookup of group levels (multiples of the calm baseline) by name.
 pub struct Levels<'a> {
     pub names: &'a [String],
@@ -111,18 +196,19 @@ impl Reaction {
 /// One tick of the reaction logic for one fly. Mutates the ready-times and returns what fired, in the order Python checks them.
 pub fn decide(lv: &Levels, st: &mut ReactState, body: Body, now: f32, rng: &mut Rng) -> Vec<Reaction> {
     let mut out = Vec::new();
+    let th = thresholds();
     let (escape, jump, fly) = (lv.get("escape"), lv.get("jump"), lv.get("fly"));
-    if escape > T_ESCAPE && now >= st.escape_ready && !body.grabbed && body.can_fly {
+    if escape > th.escape && now >= st.escape_ready && !body.grabbed && body.can_fly {
         st.stun_until = 0.0;
         st.escape_until = now + 2.4;
         st.escape_ready = now + 2.4 + 1.0;
         out.push(Reaction::Dodge(escape));
-    } else if jump > T_JUMP && now >= st.escape_ready && body.free && body.can_fly {
+    } else if jump > th.jump && now >= st.escape_ready && body.free && body.can_fly {
         st.stun_until = 0.0;
         st.escape_until = now + 2.4;
         st.escape_ready = now + 2.4 + 1.0;
         out.push(Reaction::Yikes(jump));
-    } else if fly > T_FLY
+    } else if fly > th.fly
         && now >= st.escape_ready
         && body.free
         && body.can_fly
@@ -136,43 +222,43 @@ pub fn decide(lv: &Levels, st: &mut ReactState, body: Body, now: f32, rng: &mut 
         out.push(Reaction::TakeOff { level: fly, seconds });
     }
     let run = lv.get("run");
-    if run > T_RUN && now >= st.walk_until && body.free {
+    if run > th.run && now >= st.walk_until && body.free {
         st.stun_until = st.stun_until.min(now + 0.2);
         st.walk_until = now + 1.1;
         st.back_until = 0.0;
         out.push(Reaction::Run(run));
     }
     let kick = lv.get("kick");
-    if kick > T_KICK && now >= st.flail_until {
+    if kick > th.kick && now >= st.flail_until {
         st.flail_until = now + 0.6;
         out.push(Reaction::Kick(kick));
     }
     let (back, walk) = (lv.get("back"), lv.get("walk"));
-    if back > T_BACK && now >= st.back_until && now >= st.walk_until {
+    if back > th.back && now >= st.back_until && now >= st.walk_until {
         st.back_until = now + 0.8;
         out.push(Reaction::BackUp(back));
-    } else if walk > T_WALK && now >= st.walk_until && now >= st.back_until && now >= st.asleep_until {
+    } else if walk > th.walk && now >= st.walk_until && now >= st.back_until && now >= st.asleep_until {
         st.walk_until = now + 1.2;
         out.push(Reaction::Walk(walk));
     }
     let diff = lv.get("turn_r") - lv.get("turn_l");
-    if diff.abs() > T_TURN && now >= st.turn_ready && body.free && now >= st.walk_until && !body.duel_focus {
+    if diff.abs() > th.turn && now >= st.turn_ready && body.free && now >= st.walk_until && !body.duel_focus {
         st.turn_ready = now + 1.5;
         out.push(Reaction::Turn { right: diff > 0.0, radians: rng.uniform(0.9, 1.6).copysign(diff), diff });
     }
     // readouts with no body animation of their own
     let groom = lv.get("groom");
-    if lv.get("wind") > 2.0 && groom > T_GROOM && now >= st.groom_ready {
+    if lv.get("wind") > 2.0 && groom > th.groom && now >= st.groom_ready {
         st.groom_ready = now + 4.0;
         out.push(Reaction::Groom(groom));
     }
     st.song_slow += (lv.get("song") - st.song_slow) / 60.0;
-    if st.song_slow > T_SONG && now >= st.song_ready {
+    if st.song_slow > th.song && now >= st.song_ready {
         st.song_ready = now + 1.8;
         out.push(Reaction::Song(st.song_slow));
     }
     let sleep = lv.get("sleep");
-    if sleep > T_SLEEP && body.free {
+    if sleep > th.sleep && body.free {
         if now >= st.asleep_until {
             out.push(Reaction::Sleep(sleep));
         }

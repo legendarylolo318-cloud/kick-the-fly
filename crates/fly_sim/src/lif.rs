@@ -206,6 +206,38 @@ impl LifSim {
         &self.active
     }
 
+    /// `lab.apply_to_sim` for one model parameter (`noise_std`, `bias`, `target_rate_hz`, `ext_gain`, `gain_adapt`): the noise bank is
+    /// pre-scaled at construction, so a new `noise_std` scales it by the ratio (or refills it when it was off). False for any other name.
+    pub fn set_model_param(&mut self, name: &str, v: f64) -> bool {
+        match name {
+            "noise_std" => {
+                let old = self.p.noise_std;
+                if old > 0.0 {
+                    let k = (v / old) as f32;
+                    for x in &mut self.noise {
+                        *x *= k;
+                    }
+                } else if v > 0.0 {
+                    self.rng.fill_standard_normal_f32(&mut self.noise);
+                    let std = v as f32;
+                    for x in &mut self.noise {
+                        *x *= std;
+                    }
+                }
+                self.p.noise_std = v;
+            }
+            "bias" => self.p.bias = v,
+            "target_rate_hz" => {
+                self.target_p = v * self.p.dt_ms / 1000.0;
+                self.p.target_rate_hz = v;
+            }
+            "ext_gain" => self.p.ext_gain = v,
+            "gain_adapt" => self.p.gain_adapt = v,
+            _ => return false,
+        }
+        true
+    }
+
     /// Replace the noise generator, as `Brain.reseed` does: fresh bank and offsets from `seed`.
     pub fn reseed(&mut self, seed: u64) {
         let mut rng = Generator::new(seed);

@@ -5,6 +5,7 @@ use crate::menu::Menu;
 pub mod arcade;
 pub mod challenges;
 pub mod diag;
+pub mod lab;
 pub mod load_state;
 pub mod loadout;
 pub mod neurodex;
@@ -28,5 +29,8 @@ pub fn install_with(menu: &mut Menu, dex: neurodex::SharedDex) {
     menu.register_page("selftest", Box::new(diag::SelfTestPage));
     menu.register_page("bugreport", Box::<diag::BugReportPage>::default());
     menu.register_page("arcade", Box::<arcade::ArcadePage>::default());
+    menu.register_page("lab", Box::new(lab::LabHub));
+    menu.register_page("lab_params", Box::new(lab::LabParams));
+    menu.register_page("lab_assumptions", Box::new(lab::LabAssumptions));
     menu.register_page("whatsnew", Box::new(whatsnew::WhatsNew));
 }

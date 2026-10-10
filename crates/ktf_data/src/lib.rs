@@ -10,6 +10,7 @@
 
 pub mod config;
 pub mod diag;
+pub mod labparams;
 pub mod loadout;
 pub mod neurodex_facts;
 pub mod notd;
