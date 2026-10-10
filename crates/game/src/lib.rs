@@ -58,6 +58,7 @@ pub mod selftest;
 pub mod senses;
 pub mod sim_thread;
 pub mod snapshot;
+pub mod stethoscope_play;
 pub mod surgery_play;
 pub mod synth;
 pub mod tools;
@@ -159,6 +160,7 @@ impl Plugin for GamePlugin {
                 surgery_play::SurgeryPlugin,
                 autopsy_play::AutopsyPlugin,
                 wheel_play::WheelPlugin,
+                stethoscope_play::StethoscopePlugin,
                 actions::ActionsPlugin,
                 tutorial_play::TutorialPlugin,
                 first_run::FirstRunPlugin,

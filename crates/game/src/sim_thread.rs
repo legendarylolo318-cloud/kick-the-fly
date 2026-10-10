@@ -4,7 +4,7 @@
 //! [`Mailbox`] (reading never waits for a step). The sim thread paces itself against the wall clock: if it falls more than 40 steps
 //! behind it drops the backlog instead of racing, exactly as the Python loop does, and counts what it dropped.
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::thread::{self, JoinHandle};
@@ -138,6 +138,11 @@ pub enum Command {
     SweetOffer(u32),
     /// Close the running challenge (the memory it borrowed is put back).
     EndChallenge,
+    /// The brain stethoscope's target (`audio.stethoscope_target`, or a selected brain region by its pack label): None switches it off.
+    Stethoscope {
+        target: Option<String>,
+        region: Option<String>,
+    },
     /// Report the whole brain state (a save): the answer comes as [`SimEvent::State`].
     ExportState,
     /// Put a saved brain state back (a loaded save).
@@ -181,6 +186,8 @@ pub struct SimHandle {
     pub mailbox: Arc<Mailbox<Snapshot>>,
     stop: Arc<AtomicBool>,
     join: Option<JoinHandle<()>>,
+    /// Spikes of the stethoscope's neurons since the game last took them (`Brain.take_stethoscope_spikes`).
+    pub steth: Arc<AtomicU32>,
 }
 
 impl SimHandle {
@@ -227,14 +234,15 @@ pub fn spawn(cfg: SimConfig) -> SimHandle {
     let stop = Arc::new(AtomicBool::new(false));
     let shared = Arc::new(Mutex::new(None));
     let (ev_tx, ev_rx) = mpsc::channel();
+    let steth = Arc::new(AtomicU32::new(0));
     let join = {
-        let (mailbox, stop, shared) = (mailbox.clone(), stop.clone(), shared.clone());
+        let (mailbox, stop, shared, steth) = (mailbox.clone(), stop.clone(), shared.clone(), steth.clone());
         thread::Builder::new()
             .name("fly-sim".into())
-            .spawn(move || run(cfg, rx, mailbox, stop, shared, ev_tx))
+            .spawn(move || run(cfg, rx, mailbox, stop, shared, ev_tx, steth))
             .expect("could not start the sim thread")
     };
-    SimHandle { events: Mutex::new(ev_rx), shared, tx, mailbox, stop, join: Some(join) }
+    SimHandle { events: Mutex::new(ev_rx), shared, tx, mailbox, stop, join: Some(join), steth }
 }
 
 fn publish_phase(mailbox: &Mailbox<Snapshot>, phase: Phase, source: &str, neurons: usize) {
@@ -288,6 +296,7 @@ fn run(
     stop: Arc<AtomicBool>,
     shared: Arc<Mutex<Option<Shared>>>,
     events: Sender<SimEvent>,
+    steth: Arc<AtomicU32>,
 ) {
     publish_phase(&mailbox, Phase::Loading, "", 0);
     let (weights, labels, source) = match load(&cfg) {
@@ -371,6 +380,12 @@ fn run(
         done += 1;
         dex_check(&brain, &mut dex, &events);
         mem.after_step(&mut brain, &events);
+        if let Some(mask) = mem.steth_mask.as_ref() {
+            let n = brain.sim.spikes().iter().filter(|&&i| mask[i as usize]).count() as u32;
+            if n > 0 {
+                steth.fetch_add(n, Ordering::Relaxed);
+            }
+        }
         if rate_t.elapsed() >= Duration::from_secs(1) {
             steps_per_s = (brain.steps - rate_steps) as f32 / rate_t.elapsed().as_secs_f32();
             rate_t = Instant::now();
@@ -464,6 +479,16 @@ fn apply(
         }
         Command::DexEnabled(on) => {
             dex.enabled = on;
+            false
+        }
+        Command::Stethoscope { target, region } => {
+            mem.steth_mask = target.and_then(|t| steth_rows(brain, &t, region.as_deref())).map(|rows| {
+                let mut m = vec![false; brain.n()];
+                for r in rows {
+                    m[r as usize] = true;
+                }
+                m
+            });
             false
         }
         Command::SurgeryEntry { index, mode } => {
@@ -562,6 +587,28 @@ fn apply(
     }
 }
 
+/// `Game.update_stethoscope_target`: a selected region wins, then the setting. `central_complex` and `optic_lobes` find nothing in the Python
+/// game (its region table is keyed by display names such as "Central Complex"); here they name those regions.
+fn steth_rows(brain: &Brain, target: &str, region: Option<&str>) -> Option<Vec<u32>> {
+    let labels = brain.labels();
+    let n = brain.n() as u32;
+    let by_region = |name: &str| -> Vec<u32> { (0..n).filter(|&i| labels.region.get(i as usize).is_some_and(|r| r == name)).collect() };
+    let rows = if let Some(r) = region {
+        by_region(r)
+    } else {
+        match target {
+            "antennal_lobe" => brain.groups_ref().det_members("smell"),
+            "mushroom_body" => (0..n).filter(|&i| labels.types[i as usize].starts_with("KC")).collect(),
+            "central_complex" => by_region("Central Complex"),
+            "optic_lobes" => by_region("Optic Lobe"),
+            "motor" => (0..n).filter(|&i| matches!(labels.superclass[i as usize].as_str(), "descending_neuron" | "motor")).collect(),
+            "whole_brain" => (0..n).collect(),
+            _ => vec![],
+        }
+    };
+    (!rows.is_empty()).then_some(rows)
+}
+
 struct DexState {
     tracker: Option<fly_sim::neurodex::Tracker>,
     table: Option<Arc<fly_sim::neurodex::TypeTable>>,
@@ -657,6 +704,8 @@ struct MemState {
     chal_view: Option<Arc<ChallengeView>>,
     chal_speed: f32,
     autopsy_done: bool,
+    /// Which neurons the stethoscope listens to.
+    steth_mask: Option<Vec<bool>>,
 }
 
 fn unix_now() -> f64 {
@@ -680,6 +729,7 @@ impl MemState {
             chal_view: None,
             chal_speed: 1.0,
             autopsy_done: false,
+            steth_mask: None,
         }
     }
 
@@ -1064,6 +1114,22 @@ mod tests {
         h.send(Command::Kill);
         wait_for(&h, "dead", |s| s.dead);
         drop(h); // joins the thread
+    }
+
+    #[test]
+    fn the_stethoscope_counts_spikes_of_its_neurons() {
+        let h = spawn(cfg(3000));
+        wait_for(&h, "start", |s| s.phase == Phase::Running);
+        assert_eq!(h.steth.load(Ordering::Relaxed), 0, "off until a target is set");
+        h.send(Command::Stethoscope { target: Some("whole_brain".into()), region: None });
+        h.send(Command::DriveSpec { spec: "type:LPLC2".into(), amp: STIMULUS_AMP });
+        thread::sleep(Duration::from_millis(400));
+        assert!(h.steth.swap(0, Ordering::Relaxed) > 0, "the whole brain spikes");
+        h.send(Command::Stethoscope { target: None, region: None });
+        thread::sleep(Duration::from_millis(100));
+        h.steth.store(0, Ordering::Relaxed);
+        thread::sleep(Duration::from_millis(300));
+        assert_eq!(h.steth.load(Ordering::Relaxed), 0, "off again");
     }
 
     #[test]

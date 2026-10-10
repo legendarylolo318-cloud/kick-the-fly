@@ -256,6 +256,10 @@ struct HudIn<'w, 's> {
     surgery: Res<'w, crate::surgery_play::Surgery>,
     autopsy: Res<'w, crate::autopsy_play::AutopsyCard>,
     wheel: Res<'w, crate::wheel_play::Wheel>,
+    fruit: Res<'w, crate::environment::Fruit>,
+    kitchen: Res<'w, crate::environment::Kitchen>,
+    weather: Res<'w, crate::weather_play::WeatherRes>,
+    lost: Query<'w, 's, &'static crate::environment::Forage>,
     flies: Query<'w, 's, &'static Fly>,
 }
 
@@ -295,6 +299,10 @@ fn draw(
         surgery,
         autopsy,
         wheel,
+        fruit,
+        kitchen,
+        weather,
+        lost,
         flies,
     } = i;
     let l = lay.0;
@@ -420,6 +428,45 @@ fn draw(
         immortal: settings.immortal,
         fly_dead: dead,
         arena: arena.name().into(),
+        arena_status: {
+            // `Game3D.arena_status`
+            let mut out: Vec<String> = vec![];
+            let counts = fruit.0.as_ref().map(|o| {
+                let ripe = o.fruit.iter().filter(|f| f.ripe()).count();
+                (ripe, o.fruit.iter().filter(|f| f.ripe() && f.fermented).count())
+            });
+            if arena.name() == "kitchen" {
+                if let Some(k) = kitchen.0.as_ref() {
+                    out.push(format!("fruit {}", counts.map_or(0, |c| c.0)));
+                    out.push(format!("{} in the trap", k.trapped.len()));
+                    out.push(format!("cook swats {}", k.cook.swats));
+                    if matches!(k.cook.state, crate::kitchen::CookState::Windup | crate::kitchen::CookState::Swat) {
+                        out.push("SWAT INCOMING".into());
+                    }
+                }
+            } else if crate::world::is_outdoor(arena.name()) {
+                if arena.name() == "field" {
+                    out.push(format!("wind {:.0} m/s from {:.0}\u{b0}", settings.wind_speed.max(3.0), settings.wind_dir_deg));
+                }
+                let wx = &weather.0;
+                if wx.rain > 0.0 || wx.storm {
+                    out.push(format!(
+                        "{} {:.0}%{}",
+                        if wx.storm { "STORM" } else { "rain" },
+                        wx.rain * 100.0,
+                        if wx.has_gusts() { format!(", gusts {:.0} m/s", wx.wind(0.0, 0.0).0) } else { String::new() }
+                    ));
+                }
+                if let Some((ripe, ferm)) = counts {
+                    out.push(format!("fruit {ripe} ({ferm} fermented)"));
+                }
+                let n_lost = lost.iter().filter(|f| f.lost).count();
+                if n_lost > 0 {
+                    out.push(format!("{n_lost} LOST ({} recall)", cfg.0.key_of("recall").to_uppercase()));
+                }
+            }
+            out
+        },
         surgery_on: snap.0.as_deref().is_some_and(|s| s.surgery_modes.iter().any(|&m| m != 0) || s.surgery_types.iter().any(|t| t.1 != 0)),
         muted: settings.mute,
         pain: st.pain,

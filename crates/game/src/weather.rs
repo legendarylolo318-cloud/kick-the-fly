@@ -70,6 +70,11 @@ pub struct Weather {
 }
 
 impl Weather {
+    /// Whether any gust is blowing (`Weather.gusts` is non-empty).
+    pub fn has_gusts(&self) -> bool {
+        !self.gusts.is_empty()
+    }
+
     pub fn new(seed: u64) -> Self {
         let mut rng = Rng::new(seed);
         let next_flash = rng.range(FLASH_EVERY_S);
