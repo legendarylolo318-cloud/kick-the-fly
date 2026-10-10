@@ -74,6 +74,9 @@ pub struct LabTools {
     wire_stats: Value,
     sweep: Option<Value>,
     flips: Option<Value>,
+    /// Critical path results by target; the types silenced on the live flies (from the snapshot).
+    critical: BTreeMap<String, Value>,
+    type_ops: Vec<String>,
 }
 
 impl Default for LabTools {
@@ -93,6 +96,8 @@ impl Default for LabTools {
             wire_stats: Value::Null,
             sweep: None,
             flips: None,
+            critical: BTreeMap::new(),
+            type_ops: Vec::new(),
         }
     }
 }
@@ -279,6 +284,11 @@ impl LabTools {
                 "Sensitivity" => self.sens = Some(v),
                 "Threshold sweep" => self.sweep = Some(v),
                 "Sign flips" => self.flips = Some(v),
+                "Critical path" => {
+                    if let Some(t) = v["target"].as_str() {
+                        self.critical.insert(t.to_string(), v.clone());
+                    }
+                }
                 _ => {}
             },
         }
@@ -298,6 +308,14 @@ impl LabTools {
                     "sens": self.sens,
                 }
             }),
+            "lab_critical" => json!({
+                "lab.critical_state": {
+                    "job": self.job.as_ref().map(BgJob::json),
+                    "error": self.error,
+                    "results": self.critical,
+                    "type_ops": self.type_ops,
+                }
+            }),
             "lab_wiring" => json!({
                 "lab.wiring_state": {
                     "job": self.job.as_ref().map(BgJob::json),
@@ -313,6 +331,33 @@ impl LabTools {
             }),
             _ => Value::Null,
         }
+    }
+
+    fn start_critical(&mut self, target: &str, top: usize, shared: Shared) {
+        self.error.clear();
+        let target = target.to_string();
+        let folder = exports_dir().join(format!("critical-path-{target}"));
+        self.job = Some(BgJob::start("Critical path", move |upd, cancel| {
+            let workers = std::thread::available_parallelism().map_or(1, |n| n.get()).clamp(1, 4);
+            let created = crate::savestate_play::utc_stamp_pub();
+            let res = fly_sim::criticalpath::run(
+                &shared.weights,
+                &shared.labels,
+                &target,
+                None,
+                top,
+                workers,
+                Some(&folder),
+                None,
+                &created,
+                &mut |d, n, label| {
+                    upd(d as f64 / n.max(1) as f64, &format!("{label}  ·  {d}/{n} flies"));
+                    !cancel.load(Ordering::Relaxed)
+                },
+            )?;
+            let _ = fly_sim::criticalpath::save(&res, &folder);
+            Ok(res)
+        }));
     }
 
     fn ensure_counts(&mut self, pack: &PackPath) -> Option<Arc<Vec<i32>>> {
@@ -382,8 +427,13 @@ fn tick(
     pack: Res<PackPath>,
     mut flash: MessageWriter<crate::menu_ui::MenuFlash>,
     screen: Res<crate::menu_ui::MenuScreen>,
+    snap: Res<crate::app::LatestSnapshot>,
 ) {
     tools.pack = pack.clone();
+    if screen.0 == "lab_critical" {
+        tools.type_ops =
+            snap.0.as_deref().map_or_else(Vec::new, |s| s.surgery_types.iter().filter(|t| t.1 == -1).map(|t| t.0.clone()).collect());
+    }
     tools.collect();
     if screen.0 == "lab_wiring" && tools.wire_stats.is_null() {
         let shared = link.0.shared.lock().unwrap_or_else(PoisonError::into_inner).clone();
@@ -474,6 +524,36 @@ fn tick(
                     let kind = res["kind"].as_str().unwrap_or("result").to_string();
                     let folder = exports_dir().join(format!("{}-{kind}", crate::savestate_play::utc_stamp_compact()));
                     match fly_sim::robustness::save(&res, &folder) {
+                        Ok(()) => {
+                            let name = folder.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+                            flash.write(crate::menu_ui::MenuFlash(format!("saved to {name} in exports"), true));
+                        }
+                        Err(e) => {
+                            flash.write(crate::menu_ui::MenuFlash(e.to_string(), false));
+                        }
+                    }
+                }
+            }
+            "lab.cp_run" if !busy => {
+                if let Some(shared) = link.0.shared.lock().unwrap_or_else(PoisonError::into_inner).clone() {
+                    let target = a["target"].as_str().unwrap_or("looming_escape").to_string();
+                    tools.start_critical(&target, a["top"].as_u64().unwrap_or(15) as usize, shared);
+                }
+            }
+            "lab.cp_apply" => {
+                let ty = a["type"].as_str().unwrap_or("").to_string();
+                let on = tools.type_ops.contains(&ty);
+                link.0.send(crate::sim_thread::Command::SurgeryType { ty: ty.clone(), mode: if on { 0 } else { -1 } });
+                flash.write(crate::menu_ui::MenuFlash(format!("SURGERY  {ty}: {}", if on { "normal" } else { "off" }), true));
+            }
+            "lab.cp_export" => {
+                if let Some(res) = a["target"].as_str().and_then(|t| tools.critical.get(t)).cloned() {
+                    let folder = exports_dir().join(format!(
+                        "{}-critical-path-{}",
+                        crate::savestate_play::utc_stamp_compact(),
+                        res["target"].as_str().unwrap_or("")
+                    ));
+                    match fly_sim::criticalpath::save(&res, &folder) {
                         Ok(()) => {
                             let name = folder.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
                             flash.write(crate::menu_ui::MenuFlash(format!("saved to {name} in exports"), true));

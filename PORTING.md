@@ -250,7 +250,7 @@ against the pygame version (screenshot pair, or the code read side by side). Any
 - [x] Menu page `lab_benchmark` — matched with pygame (idle and results); the job (`fly_sim::benchmark`, Start button, `benchmark_results.json`) measures steps/s per fly count on this machine, so numbers are machine-specific by nature.
 - [ ] Menu page `lab_clamp`
 - [ ] Menu page `lab_classroom`
-- [ ] Menu page `lab_critical`
+- [x] Menu page `lab_critical` — matched with pygame (empty, and a ranked run with one lesion applied; 0.2-0.35 %). `fly_sim::criticalpath` equals Python's shortlist (float32 sums in SciPy's order), behavior and assay runs; golden `tests/golden/critical.json`. The Python page has no Cancel button, so none here.
 - [ ] Menu page `lab_diff`
 - [ ] Menu page `lab_export`
 - [ ] Menu page `lab_laser`

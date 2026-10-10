@@ -130,4 +130,19 @@ if __name__ == "__main__":
              prep=wiring_prep("threshold", 5, sweep=rob["sweep"], live=Wiring(min_synapses=5)))
     R.render("lab_wiring", "Graphics", out / "page_lab_wiring_signflip.png", prep=wiring_prep("signflip", 5, 0.7))
     R.render("lab_wiring", "Graphics", out / "page_lab_wiring_flips.png", prep=wiring_prep("signflip", 5, 0.7, flips=rob["flips"]))
+    from kickthefly.lab import labcritical
+    crit = json.loads((gd / "critical.json").read_text().replace("NaN", "null"))
+
+    def crit_prep(target, res=None, applied=()):
+        def prep(m):
+            prep_for("lab_critical")(m)
+            st = labcritical._st(m)
+            st.cp_target = target
+            st.cp_results = {target: res} if res else {}
+            m.host.type_ops = {t: -1 for t in applied}
+        return prep
+
+    R.render("lab_critical", "Graphics", out / "page_lab_critical_empty.png", prep=crit_prep("looming_escape"))
+    R.render("lab_critical", "Graphics", out / "page_lab_critical.png",
+             prep=crit_prep("looming_escape", crit["behavior"], applied=("LC4",)))
     print("wrote", out)

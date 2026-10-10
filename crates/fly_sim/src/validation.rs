@@ -21,7 +21,7 @@ use crate::stats;
 pub const PRE: usize = 400;
 pub const STIM: usize = 400;
 pub const OPTOMOTOR_YAW: f64 = 3.0;
-const STIM_AMP: f32 = 0.5;
+pub const STIM_AMP: f32 = 0.5;
 
 /// The tests table and the fixed criteria, generated from `lab/validation.py`.
 pub fn table() -> &'static Value {
