@@ -224,6 +224,11 @@ pub enum Op {
         style: u8,
         enabled: bool,
     },
+    /// A click area with no drawing of its own.
+    Hit {
+        rect: Rect,
+        id: String,
+    },
 }
 
 /// One smell of the training screen's list.
@@ -585,6 +590,7 @@ impl Hud<'_> {
                 ),
                 Op::Line { a, b, w, color } => self.cv.line(*a, *b, *w, *color, 255),
                 Op::Stars { c, n, size } => draw_stars(self.cv, *c, *n, *size),
+                Op::Hit { rect, id } => hits.push((*rect, id.clone())),
                 Op::Button { rect, label, id, style, enabled } => {
                     let over = *enabled && rect.contains(mouse);
                     let base = match style {

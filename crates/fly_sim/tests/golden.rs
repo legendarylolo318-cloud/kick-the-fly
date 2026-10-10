@@ -438,3 +438,26 @@ fn taste_groups_match_python() {
     assert_eq!(sweet, want("sweet"));
     assert_eq!(bitter, want("bitter"));
 }
+
+/// `Game._surgery_rows` for the 23 entries of the brain surgery screen: counts and the SHA-256 of each row list.
+#[test]
+fn surgery_rows_match_python() {
+    use sha2::{Digest, Sha256};
+    let Some(path) = fly_sim::pack::find_default() else { return };
+    let want: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/golden/surgery.json")).unwrap()).unwrap();
+    let pack = fly_sim::Pack::load(path).unwrap();
+    let groups = fly_sim::groups::Groups::new(&pack.labels, pack.n, 5.0, 0);
+    let all = fly_sim::surgery::all_rows(&pack.labels, &groups);
+    for (i, rows) in all.iter().enumerate() {
+        let w = &want[i];
+        assert_eq!(fly_sim::surgery::ENTRIES[i].0.split(" (").next(), w["label"].as_str().unwrap().split(" (").next(), "entry {i}");
+        let mut h = Sha256::new();
+        for &r in rows {
+            h.update(i64::from(r).to_le_bytes());
+        }
+        let sha: String = h.finalize().iter().map(|b| format!("{b:02x}")).collect();
+        assert_eq!(rows.len() as u64, w["n"].as_u64().unwrap(), "{}: count", w["label"]);
+        assert_eq!(sha, w["sha"].as_str().unwrap(), "{}: rows", w["label"]);
+    }
+}

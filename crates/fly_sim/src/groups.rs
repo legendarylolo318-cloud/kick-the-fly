@@ -422,6 +422,14 @@ impl Groups {
         }
     }
 
+    /// The neurons of a detail group (`np.flatnonzero(det_id == col[name])`): each neuron is in at most one.
+    pub fn det_members(&self, name: &str) -> Vec<u32> {
+        match self.col.get(name) {
+            Some(&c) => (0..self.n as u32).filter(|&i| self.det_id[i as usize] == c as i32).collect(),
+            None => vec![],
+        }
+    }
+
     /// A group that can be poked (`sense[(region, None)]`) without being a readout (the assay groups `sweet` and `bitter`).
     pub fn add_sense(&mut self, region: &str, rows: Vec<u32>) {
         self.sense.insert((region.to_string(), None), rows);

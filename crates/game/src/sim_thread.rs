@@ -83,6 +83,18 @@ pub enum Command {
         side: Option<char>,
         strength: f32,
     },
+    /// An entry of the brain surgery screen (`fly_sim::surgery::ENTRIES`): -1 off, 0 normal, +1 on.
+    SurgeryEntry {
+        index: usize,
+        mode: i8,
+    },
+    /// A cell type switched from the neuron inspector.
+    SurgeryType {
+        ty: String,
+        mode: i8,
+    },
+    /// CLEAR ALL.
+    SurgeryClear,
     /// Brain surgery on the neurons of a spec: -1 silence, 0 release, +1 stimulate.
     Surgery {
         spec: String,
@@ -452,6 +464,27 @@ fn apply(
             dex.enabled = on;
             false
         }
+        Command::SurgeryEntry { index, mode } => {
+            if index < mem.surgery_modes.len() {
+                mem.surgery_modes[index] = mode;
+                mem.apply_surgery(brain);
+            }
+            false
+        }
+        Command::SurgeryType { ty, mode } => {
+            mem.surgery_types.retain(|t| t.0 != ty);
+            if mode != 0 {
+                mem.surgery_types.push((ty, mode));
+            }
+            mem.apply_surgery(brain);
+            false
+        }
+        Command::SurgeryClear => {
+            mem.surgery_modes.fill(0);
+            mem.surgery_types.clear();
+            mem.apply_surgery(brain);
+            false
+        }
         Command::StartTMaze { zap, seed } => {
             mem.end_challenge(brain);
             if let (Some(t), Some(m)) = (fly_sim::challenge::TMaze::start(brain, &zap, seed), brain.memory.as_ref()) {
@@ -596,6 +629,8 @@ fn publish(
         if s.info.is_none() {
             s.info = Some(info.clone());
         }
+        s.surgery_modes.clone_from(&mem.surgery_modes);
+        s.surgery_types.clone_from(&mem.surgery_types);
         s.memory.clone_from(&mem.view);
         s.challenge.clone_from(&mem.chal_view);
         s.challenge_speed = mem.chal_speed;
@@ -613,6 +648,10 @@ struct MemState {
     tmaze: Option<fly_sim::challenge::TMaze>,
     sweet: Option<fly_sim::challenge::Sweet>,
     saved: Option<fly_sim::memory::Saved>,
+    /// Brain surgery screen: the rows of each entry, the modes set, and the types switched from the inspector.
+    surgery_rows: Vec<Vec<u32>>,
+    surgery_modes: Vec<i8>,
+    surgery_types: Vec<(String, i8)>,
     chal_view: Option<Arc<ChallengeView>>,
     chal_speed: f32,
 }
@@ -632,6 +671,9 @@ impl MemState {
             tmaze: None,
             sweet: None,
             saved: None,
+            surgery_rows: vec![],
+            surgery_modes: vec![0; fly_sim::surgery::ENTRIES.len()],
+            surgery_types: vec![],
             chal_view: None,
             chal_speed: 1.0,
         }
@@ -732,6 +774,24 @@ impl MemState {
         }
         if brain.steps.is_multiple_of(12) || self.view.is_none() {
             self.rebuild_view(brain);
+        }
+    }
+
+    /// `Game._apply_surgery`: clear, then every entry in order, then the types switched from the inspector.
+    fn apply_surgery(&mut self, brain: &mut Brain) {
+        if self.surgery_rows.is_empty() {
+            self.surgery_rows = fly_sim::surgery::all_rows(brain.labels(), brain.groups_ref());
+        }
+        brain.clear_surgery();
+        for (rows, &mode) in self.surgery_rows.iter().zip(&self.surgery_modes) {
+            if mode != 0 {
+                brain.set_surgery(rows, mode);
+            }
+        }
+        for (ty, mode) in &self.surgery_types {
+            if let Ok(rows) = brain.rows_of(&format!("type:{ty}")) {
+                brain.set_surgery(&rows, *mode);
+            }
         }
     }
 
@@ -874,6 +934,7 @@ fn brain_info(labels: &Labels, weights: &Weights) -> BrainInfo {
         group_names: g.names.clone(),
         population_names: pop_names,
         synapses: weights.csr.nnz(),
+        surgery_counts: fly_sim::surgery::all_rows(labels, &g).iter().map(|r| r.len() as u32).collect(),
     }
 }
 

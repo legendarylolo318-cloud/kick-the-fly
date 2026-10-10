@@ -42,6 +42,8 @@ pub struct BrainInfo {
     pub types: Vec<String>,
     /// Synapses in the pack (a save checks it against the loading game).
     pub synapses: usize,
+    /// Neurons in each entry of the brain surgery screen (`fly_sim::surgery::ENTRIES`).
+    pub surgery_counts: Vec<u32>,
 }
 
 /// A conditioning run in progress (`Game.train`).
@@ -130,6 +132,9 @@ pub struct Snapshot {
     /// What the mushroom body has learned (None when learning is off or the pack has no dopamine tables).
     pub memory: Option<Arc<MemoryView>>,
     pub challenge: Option<Arc<ChallengeView>>,
+    /// The mode of each brain surgery entry (-1 off, 0 normal, 1 on) and of the cell types switched from the inspector.
+    pub surgery_modes: Vec<i8>,
+    pub surgery_types: Vec<(String, i8)>,
     /// Brain speed factor the running challenge wants (the T-maze runs the brain at x3 while training and testing).
     pub challenge_speed: f32,
     /// When the sim thread made this snapshot, to measure how stale the render side's view is.

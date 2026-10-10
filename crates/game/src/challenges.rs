@@ -1096,6 +1096,17 @@ mod tests {
     }
 
     #[test]
+    fn surgery_panel() {
+        let counts =
+            [2, 387, 5088, 1846, 14, 2635, 4064, 316, 16, 4, 2, 29, 2810, 105_267, 2344, 2372, 79_187, 81_471, 166_700, 2, 86, 5, 140];
+        let mut modes = vec![0i8; 23];
+        (modes[0], modes[5], modes[14]) = (-1, 1, -1);
+        let mut s = crate::surgery_play::Surgery::default();
+        crate::surgery_play::build_for_test(&mut s, &counts, &modes, &[("DNp01".to_string(), -1)]);
+        check("surgery", &s.ops);
+    }
+
+    #[test]
     fn predict_panels() {
         let mk = |state: u8, score: u32, history: Vec<bool>| PredictUi {
             state,

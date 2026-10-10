@@ -57,6 +57,7 @@ pub mod selftest;
 pub mod senses;
 pub mod sim_thread;
 pub mod snapshot;
+pub mod surgery_play;
 pub mod synth;
 pub mod tools;
 pub mod tournament;
@@ -153,6 +154,7 @@ impl Plugin for GamePlugin {
                 crash::CrashPlugin,
                 memory_play::MemoryPlayPlugin,
                 challenges::ChallengesPlugin,
+                surgery_play::SurgeryPlugin,
                 actions::ActionsPlugin,
                 tutorial_play::TutorialPlugin,
                 first_run::FirstRunPlugin,

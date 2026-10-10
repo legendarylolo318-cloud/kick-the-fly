@@ -29,6 +29,7 @@ struct Args {
     fullscreen: bool,
     selftest: bool,
     train_screen: bool,
+    surgery_screen: bool,
     challenge: Option<String>,
     bugreport: bool,
     out: Option<PathBuf>,
@@ -62,6 +63,7 @@ fn parse(args: impl Iterator<Item = String>) -> Result<Args, String> {
     let mut fullscreen = false;
     let (mut selftest, mut bugreport, mut out, mut crash_screen) = (false, false, None, None);
     let mut train_screen = false;
+    let mut surgery_screen = false;
     let mut challenge = None;
     while let Some(a) = args.next() {
         if a == "--crash-screen" {
@@ -84,6 +86,7 @@ fn parse(args: impl Iterator<Item = String>) -> Result<Args, String> {
             "--fullscreen" => fullscreen = true,
             "--selftest" => selftest = true,
             "--train-screen" => train_screen = true,
+            "--surgery-screen" => surgery_screen = true,
             "--challenge" => challenge = Some(value("a challenge: tmaze sneak sweet reverse_surgery predict")?),
             "--bugreport" => bugreport = true,
             "--out" => out = Some(PathBuf::from(value("a file or folder")?)),
@@ -137,6 +140,7 @@ fn parse(args: impl Iterator<Item = String>) -> Result<Args, String> {
         fullscreen,
         selftest,
         train_screen,
+        surgery_screen,
         challenge,
         bugreport,
         out,
@@ -260,6 +264,9 @@ fn main() -> ExitCode {
     }
     if let Some(c) = args.challenge.clone() {
         app.world_mut().resource_mut::<kick_the_fly::challenges::Challenges>().request = Some(c);
+    }
+    if args.surgery_screen {
+        app.world_mut().resource_mut::<kick_the_fly::surgery_play::Surgery>().open = true;
     }
     if args.train_screen {
         app.world_mut().resource_mut::<kick_the_fly::memory_play::Learned>().train_open = true;

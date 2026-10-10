@@ -21,6 +21,7 @@ pub mod neurodex;
 pub mod npy;
 pub mod pack;
 pub mod rng;
+pub mod surgery;
 pub mod synthetic;
 pub mod training;
 pub mod util;

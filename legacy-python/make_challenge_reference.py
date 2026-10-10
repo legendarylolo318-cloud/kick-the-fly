@@ -8,12 +8,14 @@ result card reads a `desc` key its readouts lack (a KeyError); the readouts get 
 import os
 import sys
 from pathlib import Path
-from types import SimpleNamespace
+
 
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
+from types import SimpleNamespace  # noqa: E402
+
 import numpy as np  # noqa: E402
 import pygame  # noqa: E402
 
@@ -128,4 +130,16 @@ if __name__ == "__main__":
     shot(out, "predict_result", p)
     p.state, p.score = "done", 7
     shot(out, "predict_done", p)
+    # the brain surgery screen (Game._draw_surgery) with a few entries switched
+    from kickthefly.game import kick_the_fly as k
+    counts = [2, 387, 5088, 1846, 14, 2635, 4064, 316, 16, 4, 2, 29, 2810, 105267, 2344, 2372, 79187, 81471, 166700, 2, 86, 5, 140]
+    modes = [0] * len(k.SURGERY)
+    modes[0], modes[5], modes[14], modes[18] = -1, 1, -1, 0
+    stub = SimpleNamespace(f_small=g.f_small, f_text=g.f_text, f_bold=g.f_bold, f_head=g.f_head, f_title=g.f_title, _text=g._text,
+                           surgery_rows={label: np.zeros(n) for (label, _), n in zip(k.SURGERY, counts)}, surgery_modes=modes,
+                           type_ops={"DNp01": -1})
+    surf = pygame.Surface((1280, 760))
+    surf.fill(BG)
+    k.Game._draw_surgery(stub, surf)
+    pygame.image.save(surf, str(out / "challenge_surgery.png"))
     print("wrote", out)

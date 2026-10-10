@@ -253,6 +253,7 @@ struct HudIn<'w, 's> {
     tut: Res<'w, crate::tutorial_play::Tutorial>,
     learned: Res<'w, crate::memory_play::Learned>,
     chal: Res<'w, crate::challenges::Challenges>,
+    surgery: Res<'w, crate::surgery_play::Surgery>,
     flies: Query<'w, 's, &'static Fly>,
 }
 
@@ -289,6 +290,7 @@ fn draw(
         tut,
         learned,
         chal,
+        surgery,
         flies,
     } = i;
     let l = lay.0;
@@ -414,7 +416,7 @@ fn draw(
         immortal: settings.immortal,
         fly_dead: dead,
         arena: arena.name().into(),
-        surgery_on: false,
+        surgery_on: snap.0.as_deref().is_some_and(|s| s.surgery_modes.iter().any(|&m| m != 0) || s.surgery_types.iter().any(|t| t.1 != 0)),
         muted: settings.mute,
         pain: st.pain,
         pain_parts: st.pain_parts,
@@ -435,7 +437,7 @@ fn draw(
         pages: loadout.0.n_pages(),
         look: look.captured,
         free_mouse_key: cfg.0.key_of("free_mouse").into(),
-        overlay_open: st.help || view.big || arcade.open || learned.train_open || chal.overlay,
+        overlay_open: st.help || view.big || arcade.open || learned.train_open || chal.overlay || surgery.open,
         menu_open: menu.0,
         dead_player: false,
         crosshair_hot: false,
@@ -489,7 +491,7 @@ fn draw(
         }),
         tutorial: tutorial_view(&tut, &cfg.0, rnow as f32).filter(|_| !menu.0),
         training: learned.train_open.then(|| training_screen(&snap, &learned, rnow as f32)),
-        challenge: chal.ops.clone(),
+        challenge: if surgery.open { surgery.ops.clone() } else { chal.ops.clone() },
         mouse: window.cursor_position().map_or((-1, -1), |p| ((p.x * sf / l.scale) as i32, (p.y * sf / l.scale) as i32)),
         ..Default::default()
     };
@@ -544,6 +546,17 @@ fn training_screen(snap: &LatestSnapshot, l: &crate::memory_play::Learned, now: 
     }
 }
 
+/// The overlays the HUD click handler also serves (bundled: a system takes at most 16 parameters).
+#[derive(bevy::ecs::system::SystemParam)]
+struct ClickCtx<'w> {
+    learned: ResMut<'w, crate::memory_play::Learned>,
+    snap: Res<'w, LatestSnapshot>,
+    chal: ResMut<'w, crate::challenges::Challenges>,
+    virt: Res<'w, Time<Virtual>>,
+    surgery: Res<'w, crate::surgery_play::Surgery>,
+    sfx: MessageWriter<'w, crate::feedback::Sfx>,
+}
+
 /// Clicks on the HUD itself (the Neuron of the Day card), with the mouse free.
 #[allow(clippy::too_many_arguments)]
 fn hud_clicks(
@@ -559,11 +572,9 @@ fn hud_clicks(
     mut notes: ResMut<Notes>,
     real: Res<Time<Real>>,
     mut tut: ResMut<crate::tutorial_play::Tutorial>,
-    mut learned: ResMut<crate::memory_play::Learned>,
-    snap: Res<LatestSnapshot>,
-    mut chal: ResMut<crate::challenges::Challenges>,
-    virt: Res<Time<Virtual>>,
+    cx: ClickCtx,
 ) {
+    let ClickCtx { mut learned, snap, mut chal, virt, surgery, mut sfx } = cx;
     if !buttons.just_pressed(MouseButton::Left) || look.captured || menu.0 {
         return;
     }
@@ -572,6 +583,11 @@ fn hud_clicks(
     let pos = ((p.x * k) as i32, (p.y * k) as i32);
     let at = |r: Option<ktf_ui::Rect>| r.is_some_and(|r| r.contains(pos));
     let now = real.elapsed_secs();
+    if surgery.open {
+        let modes = snap.0.as_deref().map(|s| s.surgery_modes.clone()).unwrap_or_default();
+        crate::surgery_play::click(&surgery, pos, &link, &mut notes, &mut sfx, virt.elapsed_secs(), &modes);
+        return;
+    }
     if chal.is_active() && crate::challenges::click(&mut chal, pos, &link, virt.elapsed_secs()) {
         return;
     }

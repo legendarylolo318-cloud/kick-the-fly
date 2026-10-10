@@ -369,6 +369,14 @@ fn input(
                     ui.menu.flash(&format!("{label} mode"), ktf_ui::theme::GOOD, 4.0);
                 }
                 "click_sound" => {}
+                "arcade" => {
+                    arcade.open_main();
+                    look.captured = false;
+                    ui.menu.close();
+                    tc.menu_paused = false;
+                    link.0.send(Command::Pause(tc.paused));
+                    open.0 = false;
+                }
                 a if a.starts_with("start_challenge:") => {
                     let key = &a["start_challenge:".len()..];
                     match key {

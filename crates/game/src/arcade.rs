@@ -86,6 +86,12 @@ pub struct Arcade {
 }
 
 impl Arcade {
+    /// Esc > Fly arcade.
+    pub fn open_main(&mut self) {
+        self.open = true;
+        self.page = Page::Main;
+    }
+
     /// Challenges > Puppeteer: the arcade at its puppeteer level list.
     pub fn open_puppeteer(&mut self) {
         self.open = true;
@@ -417,7 +423,7 @@ fn page_text(a: &Arcade, sizes_ok: bool) -> String {
 
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 fn input(
-    keys: Res<ButtonInput<KeyCode>>,
+    mut keys: ResMut<ButtonInput<KeyCode>>,
     time: Res<Time<Virtual>>,
     mut a: ResMut<Arcade>,
     mut look: ResMut<MouseLook>,
@@ -428,14 +434,14 @@ fn input(
     mut notes: ResMut<Notes>,
 ) {
     let now = time.elapsed_secs();
-    if keys.just_pressed(KeyCode::KeyO) && a.puppet.is_none() {
-        a.open = !a.open;
-        look.captured = !a.open;
-        a.page = Page::Main;
+    // Esc closes the arcade (Esc > Fly arcade opens it) and, inside a puppeteer level, aborts it back to the level list
+    if keys.just_pressed(KeyCode::Escape) && a.open && a.puppet.is_none() {
+        a.open = false;
+        look.captured = true;
+        keys.clear_just_pressed(KeyCode::Escape);
         return;
     }
-    // O during a puppeteer level aborts it and returns to the menu
-    if keys.just_pressed(KeyCode::KeyO)
+    if keys.just_pressed(KeyCode::Escape)
         && let Some(run) = a.puppet.take()
     {
         if let Some((t, _)) = run.latched {
@@ -445,6 +451,7 @@ fn input(
         a.open = true;
         a.page = Page::Puppeteer;
         look.captured = false;
+        keys.clear_just_pressed(KeyCode::Escape);
         return;
     }
     if !a.open {
@@ -717,7 +724,7 @@ fn puppeteer_tick(
     }
     if run.won_at.is_some() {
         s += &format!(
-            "CLEARED in {:.1}s: {} stars ({}). R again, O menu. Circuit: {}\n",
+            "CLEARED in {:.1}s: {} stars ({}). R again, Esc menu. Circuit: {}\n",
             now - run.started,
             run.stars,
             stars_text(f64::from(run.stars)),
@@ -729,7 +736,7 @@ fn puppeteer_tick(
             }
         );
     } else {
-        s += "L latch   H hint   R restart   O menu   ; ' choose the cell type and effect";
+        s += "L latch   H hint   R restart   Esc menu   ; ' choose the cell type and effect";
     }
     text.0.0 = s;
 }

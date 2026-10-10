@@ -189,6 +189,17 @@ impl Brain {
         self.surgery = self.override_cur.iter().any(|&c| c != 0.0);
     }
 
+    /// `clear_overrides`: no brain surgery at all.
+    pub fn clear_surgery(&mut self) {
+        self.override_cur.fill(0.0);
+        self.surgery = false;
+    }
+
+    /// Groups, for the surgery screen's row sets.
+    pub fn groups_ref(&self) -> &Groups {
+        &self.groups
+    }
+
     pub fn dead(&self) -> bool {
         self.death_step.is_some()
     }
