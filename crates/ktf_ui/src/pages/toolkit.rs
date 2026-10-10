@@ -558,6 +558,7 @@ pub fn plot(
     ylim: (f64, f64),
     xlabel: &str,
     ylabel: &str,
+    hlines: &[(f64, Color, &str)],
     markers: &[(f64, f64, Color)],
 ) {
     let f = m.fonts();
@@ -570,6 +571,13 @@ pub fn plot(
         let py = f64::from(pl.bottom()) - (yy - ylim.0) * sy;
         cv.line((pl.x, py as i32), (pl.right(), py as i32), 1, [36, 40, 50], 255);
         m.text(cv, &super::day4::fmt_gp(yy, 3), (pl.x - 6, py as i32), LABEL, &f.small, Anchor::MidRight);
+    }
+    for (y, col, label) in hlines {
+        let py = f64::from(pl.bottom()) - (y - ylim.0) * sy;
+        if f64::from(pl.y) <= py && py <= f64::from(pl.bottom()) {
+            cv.line((pl.x, py as i32), (pl.right(), py as i32), 1, *col, 255);
+            m.text(cv, label, (pl.right() - 4, py as i32 - 2), *col, &f.small, Anchor::BottomRight);
+        }
     }
     let prev = cv.clip;
     cv.clip = Some(pl);
@@ -936,6 +944,7 @@ impl Page for LabPharm {
                 (0.0, 1.0f64.max(top * 1.1)),
                 "dose",
                 "mean firing (Hz)",
+                &[],
                 &markers,
             );
             let label = DRUG_LABELS.iter().find(|d| Some(d.0) == dr["drug"].as_str()).map_or("", |d| d.1);
@@ -980,4 +989,363 @@ impl Page for LabPharm {
             }
         }
     }
+}
+
+// ==== Patch clamp ====================================================================================================================
+/// Host: query `lab.patch_state` = `{type, index, mode, amp, dur, repeats, hold, live, row, desc, error, window: {v, spikes, current},
+/// recording: {v, spikes, current} | null, curve, job, note, nwb}`; commands `lab.patch_set {...}`, `lab.patch_pick`, `lab.patch_steps {k}`,
+/// `lab.patch_run`, `lab.patch_if`, `lab.patch_export {kind}`.
+#[derive(Default)]
+pub struct LabPatch {
+    last_t: f64,
+}
+
+fn series_f32(v: &Value) -> Vec<f64> {
+    v.as_array().into_iter().flatten().map(num).collect()
+}
+
+fn spike_idx(v: &Value) -> Vec<usize> {
+    v.as_array().into_iter().flatten().enumerate().filter(|(_, b)| b.as_bool().unwrap_or(false)).map(|(i, _)| i).collect()
+}
+
+impl Page for LabPatch {
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
+    fn draw(&mut self, m: &mut Menu, cv: &mut Canvas, rect: Rect, ctx: &mut Ctx) {
+        let f = m.fonts();
+        let q = ctx.host.query("lab.patch_state");
+        let mut y = title(
+            m,
+            cv,
+            rect,
+            "VIRTUAL PATCH CLAMP",
+            "Current-clamp one simulated neuron: membrane potential, spikes, threshold, current steps and an I-F curve.",
+            &[
+                ("MODEL", "a point-neuron LIF unit, NOT real electrophysiology; potential in model units, threshold = 1.0"),
+                ("CONNECTOME", "embedded mode: the real synaptic input around the neuron"),
+            ],
+        );
+        let x = rect.x + 24;
+        m.text(cv, "Neuron", (x, y + 14), TEXT, &f.text, Anchor::MidLeft);
+        m.text_field(
+            cv,
+            Rect::new(x + 70, y, 170, 28),
+            q["type"].as_str().unwrap_or(""),
+            "pc_type",
+            Some("A cell type (DNp01), or any neuron spec: prefix:KC, line:SS00727."),
+            40,
+            false,
+        );
+        m.text(cv, "#", (x + 250, y + 14), LABEL, &f.text, Anchor::MidLeft);
+        m.text_field(
+            cv,
+            Rect::new(x + 268, y, 54, 28),
+            &q["index"].as_i64().unwrap_or(0).to_string(),
+            "pc_idx",
+            Some("Which neuron of that type, in connectome row order."),
+            6,
+            false,
+        );
+        m.button(
+            cv,
+            Rect::new(x + 332, y, 110, 28),
+            "Patch it",
+            Act::Custom("pick".into()),
+            "pc_pick",
+            Style::Normal,
+            true,
+            None,
+            false,
+            None,
+        );
+        let sw = 330.max(2 * f.small.size("Embedded (live brain)") + 40);
+        let mx = if x + 680 + sw > rect.right() - 24 {
+            y += 36;
+            x
+        } else {
+            x + 680
+        };
+        m.segmented(
+            cv,
+            Rect::new(mx, y, sw, 28.max(f.small.linesize + 10)),
+            &["Embedded (live brain)".into(), "Isolated unit".into()],
+            q["mode"].as_u64().unwrap_or(0) as usize,
+            &[Act::Custom("mode:0".into()), Act::Custom("mode:1".into())],
+            "pc_mode",
+            true,
+            "Embedded: the neuron keeps all its synaptic input while you inject current. Isolated: the same LIF equation with no synaptic input; every neuron gives the same curve because every neuron is the same unit.",
+        );
+        y += 38;
+        if q["row"].is_null() {
+            m.text(
+                cv,
+                "Choose a neuron above, or click a neuron in the big brain view (B) and press PATCH.",
+                (x, y),
+                LABEL,
+                &f.small,
+                Anchor::TopLeft,
+            );
+            if let Some(e) = q["error"].as_str().filter(|e| !e.is_empty()) {
+                m.text(cv, e, (x + 400, y + 90), AMBER, &f.small, Anchor::TopLeft);
+            }
+            back(m, cv, rect, "patch");
+            return;
+        }
+        let d = &q["desc"];
+        m.text(
+            cv,
+            &format!(
+                "row {}  ·  {}  ·  {}  ·  body id {}  ·  {}",
+                d["row"],
+                d["type"].as_str().unwrap_or(""),
+                d["instance"].as_str().unwrap_or(""),
+                if d["body_id"].is_null() { "None".to_string() } else { d["body_id"].to_string() },
+                d["superclass"].as_str().unwrap_or("")
+            ),
+            (x, y),
+            INK,
+            &f.small,
+            Anchor::TopLeft,
+        );
+        y += 22;
+        let pl = Rect::new(x, y, rect.w - 48, 190);
+        let live = q["live"].as_bool().unwrap_or(false);
+        let dt_s = 5.0 / 1000.0;
+        let hl: [(f64, Color, &str); 1] = [(1.0, AMBER, "threshold 1.0 (model)")];
+        if live {
+            let w = &q["window"];
+            let v = series_f32(&w["v"]);
+            if !v.is_empty() {
+                let len = v.len() as f64;
+                let tt: Vec<f64> = (0..v.len()).map(|i| (i as f64 - len) * dt_s).collect();
+                let vmax = 1.3f64.max(v.iter().copied().fold(f64::NEG_INFINITY, f64::max) * 1.05);
+                let vmin = (-0.1f64).min(v.iter().copied().fold(f64::INFINITY, f64::min) * 1.1);
+                let pts: Vec<(f64, f64)> = tt.iter().copied().zip(v.iter().copied()).collect();
+                let marks: Vec<(f64, f64, Color)> = spike_idx(&w["spikes"]).iter().map(|&i| (tt[i], 1.15, [255, 210, 90])).collect();
+                plot(
+                    m,
+                    cv,
+                    pl,
+                    &[(pts, [120, 210, 255], 2)],
+                    (-600.0 * dt_s, 0.0),
+                    (vmin, vmax),
+                    "seconds",
+                    "membrane potential (model units)",
+                    &hl,
+                    &marks,
+                );
+            } else {
+                cv.fill_rect(pl, [12, 14, 20], 8);
+            }
+        } else if q["recording"].is_object() {
+            let rec = &q["recording"];
+            let v = series_f32(&rec["v"]);
+            let cur = series_f32(&rec["current"]);
+            let tt: Vec<f64> = (0..v.len()).map(|i| i as f64 * 5.0 / 1000.0).collect();
+            let cmax = cur.iter().map(|c| c.abs()).fold(0.0, f64::max).max(1e-6);
+            let vmin = (-0.1f64).min(v.iter().copied().fold(f64::INFINITY, f64::min) * 1.1);
+            let pts: Vec<(f64, f64)> = tt.iter().copied().zip(v.iter().copied()).collect();
+            let cpts: Vec<(f64, f64)> = tt.iter().copied().zip(cur.iter().map(|c| c / cmax * 0.4 + 1.6)).collect();
+            let marks: Vec<(f64, f64, Color)> = spike_idx(&rec["spikes"]).iter().map(|&i| (tt[i], 1.15, [255, 210, 90])).collect();
+            plot(
+                m,
+                cv,
+                pl,
+                &[(pts, [120, 210, 255], 2), (cpts, [255, 160, 80], 1)],
+                (0.0, tt.last().copied().unwrap_or(1.0)),
+                (vmin, 2.1),
+                "seconds",
+                "membrane potential (model units); orange: injected current (scaled)",
+                &hl,
+                &marks,
+            );
+        } else {
+            cv.fill_rect(pl, [12, 14, 20], 8);
+            m.text(cv, "press Live to watch the potential, or Run steps", pl.center(), LABEL, &f.small, Anchor::Center);
+        }
+        // the menu pauses the game: ask the brain for real-time steps while the electrode is on
+        if live {
+            let now = ctx.now;
+            if self.last_t > 0.0 && now > self.last_t {
+                let k = ((0.1f64).min(now - self.last_t) / 0.005) as u32;
+                if k > 0 {
+                    ctx.host.command("lab.patch_steps", json!({"k": k}));
+                }
+            }
+            self.last_t = now;
+        } else {
+            self.last_t = 0.0;
+        }
+        y = pl.bottom() + 10;
+        m.text(cv, "Live", (x, y + 13), TEXT, &f.text, Anchor::MidLeft);
+        m.toggle(
+            cv,
+            Rect::new(x + 40, y, 50, 26),
+            live,
+            Act::Custom(format!("live:{}", u8::from(!live))),
+            "pc_live",
+            true,
+            "Watch this neuron live while the brain runs in real time.",
+        );
+        m.text(cv, "hold", (x + 130, y + 13), TEXT, &f.small, Anchor::MidLeft);
+        m.page_slider(
+            cv,
+            Rect::new(x + 160, y, 150, 26),
+            num(&q["hold"]),
+            (-0.5, 0.5, 0.01),
+            "{:.2f}",
+            "pc_hold",
+            true,
+            Some("Constant holding current (the simulator's current units; 0.5 is the validation suite's activation current)."),
+        );
+        m.text(cv, "step", (x + 330, y + 13), TEXT, &f.small, Anchor::MidLeft);
+        m.page_slider(cv, Rect::new(x + 370, y, 150, 26), num(&q["amp"]), (-0.5, 1.0, 0.01), "{:.2f}", "pc_amp", true, None);
+        m.text(cv, "ms", (x + 530, y + 13), TEXT, &f.small, Anchor::MidLeft);
+        m.text_field(cv, Rect::new(x + 550, y, 64, 26), &q["dur"].as_i64().unwrap_or(500).to_string(), "pc_dur", None, 6, false);
+        m.text(cv, "x", (x + 624, y + 13), TEXT, &f.small, Anchor::MidLeft);
+        m.text_field(cv, Rect::new(x + 640, y, 44, 26), &q["repeats"].as_i64().unwrap_or(1).to_string(), "pc_rep", None, 4, false);
+        m.button(
+            cv,
+            Rect::new(x + 694, y, m.bw("Run steps", 110), 26),
+            "Run steps",
+            Act::Custom("run".into()),
+            "pc_run",
+            Style::Primary,
+            true,
+            Some("Current-clamp steps of this amplitude and duration, repeated; the sweeps are recorded for export."),
+            false,
+            None,
+        );
+        y += 34;
+        let job = &q["job"];
+        let busy = job.is_object();
+        let nwb = q["nwb"].as_str().filter(|s| !s.is_empty());
+        let items = [
+            RowButton {
+                label: if busy { format!("running… {}", job["note"].as_str().unwrap_or("")) } else { "Record I-F curve".into() },
+                click: Act::Custom("if".into()),
+                id: "pc_if".into(),
+                style: Style::Normal,
+                enabled: !busy,
+                tip: Some("Firing rate against injected current, several sweeps per amplitude, in the chosen mode.".into()),
+                w: 210,
+            },
+            RowButton {
+                label: "Export CSV".into(),
+                click: Act::Custom("csv".into()),
+                id: "pc_csv".into(),
+                style: Style::Normal,
+                enabled: q["recording"].is_object() || q["curve"].is_object(),
+                tip: None,
+                w: 120,
+            },
+            RowButton {
+                label: "Export NWB".into(),
+                click: Act::Custom("nwb".into()),
+                id: "pc_nwb".into(),
+                style: Style::Normal,
+                enabled: q["recording"].is_object() && nwb.is_none(),
+                tip: Some(nwb.unwrap_or("Neurodata Without Borders; the potential stays in model units.").to_string()),
+                w: 120,
+            },
+        ];
+        m.button_row(cv, x, y, 30, &items, 10, None);
+        if let Some(e) = job["error"].as_str().or_else(|| q["error"].as_str()).filter(|e| !e.is_empty()) {
+            m.text(cv, e, (x + 490, y + 14), BAD, &f.small, Anchor::MidLeft);
+        }
+        y += 38;
+        let c = &q["curve"];
+        if c.is_object() {
+            let amps = series_f32(&c["amplitudes"]);
+            let rates = series_f32(&c["rate_hz"]);
+            let pts: Vec<(f64, f64)> = amps.iter().copied().zip(rates.iter().copied()).collect();
+            let markers: Vec<(f64, f64, Color)> = pts.iter().map(|p| (p.0, p.1, [255, 160, 80])).collect();
+            plot(
+                m,
+                cv,
+                Rect::new(x, y, 380, rect.bottom() - y - 70),
+                &[(pts, [255, 160, 80], 2)],
+                (amps.iter().copied().fold(f64::INFINITY, f64::min), amps.iter().copied().fold(f64::NEG_INFINITY, f64::max)),
+                (0.0, 10.0f64.max(rates.iter().copied().fold(f64::NEG_INFINITY, f64::max) * 1.1)),
+                "injected current (model units)",
+                "spikes/s",
+                &[],
+                &markers,
+            );
+            let mode = c["mode"].as_str().unwrap_or("");
+            let rheo = c["rheobase"]
+                .as_f64()
+                .map_or("It never fired.".to_string(), |r| format!("Smallest current that made it fire: {}", super::day4::fmt_gp(r, 6)));
+            let iso = if mode == "isolated" {
+                " In isolation every neuron has this same curve: every unit in the model is identical."
+            } else {
+                ""
+            };
+            m.wrapped(
+                cv,
+                &format!(
+                    "I-F curve, {mode} mode, {} sweeps x {} ms per amplitude. {rheo}{iso}",
+                    c["repeats"],
+                    super::day4::fmt_gp(num(&c["duration_ms"]), 6)
+                ),
+                (x + 400, y + 6),
+                rect.w - 480,
+                TEXT,
+                &f.small,
+                4,
+            );
+        }
+        if let Some(note) = q["note"].as_str().filter(|n| !n.is_empty()) {
+            m.text(cv, note, (x + 400, y + 90), AMBER, &f.small, Anchor::TopLeft);
+        }
+        back(m, cv, rect, "patch");
+    }
+
+    fn custom(&mut self, _m: &mut Menu, name: &str, text: Option<&str>, ctx: &mut Ctx) {
+        let val = text.and_then(|t| t.parse::<f64>().ok());
+        match name {
+            "pick" => drop(ctx.host.command("lab.patch_pick", Value::Null)),
+            "run" => drop(ctx.host.command("lab.patch_run", Value::Null)),
+            "if" => drop(ctx.host.command("lab.patch_if", Value::Null)),
+            "csv" => drop(ctx.host.command("lab.patch_export", json!({"kind": "csv"}))),
+            "nwb" => drop(ctx.host.command("lab.patch_export", json!({"kind": "nwb"}))),
+            "text:pc_type" => {
+                if let Some(t) = text {
+                    ctx.host.command("lab.patch_set", json!({"type": t}));
+                }
+            }
+            "text:pc_idx" => {
+                ctx.host.command("lab.patch_set", json!({"index": val.map_or(0, |v| v.max(0.0) as i64)})).as_null().into_unit()
+            }
+            "text:pc_dur" => {
+                ctx.host.command("lab.patch_set", json!({"dur": val.map_or(500, |v| v.clamp(10.0, 20000.0) as i64)})).as_null().into_unit()
+            }
+            "text:pc_rep" => {
+                ctx.host.command("lab.patch_set", json!({"repeats": val.map_or(1, |v| v.clamp(1.0, 100.0) as i64)})).as_null().into_unit()
+            }
+            "slide:pc_hold" => {
+                if let Some(v) = val {
+                    ctx.host.command("lab.patch_set", json!({"hold": v}));
+                }
+            }
+            "slide:pc_amp" => {
+                if let Some(v) = val {
+                    ctx.host.command("lab.patch_set", json!({"amp": v}));
+                }
+            }
+            n if n.starts_with("mode:") => drop(ctx.host.command("lab.patch_set", json!({"mode": n[5..].parse::<u64>().unwrap_or(0)}))),
+            n if n.starts_with("live:") => drop(ctx.host.command("lab.patch_set", json!({"live": &n[5..] == "1"}))),
+            _ => {}
+        }
+    }
+}
+
+trait IntoUnit {
+    fn into_unit(self);
+}
+
+impl IntoUnit for Option<()> {
+    fn into_unit(self) {}
 }

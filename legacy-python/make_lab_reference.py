@@ -306,4 +306,54 @@ if __name__ == "__main__":
              prep=pharm_prep("gabaa_agonist", 1.0, False, 0.9, live=ph_mod.wiring_for({"gabaa_agonist": 1.0}, False, 0.9),
                              dr=pharm_gold["dose_response"]))
     (out / "lab_pharm_fixture.json").write_text(json.dumps({k: v for k, v in pharm_gold.items() if ":" in k}))
+    from kickthefly.lab import patchclamp as pc_mod
+    from kickthefly.sim.connectome.sim import LIFParams as _LP
+    import numpy as _np
+    p_rows = _np.flatnonzero(_np.asarray(pack_g.type) == "DNp01")
+    p_row = int(p_rows[0])
+    p_br = SimpleNamespace(types=pack_g.type, superclass=getattr(pack_g, "super_class", getattr(pack_g, "superclass", None)),
+                           instance=getattr(pack_g, "instance", []), graph=pack_g, n=len(pack_g.type), remote=False, seed=1000,
+                           sim=SimpleNamespace(p=_LP()), step_requests=0)
+    p_proto = pc_mod.ClampProtocol([0.1], duration_ms=300, repeats=2, holding=0.0)
+    p_rec = pc_mod.run_current_clamp(p_br, p_row, p_proto, "isolated", seed=3, params=_LP())
+    p_curve = pc_mod.if_curve(None, p_row, [0.0, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5], 500.0, 3, "isolated", 3, _LP())
+    p_win = pc_mod.isolated(_np.r_[_np.zeros(200), _np.full(300, 0.2), _np.zeros(100)].astype(_np.float32), _LP(), seed=5)
+
+    class _Ele:
+        row, br, n, done, recording = p_row, p_br, 600, False, None
+
+        def window(self):
+            return p_win.v, p_win.spikes, p_win.current
+
+        def set_hold(self, a):
+            pass
+
+        def detach(self):
+            pass
+
+    def patch_prep(chosen=True, rec=False, curve=False, live=False, mode=0):
+        def prep(m):
+            prep_for("lab_patch")(m)
+            m.host.brain = p_br
+            m.host.graph = pack_g
+            m.host.inspect = None
+            st = labtoolkit._st(m)
+            st.p_row = p_row if chosen else None
+            st.p_type, st.p_index, st.p_mode = "DNp01", 0, mode
+            st.p_rec = p_rec if rec else None
+            st.p_curve = p_curve if curve else None
+            st.p_live = live
+            st.p_electrode = _Ele() if live else None
+            st.p_last_frame = 0.0
+        return prep
+
+    R.render("lab_patch", "Graphics", out / "page_lab_patch_empty.png", prep=patch_prep(False))
+    R.render("lab_patch", "Graphics", out / "page_lab_patch_rec.png", prep=patch_prep(True, True, True, False, 1))
+    R.render("lab_patch", "Graphics", out / "page_lab_patch_live.png", prep=patch_prep(True, False, False, True, 0))
+    f32 = lambda a: [float(x) for x in a]
+    (out / "lab_patch_fixture.json").write_text(json.dumps(dict(
+        row=p_row, desc=pc_mod.describe_neuron(p_br, p_row),
+        rec=dict(v=f32(p_rec.v), spikes=[bool(x) for x in p_rec.spikes], current=f32(p_rec.current)),
+        curve={k: v for k, v in p_curve.items() if k not in ("recording", "sweeps")},
+        win=dict(v=f32(p_win.v), spikes=[bool(x) for x in p_win.spikes], current=f32(p_win.current)))))
     print("wrote", out)

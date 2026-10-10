@@ -84,6 +84,13 @@ fn compare(name: &str, ours: &[u8], max_share: f64) {
 fn compare_size(name: &str, ours: &[u8], max_share: f64, size: (u32, u32)) {
     let (theirs, w, h) = reference(name);
     assert_eq!((w, h), size);
+    if let Ok(dir) = std::env::var("KTF_DUMP_ALL") {
+        let file = std::fs::File::create(format!("{dir}/rust_{name}")).unwrap();
+        let mut enc = png::Encoder::new(std::io::BufWriter::new(file), w, h);
+        enc.set_color(png::ColorType::Rgb);
+        enc.set_depth(png::BitDepth::Eight);
+        enc.write_header().unwrap().write_image_data(ours).unwrap();
+    }
     let mut bad = 0usize;
     let mut bands = vec![0usize; (h as usize).div_ceil(80)];
     for (i, (a, b)) in ours.as_chunks::<3>().0.iter().zip(theirs.as_chunks::<3>().0.iter()).enumerate() {
@@ -1061,6 +1068,44 @@ fn lab_pharm_page() {
         let mut m = Menu::new("3.1.1");
         ktf_ui::pages::install(&mut m);
         m.show("lab_pharm");
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(st));
+        compare(name, &cv.to_rgb_over(BG), 0.02);
+    }
+}
+
+#[test]
+fn lab_patch_page() {
+    struct H(serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            if key == "lab.patch_state" { self.0.clone() } else { serde_json::Value::Null }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    let root = env!("CARGO_MANIFEST_DIR");
+    let fx: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(format!("{root}/../../tests/ui_reference/lab_patch_fixture.json")).unwrap()).unwrap();
+    let base = |mode: u64, live: bool, row: bool| {
+        serde_json::json!({"type": "DNp01", "index": 0, "mode": mode, "amp": 0.1, "dur": 500, "repeats": 1, "hold": 0.0,
+                           "live": live, "row": if row { fx["row"].clone() } else { serde_json::Value::Null },
+                           "desc": fx["desc"], "error": "", "note": "", "window": {"v": [], "spikes": [], "current": []},
+                           "recording": null, "curve": null, "job": null, "nwb": "needs pynwb"})
+    };
+    let mut rec = base(1, false, true);
+    rec["recording"] = fx["rec"].clone();
+    rec["curve"] = fx["curve"].clone();
+    let mut live = base(0, true, true);
+    live["window"] = fx["win"].clone();
+    for (name, st) in
+        [("page_lab_patch_empty.png", base(0, false, false)), ("page_lab_patch_rec.png", rec), ("page_lab_patch_live.png", live)]
+    {
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        m.show("lab_patch");
         let mut cv = Canvas::new(1280, 720);
         m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(st));
         compare(name, &cv.to_rgb_over(BG), 0.02);

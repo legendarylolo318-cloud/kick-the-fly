@@ -54,6 +54,57 @@ impl BgJob {
     }
 }
 
+/// Lab > Patch clamp: what the page chose and the recordings it keeps (`st.p_*`).
+struct PatchPage {
+    spec: String,
+    index: i64,
+    mode: u64,
+    amp: f64,
+    dur: i64,
+    repeats: i64,
+    hold: f64,
+    live: bool,
+    note: String,
+    rec: Option<fly_sim::patchclamp::Recording>,
+    curve: Option<Value>,
+    awaiting_run: bool,
+}
+
+impl Default for PatchPage {
+    fn default() -> Self {
+        Self {
+            spec: "DNp01".into(),
+            index: 0,
+            mode: 0,
+            amp: 0.1,
+            dur: 500,
+            repeats: 1,
+            hold: 0.0,
+            live: false,
+            note: String::new(),
+            rec: None,
+            curve: None,
+            awaiting_run: false,
+        }
+    }
+}
+
+impl PatchPage {
+    fn view() -> crate::sim_thread::PatchView {
+        crate::sim_thread::PATCH_VIEW.lock().unwrap_or_else(PoisonError::into_inner).clone().unwrap_or_default()
+    }
+
+    fn proto(&self) -> fly_sim::patchclamp::ClampProtocol {
+        fly_sim::patchclamp::ClampProtocol {
+            amplitudes: vec![self.amp],
+            duration_ms: self.dur as f64,
+            repeats: self.repeats.max(0) as usize,
+            holding: self.hold,
+            ..Default::default()
+        }
+    }
+}
+
 /// The queue the pages' commands land in, and the state they read.
 #[derive(Resource)]
 pub struct LabTools {
@@ -103,6 +154,7 @@ pub struct LabTools {
     class_status: (u64, String),
     class_groups: Option<std::collections::HashMap<&'static str, Vec<u32>>>,
     psych_msg: String,
+    patch: PatchPage,
     base_seed: i64,
 }
 
@@ -151,6 +203,7 @@ impl Default for LabTools {
             class_status: (0, String::new()),
             class_groups: None,
             psych_msg: String::new(),
+            patch: PatchPage::default(),
             base_seed: 1000,
         }
     }
@@ -341,6 +394,7 @@ impl LabTools {
                 "Neural clamp" => self.clamp = Some(v),
                 "Connectome diff" => self.diff = Some(v),
                 "Psych sweep" => self.psych = Some(v),
+                "Patch I-F curve" => self.patch.curve = Some(v),
                 "Pharm dose-response" => self.pharm_dr = Some(v),
                 "Inhibition report" => self.pharm_report = Some(v),
                 "Failure autopsy" => {
@@ -375,6 +429,27 @@ impl LabTools {
                 }
             }),
             "lab_laser" => json!({"lab.laser_state": self.laser}),
+            "lab_patch" => {
+                let p = &self.patch;
+                let v = PatchPage::view();
+                let trio = |t: &(Vec<f32>, Vec<bool>, Vec<f32>)| json!({"v": t.0, "spikes": t.1, "current": t.2});
+                let rec = p.rec.as_ref().map(|r| json!({"v": r.v, "spikes": r.spikes, "current": r.current}));
+                let curve = p.curve.as_ref().map(|c| {
+                    let mut c = c.clone();
+                    if let Some(o) = c.as_object_mut() {
+                        o.remove("recording");
+                    }
+                    c
+                });
+                let job = self.job.as_ref().filter(|j| j.label == "Patch I-F curve").map(BgJob::json);
+                let note = if p.note.is_empty() && v.running { "running on the live brain".to_string() } else { p.note.clone() };
+                json!({"lab.patch_state": {
+                    "type": p.spec, "index": p.index, "mode": p.mode, "amp": p.amp, "dur": p.dur, "repeats": p.repeats, "hold": p.hold,
+                    "live": v.live, "row": v.row, "desc": v.desc, "error": v.error, "note": note,
+                    "window": trio(&v.window), "recording": rec, "curve": curve, "job": job,
+                    "nwb": "NWB export is not built into this version (it needs an HDF5 writer); the CSV holds the same data",
+                }})
+            }
             "lab_pharm" => {
                 let busy = |l: &str| self.job.as_ref().is_some_and(|j| j.label == l);
                 let new = self.pharm_wiring();
@@ -740,6 +815,30 @@ fn tick(
             "pulse_ms": l.pulse_duration * 1000.0, "current": l.current_value(),
             "has_tool": laser_idx.is_some(), "equipped": laser_idx == Some(tool_state.selected),
         });
+    }
+    if screen.0 != "lab_patch" && tools.patch.live {
+        tools.patch.live = false;
+        link.0.send(crate::sim_thread::Command::PatchLive(false));
+    }
+    if screen.0 == "lab_patch" {
+        let v = PatchPage::view();
+        tools.patch.live = v.live;
+        if tools.patch.awaiting_run && !v.running {
+            #[allow(clippy::collapsible_if)]
+            if let Some((vv, sp, cur)) = v.recording.clone() {
+                let proto = tools.patch.proto();
+                let mut meta =
+                    json!({"neuron": v.desc, "tag": fly_sim::patchclamp::TAG_TEXT, "units": fly_sim::patchclamp::UNITS_NOTE, "live": true});
+                meta["protocol"] = json!({
+                    "amplitudes": proto.amplitudes, "duration_ms": proto.duration_ms, "pre_ms": proto.pre_ms, "post_ms": proto.post_ms,
+                    "repeats": proto.repeats, "gap_ms": proto.gap_ms, "holding": proto.holding,
+                });
+                tools.patch.rec =
+                    Some(fly_sim::patchclamp::Recording { v: vv, spikes: sp, current: cur, mode: "embedded".into(), row: v.row, meta });
+                tools.patch.awaiting_run = false;
+                tools.patch.note.clear();
+            }
+        }
     }
     if screen.0 == "lab_pharm" {
         let key = (tools.pharm.0.clone(), (tools.pharm.1 * 1000.0).round() as i64, tools.pharm.2, (tools.pharm.3 * 1000.0).round() as i64);
@@ -1110,6 +1209,151 @@ fn tick(
             }
             "lab.thermo_assay" => {
                 tools.thermo_note.clear();
+            }
+            "lab.patch_set" => {
+                let p = &mut tools.patch;
+                if let Some(v) = a["type"].as_str() {
+                    p.spec = v.to_string();
+                }
+                if let Some(v) = a["index"].as_i64() {
+                    p.index = v.max(0);
+                }
+                if let Some(v) = a["mode"].as_u64() {
+                    p.mode = v.min(1);
+                }
+                if let Some(v) = a["amp"].as_f64() {
+                    p.amp = v;
+                }
+                if let Some(v) = a["dur"].as_i64() {
+                    p.dur = v.clamp(10, 20000);
+                }
+                if let Some(v) = a["repeats"].as_i64() {
+                    p.repeats = v.clamp(1, 100);
+                }
+                if let Some(v) = a["hold"].as_f64() {
+                    match fly_sim::patchclamp::check_current(v) {
+                        Ok(h) => {
+                            p.hold = h;
+                            link.0.send(crate::sim_thread::Command::PatchHold(h as f32));
+                        }
+                        Err(e) => p.note = e,
+                    }
+                }
+                if let Some(on) = a["live"].as_bool() {
+                    if on && PatchPage::view().row.is_none() {
+                        tools.patch.note = "choose a neuron first".into();
+                    } else {
+                        link.0.send(crate::sim_thread::Command::PatchHold(tools.patch.hold as f32));
+                        link.0.send(crate::sim_thread::Command::PatchLive(on));
+                        tools.patch.live = on;
+                    }
+                }
+            }
+            "lab.patch_pick" => {
+                tools.patch.note.clear();
+                tools.patch.awaiting_run = false;
+                let (spec, index) = (tools.patch.spec.clone(), tools.patch.index.max(0) as usize);
+                link.0.send(crate::sim_thread::Command::PatchPick { spec, index });
+            }
+            "lab.patch_steps" => {
+                if tools.patch.live {
+                    link.0.send(crate::sim_thread::Command::StepOnce(a["k"].as_u64().unwrap_or(0).min(40) as u32));
+                }
+            }
+            "lab.patch_run" => {
+                let v = PatchPage::view();
+                let proto = tools.patch.proto();
+                if let Err(e) = proto.check() {
+                    tools.patch.note = e;
+                } else if let Some(row) = v.row {
+                    if tools.patch.mode == 1 {
+                        let mut lif = fly_sim::cards::LIF_DEFAULTS;
+                        for (k, key) in fly_sim::cards::LIF_KEYS.iter().enumerate() {
+                            if let Some(x) = lab.values.get(*key) {
+                                lif[k] = *x;
+                            }
+                        }
+                        let seed = tools.base_seed.max(0) as u64;
+                        match fly_sim::patchclamp::run_isolated(Some(row), &proto, seed, &fly_sim::cards::lif_params(&lif)) {
+                            Ok(mut r) => {
+                                r.meta["neuron"] = v.desc.clone();
+                                tools.patch.rec = Some(r);
+                                tools.patch.note = "isolated unit: no synaptic input".into();
+                            }
+                            Err(e) => tools.patch.note = e,
+                        }
+                    } else {
+                        link.0.send(crate::sim_thread::Command::PatchHold(tools.patch.hold as f32));
+                        link.0.send(crate::sim_thread::Command::PatchRun(proto.schedule()));
+                        tools.patch.live = true;
+                        tools.patch.awaiting_run = true;
+                        tools.patch.note = format!("running {:.1} s of steps on the live brain", proto.total_steps() as f64 * 5.0 / 1000.0);
+                    }
+                }
+            }
+            "lab.patch_if" if !busy => {
+                let v = PatchPage::view();
+                let mode = tools.patch.mode;
+                let (spec, idx, row) = (tools.patch.spec.clone(), tools.patch.index.max(0) as usize, v.row);
+                let seed = tools.base_seed.max(0) as u64;
+                let mut lif = fly_sim::cards::LIF_DEFAULTS;
+                for (k, key) in fly_sim::cards::LIF_KEYS.iter().enumerate() {
+                    if let Some(x) = lab.values.get(*key) {
+                        lif[k] = *x;
+                    }
+                }
+                let shared = link.0.shared.lock().unwrap_or_else(PoisonError::into_inner).clone();
+                let amps = [0.0, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5];
+                tools.error.clear();
+                tools.job = Some(BgJob::start("Patch I-F curve", move |upd, _c| {
+                    if mode == 1 {
+                        upd(0.5, "sweeping");
+                        fly_sim::patchclamp::if_curve_isolated(row, &amps, 500.0, 3, seed, &fly_sim::cards::lif_params(&lif))
+                    } else {
+                        let sh = shared.ok_or("the brain is still loading")?;
+                        upd(0.1, "building a brain");
+                        let build =
+                            fly_sim::cards::Build { weights: &sh.weights, labels: &sh.labels, mode: "off", sigma: None, lif, wired: None };
+                        let mut br = build.brain(seed, None, 600);
+                        let r2 = match row {
+                            Some(r) => r,
+                            None => fly_sim::patchclamp::pick_neuron(&br, &spec, idx)?,
+                        };
+                        upd(0.4, "sweeping");
+                        fly_sim::patchclamp::if_curve(
+                            &mut br,
+                            Some(r2),
+                            &amps,
+                            500.0,
+                            3,
+                            "embedded",
+                            seed,
+                            &fly_sim::cards::lif_params(&lif),
+                        )
+                    }
+                }));
+            }
+            "lab.patch_export" => {
+                let folder = exports_dir().join(format!("{}-patch", crate::savestate_play::utc_stamp_compact()));
+                let r = if a["kind"].as_str() == Some("csv") {
+                    let mut r = Ok(());
+                    if let Some(rec) = &tools.patch.rec {
+                        r = fly_sim::patchclamp::export_csv(rec, &folder.join("patch_trace.csv"));
+                    }
+                    if let (Ok(()), Some(c)) = (&r, &tools.patch.curve) {
+                        r = fly_sim::patchclamp::export_if_csv(c, &folder.join("patch_if_curve.csv"));
+                    }
+                    r
+                } else {
+                    Err(std::io::Error::other("NWB export is not available in this version"))
+                };
+                match r {
+                    Ok(()) => flash.write(crate::menu_ui::MenuFlash(
+                        format!("saved to {} in exports", folder.file_name().and_then(|f| f.to_str()).unwrap_or("")),
+                        true,
+                    )),
+                    Err(e) => flash.write(crate::menu_ui::MenuFlash(format!("export failed: {e}"), false)),
+                };
             }
             "lab.pharm_set" => {
                 if let Some(v) = a["drug"].as_str() {

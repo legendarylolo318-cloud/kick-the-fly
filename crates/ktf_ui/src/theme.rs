@@ -28,6 +28,8 @@ pub fn tag_color(label: &str) -> Color {
         "RESTART" | "3D ONLY" => [110, 118, 136],
         "LITERATURE" => [110, 190, 130],
         "REFUSED" => [200, 70, 60],
+        // `lab.install` registers it (`TAG_COLORS.setdefault("MODEL", ...)`) and the Lab pages are the ones that draw it
+        "MODEL" => [150, 120, 220],
         _ => LABEL,
     }
 }

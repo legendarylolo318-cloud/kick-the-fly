@@ -36,6 +36,7 @@ pub mod neurodex;
 pub mod npy;
 pub mod outdoors;
 pub mod pack;
+pub mod patchclamp;
 pub mod pharmacology;
 pub mod psychometrics;
 pub mod race;

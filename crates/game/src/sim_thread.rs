@@ -131,6 +131,102 @@ impl ThermoLive {
     }
 }
 
+/// Lab > Patch clamp: what the live electrode shows the page (`patchclamp.LiveElectrode.window()` and its finished recording).
+#[derive(Default, Clone)]
+pub struct PatchView {
+    pub row: Option<u32>,
+    pub desc: serde_json::Value,
+    pub error: String,
+    pub n_neurons: usize,
+    pub live: bool,
+    /// The last `window` samples in time order: potential, spike, current.
+    pub window: (Vec<f32>, Vec<bool>, Vec<f32>),
+    pub recording: Option<(Vec<f32>, Vec<bool>, Vec<f32>)>,
+    pub running: bool,
+    pub seed: u64,
+}
+
+pub static PATCH_VIEW: std::sync::Mutex<Option<PatchView>> = std::sync::Mutex::new(None);
+
+/// The electrode on the focused fly (`patchclamp.LiveElectrode`): one sample per brain step, a window and an optional protocol.
+struct Electrode {
+    row: u32,
+    n: usize,
+    v: Vec<f32>,
+    sp: Vec<bool>,
+    cur: Vec<f32>,
+    count: usize,
+    hold: f32,
+    last: Option<f32>,
+    sched: Option<Vec<f32>>,
+    pos: usize,
+    buf: (Vec<f32>, Vec<bool>, Vec<f32>),
+}
+
+impl Electrode {
+    fn new(row: u32, hold: f32) -> Self {
+        Self {
+            row,
+            n: 600,
+            v: vec![0.0; 600],
+            sp: vec![false; 600],
+            cur: vec![0.0; 600],
+            count: 0,
+            hold,
+            last: None,
+            sched: None,
+            pos: 0,
+            buf: Default::default(),
+        }
+    }
+
+    fn inject(&mut self, br: &mut Brain, a: f32) {
+        if self.last != Some(a) {
+            if a == 0.0 {
+                br.clear_current(fly_sim::patchclamp::SOURCE);
+            } else {
+                br.set_current(fly_sim::patchclamp::SOURCE, &[self.row], a);
+            }
+            self.last = Some(a);
+        }
+    }
+
+    /// After every step.
+    fn push(&mut self, br: &mut Brain, view: &mut PatchView) {
+        let k = self.count % self.n;
+        self.v[k] = br.sim.v[self.row as usize];
+        self.sp[k] = br.sim.spikes().binary_search(&self.row).is_ok();
+        self.cur[k] = self.last.unwrap_or(0.0);
+        self.count += 1;
+        if let Some(sched) = self.sched.take() {
+            self.buf.0.push(self.v[k]);
+            self.buf.1.push(self.sp[k]);
+            self.buf.2.push(self.cur[k]);
+            self.pos += 1;
+            if self.pos >= sched.len() {
+                view.recording = Some(std::mem::take(&mut self.buf));
+                view.running = false;
+                let h = self.hold;
+                self.inject(br, h);
+            } else {
+                let a = sched[self.pos];
+                self.sched = Some(sched);
+                self.inject(br, a);
+            }
+        }
+    }
+
+    fn window(&self) -> (Vec<f32>, Vec<bool>, Vec<f32>) {
+        let k = self.count % self.n;
+        let order: Vec<usize> = if self.count >= self.n { (k..self.n).chain(0..k).collect() } else { (0..self.count).collect() };
+        (
+            order.iter().map(|&i| self.v[i]).collect(),
+            order.iter().map(|&i| self.sp[i]).collect(),
+            order.iter().map(|&i| self.cur[i]).collect(),
+        )
+    }
+}
+
 /// Messages from the game to the brain.
 #[derive(Debug)]
 pub enum Command {
@@ -200,6 +296,15 @@ pub enum Command {
         slot: u32,
         temp_c: f64,
     },
+    /// Lab > Patch: choose a neuron by spec and index; the electrode on / off; the holding current; play a protocol's schedule.
+    PatchPick {
+        spec: String,
+        index: usize,
+    },
+    PatchRow(u32),
+    PatchLive(bool),
+    PatchHold(f32),
+    PatchRun(Vec<f32>),
     /// Classroom: a sensory poke of these rows (`br.sense[("classroom", spec)] = rows; br.poke(...)`).
     PokeRows {
         rows: Vec<u32>,
@@ -460,6 +565,9 @@ fn run(
     let (mut spawn_weights, spawn_labels) = (weights.clone(), labels.clone());
     let mut multi = Multi { extras: Vec::new(), focus: 0, seeds: vec![(0, cfg.seed)] };
     let mut thermo = ThermoLive { temperature_c: 22.0, ..Default::default() };
+    let mut electrode: Option<Electrode> = None;
+    let mut patch_view = PatchView::default();
+    let mut patch_hold = 0.0f32;
     let mut brain = Brain::new(LifSim::new(weights, params, cfg.seed), labels);
     let mut mem = MemState::new(cfg.memory_dir.clone());
     if mem.dir.is_some() && brain.enable_memory() {
@@ -570,6 +678,82 @@ fn run(
                     thermo.arena_source = arena_source;
                     thermo.temperature_c = temperature_c;
                 }
+                Ok(Command::PatchPick { spec, index }) => {
+                    if let Some(e) = electrode.take() {
+                        let _ = e;
+                        brain.clear_current(fly_sim::patchclamp::SOURCE);
+                    }
+                    let mut v = patch_view.clone();
+                    v.live = false;
+                    v.n_neurons = brain.n();
+                    match fly_sim::patchclamp::pick_neuron(&brain, &spec, index) {
+                        Ok(row) => {
+                            v.row = Some(row);
+                            v.desc = fly_sim::patchclamp::describe_neuron(&brain, row as usize);
+                            v.error.clear();
+                        }
+                        Err(e) => v.error = e,
+                    }
+                    v.window = Default::default();
+                    v.recording = None;
+                    patch_view = v;
+                    *PATCH_VIEW.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = Some(patch_view.clone());
+                }
+                Ok(Command::PatchRow(row)) => {
+                    if let Some(e) = electrode.take() {
+                        let _ = e;
+                        brain.clear_current(fly_sim::patchclamp::SOURCE);
+                    }
+                    patch_view.live = false;
+                    patch_view.n_neurons = brain.n();
+                    if (row as usize) < brain.n() {
+                        patch_view.row = Some(row);
+                        patch_view.desc = fly_sim::patchclamp::describe_neuron(&brain, row as usize);
+                        patch_view.error.clear();
+                    }
+                    *PATCH_VIEW.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = Some(patch_view.clone());
+                }
+                Ok(Command::PatchLive(on)) => {
+                    if on {
+                        if let (None, Some(row)) = (&electrode, patch_view.row) {
+                            electrode = Some(Electrode::new(row, patch_hold));
+                            patch_view.live = true;
+                        }
+                    } else if electrode.take().is_some() {
+                        brain.clear_current(fly_sim::patchclamp::SOURCE);
+                        patch_view.live = false;
+                        patch_view.running = false;
+                    }
+                }
+                Ok(Command::PatchHold(h)) => {
+                    patch_hold = h;
+                    if let Some(e) = electrode.as_mut() {
+                        e.hold = h;
+                        if e.sched.is_none() {
+                            let h = e.hold;
+                            e.inject(&mut brain, h);
+                        }
+                    }
+                }
+                Ok(Command::PatchRun(sched)) => {
+                    if electrode.is_none() {
+                        #[allow(clippy::collapsible_if)]
+                        if let Some(row) = patch_view.row {
+                            electrode = Some(Electrode::new(row, patch_hold));
+                            patch_view.live = true;
+                        }
+                    }
+                    if let Some(e) = electrode.as_mut() {
+                        e.buf = Default::default();
+                        e.pos = 0;
+                        if let Some(&first) = sched.first() {
+                            e.inject(&mut brain, first);
+                        }
+                        e.sched = Some(sched);
+                        patch_view.recording = None;
+                        patch_view.running = true;
+                    }
+                }
                 Ok(Command::ThermoArena { slot, temp_c }) => {
                     thermo.arena_temp.insert(slot, (temp_c, Instant::now()));
                 }
@@ -624,6 +808,13 @@ fn run(
                 for (_, b) in &mut multi.extras {
                     b.step();
                 }
+                if let Some(e) = electrode.as_mut() {
+                    e.push(&mut brain, &mut patch_view);
+                }
+            }
+            if let Some(e) = electrode.as_ref() {
+                patch_view.window = e.window();
+                *PATCH_VIEW.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = Some(patch_view.clone());
             }
             state.pending_steps = 0;
             publish(&mailbox, &brain, &multi, &source, &state, steps_per_s, dropped, driving, &info, &mem);
@@ -652,6 +843,13 @@ fn run(
         done += 1;
         if brain.steps.is_multiple_of(10) {
             thermo.tick(&mut brain, multi.focus, &mut multi.extras);
+        }
+        if let Some(e) = electrode.as_mut() {
+            e.push(&mut brain, &mut patch_view);
+            if brain.steps.is_multiple_of(10) {
+                patch_view.window = e.window();
+                *PATCH_VIEW.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = Some(patch_view.clone());
+            }
         }
         dex_check(&brain, &mut dex, &events);
         mem.after_step(&mut brain, &events);
@@ -783,6 +981,7 @@ fn apply(
         }
         Command::SetMirror(_) | Command::SetWiring { .. } => false,
         Command::ThermoConfig { .. } | Command::ThermoArena { .. } => false,
+        Command::PatchPick { .. } | Command::PatchRow(_) | Command::PatchLive(_) | Command::PatchHold(_) | Command::PatchRun(_) => false,
         Command::PokeRows { rows, strength } => {
             brain.groups.add_sense("classroom", rows);
             brain.poke("classroom", None, strength);

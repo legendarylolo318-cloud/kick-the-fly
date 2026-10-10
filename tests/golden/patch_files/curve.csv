@@ -1,0 +1,7 @@
+# MODEL: a point-neuron leaky integrate-and-fire unit. Not real electrophysiology.
+# mode=isolated row=None step=200.0 ms, 3 sweeps per amplitude; current in the simulator's units
+current,rate_hz_mean,rate_hz_sd,sweeps_hz
+0,0,0,0 0 0
+0.05,35,0,35 35 35
+0.1,50,0,50 50 50
+0.5,70,0,70 70 70
