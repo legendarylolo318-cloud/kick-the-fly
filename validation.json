@@ -1,0 +1,3385 @@
+{
+ "app_version": "3.1.1",
+ "brain": "adult",
+ "backend": "cpu",
+ "device": "CPU (NumPy)",
+ "created": "2026-10-10 10:18:09",
+ "seconds": 1537.2,
+ "seeds": [
+  1000,
+  1001,
+  1002,
+  1003,
+  1004,
+  1005,
+  1006,
+  1007,
+  1008,
+  1009
+ ],
+ "workers": 4,
+ "n_neurons": 166700,
+ "synapses": 10272125,
+ "wiring": null,
+ "lab_params": {
+  "noise_std": 0.05,
+  "bias": 0.2,
+  "target_rate_hz": 5.0,
+  "ext_gain": 4.0,
+  "gain_adapt": 0.002,
+  "thresh.escape": 4.0,
+  "thresh.groom": 4.0,
+  "thresh.jump": 3.0,
+  "thresh.run": 2.4,
+  "thresh.kick": 2.0,
+  "thresh.walk": 3.0,
+  "thresh.back": 3.8,
+  "thresh.turn": 2.1,
+  "thresh.fly": 1.58,
+  "thresh.fire": 3.0,
+  "thresh.song": 1.8,
+  "thresh.aggression": 2.0,
+  "thresh.sleep": 2.0,
+  "thresh.co2": 2.0,
+  "thresh.hot_pn": 1.6,
+  "thresh.cold_pn": 1.7,
+  "loom_min": 1.5,
+  "loom_full": 8.0,
+  "field.wind_dir": 180.0,
+  "field.wind_speed": 3.0,
+  "weather.rain": 0.0,
+  "weather.gust_hz": 0.0,
+  "weather.storm": 0.0,
+  "outdoor.sun_az": 135.0,
+  "outdoor.sun_el": 45.0,
+  "outdoor.day_s": 0.0,
+  "orchard.feeds": 4.0,
+  "orchard.regrow_s": 75.0,
+  "orchard.cap": 4.0,
+  "indiv.sigma_subtle": 0.05,
+  "indiv.sigma_strong": 0.15,
+  "pet.hunger_h": 24.0,
+  "pet.awake_h": 16.0,
+  "pet.sleep_h": 8.0,
+  "pet.sugar_gain": 2.0,
+  "pet.pam_gain": 1.5,
+  "pet.dfb_drive": 0.5,
+  "pet.max_catchup_d": 7.0
+ },
+ "thresholds": {
+  "groom": 4.0,
+  "jump": 3.0,
+  "run": 2.4,
+  "kick": 2.0,
+  "walk": 3.0,
+  "back": 3.8,
+  "turn": 2.1,
+  "fly": 1.58,
+  "escape": 4.0,
+  "fire": 3.0,
+  "song": 1.8,
+  "aggression": 2.0,
+  "sleep": 2.0,
+  "co2": 2.0,
+  "hot_pn": 1.6,
+  "cold_pn": 1.7
+ },
+ "loom": [
+  1.5,
+  8.0
+ ],
+ "sweet_n": 30,
+ "tests": [
+  {
+   "id": "looming_escape",
+   "name": "Looming detectors drive the giant fiber escape neuron",
+   "play": "It dodged something rushing at it. Real flies escape looming objects through this same giant fiber.",
+   "claim": "Activating the looming-sensitive visual neurons LPLC2 and LC4 excites the giant fiber DNp01.",
+   "citation": "von Reyn et al. 2014, Nat Neurosci 17:962; Ache et al. 2019, Curr Biol 29:1073",
+   "drive": "loom",
+   "drive_label": "LPLC2 + LC4 (311)",
+   "readout": "dnp01",
+   "readout_label": "DNp01 (giant fiber)",
+   "control": "vpn",
+   "control_label": "311 random other visual projection neurons",
+   "popup_event": "DODGE",
+   "measured": {
+    "drive_ratio_mean": 11.809631805309467,
+    "drive_ratio_sd": 1.7735875521573243,
+    "control_ratio_mean": 0.7982162857964956,
+    "control_ratio_sd": 0.1789420180996298,
+    "readout_base_hz": 5.75,
+    "readout_driven_hz": 66.5,
+    "p_value": 0.0009765625,
+    "n": 10
+   },
+   "criteria": "drive ratio >= 1.5 and > control (one-sided Wilcoxon p < 0.01)",
+   "passed": true,
+   "per_seed": [
+    {
+     "seed": 1000,
+     "drive": {
+      "base_hz": 7.249999999999999,
+      "driven_hz": 66.5,
+      "ratio": 9.17241379310345
+     },
+     "control": {
+      "base_hz": 7.249999999999999,
+      "driven_hz": 5.0,
+      "ratio": 0.6896551724137931
+     }
+    },
+    {
+     "seed": 1001,
+     "drive": {
+      "base_hz": 4.5,
+      "driven_hz": 66.5,
+      "ratio": 14.777777777777779
+     },
+     "control": {
+      "base_hz": 4.5,
+      "driven_hz": 4.25,
+      "ratio": 0.9444444444444444
+     }
+    },
+    {
+     "seed": 1002,
+     "drive": {
+      "base_hz": 6.0,
+      "driven_hz": 66.5,
+      "ratio": 11.083333333333334
+     },
+     "control": {
+      "base_hz": 6.0,
+      "driven_hz": 5.0,
+      "ratio": 0.8333333333333334
+     }
+    },
+    {
+     "seed": 1003,
+     "drive": {
+      "base_hz": 5.75,
+      "driven_hz": 66.5,
+      "ratio": 11.565217391304348
+     },
+     "control": {
+      "base_hz": 5.75,
+      "driven_hz": 4.5,
+      "ratio": 0.782608695652174
+     }
+    },
+    {
+     "seed": 1004,
+     "drive": {
+      "base_hz": 7.000000000000001,
+      "driven_hz": 66.5,
+      "ratio": 9.499999999999998
+     },
+     "control": {
+      "base_hz": 7.000000000000001,
+      "driven_hz": 5.0,
+      "ratio": 0.7142857142857142
+     }
+    },
+    {
+     "seed": 1005,
+     "drive": {
+      "base_hz": 5.25,
+      "driven_hz": 66.5,
+      "ratio": 12.666666666666666
+     },
+     "control": {
+      "base_hz": 5.25,
+      "driven_hz": 5.0,
+      "ratio": 0.9523809523809523
+     }
+    },
+    {
+     "seed": 1006,
+     "drive": {
+      "base_hz": 5.0,
+      "driven_hz": 66.5,
+      "ratio": 13.3
+     },
+     "control": {
+      "base_hz": 5.0,
+      "driven_hz": 5.0,
+      "ratio": 1.0
+     }
+    },
+    {
+     "seed": 1007,
+     "drive": {
+      "base_hz": 5.0,
+      "driven_hz": 66.5,
+      "ratio": 13.3
+     },
+     "control": {
+      "base_hz": 5.0,
+      "driven_hz": 5.0,
+      "ratio": 1.0
+     }
+    },
+    {
+     "seed": 1008,
+     "drive": {
+      "base_hz": 5.5,
+      "driven_hz": 66.5,
+      "ratio": 12.090909090909092
+     },
+     "control": {
+      "base_hz": 5.5,
+      "driven_hz": 3.0,
+      "ratio": 0.5454545454545454
+     }
+    },
+    {
+     "seed": 1009,
+     "drive": {
+      "base_hz": 6.25,
+      "driven_hz": 66.5,
+      "ratio": 10.64
+     },
+     "control": {
+      "base_hz": 6.25,
+      "driven_hz": 3.25,
+      "ratio": 0.52
+     }
+    }
+   ]
+  },
+  {
+   "id": "mdn_backward",
+   "name": "Moonwalker neurons drive backward walking",
+   "play": "",
+   "claim": "Activating MDN drives the leg motor program for walking backward.",
+   "citation": "Bidaye et al. 2014, Science 344:97",
+   "drive": "mdn",
+   "drive_label": "MDN (4)",
+   "readout": "mn_legs",
+   "readout_label": "leg motor neurons (T1-T3, 381)",
+   "control": "dn",
+   "control_label": "4 random other descending neurons",
+   "popup_event": null,
+   "note": "The sim has no walking rhythm; this asks whether MDN activity reaches the leg motor neurons at all. MDN makes 12 synapses onto them directly; the 369 neurons it sends at least 5 synapses to (mostly VNC interneurons) send them 27,560 excitatory and 24,186 inhibitory synapses. That near balance of excitation and inhibition in the VNC interneuron layer is where the drive cancels out in this model.",
+   "measured": {
+    "drive_ratio_mean": 0.9595085586233333,
+    "drive_ratio_sd": 0.029574293497827656,
+    "control_ratio_mean": 0.9625393315302299,
+    "control_ratio_sd": 0.0513222456627403,
+    "readout_base_hz": 4.019553805774279,
+    "readout_driven_hz": 3.8560367454068234,
+    "p_value": 0.384765625,
+    "n": 10
+   },
+   "criteria": "drive ratio >= 1.5 and > control (one-sided Wilcoxon p < 0.01)",
+   "passed": false,
+   "per_seed": [
+    {
+     "seed": 1000,
+     "drive": {
+      "base_hz": 4.073490813648294,
+      "driven_hz": 4.070866141732283,
+      "ratio": 0.9993556701030927
+     },
+     "control": {
+      "base_hz": 4.073490813648294,
+      "driven_hz": 3.7073490813648293,
+      "ratio": 0.9101159793814433
+     }
+    },
+    {
+     "seed": 1001,
+     "drive": {
+      "base_hz": 4.039370078740157,
+      "driven_hz": 3.94750656167979,
+      "ratio": 0.9772579597141001
+     },
+     "control": {
+      "base_hz": 4.039370078740157,
+      "driven_hz": 3.9671916010498687,
+      "ratio": 0.9821312540610786
+     }
+    },
+    {
+     "seed": 1002,
+     "drive": {
+      "base_hz": 4.047244094488189,
+      "driven_hz": 3.7007874015748032,
+      "ratio": 0.9143968871595332
+     },
+     "control": {
+      "base_hz": 4.047244094488189,
+      "driven_hz": 3.671916010498687,
+      "ratio": 0.9072632944228274
+     }
+    },
+    {
+     "seed": 1003,
+     "drive": {
+      "base_hz": 4.044619422572178,
+      "driven_hz": 3.7309711286089238,
+      "ratio": 0.9224529526281636
+     },
+     "control": {
+      "base_hz": 4.044619422572178,
+      "driven_hz": 3.7965879265091864,
+      "ratio": 0.9386761842959118
+     }
+    },
+    {
+     "seed": 1004,
+     "drive": {
+      "base_hz": 4.014435695538058,
+      "driven_hz": 3.8858267716535435,
+      "ratio": 0.9679633867276888
+     },
+     "control": {
+      "base_hz": 4.014435695538058,
+      "driven_hz": 3.81758530183727,
+      "ratio": 0.9509643674403399
+     }
+    },
+    {
+     "seed": 1005,
+     "drive": {
+      "base_hz": 3.892388451443569,
+      "driven_hz": 3.8818897637795278,
+      "ratio": 0.9973027646662173
+     },
+     "control": {
+      "base_hz": 3.892388451443569,
+      "driven_hz": 3.84251968503937,
+      "ratio": 0.9871881321645314
+     }
+    },
+    {
+     "seed": 1006,
+     "drive": {
+      "base_hz": 3.925196850393701,
+      "driven_hz": 3.8438320209973753,
+      "ratio": 0.9792711467736542
+     },
+     "control": {
+      "base_hz": 3.925196850393701,
+      "driven_hz": 3.800524934383202,
+      "ratio": 0.9682380474757606
+     }
+    },
+    {
+     "seed": 1007,
+     "drive": {
+      "base_hz": 4.062992125984252,
+      "driven_hz": 3.81758530183727,
+      "ratio": 0.9395994832041343
+     },
+     "control": {
+      "base_hz": 4.062992125984252,
+      "driven_hz": 3.7047244094488185,
+      "ratio": 0.9118217054263565
+     }
+    },
+    {
+     "seed": 1008,
+     "drive": {
+      "base_hz": 4.07742782152231,
+      "driven_hz": 3.8871391076115485,
+      "ratio": 0.953331187640811
+     },
+     "control": {
+      "base_hz": 4.07742782152231,
+      "driven_hz": 4.053805774278215,
+      "ratio": 0.9942066301898937
+     }
+    },
+    {
+     "seed": 1009,
+     "drive": {
+      "base_hz": 4.018372703412074,
+      "driven_hz": 3.7939632545931756,
+      "ratio": 0.9441541476159372
+     },
+     "control": {
+      "base_hz": 4.018372703412074,
+      "driven_hz": 4.318897637795276,
+      "ratio": 1.074787720444154
+     }
+    }
+   ]
+  },
+  {
+   "id": "sugar_feeding",
+   "name": "Sugar-pathway taste neurons reach the proboscis motor neuron",
+   "play": "It reached for the sugar with its proboscis. Real flies' sugar-sensing neurons trigger this.",
+   "claim": "Activating sugar-sensing gustatory neurons activates MN9, a motor neuron for proboscis extension; bitter-sensing neurons don't.",
+   "citation": "Shiu et al. 2024, Nature 634:210 (sugar SEL PNs: Yao & Scott 2022)",
+   "drive": "sweet",
+   "drive_label": "30 sugar-pathway gustatory neurons",
+   "readout": "mn9",
+   "readout_label": "MN9",
+   "control": "bitter",
+   "control_label": "30 bitter-pathway gustatory neurons",
+   "popup_event": "PROBOSCIS",
+   "note": "GRNs aren't labeled by taste in this dataset: the sugar and bitter sets are chosen from wiring to the Yao & Scott 2022 sugar and bitter SEL neurons (assays.py). MN9 is not used to choose them.",
+   "measured": {
+    "drive_ratio_mean": 2.106922129594543,
+    "drive_ratio_sd": 0.3988513954291058,
+    "control_ratio_mean": 1.2480756599722116,
+    "control_ratio_sd": 0.28833692641234926,
+    "readout_base_hz": 7.025,
+    "readout_driven_hz": 14.325,
+    "p_value": 0.0009765625,
+    "n": 10
+   },
+   "criteria": "drive ratio >= 1.5 and > control (one-sided Wilcoxon p < 0.01)",
+   "passed": true,
+   "per_seed": [
+    {
+     "seed": 1000,
+     "drive": {
+      "base_hz": 6.5,
+      "driven_hz": 15.5,
+      "ratio": 2.3846153846153846
+     },
+     "control": {
+      "base_hz": 6.5,
+      "driven_hz": 9.0,
+      "ratio": 1.3846153846153846
+     }
+    },
+    {
+     "seed": 1001,
+     "drive": {
+      "base_hz": 7.249999999999999,
+      "driven_hz": 14.499999999999998,
+      "ratio": 2.0
+     },
+     "control": {
+      "base_hz": 7.249999999999999,
+      "driven_hz": 7.000000000000001,
+      "ratio": 0.9655172413793106
+     }
+    },
+    {
+     "seed": 1002,
+     "drive": {
+      "base_hz": 7.000000000000001,
+      "driven_hz": 14.249999999999998,
+      "ratio": 2.035714285714285
+     },
+     "control": {
+      "base_hz": 7.000000000000001,
+      "driven_hz": 9.5,
+      "ratio": 1.357142857142857
+     }
+    },
+    {
+     "seed": 1003,
+     "drive": {
+      "base_hz": 7.5,
+      "driven_hz": 14.000000000000002,
+      "ratio": 1.866666666666667
+     },
+     "control": {
+      "base_hz": 7.5,
+      "driven_hz": 7.75,
+      "ratio": 1.0333333333333334
+     }
+    },
+    {
+     "seed": 1004,
+     "drive": {
+      "base_hz": 6.0,
+      "driven_hz": 15.75,
+      "ratio": 2.625
+     },
+     "control": {
+      "base_hz": 6.0,
+      "driven_hz": 9.0,
+      "ratio": 1.5
+     }
+    },
+    {
+     "seed": 1005,
+     "drive": {
+      "base_hz": 5.25,
+      "driven_hz": 14.000000000000002,
+      "ratio": 2.666666666666667
+     },
+     "control": {
+      "base_hz": 5.25,
+      "driven_hz": 9.25,
+      "ratio": 1.7619047619047619
+     }
+    },
+    {
+     "seed": 1006,
+     "drive": {
+      "base_hz": 7.249999999999999,
+      "driven_hz": 14.000000000000002,
+      "ratio": 1.9310344827586212
+     },
+     "control": {
+      "base_hz": 7.249999999999999,
+      "driven_hz": 9.25,
+      "ratio": 1.2758620689655173
+     }
+    },
+    {
+     "seed": 1007,
+     "drive": {
+      "base_hz": 6.0,
+      "driven_hz": 13.5,
+      "ratio": 2.25
+     },
+     "control": {
+      "base_hz": 6.0,
+      "driven_hz": 8.0,
+      "ratio": 1.3333333333333333
+     }
+    },
+    {
+     "seed": 1008,
+     "drive": {
+      "base_hz": 7.000000000000001,
+      "driven_hz": 14.000000000000002,
+      "ratio": 2.0
+     },
+     "control": {
+      "base_hz": 7.000000000000001,
+      "driven_hz": 7.75,
+      "ratio": 1.107142857142857
+     }
+    },
+    {
+     "seed": 1009,
+     "drive": {
+      "base_hz": 10.5,
+      "driven_hz": 13.75,
+      "ratio": 1.3095238095238095
+     },
+     "control": {
+      "base_hz": 10.5,
+      "driven_hz": 8.0,
+      "ratio": 0.7619047619047619
+     }
+    }
+   ]
+  },
+  {
+   "id": "antenna_grooming_circuit",
+   "name": "Antennal touch neurons excite the antennal grooming command neurons",
+   "play": "Wind on its antennae excited the neurons that start antennal grooming. Real flies use these same neurons to clean their antennae.",
+   "claim": "Antennal mechanosensory neurons (JO-C/E) excite the descending neurons aDN1/aDN2 of the antennal grooming circuit.",
+   "citation": "Hampel et al. 2015, eLife 4:e08758; Shiu et al. 2024, Nature 634:210",
+   "drive": "jo_ce",
+   "drive_label": "JO-C/E mechanosensory neurons (335)",
+   "readout": "adn",
+   "readout_label": "aDN1/aDN2 (DNg62, DNge078)",
+   "control": "sensory",
+   "control_label": "335 random other sensory neurons",
+   "popup_event": "GROOM",
+   "measured": {
+    "drive_ratio_mean": 4.87097582972583,
+    "drive_ratio_sd": 1.6959801578426303,
+    "control_ratio_mean": 0.849237012987013,
+    "control_ratio_sd": 0.2969921668200472,
+    "readout_base_hz": 3.675,
+    "readout_driven_hz": 16.4125,
+    "p_value": 0.0009765625,
+    "n": 10
+   },
+   "criteria": "drive ratio >= 1.5 and > control (one-sided Wilcoxon p < 0.01)",
+   "passed": true,
+   "per_seed": [
+    {
+     "seed": 1000,
+     "drive": {
+      "base_hz": 4.0,
+      "driven_hz": 16.25,
+      "ratio": 4.0625
+     },
+     "control": {
+      "base_hz": 4.0,
+      "driven_hz": 4.25,
+      "ratio": 1.0625
+     }
+    },
+    {
+     "seed": 1001,
+     "drive": {
+      "base_hz": 3.5000000000000004,
+      "driven_hz": 17.25,
+      "ratio": 4.928571428571428
+     },
+     "control": {
+      "base_hz": 3.5000000000000004,
+      "driven_hz": 1.25,
+      "ratio": 0.3571428571428571
+     }
+    },
+    {
+     "seed": 1002,
+     "drive": {
+      "base_hz": 1.875,
+      "driven_hz": 16.125,
+      "ratio": 8.6
+     },
+     "control": {
+      "base_hz": 1.875,
+      "driven_hz": 2.0,
+      "ratio": 1.0666666666666667
+     }
+    },
+    {
+     "seed": 1003,
+     "drive": {
+      "base_hz": 4.125,
+      "driven_hz": 16.125,
+      "ratio": 3.909090909090909
+     },
+     "control": {
+      "base_hz": 4.125,
+      "driven_hz": 3.375,
+      "ratio": 0.8181818181818182
+     }
+    },
+    {
+     "seed": 1004,
+     "drive": {
+      "base_hz": 3.75,
+      "driven_hz": 16.875,
+      "ratio": 4.5
+     },
+     "control": {
+      "base_hz": 3.75,
+      "driven_hz": 4.25,
+      "ratio": 1.1333333333333333
+     }
+    },
+    {
+     "seed": 1005,
+     "drive": {
+      "base_hz": 3.5000000000000004,
+      "driven_hz": 16.625,
+      "ratio": 4.749999999999999
+     },
+     "control": {
+      "base_hz": 3.5000000000000004,
+      "driven_hz": 1.7500000000000002,
+      "ratio": 0.5
+     }
+    },
+    {
+     "seed": 1006,
+     "drive": {
+      "base_hz": 5.5,
+      "driven_hz": 17.5,
+      "ratio": 3.1818181818181817
+     },
+     "control": {
+      "base_hz": 5.5,
+      "driven_hz": 3.875,
+      "ratio": 0.7045454545454546
+     }
+    },
+    {
+     "seed": 1007,
+     "drive": {
+      "base_hz": 2.25,
+      "driven_hz": 16.0,
+      "ratio": 7.111111111111111
+     },
+     "control": {
+      "base_hz": 2.25,
+      "driven_hz": 2.625,
+      "ratio": 1.1666666666666667
+     }
+    },
+    {
+     "seed": 1008,
+     "drive": {
+      "base_hz": 4.5,
+      "driven_hz": 15.75,
+      "ratio": 3.5
+     },
+     "control": {
+      "base_hz": 4.5,
+      "driven_hz": 2.625,
+      "ratio": 0.5833333333333334
+     }
+    },
+    {
+     "seed": 1009,
+     "drive": {
+      "base_hz": 3.75,
+      "driven_hz": 15.625,
+      "ratio": 4.166666666666667
+     },
+     "control": {
+      "base_hz": 3.75,
+      "driven_hz": 4.125,
+      "ratio": 1.1
+     }
+    }
+   ]
+  },
+  {
+   "id": "adn_grooming_motor",
+   "name": "aDN activation drives front-leg (grooming) motor neurons",
+   "play": "",
+   "claim": "Activating aDN1/aDN2 drives antennal grooming, a front-leg movement.",
+   "citation": "Hampel et al. 2015, eLife 4:e08758",
+   "drive": "adn",
+   "drive_label": "aDN1/aDN2 (4)",
+   "readout": "mn_front",
+   "readout_label": "front-leg motor neurons (135)",
+   "control": "dn",
+   "control_label": "4 random other descending neurons",
+   "popup_event": null,
+   "note": "The sim has no leg movement; this asks whether aDN activity reaches the front-leg motor neurons.",
+   "measured": {
+    "drive_ratio_mean": 1.1286488259909406,
+    "drive_ratio_sd": 0.06742029772826001,
+    "control_ratio_mean": 0.94760845137317,
+    "control_ratio_sd": 0.05537642409044116,
+    "readout_base_hz": 3.36925925925926,
+    "readout_driven_hz": 3.797037037037037,
+    "p_value": 0.0009765625,
+    "n": 10
+   },
+   "criteria": "drive ratio >= 1.5 and > control (one-sided Wilcoxon p < 0.01)",
+   "passed": false,
+   "per_seed": [
+    {
+     "seed": 1000,
+     "drive": {
+      "base_hz": 3.3962962962962964,
+      "driven_hz": 3.9037037037037035,
+      "ratio": 1.149400218102508
+     },
+     "control": {
+      "base_hz": 3.3962962962962964,
+      "driven_hz": 3.1518518518518523,
+      "ratio": 0.9280261723009816
+     }
+    },
+    {
+     "seed": 1001,
+     "drive": {
+      "base_hz": 3.2925925925925927,
+      "driven_hz": 3.9555555555555557,
+      "ratio": 1.201349831271091
+     },
+     "control": {
+      "base_hz": 3.2925925925925927,
+      "driven_hz": 3.1259259259259258,
+      "ratio": 0.9493813273340832
+     }
+    },
+    {
+     "seed": 1002,
+     "drive": {
+      "base_hz": 3.5111111111111115,
+      "driven_hz": 3.6111111111111116,
+      "ratio": 1.0284810126582278
+     },
+     "control": {
+      "base_hz": 3.5111111111111115,
+      "driven_hz": 2.8740740740740742,
+      "ratio": 0.8185654008438819
+     }
+    },
+    {
+     "seed": 1003,
+     "drive": {
+      "base_hz": 3.5703703703703704,
+      "driven_hz": 3.696296296296296,
+      "ratio": 1.0352697095435683
+     },
+     "control": {
+      "base_hz": 3.5703703703703704,
+      "driven_hz": 3.3000000000000003,
+      "ratio": 0.9242738589211619
+     }
+    },
+    {
+     "seed": 1004,
+     "drive": {
+      "base_hz": 3.4111111111111114,
+      "driven_hz": 3.7777777777777777,
+      "ratio": 1.1074918566775243
+     },
+     "control": {
+      "base_hz": 3.4111111111111114,
+      "driven_hz": 3.1814814814814816,
+      "ratio": 0.9326818675352877
+     }
+    },
+    {
+     "seed": 1005,
+     "drive": {
+      "base_hz": 3.3074074074074074,
+      "driven_hz": 3.851851851851851,
+      "ratio": 1.1646136618141096
+     },
+     "control": {
+      "base_hz": 3.3074074074074074,
+      "driven_hz": 3.2407407407407414,
+      "ratio": 0.9798432250839868
+     }
+    },
+    {
+     "seed": 1006,
+     "drive": {
+      "base_hz": 3.185185185185185,
+      "driven_hz": 3.8814814814814813,
+      "ratio": 1.2186046511627906
+     },
+     "control": {
+      "base_hz": 3.185185185185185,
+      "driven_hz": 3.233333333333333,
+      "ratio": 1.0151162790697674
+     }
+    },
+    {
+     "seed": 1007,
+     "drive": {
+      "base_hz": 3.3111111111111113,
+      "driven_hz": 3.9259259259259256,
+      "ratio": 1.1856823266219239
+     },
+     "control": {
+      "base_hz": 3.3111111111111113,
+      "driven_hz": 3.344444444444444,
+      "ratio": 1.0100671140939597
+     }
+    },
+    {
+     "seed": 1008,
+     "drive": {
+      "base_hz": 3.414814814814815,
+      "driven_hz": 3.84074074074074,
+      "ratio": 1.1247288503253794
+     },
+     "control": {
+      "base_hz": 3.414814814814815,
+      "driven_hz": 3.2888888888888883,
+      "ratio": 0.9631236442516267
+     }
+    },
+    {
+     "seed": 1009,
+     "drive": {
+      "base_hz": 3.2925925925925927,
+      "driven_hz": 3.525925925925926,
+      "ratio": 1.0708661417322836
+     },
+     "control": {
+      "base_hz": 3.2925925925925927,
+      "driven_hz": 3.144444444444444,
+      "ratio": 0.9550056242969627
+     }
+    }
+   ]
+  },
+  {
+   "id": "mb_conditioning",
+   "name": "Mushroom body conditioning: T-maze performance index",
+   "play": "It avoided the smell it learned to fear. Real flies learn smells in this same part of the brain.",
+   "claim": "Pairing an odor with shock makes flies avoid it in a T-maze (positive PI); unpaired odor and shock don't.",
+   "citation": "Tully & Quinn 1985, J Comp Physiol A 157:263",
+   "drive": "",
+   "drive_label": "odor + shock (6 cycles)",
+   "readout": "",
+   "readout_label": "T-maze choices",
+   "control": "",
+   "control_label": "same odors and shocks, unpaired",
+   "popup_event": "AVOID",
+   "note": "The plasticity rule, the shock's link to dopamine, and the choice at the T-maze are game rules on top of the connectome's real KC -> MBON synapses; this tests that they produce odor-specific memory.",
+   "measured": {
+    "pi_mean": 1.0,
+    "pi_sd": 0.0,
+    "control_pi_mean": -0.030000000000000006,
+    "control_pi_sd": 0.14567848922274773,
+    "fear_cs_plus": 0.7406596598976192,
+    "fear_cs_minus": 0.0567981064662878,
+    "approach_mbon_cs_plus_hz": 30.85981323560079,
+    "approach_mbon_cs_minus_hz": 30.982751627763115,
+    "p_value": 0.0009765625,
+    "n": 10
+   },
+   "criteria": "PI >= 0.5, |unpaired PI| <= 0.25, paired > unpaired (one-sided Wilcoxon p < 0.01)",
+   "passed": true,
+   "per_seed": [
+    {
+     "seed": 1000,
+     "pi": 1.0,
+     "control_pi": 0.15000000000000002
+    },
+    {
+     "seed": 1001,
+     "pi": 1.0,
+     "control_pi": -0.05
+    },
+    {
+     "seed": 1002,
+     "pi": 1.0,
+     "control_pi": 0.1
+    },
+    {
+     "seed": 1003,
+     "pi": 1.0,
+     "control_pi": -0.05
+    },
+    {
+     "seed": 1004,
+     "pi": 1.0,
+     "control_pi": -0.05
+    },
+    {
+     "seed": 1005,
+     "pi": 1.0,
+     "control_pi": 0.1
+    },
+    {
+     "seed": 1006,
+     "pi": 1.0,
+     "control_pi": -0.2
+    },
+    {
+     "seed": 1007,
+     "pi": 1.0,
+     "control_pi": 0.1
+    },
+    {
+     "seed": 1008,
+     "pi": 1.0,
+     "control_pi": -0.1
+    },
+    {
+     "seed": 1009,
+     "pi": 1.0,
+     "control_pi": -0.30000000000000004
+    }
+   ]
+  },
+  {
+   "id": "epg_compass",
+   "name": "E-PG central complex compass forms an orientation bump",
+   "play": "",
+   "claim": "E-PG / PEN / Delta7 recurrent ring attractor forms a persistent head-direction bump.",
+   "citation": "Seelig & Jayaraman 2015, Nature 521:186; Green et al. 2017, Nature 546:101",
+   "drive": "",
+   "drive_label": "localized wedge stimulation",
+   "readout": "epg",
+   "readout_label": "EPG (46)",
+   "control": "",
+   "control_label": "none",
+   "popup_event": null,
+   "note": "With the connectome's signed synapse counts and no ring weights tuned, bump contrast and persistence fail; reported as a negative result.",
+   "measured": {
+    "mean_contrast": 1.042347500874134,
+    "sd_contrast": 0.14147532431202228,
+    "mean_persistence_ms": 0.0,
+    "mean_baseline_hz": 9.366304347826087,
+    "mean_baseline_sd_hz": 1.56310174002606,
+    "n": 10
+   },
+   "criteria": "contrast >= 3.0x and persistence >= 500 ms post-cue",
+   "passed": false,
+   "finding": "EPG peak/trough contrast 1.04 \u00b1 0.14x vs >=3.0x required; persistence 0 ms (<500 ms); activity disperses into uniform 9.4 Hz noise under the model's untuned weights."
+  },
+  {
+   "id": "epg_compass_wind",
+   "name": "E-PG compass forms a bump from steady directional wind (open field)",
+   "play": "",
+   "claim": "Wind direction is a head-direction cue: steady directional wind anchors a persistent E-PG bump whose position follows the wind.",
+   "citation": "Okubo, Patella, D'Alessandro & Wilson 2020, Neuron 107:924; Seelig & Jayaraman 2015, Nature 521:186",
+   "drive": "",
+   "drive_label": "steady wind from 8 directions through the open field's JO-C/E transduction",
+   "readout": "epg",
+   "readout_label": "EPG (46) in 16 PB glomeruli",
+   "control": "",
+   "control_label": "the same brain without wind; shuffled directions for tracking",
+   "popup_event": null,
+   "note": "A second, different test from the visual one: wind, not a visual landmark. The pass criteria are the visual test's, fixed before the run. Direction tracking is reported (circular correlation with a permutation null) but not needed to pass. No weights or time constants were tuned.",
+   "measured": {
+    "mean_contrast": 1.8131146258157003,
+    "sd_contrast": 0.10701638590700673,
+    "baseline_contrast": 1.7052468221901438,
+    "mean_persistence_ms": 101.25,
+    "direction_tracking": 0.46029562410218616,
+    "direction_tracking_p": 0.16991504247876063,
+    "direction_tracking_null": 0.3994335077594857,
+    "epg_rate_baseline_hz": 6.803385416666667,
+    "epg_rate_wind_hz": 5.472721354166667,
+    "wind_speed_m_s": 6.0,
+    "n": 10
+   },
+   "criteria": "contrast >= 3.0x across the 16 PB glomeruli during wind and persistence >= 500 ms after it stops (fixed before the run; the same as the visual test)",
+   "passed": false,
+   "finding": "With steady wind from 8 directions at 6 m/s: EPG peak/trough contrast 1.81x (baseline without wind 1.71x), persistence 101 ms, direction tracking |r| = 0.46 vs 0.40 for shuffled directions (permutation p = 0.17); EPG mean rate 6.8 Hz calm, 5.5 Hz in wind. No persistent bump formed.",
+   "per_seed": [
+    {
+     "seed": 1000,
+     "contrast": 1.829839633307277,
+     "persistence_ms": 100.0,
+     "circ_corr_left": 0.46958194818175086,
+     "circ_corr_right": 0.26974939994875163,
+     "baseline_contrast": 1.9662650602409637
+    },
+    {
+     "seed": 1001,
+     "contrast": 1.8011926019676832,
+     "persistence_ms": 87.5,
+     "circ_corr_left": 0.36942707128100816,
+     "circ_corr_right": -0.36116505953691064,
+     "baseline_contrast": 1.7028112449799198
+    },
+    {
+     "seed": 1002,
+     "contrast": 1.8762661124033801,
+     "persistence_ms": 200.0,
+     "circ_corr_left": -0.35221895769996425,
+     "circ_corr_right": 0.20073624922924077,
+     "baseline_contrast": 1.8596491228070178
+    },
+    {
+     "seed": 1003,
+     "contrast": 1.7892250812776282,
+     "persistence_ms": 75.0,
+     "circ_corr_left": 0.6203805898487632,
+     "circ_corr_right": -0.5785764679754452,
+     "baseline_contrast": 1.660377358490566
+    },
+    {
+     "seed": 1004,
+     "contrast": 1.7534547749003764,
+     "persistence_ms": 112.5,
+     "circ_corr_left": -0.6091325828005545,
+     "circ_corr_right": 0.07442771938779413,
+     "baseline_contrast": 1.991701244813278
+    },
+    {
+     "seed": 1005,
+     "contrast": 2.049318535471464,
+     "persistence_ms": 62.5,
+     "circ_corr_left": -0.07152333154682869,
+     "circ_corr_right": 0.5488843287427003,
+     "baseline_contrast": 1.533101045296167
+    },
+    {
+     "seed": 1006,
+     "contrast": 1.7360452509133308,
+     "persistence_ms": 37.5,
+     "circ_corr_left": 0.42576003677746327,
+     "circ_corr_right": -0.35241211545163226,
+     "baseline_contrast": 1.3736089030206677
+    },
+    {
+     "seed": 1007,
+     "contrast": 1.7117683224496354,
+     "persistence_ms": 50.0,
+     "circ_corr_left": 0.2705550033718624,
+     "circ_corr_right": -0.5663770980822965,
+     "baseline_contrast": 1.45724907063197
+    },
+    {
+     "seed": 1008,
+     "contrast": 1.9206490408251358,
+     "persistence_ms": 212.5,
+     "circ_corr_left": 0.4383029903355995,
+     "circ_corr_right": -0.3729140018013174,
+     "baseline_contrast": 1.876332622601279
+    },
+    {
+     "seed": 1009,
+     "contrast": 1.663386904641094,
+     "persistence_ms": 75.0,
+     "circ_corr_left": -0.2028906372717617,
+     "circ_corr_right": -0.19515729265203288,
+     "baseline_contrast": 1.6313725490196078
+    }
+   ]
+  },
+  {
+   "id": "courtship_song",
+   "name": "pIP10 activation drives the ps1 wing motor neurons (courtship song)",
+   "play": "Its ps1 wing motor neurons fired, the ones the pIP10 command neuron drives in courtship song. Real males sing through this same pathway.",
+   "claim": "Activating the male-specific descending neuron pIP10 excites the ps1 wing motor neurons used in pulse song.",
+   "citation": "von Philipsborn et al. 2011, Neuron 69:509",
+   "drive": "pip10",
+   "drive_label": "pIP10 (2)",
+   "readout": "ps1",
+   "readout_label": "ps1 wing motor neurons (2)",
+   "control": "dn",
+   "control_label": "2 random other descending neurons",
+   "popup_event": "SONG",
+   "note": "pIP10 has no direct synapses onto ps1: the drive goes through VNC interneurons. A pathway test on the motor neurons; the sim has no wing, so there is no song to hear. The buzz the game plays is a game rule.",
+   "measured": {
+    "drive_ratio_mean": 1.9280385922127405,
+    "drive_ratio_sd": 0.410402652614886,
+    "control_ratio_mean": 0.9374075601900678,
+    "control_ratio_sd": 0.1752671097225203,
+    "readout_base_hz": 5.225,
+    "readout_driven_hz": 9.7,
+    "p_value": 0.0009765625,
+    "n": 10
+   },
+   "criteria": "drive ratio >= 1.5 and > control (one-sided Wilcoxon p < 0.01)",
+   "passed": true,
+   "per_seed": [
+    {
+     "seed": 1000,
+     "drive": {
+      "base_hz": 4.75,
+      "driven_hz": 10.25,
+      "ratio": 2.1578947368421053
+     },
+     "control": {
+      "base_hz": 4.75,
+      "driven_hz": 3.75,
+      "ratio": 0.7894736842105263
+     }
+    },
+    {
+     "seed": 1001,
+     "drive": {
+      "base_hz": 4.25,
+      "driven_hz": 10.75,
+      "ratio": 2.5294117647058822
+     },
+     "control": {
+      "base_hz": 4.25,
+      "driven_hz": 4.5,
+      "ratio": 1.0588235294117647
+     }
+    },
+    {
+     "seed": 1002,
+     "drive": {
+      "base_hz": 5.25,
+      "driven_hz": 10.25,
+      "ratio": 1.9523809523809523
+     },
+     "control": {
+      "base_hz": 5.25,
+      "driven_hz": 4.75,
+      "ratio": 0.9047619047619048
+     }
+    },
+    {
+     "seed": 1003,
+     "drive": {
+      "base_hz": 4.0,
+      "driven_hz": 9.25,
+      "ratio": 2.3125
+     },
+     "control": {
+      "base_hz": 4.0,
+      "driven_hz": 3.75,
+      "ratio": 0.9375
+     }
+    },
+    {
+     "seed": 1004,
+     "drive": {
+      "base_hz": 6.25,
+      "driven_hz": 8.5,
+      "ratio": 1.36
+     },
+     "control": {
+      "base_hz": 6.25,
+      "driven_hz": 5.0,
+      "ratio": 0.8
+     }
+    },
+    {
+     "seed": 1005,
+     "drive": {
+      "base_hz": 3.75,
+      "driven_hz": 8.75,
+      "ratio": 2.3333333333333335
+     },
+     "control": {
+      "base_hz": 3.75,
+      "driven_hz": 4.5,
+      "ratio": 1.2
+     }
+    },
+    {
+     "seed": 1006,
+     "drive": {
+      "base_hz": 5.5,
+      "driven_hz": 8.75,
+      "ratio": 1.5909090909090908
+     },
+     "control": {
+      "base_hz": 5.5,
+      "driven_hz": 5.5,
+      "ratio": 1.0
+     }
+    },
+    {
+     "seed": 1007,
+     "drive": {
+      "base_hz": 6.5,
+      "driven_hz": 10.5,
+      "ratio": 1.6153846153846154
+     },
+     "control": {
+      "base_hz": 6.5,
+      "driven_hz": 5.0,
+      "ratio": 0.7692307692307693
+     }
+    },
+    {
+     "seed": 1008,
+     "drive": {
+      "base_hz": 5.0,
+      "driven_hz": 10.0,
+      "ratio": 2.0
+     },
+     "control": {
+      "base_hz": 5.0,
+      "driven_hz": 6.0,
+      "ratio": 1.2
+     }
+    },
+    {
+     "seed": 1009,
+     "drive": {
+      "base_hz": 7.000000000000001,
+      "driven_hz": 10.0,
+      "ratio": 1.4285714285714284
+     },
+     "control": {
+      "base_hz": 7.000000000000001,
+      "driven_hz": 5.0,
+      "ratio": 0.7142857142857142
+     }
+    }
+   ]
+  },
+  {
+   "id": "bitter_grn_to_dng28",
+   "name": "Bitter-pathway taste neurons excite the bitter SEL neuron DNg28",
+   "play": "",
+   "claim": "Activating bitter-sensing gustatory neurons excites DNg28 (\"Yao & Scott 2022: Bitter-SEL\"); sugar-sensing neurons don't.",
+   "citation": "Shiu et al. 2024, Nature 634:210 (Bitter-SEL: Yao & Scott 2022)",
+   "drive": "bitter",
+   "drive_label": "30 bitter-pathway gustatory neurons",
+   "readout": "dng28",
+   "readout_label": "DNg28 Bitter-SEL (4)",
+   "control": "sweet",
+   "control_label": "30 sugar-pathway gustatory neurons",
+   "popup_event": null,
+   "note": "A short-pathway activation test (GRN -> second-order neuron), not bitter avoidance: nothing in the sim turns DNg28 into a behavior. Caveat: the bitter and sugar sets are chosen by their wiring to DNg28 and the sugar SEL PNs (assays.py), so this partly restates how they were picked.",
+   "measured": {
+    "drive_ratio_mean": 1.5775177384709287,
+    "drive_ratio_sd": 0.25593099798965985,
+    "control_ratio_mean": 1.284486946163971,
+    "control_ratio_sd": 0.20830838736371313,
+    "readout_base_hz": 7.425,
+    "readout_driven_hz": 11.5375,
+    "p_value": 0.0009765625,
+    "n": 10
+   },
+   "criteria": "drive ratio >= 1.5 and > control (one-sided Wilcoxon p < 0.01)",
+   "passed": true,
+   "per_seed": [
+    {
+     "seed": 1000,
+     "drive": {
+      "base_hz": 7.75,
+      "driven_hz": 11.375,
+      "ratio": 1.467741935483871
+     },
+     "control": {
+      "base_hz": 7.75,
+      "driven_hz": 11.125,
+      "ratio": 1.435483870967742
+     }
+    },
+    {
+     "seed": 1001,
+     "drive": {
+      "base_hz": 8.625,
+      "driven_hz": 9.875,
+      "ratio": 1.144927536231884
+     },
+     "control": {
+      "base_hz": 8.625,
+      "driven_hz": 9.75,
+      "ratio": 1.1304347826086956
+     }
+    },
+    {
+     "seed": 1002,
+     "drive": {
+      "base_hz": 6.375,
+      "driven_hz": 12.5,
+      "ratio": 1.9607843137254901
+     },
+     "control": {
+      "base_hz": 6.375,
+      "driven_hz": 9.75,
+      "ratio": 1.5294117647058822
+     }
+    },
+    {
+     "seed": 1003,
+     "drive": {
+      "base_hz": 7.75,
+      "driven_hz": 11.875,
+      "ratio": 1.532258064516129
+     },
+     "control": {
+      "base_hz": 7.75,
+      "driven_hz": 9.125,
+      "ratio": 1.1774193548387097
+     }
+    },
+    {
+     "seed": 1004,
+     "drive": {
+      "base_hz": 6.75,
+      "driven_hz": 10.75,
+      "ratio": 1.5925925925925926
+     },
+     "control": {
+      "base_hz": 6.75,
+      "driven_hz": 9.625,
+      "ratio": 1.4259259259259258
+     }
+    },
+    {
+     "seed": 1005,
+     "drive": {
+      "base_hz": 8.75,
+      "driven_hz": 11.625,
+      "ratio": 1.3285714285714285
+     },
+     "control": {
+      "base_hz": 8.75,
+      "driven_hz": 7.249999999999999,
+      "ratio": 0.8285714285714285
+     }
+    },
+    {
+     "seed": 1006,
+     "drive": {
+      "base_hz": 7.124999999999999,
+      "driven_hz": 12.25,
+      "ratio": 1.7192982456140353
+     },
+     "control": {
+      "base_hz": 7.124999999999999,
+      "driven_hz": 10.0,
+      "ratio": 1.4035087719298247
+     }
+    },
+    {
+     "seed": 1007,
+     "drive": {
+      "base_hz": 8.0,
+      "driven_hz": 11.5,
+      "ratio": 1.4375
+     },
+     "control": {
+      "base_hz": 8.0,
+      "driven_hz": 9.875,
+      "ratio": 1.234375
+     }
+    },
+    {
+     "seed": 1008,
+     "drive": {
+      "base_hz": 6.75,
+      "driven_hz": 13.125,
+      "ratio": 1.9444444444444444
+     },
+     "control": {
+      "base_hz": 6.75,
+      "driven_hz": 9.75,
+      "ratio": 1.4444444444444444
+     }
+    },
+    {
+     "seed": 1009,
+     "drive": {
+      "base_hz": 6.375,
+      "driven_hz": 10.5,
+      "ratio": 1.6470588235294117
+     },
+     "control": {
+      "base_hz": 6.375,
+      "driven_hz": 7.875,
+      "ratio": 1.2352941176470589
+     }
+    }
+   ]
+  },
+  {
+   "id": "co2_orn_to_pn",
+   "name": "CO2-sensing ORNs excite the V glomerulus projection neurons",
+   "play": "",
+   "claim": "Activating the CO2-sensing antennal ORNs (ORN_V) excites the V glomerulus projection neurons (V_ilPN, V_l2PN).",
+   "citation": "Suh et al. 2004, Nature 431:854; Lin et al. 2013, Cell Rep 3:2039",
+   "drive": "co2_orn",
+   "drive_label": "ORN_V (55)",
+   "readout": "co2_pn",
+   "readout_label": "V glomerulus PNs (V_ilPN, V_l2PN, 4)",
+   "control": "sensory",
+   "control_label": "55 random other sensory neurons",
+   "popup_event": null,
+   "note": "A one-synapse activation test (ORN -> PN), not CO2 avoidance: the sim has no CO2 stimulus and no avoidance behavior.",
+   "measured": {
+    "drive_ratio_mean": 2.2132239685981507,
+    "drive_ratio_sd": 0.07828708262648129,
+    "control_ratio_mean": 0.9379602043195959,
+    "control_ratio_sd": 0.030180102562732018,
+    "readout_base_hz": 22.75,
+    "readout_driven_hz": 50.325,
+    "p_value": 0.0009765625,
+    "n": 10
+   },
+   "criteria": "drive ratio >= 1.5 and > control (one-sided Wilcoxon p < 0.01)",
+   "passed": true,
+   "per_seed": [
+    {
+     "seed": 1000,
+     "drive": {
+      "base_hz": 22.875,
+      "driven_hz": 49.375,
+      "ratio": 2.158469945355191
+     },
+     "control": {
+      "base_hz": 22.875,
+      "driven_hz": 21.0,
+      "ratio": 0.9180327868852459
+     }
+    },
+    {
+     "seed": 1001,
+     "drive": {
+      "base_hz": 23.625,
+      "driven_hz": 50.5,
+      "ratio": 2.1375661375661377
+     },
+     "control": {
+      "base_hz": 23.625,
+      "driven_hz": 22.375,
+      "ratio": 0.9470899470899471
+     }
+    },
+    {
+     "seed": 1002,
+     "drive": {
+      "base_hz": 22.875,
+      "driven_hz": 52.24999999999999,
+      "ratio": 2.2841530054644807
+     },
+     "control": {
+      "base_hz": 22.875,
+      "driven_hz": 21.875,
+      "ratio": 0.9562841530054644
+     }
+    },
+    {
+     "seed": 1003,
+     "drive": {
+      "base_hz": 22.875,
+      "driven_hz": 52.0,
+      "ratio": 2.273224043715847
+     },
+     "control": {
+      "base_hz": 22.875,
+      "driven_hz": 21.375,
+      "ratio": 0.9344262295081968
+     }
+    },
+    {
+     "seed": 1004,
+     "drive": {
+      "base_hz": 22.375,
+      "driven_hz": 48.375,
+      "ratio": 2.1620111731843576
+     },
+     "control": {
+      "base_hz": 22.375,
+      "driven_hz": 21.0,
+      "ratio": 0.9385474860335196
+     }
+    },
+    {
+     "seed": 1005,
+     "drive": {
+      "base_hz": 22.0,
+      "driven_hz": 50.24999999999999,
+      "ratio": 2.2840909090909087
+     },
+     "control": {
+      "base_hz": 22.0,
+      "driven_hz": 19.375,
+      "ratio": 0.8806818181818182
+     }
+    },
+    {
+     "seed": 1006,
+     "drive": {
+      "base_hz": 23.0,
+      "driven_hz": 49.625,
+      "ratio": 2.157608695652174
+     },
+     "control": {
+      "base_hz": 23.0,
+      "driven_hz": 22.75,
+      "ratio": 0.9891304347826086
+     }
+    },
+    {
+     "seed": 1007,
+     "drive": {
+      "base_hz": 22.5,
+      "driven_hz": 47.875,
+      "ratio": 2.1277777777777778
+     },
+     "control": {
+      "base_hz": 22.5,
+      "driven_hz": 21.375,
+      "ratio": 0.95
+     }
+    },
+    {
+     "seed": 1008,
+     "drive": {
+      "base_hz": 23.75,
+      "driven_hz": 52.125,
+      "ratio": 2.194736842105263
+     },
+     "control": {
+      "base_hz": 23.75,
+      "driven_hz": 22.75,
+      "ratio": 0.9578947368421052
+     }
+    },
+    {
+     "seed": 1009,
+     "drive": {
+      "base_hz": 21.625,
+      "driven_hz": 50.875,
+      "ratio": 2.352601156069364
+     },
+     "control": {
+      "base_hz": 21.625,
+      "driven_hz": 19.625,
+      "ratio": 0.9075144508670521
+     }
+    }
+   ]
+  },
+  {
+   "id": "hot_trn_to_vp2pn",
+   "name": "Hot-sensing antennal neurons excite the VP2 projection neurons",
+   "play": "",
+   "claim": "Activating the hot-sensing antennal thermosensory neurons (TRN_VP2) excites the VP2 projection neurons.",
+   "citation": "Gallio et al. 2011, Cell 144:614; Frank et al. 2015, Nature 519:358",
+   "drive": "trn_vp2",
+   "drive_label": "TRN_VP2 hot cells (7)",
+   "readout": "vp2_pn",
+   "readout_label": "VP2 projection neurons (15)",
+   "control": "sensory",
+   "control_label": "7 random other sensory neurons",
+   "popup_event": null,
+   "note": "A one-synapse activation test (TRN -> PN), not heat avoidance or thermotaxis. In the thermo arena the fly doesn't move toward comfort through its own circuitry.",
+   "measured": {
+    "drive_ratio_mean": 1.9997641850496255,
+    "drive_ratio_sd": 0.10346575540336461,
+    "control_ratio_mean": 0.9352941503687082,
+    "control_ratio_sd": 0.03755578724503812,
+    "readout_base_hz": 23.383333333333333,
+    "readout_driven_hz": 46.71,
+    "p_value": 0.0009765625,
+    "n": 10
+   },
+   "criteria": "drive ratio >= 1.5 and > control (one-sided Wilcoxon p < 0.01)",
+   "passed": true,
+   "per_seed": [
+    {
+     "seed": 1000,
+     "drive": {
+      "base_hz": 22.333333333333332,
+      "driven_hz": 48.86666666666667,
+      "ratio": 2.1880597014925374
+     },
+     "control": {
+      "base_hz": 22.333333333333332,
+      "driven_hz": 21.4,
+      "ratio": 0.9582089552238806
+     }
+    },
+    {
+     "seed": 1001,
+     "drive": {
+      "base_hz": 22.633333333333333,
+      "driven_hz": 45.166666666666664,
+      "ratio": 1.995581737849779
+     },
+     "control": {
+      "base_hz": 22.633333333333333,
+      "driven_hz": 21.666666666666668,
+      "ratio": 0.9572901325478645
+     }
+    },
+    {
+     "seed": 1002,
+     "drive": {
+      "base_hz": 25.133333333333336,
+      "driven_hz": 48.53333333333333,
+      "ratio": 1.9310344827586203
+     },
+     "control": {
+      "base_hz": 25.133333333333336,
+      "driven_hz": 22.466666666666665,
+      "ratio": 0.8938992042440317
+     }
+    },
+    {
+     "seed": 1003,
+     "drive": {
+      "base_hz": 23.9,
+      "driven_hz": 48.03333333333333,
+      "ratio": 2.0097629009762903
+     },
+     "control": {
+      "base_hz": 23.9,
+      "driven_hz": 21.899999999999995,
+      "ratio": 0.9163179916317991
+     }
+    },
+    {
+     "seed": 1004,
+     "drive": {
+      "base_hz": 23.533333333333335,
+      "driven_hz": 45.13333333333333,
+      "ratio": 1.9178470254957505
+     },
+     "control": {
+      "base_hz": 23.533333333333335,
+      "driven_hz": 22.733333333333334,
+      "ratio": 0.9660056657223796
+     }
+    },
+    {
+     "seed": 1005,
+     "drive": {
+      "base_hz": 22.333333333333332,
+      "driven_hz": 46.96666666666667,
+      "ratio": 2.102985074626866
+     },
+     "control": {
+      "base_hz": 22.333333333333332,
+      "driven_hz": 19.966666666666665,
+      "ratio": 0.8940298507462686
+     }
+    },
+    {
+     "seed": 1006,
+     "drive": {
+      "base_hz": 23.233333333333334,
+      "driven_hz": 48.86666666666667,
+      "ratio": 2.103299856527977
+     },
+     "control": {
+      "base_hz": 23.233333333333334,
+      "driven_hz": 21.933333333333334,
+      "ratio": 0.9440459110473457
+     }
+    },
+    {
+     "seed": 1007,
+     "drive": {
+      "base_hz": 24.233333333333334,
+      "driven_hz": 47.13333333333333,
+      "ratio": 1.9449793672627234
+     },
+     "control": {
+      "base_hz": 24.233333333333334,
+      "driven_hz": 22.4,
+      "ratio": 0.9243466299862447
+     }
+    },
+    {
+     "seed": 1008,
+     "drive": {
+      "base_hz": 23.666666666666668,
+      "driven_hz": 43.733333333333334,
+      "ratio": 1.847887323943662
+     },
+     "control": {
+      "base_hz": 23.666666666666668,
+      "driven_hz": 21.133333333333333,
+      "ratio": 0.8929577464788732
+     }
+    },
+    {
+     "seed": 1009,
+     "drive": {
+      "base_hz": 22.833333333333332,
+      "driven_hz": 44.666666666666664,
+      "ratio": 1.9562043795620438
+     },
+     "control": {
+      "base_hz": 22.833333333333332,
+      "driven_hz": 22.966666666666665,
+      "ratio": 1.005839416058394
+     }
+    }
+   ]
+  },
+  {
+   "id": "cold_trn_to_vp3pn",
+   "name": "Cold-sensing antennal neurons excite the VP3 projection neurons",
+   "play": "",
+   "claim": "Activating the cold-sensing antennal thermosensory neurons (TRN_VP3a/b) excites the VP3 projection neurons.",
+   "citation": "Gallio et al. 2011, Cell 144:614; Frank et al. 2015, Nature 519:358",
+   "drive": "trn_vp3",
+   "drive_label": "TRN_VP3a/b cold cells (7)",
+   "readout": "vp3_pn",
+   "readout_label": "VP3 projection neurons (14)",
+   "control": "sensory",
+   "control_label": "7 random other sensory neurons",
+   "popup_event": null,
+   "note": "A one-synapse activation test (TRN -> PN), not cold avoidance or thermotaxis.",
+   "measured": {
+    "drive_ratio_mean": 1.8635216437031936,
+    "drive_ratio_sd": 0.07654687108269442,
+    "control_ratio_mean": 0.9627486569056787,
+    "control_ratio_sd": 0.05161164966809673,
+    "readout_base_hz": 30.889285714285716,
+    "readout_driven_hz": 57.47857142857142,
+    "p_value": 0.0009765625,
+    "n": 10
+   },
+   "criteria": "drive ratio >= 1.5 and > control (one-sided Wilcoxon p < 0.01)",
+   "passed": true,
+   "per_seed": [
+    {
+     "seed": 1000,
+     "drive": {
+      "base_hz": 31.392857142857142,
+      "driven_hz": 58.357142857142854,
+      "ratio": 1.8589306029579067
+     },
+     "control": {
+      "base_hz": 31.392857142857142,
+      "driven_hz": 30.857142857142854,
+      "ratio": 0.9829351535836177
+     }
+    },
+    {
+     "seed": 1001,
+     "drive": {
+      "base_hz": 31.28571428571428,
+      "driven_hz": 58.32142857142857,
+      "ratio": 1.8641552511415527
+     },
+     "control": {
+      "base_hz": 31.28571428571428,
+      "driven_hz": 28.535714285714285,
+      "ratio": 0.9121004566210047
+     }
+    },
+    {
+     "seed": 1002,
+     "drive": {
+      "base_hz": 33.892857142857146,
+      "driven_hz": 56.49999999999999,
+      "ratio": 1.6670179135932557
+     },
+     "control": {
+      "base_hz": 33.892857142857146,
+      "driven_hz": 29.464285714285715,
+      "ratio": 0.869336143308746
+     }
+    },
+    {
+     "seed": 1003,
+     "drive": {
+      "base_hz": 29.499999999999996,
+      "driven_hz": 56.85714285714285,
+      "ratio": 1.9273607748184018
+     },
+     "control": {
+      "base_hz": 29.499999999999996,
+      "driven_hz": 28.785714285714285,
+      "ratio": 0.9757869249394674
+     }
+    },
+    {
+     "seed": 1004,
+     "drive": {
+      "base_hz": 30.714285714285715,
+      "driven_hz": 58.285714285714285,
+      "ratio": 1.897674418604651
+     },
+     "control": {
+      "base_hz": 30.714285714285715,
+      "driven_hz": 30.0,
+      "ratio": 0.9767441860465116
+     }
+    },
+    {
+     "seed": 1005,
+     "drive": {
+      "base_hz": 30.10714285714286,
+      "driven_hz": 57.92857142857143,
+      "ratio": 1.9240806642941872
+     },
+     "control": {
+      "base_hz": 30.10714285714286,
+      "driven_hz": 31.214285714285715,
+      "ratio": 1.036773428232503
+     }
+    },
+    {
+     "seed": 1006,
+     "drive": {
+      "base_hz": 30.57142857142857,
+      "driven_hz": 56.99999999999999,
+      "ratio": 1.8644859813084111
+     },
+     "control": {
+      "base_hz": 30.57142857142857,
+      "driven_hz": 28.249999999999996,
+      "ratio": 0.9240654205607476
+     }
+    },
+    {
+     "seed": 1007,
+     "drive": {
+      "base_hz": 31.535714285714285,
+      "driven_hz": 58.107142857142854,
+      "ratio": 1.842582106455266
+     },
+     "control": {
+      "base_hz": 31.535714285714285,
+      "driven_hz": 30.214285714285715,
+      "ratio": 0.9580973952434881
+     }
+    },
+    {
+     "seed": 1008,
+     "drive": {
+      "base_hz": 30.428571428571427,
+      "driven_hz": 56.49999999999999,
+      "ratio": 1.856807511737089
+     },
+     "control": {
+      "base_hz": 30.428571428571427,
+      "driven_hz": 29.178571428571427,
+      "ratio": 0.9589201877934272
+     }
+    },
+    {
+     "seed": 1009,
+     "drive": {
+      "base_hz": 29.464285714285715,
+      "driven_hz": 56.92857142857143,
+      "ratio": 1.9321212121212121
+     },
+     "control": {
+      "base_hz": 29.464285714285715,
+      "driven_hz": 30.428571428571427,
+      "ratio": 1.0327272727272727
+     }
+    }
+   ]
+  },
+  {
+   "id": "grooming_hierarchy",
+   "name": "Grooming hierarchy: head stimulation wins over, and suppresses, abdomen grooming",
+   "play": "",
+   "claim": "With head and abdomen stimulated together, flies groom anterior first: the head (front-leg) program runs and the posterior (hind-leg) program is suppressed.",
+   "citation": "Seeds et al. 2014, eLife 3:e02951",
+   "drive": "groom_anterior",
+   "drive_label": "head bristle neurons (BM_*, not taste) + abdominal mechanosensory neurons",
+   "readout": "mn_front",
+   "readout_label": "front-leg (T1, 135) vs hind-leg (T3, 130) motor neurons",
+   "control": "groom_posterior",
+   "control_label": "abdominal mechanosensory neurons alone",
+   "popup_event": null,
+   "kind": "hierarchy",
+   "note": "Redesigned in 2.9 to match Seeds et al. (simultaneous stimulation), criteria fixed before the run. Front-leg motor neurons stand in for head grooming and hind-leg ones for abdomen grooming. Neither half of the hierarchy shows: head bristles barely move the front-leg motor neurons, and adding them doesn't suppress the abdomen's drive to the hind legs.",
+   "measured": {
+    "posterior_hind_mean": 1.4640374878527551,
+    "posterior_hind_sd": 0.025339804070593212,
+    "anterior_front_mean": 1.0705289085921006,
+    "both_front_mean": 1.0914997671354039,
+    "both_front_sd": 0.05584560762489607,
+    "both_hind_mean": 1.4439110146154621,
+    "both_hind_sd": 0.021364603876075465,
+    "p_priority": 1.0,
+    "p_suppression": 0.0654296875,
+    "n": 10
+   },
+   "criteria": "abdomen alone raises hind-leg MNs >= 1.5x; with both, front-leg MNs > hind-leg MNs and hind-leg MNs < abdomen alone (each one-sided Wilcoxon p < 0.01)",
+   "passed": false,
+   "per_seed": [
+    {
+     "seed": 1000,
+     "anterior": {
+      "front": {
+       "base_hz": 3.3962962962962964,
+       "driven_hz": 3.6481481481481484,
+       "ratio": 1.074154852780807
+      },
+      "hind": {
+       "base_hz": 5.719230769230769,
+       "driven_hz": 5.4653846153846155,
+       "ratio": 0.9556153328850033
+      }
+     },
+     "posterior": {
+      "front": {
+       "base_hz": 3.3962962962962964,
+       "driven_hz": 3.7333333333333334,
+       "ratio": 1.099236641221374
+      },
+      "hind": {
+       "base_hz": 5.719230769230769,
+       "driven_hz": 8.153846153846153,
+       "ratio": 1.4256893073301948
+      }
+     },
+     "both": {
+      "front": {
+       "base_hz": 3.3962962962962964,
+       "driven_hz": 3.5888888888888886,
+       "ratio": 1.0567066521264994
+      },
+      "hind": {
+       "base_hz": 5.719230769230769,
+       "driven_hz": 8.342307692307692,
+       "ratio": 1.4586415601882985
+      }
+     }
+    },
+    {
+     "seed": 1001,
+     "anterior": {
+      "front": {
+       "base_hz": 3.2925925925925927,
+       "driven_hz": 3.5592592592592593,
+       "ratio": 1.0809898762654668
+      },
+      "hind": {
+       "base_hz": 5.846153846153846,
+       "driven_hz": 5.288461538461538,
+       "ratio": 0.9046052631578948
+      }
+     },
+     "posterior": {
+      "front": {
+       "base_hz": 3.2925925925925927,
+       "driven_hz": 3.7333333333333334,
+       "ratio": 1.1338582677165354
+      },
+      "hind": {
+       "base_hz": 5.846153846153846,
+       "driven_hz": 8.680769230769231,
+       "ratio": 1.4848684210526317
+      }
+     },
+     "both": {
+      "front": {
+       "base_hz": 3.2925925925925927,
+       "driven_hz": 3.685185185185185,
+       "ratio": 1.1192350956130483
+      },
+      "hind": {
+       "base_hz": 5.846153846153846,
+       "driven_hz": 8.296153846153846,
+       "ratio": 1.419078947368421
+      }
+     }
+    },
+    {
+     "seed": 1002,
+     "anterior": {
+      "front": {
+       "base_hz": 3.5111111111111115,
+       "driven_hz": 3.6000000000000005,
+       "ratio": 1.0253164556962027
+      },
+      "hind": {
+       "base_hz": 5.565384615384615,
+       "driven_hz": 5.292307692307692,
+       "ratio": 0.9509329647546648
+      }
+     },
+     "posterior": {
+      "front": {
+       "base_hz": 3.5111111111111115,
+       "driven_hz": 3.5555555555555554,
+       "ratio": 1.0126582278481011
+      },
+      "hind": {
+       "base_hz": 5.565384615384615,
+       "driven_hz": 8.238461538461538,
+       "ratio": 1.4803040774015204
+      }
+     },
+     "both": {
+      "front": {
+       "base_hz": 3.5111111111111115,
+       "driven_hz": 3.492592592592592,
+       "ratio": 0.9947257383966241
+      },
+      "hind": {
+       "base_hz": 5.565384615384615,
+       "driven_hz": 7.9653846153846155,
+       "ratio": 1.4312370421561853
+      }
+     }
+    },
+    {
+     "seed": 1003,
+     "anterior": {
+      "front": {
+       "base_hz": 3.5703703703703704,
+       "driven_hz": 3.433333333333333,
+       "ratio": 0.9616182572614107
+      },
+      "hind": {
+       "base_hz": 5.7,
+       "driven_hz": 5.211538461538462,
+       "ratio": 0.9143049932523617
+      }
+     },
+     "posterior": {
+      "front": {
+       "base_hz": 3.5703703703703704,
+       "driven_hz": 3.7185185185185183,
+       "ratio": 1.0414937759336098
+      },
+      "hind": {
+       "base_hz": 5.7,
+       "driven_hz": 8.407692307692308,
+       "ratio": 1.475033738191633
+      }
+     },
+     "both": {
+      "front": {
+       "base_hz": 3.5703703703703704,
+       "driven_hz": 3.674074074074074,
+       "ratio": 1.0290456431535269
+      },
+      "hind": {
+       "base_hz": 5.7,
+       "driven_hz": 8.080769230769231,
+       "ratio": 1.4176788124156545
+      }
+     }
+    },
+    {
+     "seed": 1004,
+     "anterior": {
+      "front": {
+       "base_hz": 3.4111111111111114,
+       "driven_hz": 3.4777777777777774,
+       "ratio": 1.0195439739413679
+      },
+      "hind": {
+       "base_hz": 5.7384615384615385,
+       "driven_hz": 5.038461538461538,
+       "ratio": 0.8780160857908846
+      }
+     },
+     "posterior": {
+      "front": {
+       "base_hz": 3.4111111111111114,
+       "driven_hz": 3.5777777777777775,
+       "ratio": 1.04885993485342
+      },
+      "hind": {
+       "base_hz": 5.7384615384615385,
+       "driven_hz": 8.288461538461538,
+       "ratio": 1.4443699731903485
+      }
+     },
+     "both": {
+      "front": {
+       "base_hz": 3.4111111111111114,
+       "driven_hz": 3.751851851851852,
+       "ratio": 1.0998914223669924
+      },
+      "hind": {
+       "base_hz": 5.7384615384615385,
+       "driven_hz": 8.242307692307692,
+       "ratio": 1.4363270777479893
+      }
+     }
+    },
+    {
+     "seed": 1005,
+     "anterior": {
+      "front": {
+       "base_hz": 3.3074074074074074,
+       "driven_hz": 3.551851851851852,
+       "ratio": 1.0739081746920494
+      },
+      "hind": {
+       "base_hz": 5.626923076923077,
+       "driven_hz": 5.315384615384615,
+       "ratio": 0.9446343130553656
+      }
+     },
+     "posterior": {
+      "front": {
+       "base_hz": 3.3074074074074074,
+       "driven_hz": 3.6444444444444444,
+       "ratio": 1.1019036954087347
+      },
+      "hind": {
+       "base_hz": 5.626923076923077,
+       "driven_hz": 8.26923076923077,
+       "ratio": 1.4695830485304169
+      }
+     },
+     "both": {
+      "front": {
+       "base_hz": 3.3074074074074074,
+       "driven_hz": 3.5666666666666664,
+       "ratio": 1.078387458006719
+      },
+      "hind": {
+       "base_hz": 5.626923076923077,
+       "driven_hz": 8.238461538461538,
+       "ratio": 1.4641148325358848
+      }
+     }
+    },
+    {
+     "seed": 1006,
+     "anterior": {
+      "front": {
+       "base_hz": 3.185185185185185,
+       "driven_hz": 3.7703703703703706,
+       "ratio": 1.1837209302325582
+      },
+      "hind": {
+       "base_hz": 5.6461538461538465,
+       "driven_hz": 5.3307692307692305,
+       "ratio": 0.9441416893732969
+      }
+     },
+     "posterior": {
+      "front": {
+       "base_hz": 3.185185185185185,
+       "driven_hz": 3.933333333333333,
+       "ratio": 1.2348837209302326
+      },
+      "hind": {
+       "base_hz": 5.6461538461538465,
+       "driven_hz": 8.361538461538462,
+       "ratio": 1.4809264305177112
+      }
+     },
+     "both": {
+      "front": {
+       "base_hz": 3.185185185185185,
+       "driven_hz": 3.8074074074074074,
+       "ratio": 1.1953488372093024
+      },
+      "hind": {
+       "base_hz": 5.6461538461538465,
+       "driven_hz": 8.4,
+       "ratio": 1.4877384196185286
+      }
+     }
+    },
+    {
+     "seed": 1007,
+     "anterior": {
+      "front": {
+       "base_hz": 3.3111111111111113,
+       "driven_hz": 3.6148148148148143,
+       "ratio": 1.0917225950782996
+      },
+      "hind": {
+       "base_hz": 5.642307692307693,
+       "driven_hz": 5.242307692307692,
+       "ratio": 0.929107021131561
+      }
+     },
+     "posterior": {
+      "front": {
+       "base_hz": 3.3111111111111113,
+       "driven_hz": 3.7074074074074073,
+       "ratio": 1.1196868008948544
+      },
+      "hind": {
+       "base_hz": 5.642307692307693,
+       "driven_hz": 8.453846153846154,
+       "ratio": 1.498295841854124
+      }
+     },
+     "both": {
+      "front": {
+       "base_hz": 3.3111111111111113,
+       "driven_hz": 3.6481481481481484,
+       "ratio": 1.1017897091722595
+      },
+      "hind": {
+       "base_hz": 5.642307692307693,
+       "driven_hz": 8.153846153846153,
+       "ratio": 1.4451261077027946
+      }
+     }
+    },
+    {
+     "seed": 1008,
+     "anterior": {
+      "front": {
+       "base_hz": 3.414814814814815,
+       "driven_hz": 3.6481481481481484,
+       "ratio": 1.0683297180043385
+      },
+      "hind": {
+       "base_hz": 5.6923076923076925,
+       "driven_hz": 5.173076923076923,
+       "ratio": 0.9087837837837838
+      }
+     },
+     "posterior": {
+      "front": {
+       "base_hz": 3.414814814814815,
+       "driven_hz": 3.4777777777777774,
+       "ratio": 1.0184381778741864
+      },
+      "hind": {
+       "base_hz": 5.6923076923076925,
+       "driven_hz": 8.292307692307693,
+       "ratio": 1.4567567567567568
+      }
+     },
+     "both": {
+      "front": {
+       "base_hz": 3.414814814814815,
+       "driven_hz": 3.8037037037037034,
+       "ratio": 1.1138828633405637
+      },
+      "hind": {
+       "base_hz": 5.6923076923076925,
+       "driven_hz": 8.196153846153846,
+       "ratio": 1.4398648648648649
+      }
+     }
+    },
+    {
+     "seed": 1009,
+     "anterior": {
+      "front": {
+       "base_hz": 3.2925925925925927,
+       "driven_hz": 3.7074074074074073,
+       "ratio": 1.125984251968504
+      },
+      "hind": {
+       "base_hz": 5.734615384615385,
+       "driven_hz": 4.9884615384615385,
+       "ratio": 0.8698859825620389
+      }
+     },
+     "posterior": {
+      "front": {
+       "base_hz": 3.2925925925925927,
+       "driven_hz": 3.7333333333333334,
+       "ratio": 1.1338582677165354
+      },
+      "hind": {
+       "base_hz": 5.734615384615385,
+       "driven_hz": 8.169230769230769,
+       "ratio": 1.424547283702213
+      }
+     },
+     "both": {
+      "front": {
+       "base_hz": 3.2925925925925927,
+       "driven_hz": 3.7074074074074073,
+       "ratio": 1.125984251968504
+      },
+      "hind": {
+       "base_hz": 5.734615384615385,
+       "driven_hz": 8.253846153846155,
+       "ratio": 1.4393024815560027
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "optomotor_turning",
+   "name": "Optomotor: rightward wide-field motion excites the right steering neurons",
+   "play": "",
+   "claim": "Wide-field rotation to the right (front-to-back on the right eye, T4a/T5a_R; back-to-front on the left, T4b/T5b_L) excites the right steering descending neurons DNa01_R/DNa02_R.",
+   "citation": "Maisak et al. 2013, Nature 500:212; Rayshubskiy et al. 2020, bioRxiv 2020.04.04.024703",
+   "drive": "optomotor_right",
+   "drive_label": "T4a/T5a_R + T4b/T5b_L through the EMD stage, yaw +3 rad/s",
+   "readout": "dna_steer_r",
+   "readout_label": "DNa01_R + DNa02_R (2)",
+   "control": "ol_intrinsic_not_t45",
+   "control_label": "as many random optic-lobe intrinsic neurons (no T4/T5)",
+   "popup_event": null,
+   "stage": "emd",
+   "extra_readouts": [
+    "dna_steer_l"
+   ],
+   "note": "The EMD stage (motion -> T4/T5 current) is a game rule; everything after T4/T5 is the connectome. DNa01_L/DNa02_L are reported too (the pass criterion is the right side only): they barely move, so the response is lateralized. Gemini's first version failed because it drove the mirror-image set (T4a/T5a_L + T4b/T5b_R, a leftward rotation) and compared it with visual projection neurons, which reach the DNs directly.",
+   "measured": {
+    "drive_ratio_mean": 2.7162363294600134,
+    "drive_ratio_sd": 0.8756728459036269,
+    "control_ratio_mean": 0.8034844296570303,
+    "control_ratio_sd": 0.31965863073774364,
+    "readout_base_hz": 3.625,
+    "readout_driven_hz": 9.15,
+    "p_value": 0.0009765625,
+    "n": 10,
+    "dna_steer_l_drive_ratio_mean": 1.0871531268009595,
+    "dna_steer_l_control_ratio_mean": 0.8061453768110114
+   },
+   "criteria": "drive ratio >= 1.5 and > control (one-sided Wilcoxon p < 0.01)",
+   "passed": true,
+   "per_seed": [
+    {
+     "seed": 1000,
+     "drive": {
+      "base_hz": 4.0,
+      "driven_hz": 9.5,
+      "ratio": 2.375,
+      "dna_steer_l": {
+       "base_hz": 5.5,
+       "driven_hz": 5.25,
+       "ratio": 0.9545454545454546
+      }
+     },
+     "control": {
+      "base_hz": 4.0,
+      "driven_hz": 2.5,
+      "ratio": 0.625,
+      "dna_steer_l": {
+       "base_hz": 5.5,
+       "driven_hz": 4.75,
+       "ratio": 0.8636363636363636
+      }
+     }
+    },
+    {
+     "seed": 1001,
+     "drive": {
+      "base_hz": 4.0,
+      "driven_hz": 9.75,
+      "ratio": 2.4375,
+      "dna_steer_l": {
+       "base_hz": 4.0,
+       "driven_hz": 4.75,
+       "ratio": 1.1875
+      }
+     },
+     "control": {
+      "base_hz": 4.0,
+      "driven_hz": 2.25,
+      "ratio": 0.5625,
+      "dna_steer_l": {
+       "base_hz": 4.0,
+       "driven_hz": 2.0,
+       "ratio": 0.5
+      }
+     }
+    },
+    {
+     "seed": 1002,
+     "drive": {
+      "base_hz": 4.25,
+      "driven_hz": 8.5,
+      "ratio": 2.0,
+      "dna_steer_l": {
+       "base_hz": 4.0,
+       "driven_hz": 5.75,
+       "ratio": 1.4375
+      }
+     },
+     "control": {
+      "base_hz": 4.25,
+      "driven_hz": 3.25,
+      "ratio": 0.7647058823529411,
+      "dna_steer_l": {
+       "base_hz": 4.0,
+       "driven_hz": 4.25,
+       "ratio": 1.0625
+      }
+     }
+    },
+    {
+     "seed": 1003,
+     "drive": {
+      "base_hz": 2.0,
+      "driven_hz": 9.5,
+      "ratio": 4.75,
+      "dna_steer_l": {
+       "base_hz": 5.25,
+       "driven_hz": 4.25,
+       "ratio": 0.8095238095238095
+      }
+     },
+     "control": {
+      "base_hz": 2.0,
+      "driven_hz": 3.0,
+      "ratio": 1.5,
+      "dna_steer_l": {
+       "base_hz": 5.25,
+       "driven_hz": 2.75,
+       "ratio": 0.5238095238095238
+      }
+     }
+    },
+    {
+     "seed": 1004,
+     "drive": {
+      "base_hz": 2.75,
+      "driven_hz": 8.75,
+      "ratio": 3.1818181818181817,
+      "dna_steer_l": {
+       "base_hz": 4.25,
+       "driven_hz": 4.75,
+       "ratio": 1.1176470588235294
+      }
+     },
+     "control": {
+      "base_hz": 2.75,
+      "driven_hz": 3.0,
+      "ratio": 1.0909090909090908,
+      "dna_steer_l": {
+       "base_hz": 4.25,
+       "driven_hz": 4.25,
+       "ratio": 1.0
+      }
+     }
+    },
+    {
+     "seed": 1005,
+     "drive": {
+      "base_hz": 3.5000000000000004,
+      "driven_hz": 10.25,
+      "ratio": 2.9285714285714284,
+      "dna_steer_l": {
+       "base_hz": 4.25,
+       "driven_hz": 6.0,
+       "ratio": 1.411764705882353
+      }
+     },
+     "control": {
+      "base_hz": 3.5000000000000004,
+      "driven_hz": 1.5,
+      "ratio": 0.4285714285714285,
+      "dna_steer_l": {
+       "base_hz": 4.25,
+       "driven_hz": 3.5000000000000004,
+       "ratio": 0.823529411764706
+      }
+     }
+    },
+    {
+     "seed": 1006,
+     "drive": {
+      "base_hz": 2.5,
+      "driven_hz": 8.25,
+      "ratio": 3.3,
+      "dna_steer_l": {
+       "base_hz": 5.5,
+       "driven_hz": 5.75,
+       "ratio": 1.0454545454545454
+      }
+     },
+     "control": {
+      "base_hz": 2.5,
+      "driven_hz": 2.5,
+      "ratio": 1.0,
+      "dna_steer_l": {
+       "base_hz": 5.5,
+       "driven_hz": 4.0,
+       "ratio": 0.7272727272727273
+      }
+     }
+    },
+    {
+     "seed": 1007,
+     "drive": {
+      "base_hz": 3.75,
+      "driven_hz": 9.0,
+      "ratio": 2.4,
+      "dna_steer_l": {
+       "base_hz": 4.0,
+       "driven_hz": 4.75,
+       "ratio": 1.1875
+      }
+     },
+     "control": {
+      "base_hz": 3.75,
+      "driven_hz": 3.0,
+      "ratio": 0.8,
+      "dna_steer_l": {
+       "base_hz": 4.0,
+       "driven_hz": 4.75,
+       "ratio": 1.1875
+      }
+     }
+    },
+    {
+     "seed": 1008,
+     "drive": {
+      "base_hz": 4.75,
+      "driven_hz": 8.75,
+      "ratio": 1.8421052631578947,
+      "dna_steer_l": {
+       "base_hz": 5.5,
+       "driven_hz": 4.25,
+       "ratio": 0.7727272727272727
+      }
+     },
+     "control": {
+      "base_hz": 4.75,
+      "driven_hz": 2.5,
+      "ratio": 0.5263157894736842,
+      "dna_steer_l": {
+       "base_hz": 5.5,
+       "driven_hz": 3.5000000000000004,
+       "ratio": 0.6363636363636365
+      }
+     }
+    },
+    {
+     "seed": 1009,
+     "drive": {
+      "base_hz": 4.75,
+      "driven_hz": 9.25,
+      "ratio": 1.9473684210526316,
+      "dna_steer_l": {
+       "base_hz": 4.75,
+       "driven_hz": 4.5,
+       "ratio": 0.9473684210526315
+      }
+     },
+     "control": {
+      "base_hz": 4.75,
+      "driven_hz": 3.5000000000000004,
+      "ratio": 0.736842105263158,
+      "dna_steer_l": {
+       "base_hz": 4.75,
+       "driven_hz": 3.5000000000000004,
+       "ratio": 0.736842105263158
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "p1_courtship_song",
+   "name": "P1 activation drives the ps1 wing motor neurons (courtship song)",
+   "play": "",
+   "claim": "Activating the male P1 cluster excites the ps1 wing motor neurons used in pulse song.",
+   "citation": "von Philipsborn et al. 2011, Neuron 69:509; Kimura et al. 2008, Neuron 59:759",
+   "drive": "p1",
+   "drive_label": "P1 (pMP-e/pMP4 pC1 types, 86)",
+   "readout": "ps1",
+   "readout_label": "ps1 wing motor neurons (2)",
+   "control": "cb_intrinsic",
+   "control_label": "86 random other central-brain intrinsic neurons",
+   "popup_event": null,
+   "note": "MaleCNS v1.0 has no \"P1\" label; P1 is the pC1 types carrying the synonym \"Cachero 2010: pMP-e; Yu 2010: pMP4\" (assays.P1_TYPES). Added in 2.9 alongside pIP10, with the same criteria. Consistent but too weak. P1 sends pIP10 1,503 synapses and ps1 none, so it is one step further from the motor neurons than pIP10.",
+   "measured": {
+    "drive_ratio_mean": 1.4275451336589107,
+    "drive_ratio_sd": 0.23591710897913853,
+    "control_ratio_mean": 0.9763620149200645,
+    "control_ratio_sd": 0.17203177171927395,
+    "readout_base_hz": 5.225,
+    "readout_driven_hz": 7.25,
+    "p_value": 0.0009765625,
+    "n": 10
+   },
+   "criteria": "drive ratio >= 1.5 and > control (one-sided Wilcoxon p < 0.01)",
+   "passed": false,
+   "per_seed": [
+    {
+     "seed": 1000,
+     "drive": {
+      "base_hz": 4.75,
+      "driven_hz": 6.0,
+      "ratio": 1.263157894736842
+     },
+     "control": {
+      "base_hz": 4.75,
+      "driven_hz": 5.0,
+      "ratio": 1.0526315789473684
+     }
+    },
+    {
+     "seed": 1001,
+     "drive": {
+      "base_hz": 4.25,
+      "driven_hz": 7.249999999999999,
+      "ratio": 1.7058823529411762
+     },
+     "control": {
+      "base_hz": 4.25,
+      "driven_hz": 5.0,
+      "ratio": 1.1764705882352942
+     }
+    },
+    {
+     "seed": 1002,
+     "drive": {
+      "base_hz": 5.25,
+      "driven_hz": 7.249999999999999,
+      "ratio": 1.3809523809523807
+     },
+     "control": {
+      "base_hz": 5.25,
+      "driven_hz": 6.25,
+      "ratio": 1.1904761904761905
+     }
+    },
+    {
+     "seed": 1003,
+     "drive": {
+      "base_hz": 4.0,
+      "driven_hz": 6.75,
+      "ratio": 1.6875
+     },
+     "control": {
+      "base_hz": 4.0,
+      "driven_hz": 4.25,
+      "ratio": 1.0625
+     }
+    },
+    {
+     "seed": 1004,
+     "drive": {
+      "base_hz": 6.25,
+      "driven_hz": 8.0,
+      "ratio": 1.28
+     },
+     "control": {
+      "base_hz": 6.25,
+      "driven_hz": 4.0,
+      "ratio": 0.64
+     }
+    },
+    {
+     "seed": 1005,
+     "drive": {
+      "base_hz": 3.75,
+      "driven_hz": 6.5,
+      "ratio": 1.7333333333333334
+     },
+     "control": {
+      "base_hz": 3.75,
+      "driven_hz": 4.0,
+      "ratio": 1.0666666666666667
+     }
+    },
+    {
+     "seed": 1006,
+     "drive": {
+      "base_hz": 5.5,
+      "driven_hz": 7.5,
+      "ratio": 1.3636363636363635
+     },
+     "control": {
+      "base_hz": 5.5,
+      "driven_hz": 5.25,
+      "ratio": 0.9545454545454546
+     }
+    },
+    {
+     "seed": 1007,
+     "drive": {
+      "base_hz": 6.5,
+      "driven_hz": 7.5,
+      "ratio": 1.1538461538461537
+     },
+     "control": {
+      "base_hz": 6.5,
+      "driven_hz": 5.75,
+      "ratio": 0.8846153846153846
+     }
+    },
+    {
+     "seed": 1008,
+     "drive": {
+      "base_hz": 5.0,
+      "driven_hz": 8.0,
+      "ratio": 1.6
+     },
+     "control": {
+      "base_hz": 5.0,
+      "driven_hz": 4.75,
+      "ratio": 0.95
+     }
+    },
+    {
+     "seed": 1009,
+     "drive": {
+      "base_hz": 7.000000000000001,
+      "driven_hz": 7.75,
+      "ratio": 1.107142857142857
+     },
+     "control": {
+      "base_hz": 7.000000000000001,
+      "driven_hz": 5.5,
+      "ratio": 0.7857142857142856
+     }
+    }
+   ]
+  },
+  {
+   "id": "or67d_to_da1pn",
+   "name": "cVA-sensing ORNs (DA1, Or67d) excite the DA1 projection neurons",
+   "play": "",
+   "claim": "Activating the DA1 olfactory receptor neurons, the Or67d cVA sensors, excites the DA1 projection neurons.",
+   "citation": "Kurtovic et al. 2007, Nature 446:542; Datta et al. 2008, Nature 452:473",
+   "drive": "or67d_orn",
+   "drive_label": "ORN_DA1 (204)",
+   "readout": "da1_pn",
+   "readout_label": "DA1 PNs (DA1_lPN, DA1_vPN, M_lvPNm43, M_lvPNm45, 26)",
+   "control": "orn_not_da1",
+   "control_label": "204 random other olfactory receptor neurons",
+   "popup_event": null,
+   "note": "One-synapse activation (ORN -> PN), not cVA behavior. MaleCNS v1.0 doesn't annotate ORN_DA1's receptor; that DA1 ORNs express Or67d is from Kurtovic et al. 2007.",
+   "measured": {
+    "drive_ratio_mean": 2.575550112320789,
+    "drive_ratio_sd": 0.0779314548489407,
+    "control_ratio_mean": 0.7988010828865345,
+    "control_ratio_sd": 0.05875207334816016,
+    "readout_base_hz": 25.369230769230764,
+    "readout_driven_hz": 65.2980769230769,
+    "p_value": 0.0009765625,
+    "n": 10
+   },
+   "criteria": "drive ratio >= 1.5 and > control (one-sided Wilcoxon p < 0.01)",
+   "passed": true,
+   "per_seed": [
+    {
+     "seed": 1000,
+     "drive": {
+      "base_hz": 26.17307692307692,
+      "driven_hz": 65.88461538461539,
+      "ratio": 2.5172667156502575
+     },
+     "control": {
+      "base_hz": 26.17307692307692,
+      "driven_hz": 20.826923076923077,
+      "ratio": 0.7957384276267452
+     }
+    },
+    {
+     "seed": 1001,
+     "drive": {
+      "base_hz": 25.19230769230769,
+      "driven_hz": 62.82692307692308,
+      "ratio": 2.4938931297709925
+     },
+     "control": {
+      "base_hz": 25.19230769230769,
+      "driven_hz": 23.423076923076923,
+      "ratio": 0.9297709923664124
+     }
+    },
+    {
+     "seed": 1002,
+     "drive": {
+      "base_hz": 26.48076923076923,
+      "driven_hz": 65.82692307692308,
+      "ratio": 2.485838779956427
+     },
+     "control": {
+      "base_hz": 26.48076923076923,
+      "driven_hz": 18.634615384615383,
+      "ratio": 0.7037037037037037
+     }
+    },
+    {
+     "seed": 1003,
+     "drive": {
+      "base_hz": 25.653846153846153,
+      "driven_hz": 65.84615384615384,
+      "ratio": 2.56671664167916
+     },
+     "control": {
+      "base_hz": 25.653846153846153,
+      "driven_hz": 20.01923076923077,
+      "ratio": 0.7803598200899551
+     }
+    },
+    {
+     "seed": 1004,
+     "drive": {
+      "base_hz": 24.980769230769226,
+      "driven_hz": 65.61538461538461,
+      "ratio": 2.6266358737490383
+     },
+     "control": {
+      "base_hz": 24.980769230769226,
+      "driven_hz": 18.903846153846153,
+      "ratio": 0.7567359507313319
+     }
+    },
+    {
+     "seed": 1005,
+     "drive": {
+      "base_hz": 24.01923076923077,
+      "driven_hz": 66.11538461538461,
+      "ratio": 2.7526020816653323
+     },
+     "control": {
+      "base_hz": 24.01923076923077,
+      "driven_hz": 18.942307692307693,
+      "ratio": 0.7886309047237791
+     }
+    },
+    {
+     "seed": 1006,
+     "drive": {
+      "base_hz": 25.23076923076923,
+      "driven_hz": 65.11538461538461,
+      "ratio": 2.580792682926829
+     },
+     "control": {
+      "base_hz": 25.23076923076923,
+      "driven_hz": 21.0,
+      "ratio": 0.8323170731707318
+     }
+    },
+    {
+     "seed": 1007,
+     "drive": {
+      "base_hz": 25.67307692307692,
+      "driven_hz": 65.63461538461539,
+      "ratio": 2.556554307116105
+     },
+     "control": {
+      "base_hz": 25.67307692307692,
+      "driven_hz": 21.173076923076923,
+      "ratio": 0.8247191011235956
+     }
+    },
+    {
+     "seed": 1008,
+     "drive": {
+      "base_hz": 24.96153846153846,
+      "driven_hz": 65.34615384615384,
+      "ratio": 2.6178736517719567
+     },
+     "control": {
+      "base_hz": 24.96153846153846,
+      "driven_hz": 19.23076923076923,
+      "ratio": 0.7704160246533128
+     }
+    },
+    {
+     "seed": 1009,
+     "drive": {
+      "base_hz": 25.326923076923073,
+      "driven_hz": 64.76923076923077,
+      "ratio": 2.5573272589217924
+     },
+     "control": {
+      "base_hz": 25.326923076923073,
+      "driven_hz": 20.403846153846153,
+      "ratio": 0.8056188306757783
+     }
+    }
+   ]
+  },
+  {
+   "id": "da1pn_to_lh_asp",
+   "name": "DA1 projection neurons excite lateral horn and aSP targets",
+   "play": "",
+   "claim": "Activating the DA1 projection neurons excites their lateral horn and aSP targets (LHAV4a4, LHAV4c1, LH008m).",
+   "citation": "Ruta et al. 2010, Nature 468:686; Cachero et al. 2010, Curr Biol 20:1589; Kohl et al. 2013, Cell 155:1610",
+   "drive": "da1_pn",
+   "drive_label": "DA1 PNs (26)",
+   "readout": "da1_lh_asp",
+   "readout_label": "LH / aSP targets (LHAV4a4, LHAV4c1, LH008m, 34)",
+   "control": "alpn",
+   "control_label": "26 random other antennal lobe projection neurons",
+   "popup_event": null,
+   "note": "The second stage of the cVA pathway, as activation. LH008m carries the synonyms Cachero 2010: aSP-f, Yu 2010: aSP5 and Ruta 2010: DC1 in MaleCNS v1.0.",
+   "measured": {
+    "drive_ratio_mean": 2.219063963950437,
+    "drive_ratio_sd": 0.19048993100928052,
+    "control_ratio_mean": 0.9609756396541907,
+    "control_ratio_sd": 0.02710057981419929,
+    "readout_base_hz": 27.663235294117648,
+    "readout_driven_hz": 61.3220588235294,
+    "p_value": 0.0009765625,
+    "n": 10
+   },
+   "criteria": "drive ratio >= 1.5 and > control (one-sided Wilcoxon p < 0.01)",
+   "passed": true,
+   "per_seed": [
+    {
+     "seed": 1000,
+     "drive": {
+      "base_hz": 28.029411764705884,
+      "driven_hz": 64.05882352941177,
+      "ratio": 2.285414480587618
+     },
+     "control": {
+      "base_hz": 28.029411764705884,
+      "driven_hz": 26.16176470588235,
+      "ratio": 0.9333683105981111
+     }
+    },
+    {
+     "seed": 1001,
+     "drive": {
+      "base_hz": 27.808823529411764,
+      "driven_hz": 63.63235294117647,
+      "ratio": 2.288207297726071
+     },
+     "control": {
+      "base_hz": 27.808823529411764,
+      "driven_hz": 26.382352941176475,
+      "ratio": 0.9487043892120572
+     }
+    },
+    {
+     "seed": 1002,
+     "drive": {
+      "base_hz": 28.66176470588235,
+      "driven_hz": 53.455882352941174,
+      "ratio": 1.8650590046177526
+     },
+     "control": {
+      "base_hz": 28.66176470588235,
+      "driven_hz": 26.80882352941176,
+      "ratio": 0.9353514622883529
+     }
+    },
+    {
+     "seed": 1003,
+     "drive": {
+      "base_hz": 27.955882352941174,
+      "driven_hz": 60.779411764705884,
+      "ratio": 2.1741188847974753
+     },
+     "control": {
+      "base_hz": 27.955882352941174,
+      "driven_hz": 26.13235294117647,
+      "ratio": 0.934771173066807
+     }
+    },
+    {
+     "seed": 1004,
+     "drive": {
+      "base_hz": 27.102941176470583,
+      "driven_hz": 65.69117647058823,
+      "ratio": 2.4237655995659253
+     },
+     "control": {
+      "base_hz": 27.102941176470583,
+      "driven_hz": 25.91176470588235,
+      "ratio": 0.9560499186109606
+     }
+    },
+    {
+     "seed": 1005,
+     "drive": {
+      "base_hz": 26.80882352941176,
+      "driven_hz": 65.76470588235294,
+      "ratio": 2.4530992868897425
+     },
+     "control": {
+      "base_hz": 26.80882352941176,
+      "driven_hz": 26.30882352941176,
+      "ratio": 0.9813494240263302
+     }
+    },
+    {
+     "seed": 1006,
+     "drive": {
+      "base_hz": 27.67647058823529,
+      "driven_hz": 56.838235294117645,
+      "ratio": 2.0536663124335814
+     },
+     "control": {
+      "base_hz": 27.67647058823529,
+      "driven_hz": 26.426470588235293,
+      "ratio": 0.954835281615303
+     }
+    },
+    {
+     "seed": 1007,
+     "drive": {
+      "base_hz": 27.852941176470587,
+      "driven_hz": 64.1470588235294,
+      "ratio": 2.3030623020063357
+     },
+     "control": {
+      "base_hz": 27.852941176470587,
+      "driven_hz": 26.61764705882353,
+      "ratio": 0.955649419218585
+     }
+    },
+    {
+     "seed": 1008,
+     "drive": {
+      "base_hz": 27.25,
+      "driven_hz": 63.691176470588225,
+      "ratio": 2.337290879654614
+     },
+     "control": {
+      "base_hz": 27.25,
+      "driven_hz": 27.397058823529413,
+      "ratio": 1.0053966540744739
+     }
+    },
+    {
+     "seed": 1009,
+     "drive": {
+      "base_hz": 27.485294117647058,
+      "driven_hz": 55.161764705882355,
+      "ratio": 2.006955591225254
+     },
+     "control": {
+      "base_hz": 27.485294117647058,
+      "driven_hz": 27.602941176470583,
+      "ratio": 1.0042803638309254
+     }
+    }
+   ]
+  },
+  {
+   "id": "foreleg_grn_to_p1",
+   "name": "Foreleg pheromone GRNs excite the male P1 cluster",
+   "play": "",
+   "claim": "Activating the foreleg gustatory neurons annotated putative ppk23/ppk25 (LgLG5-8) excites the male P1 courtship cluster.",
+   "citation": "Clowney et al. 2015, Neuron 87:1036; Kallman et al. 2015, eLife 4:e11188",
+   "drive": "foreleg_pheromone_grn",
+   "drive_label": "LgLG5-8, putative ppk23/ppk25 (64)",
+   "readout": "p1",
+   "readout_label": "P1 courtship cluster (86)",
+   "control": "sensory",
+   "control_label": "64 random other sensory neurons",
+   "popup_event": null,
+   "note": "MaleCNS v1.0 annotates LgLG5-8 as gustatory leg-bristle neurons of the prothoracic leg nerve (ProLN), receptorType putative_ppk23 or putative_ppk25. In real flies this reaches P1 through the ascending vAB3 and PPN1 neurons (AN09B017e/f/g and AN05B102a in MaleCNS). Consistent but too weak.",
+   "measured": {
+    "drive_ratio_mean": 1.199823409330022,
+    "drive_ratio_sd": 0.10751078423681672,
+    "control_ratio_mean": 0.9249517744853142,
+    "control_ratio_sd": 0.06124909995857421,
+    "readout_base_hz": 3.452906976744186,
+    "readout_driven_hz": 4.126744186046511,
+    "p_value": 0.0009765625,
+    "n": 10
+   },
+   "criteria": "drive ratio >= 1.5 and > control (one-sided Wilcoxon p < 0.01)",
+   "passed": false,
+   "per_seed": [
+    {
+     "seed": 1000,
+     "drive": {
+      "base_hz": 3.3604651162790695,
+      "driven_hz": 3.9302325581395348,
+      "ratio": 1.1695501730103808
+     },
+     "control": {
+      "base_hz": 3.3604651162790695,
+      "driven_hz": 3.127906976744186,
+      "ratio": 0.9307958477508651
+     }
+    },
+    {
+     "seed": 1001,
+     "drive": {
+      "base_hz": 3.2732558139534884,
+      "driven_hz": 4.622093023255814,
+      "ratio": 1.4120781527531083
+     },
+     "control": {
+      "base_hz": 3.2732558139534884,
+      "driven_hz": 3.4069767441860463,
+      "ratio": 1.0408525754884546
+     }
+    },
+    {
+     "seed": 1002,
+     "drive": {
+      "base_hz": 3.4186046511627906,
+      "driven_hz": 4.127906976744186,
+      "ratio": 1.207482993197279
+     },
+     "control": {
+      "base_hz": 3.4186046511627906,
+      "driven_hz": 3.011627906976744,
+      "ratio": 0.880952380952381
+     }
+    },
+    {
+     "seed": 1003,
+     "drive": {
+      "base_hz": 3.691860465116279,
+      "driven_hz": 4.0,
+      "ratio": 1.0834645669291338
+     },
+     "control": {
+      "base_hz": 3.691860465116279,
+      "driven_hz": 3.296511627906977,
+      "ratio": 0.8929133858267717
+     }
+    },
+    {
+     "seed": 1004,
+     "drive": {
+      "base_hz": 3.2616279069767438,
+      "driven_hz": 3.9825581395348837,
+      "ratio": 1.2210338680926918
+     },
+     "control": {
+      "base_hz": 3.2616279069767438,
+      "driven_hz": 2.9127906976744184,
+      "ratio": 0.893048128342246
+     }
+    },
+    {
+     "seed": 1005,
+     "drive": {
+      "base_hz": 3.6511627906976742,
+      "driven_hz": 4.034883720930233,
+      "ratio": 1.105095541401274
+     },
+     "control": {
+      "base_hz": 3.6511627906976742,
+      "driven_hz": 3.122093023255814,
+      "ratio": 0.855095541401274
+     }
+    },
+    {
+     "seed": 1006,
+     "drive": {
+      "base_hz": 3.4825581395348837,
+      "driven_hz": 3.8546511627906983,
+      "ratio": 1.1068447412353926
+     },
+     "control": {
+      "base_hz": 3.4825581395348837,
+      "driven_hz": 3.0406976744186047,
+      "ratio": 0.8731218697829717
+     }
+    },
+    {
+     "seed": 1007,
+     "drive": {
+      "base_hz": 3.0697674418604652,
+      "driven_hz": 3.8546511627906983,
+      "ratio": 1.2556818181818183
+     },
+     "control": {
+      "base_hz": 3.0697674418604652,
+      "driven_hz": 3.0,
+      "ratio": 0.9772727272727272
+     }
+    },
+    {
+     "seed": 1008,
+     "drive": {
+      "base_hz": 3.383720930232558,
+      "driven_hz": 4.482558139534884,
+      "ratio": 1.3247422680412373
+     },
+     "control": {
+      "base_hz": 3.383720930232558,
+      "driven_hz": 3.383720930232558,
+      "ratio": 1.0
+     }
+    },
+    {
+     "seed": 1009,
+     "drive": {
+      "base_hz": 3.9360465116279064,
+      "driven_hz": 4.377906976744186,
+      "ratio": 1.1122599704579028
+     },
+     "control": {
+      "base_hz": 3.9360465116279064,
+      "driven_hz": 3.563953488372093,
+      "ratio": 0.9054652880354507
+     }
+    }
+   ]
+  },
+  {
+   "id": "mb_extinction",
+   "name": "Mushroom body extinction: unreinforced odor exposure reduces learned avoidance",
+   "play": "",
+   "claim": "After aversive conditioning, repeated exposure to the trained odor without shock lowers the T-maze avoidance of it.",
+   "citation": "Felsenberg et al. 2018, Cell 175:709",
+   "drive": "",
+   "drive_label": "the trained odor alone (8 times) after conditioning",
+   "readout": "",
+   "readout_label": "T-maze choice",
+   "control": "",
+   "control_label": "the same conditioning, then rest for as long",
+   "popup_event": null,
+   "kind": "extinction",
+   "note": "No rule is added for extinction: the existing learning rule (and its reversal term) is all there is, so the brain would have to produce it through its own dopamine neurons. In real flies extinction is a parallel opposing memory formed through reward dopamine neurons, with the original memory kept (Felsenberg et al. 2018).",
+   "measured": {
+    "extinguished_pi_mean": 1.0,
+    "extinguished_pi_sd": 0.0,
+    "unextinguished_pi_mean": 1.0,
+    "unextinguished_pi_sd": 0.0,
+    "fear_extinguished": 0.6198244787407374,
+    "fear_unextinguished": 0.666723987842927,
+    "p_value": 1.0,
+    "n": 10
+   },
+   "criteria": "extinguished PI < 0.5 and unextinguished > extinguished (one-sided Wilcoxon p < 0.01)",
+   "passed": false,
+   "per_seed": [
+    {
+     "seed": 1000,
+     "pi_ext": 1.0,
+     "pi_unext": 1.0
+    },
+    {
+     "seed": 1001,
+     "pi_ext": 1.0,
+     "pi_unext": 1.0
+    },
+    {
+     "seed": 1002,
+     "pi_ext": 1.0,
+     "pi_unext": 1.0
+    },
+    {
+     "seed": 1003,
+     "pi_ext": 1.0,
+     "pi_unext": 1.0
+    },
+    {
+     "seed": 1004,
+     "pi_ext": 1.0,
+     "pi_unext": 1.0
+    },
+    {
+     "seed": 1005,
+     "pi_ext": 1.0,
+     "pi_unext": 1.0
+    },
+    {
+     "seed": 1006,
+     "pi_ext": 1.0,
+     "pi_unext": 1.0
+    },
+    {
+     "seed": 1007,
+     "pi_ext": 1.0,
+     "pi_unext": 1.0
+    },
+    {
+     "seed": 1008,
+     "pi_ext": 1.0,
+     "pi_unext": 1.0
+    },
+    {
+     "seed": 1009,
+     "pi_ext": 1.0,
+     "pi_unext": 1.0
+    }
+   ]
+  },
+  {
+   "id": "mb_second_order",
+   "name": "Mushroom body second-order conditioning: odor A + shock, then odor B with odor A",
+   "play": "",
+   "claim": "After odor A is paired with shock, pairing odor B with odor A, without shock, makes flies avoid odor B; explicitly unpaired presentations don't.",
+   "citation": "Tabone & de Belle 2011, Learn Mem 18:250",
+   "drive": "",
+   "drive_label": "odor B, then odor B with odor A (6 times, no shock), after odor A + shock",
+   "readout": "",
+   "readout_label": "T-maze choice, odor B vs a novel odor C",
+   "control": "",
+   "control_label": "the same, but odor A and odor B apart",
+   "popup_event": null,
+   "kind": "second_order",
+   "note": "No rule is added: odor B can only gain fear if odor A's learned MBON output drives the dopamine neurons through the connectome while odor B's Kenyon cells are active.",
+   "measured": {
+    "pi_mean": 5.551115123125783e-18,
+    "pi_sd": 0.19436506316151,
+    "control_pi_mean": -0.029999999999999992,
+    "control_pi_sd": 0.2110818693198342,
+    "fear_b_paired": 0.0358613843777424,
+    "fear_b_unpaired": 0.034409139725482846,
+    "p_value": 0.125,
+    "n": 10
+   },
+   "criteria": "PI >= 0.5, |unpaired PI| <= 0.25, paired > unpaired (one-sided Wilcoxon p < 0.01)",
+   "passed": false,
+   "per_seed": [
+    {
+     "seed": 1000,
+     "pi": -0.1,
+     "control_pi": -0.1
+    },
+    {
+     "seed": 1001,
+     "pi": 0.1,
+     "control_pi": 0.0
+    },
+    {
+     "seed": 1002,
+     "pi": -0.3,
+     "control_pi": -0.4
+    },
+    {
+     "seed": 1003,
+     "pi": 0.0,
+     "control_pi": 0.0
+    },
+    {
+     "seed": 1004,
+     "pi": 0.2,
+     "control_pi": 0.2
+    },
+    {
+     "seed": 1005,
+     "pi": 0.1,
+     "control_pi": 0.1
+    },
+    {
+     "seed": 1006,
+     "pi": 0.0,
+     "control_pi": 0.0
+    },
+    {
+     "seed": 1007,
+     "pi": 0.0,
+     "control_pi": -0.1
+    },
+    {
+     "seed": 1008,
+     "pi": 0.3,
+     "control_pi": 0.3
+    },
+    {
+     "seed": 1009,
+     "pi": -0.3,
+     "control_pi": -0.3
+    }
+   ]
+  }
+ ]
+}
