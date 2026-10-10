@@ -1,0 +1,4 @@
+"# Kick the Fly v3.1.1 | Target: Looming escape vs approach speed | Seeds: 1000..1001 (n=2) | Default LIF sim (dt=5ms, tau=20ms) | Generated: GOLDEN"
+approach_speed,n,escape_prob_mean,escape_prob_sem,escape_prob_ci95,latency_s_mean,latency_s_sem
+1.0,2,0.0000,0.0000,0.0000,nan,0.0000
+5.5,2,0.0000,0.0000,0.0000,nan,0.0000

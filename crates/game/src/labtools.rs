@@ -80,6 +80,9 @@ pub struct LabTools {
     clamp: Option<Value>,
     diff: Option<Value>,
     laser: Value,
+    psych: Option<Value>,
+    psych_msg: String,
+    base_seed: i64,
 }
 
 impl Default for LabTools {
@@ -104,6 +107,9 @@ impl Default for LabTools {
             clamp: None,
             diff: None,
             laser: Value::Null,
+            psych: None,
+            psych_msg: String::new(),
+            base_seed: 1000,
         }
     }
 }
@@ -292,6 +298,7 @@ impl LabTools {
                 "Sign flips" => self.flips = Some(v),
                 "Neural clamp" => self.clamp = Some(v),
                 "Connectome diff" => self.diff = Some(v),
+                "Psych sweep" => self.psych = Some(v),
                 "Critical path" => {
                     if let Some(t) = v["target"].as_str() {
                         self.critical.insert(t.to_string(), v.clone());
@@ -317,6 +324,15 @@ impl LabTools {
                 }
             }),
             "lab_laser" => json!({"lab.laser_state": self.laser}),
+            "lab_psych" => json!({
+                "lab.psych_state": {
+                    "job": self.job.as_ref().map(BgJob::json),
+                    "error": self.error,
+                    "result": self.psych,
+                    "msg": self.psych_msg,
+                    "base_seed": self.base_seed,
+                }
+            }),
             "lab_diff" => json!({
                 "lab.diff_state": {
                     "job": self.job.as_ref().map(BgJob::json),
@@ -354,6 +370,32 @@ impl LabTools {
             }),
             _ => Value::Null,
         }
+    }
+
+    fn start_psych(&mut self, target: &str, flies: usize, lif: [f64; 5], shared: Shared) {
+        self.error.clear();
+        self.psych_msg.clear();
+        let (target, base) = (target.to_string(), self.base_seed.max(0) as u64);
+        self.job = Some(BgJob::start("Psych sweep", move |upd, cancel| {
+            let workers = std::thread::available_parallelism().map_or(1, |n| n.get()).clamp(1, 4);
+            let created = crate::savestate_play::utc_stamp_pub();
+            fly_sim::psychometrics::run_sweep(
+                &shared.weights,
+                &shared.labels,
+                &target,
+                None,
+                flies,
+                base,
+                lif,
+                workers,
+                env!("CARGO_PKG_VERSION"),
+                &created,
+                |d, n| {
+                    upd(d as f64 / n.max(1) as f64, &format!("{d} / {n}"));
+                    !cancel.load(Ordering::Relaxed)
+                },
+            )
+        }));
     }
 
     fn start_diff(&mut self, scenario: &str, modification: &str, shared: Shared, pack: &PackPath) {
@@ -521,7 +563,10 @@ fn tick(
     screen: Res<crate::menu_ui::MenuScreen>,
     snap: Res<crate::app::LatestSnapshot>,
     mut tool_state: ResMut<crate::tools::ToolState>,
+    lab: Res<crate::share_play::LabState>,
+    cfg: Res<crate::menu_ui::UserConfig>,
 ) {
+    tools.base_seed = cfg.0.get_i64("brain.seed");
     tools.pack = pack.clone();
     if screen.0 == "lab_laser" {
         let l = &tool_state.laser;
@@ -675,6 +720,28 @@ fn tick(
                         Err(e) => {
                             flash.write(crate::menu_ui::MenuFlash(e.to_string(), false));
                         }
+                    }
+                }
+            }
+            "lab.psych_run" if !busy => {
+                if let Some(shared) = link.0.shared.lock().unwrap_or_else(PoisonError::into_inner).clone() {
+                    let mut lif = fly_sim::cards::LIF_DEFAULTS;
+                    for (k, key) in fly_sim::cards::LIF_KEYS.iter().enumerate() {
+                        if let Some(v) = lab.values.get(*key) {
+                            lif[k] = *v;
+                        }
+                    }
+                    let target = a["target"].as_str().unwrap_or("looming").to_string();
+                    tools.start_psych(&target, a["flies"].as_u64().unwrap_or(3) as usize, lif, shared);
+                }
+            }
+            "lab.psych_export" => {
+                if let (Some(res), Some(t)) = (tools.psych.clone(), a["target"].as_str()) {
+                    let folder = exports_dir();
+                    let stamp = crate::savestate_play::utc_stamp_compact().replace('-', "_");
+                    match fly_sim::psychometrics::save_all_formats(&res, &format!("psych_{t}_{stamp}"), &folder) {
+                        Ok(()) => tools.psych_msg = "Exported CSV, SVG & PDF to exports/".into(),
+                        Err(e) => tools.error = e.to_string(),
                     }
                 }
             }

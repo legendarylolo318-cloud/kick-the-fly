@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 560" width="800" height="560" style="background-color: #ffffff; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif;">
+  <rect width="800" height="560" fill="#ffffff"/>
+  <text x="90" y="36" font-size="18" font-weight="bold" fill="#111827">Looming escape vs approach speed</text>
+  <text x="90" y="56" font-size="12" fill="#4b5563">n = 2 flies per point (mean ± 95% CI)</text>
+  <line x1="90" y1="460.0" x2="760" y2="460.0" stroke="#e5e7eb" stroke-width="1"/>
+  <text x="78" y="464.0" font-size="11" text-anchor="end" fill="#6b7280">0.00</text>
+  <line x1="90" y1="382.0" x2="760" y2="382.0" stroke="#e5e7eb" stroke-width="1"/>
+  <text x="78" y="386.0" font-size="11" text-anchor="end" fill="#6b7280">0.20</text>
+  <line x1="90" y1="304.0" x2="760" y2="304.0" stroke="#e5e7eb" stroke-width="1"/>
+  <text x="78" y="308.0" font-size="11" text-anchor="end" fill="#6b7280">0.40</text>
+  <line x1="90" y1="226.0" x2="760" y2="226.0" stroke="#e5e7eb" stroke-width="1"/>
+  <text x="78" y="230.0" font-size="11" text-anchor="end" fill="#6b7280">0.60</text>
+  <line x1="90" y1="148.0" x2="760" y2="148.0" stroke="#e5e7eb" stroke-width="1"/>
+  <text x="78" y="152.0" font-size="11" text-anchor="end" fill="#6b7280">0.80</text>
+  <line x1="90" y1="70.0" x2="760" y2="70.0" stroke="#e5e7eb" stroke-width="1"/>
+  <text x="78" y="74.0" font-size="11" text-anchor="end" fill="#6b7280">1.00</text>
+  <line x1="90.0" y1="460" x2="90.0" y2="466" stroke="#9ca3af" stroke-width="1.5"/>
+  <text x="90.0" y="480" font-size="11" text-anchor="middle" fill="#6b7280">1</text>
+  <line x1="760.0" y1="460" x2="760.0" y2="466" stroke="#9ca3af" stroke-width="1.5"/>
+  <text x="760.0" y="480" font-size="11" text-anchor="middle" fill="#6b7280">5.5</text>
+  <line x1="90" y1="70" x2="90" y2="460" stroke="#374151" stroke-width="1.5"/>
+  <line x1="90" y1="460" x2="760" y2="460" stroke="#374151" stroke-width="1.5"/>
+  <text x="425.0" y="506" font-size="13" font-weight="600" text-anchor="middle" fill="#1f2937">Approach speed (m/s)</text>
+  <text x="24" y="265.0" font-size="13" font-weight="600" text-anchor="middle" fill="#1f2937" transform="rotate(-90 24 265.0)">Escape probability</text>
+  <polyline points="90.0,460.0 760.0,460.0" fill="none" stroke="#2563eb" stroke-width="2.5" stroke-linejoin="round"/>
+  <line x1="90.0" y1="460.0" x2="90.0" y2="460.0" stroke="#1d4ed8" stroke-width="1.5"/>
+  <line x1="86.0" y1="460.0" x2="94.0" y2="460.0" stroke="#1d4ed8" stroke-width="1.5"/>
+  <line x1="86.0" y1="460.0" x2="94.0" y2="460.0" stroke="#1d4ed8" stroke-width="1.5"/>
+  <circle cx="90.0" cy="460.0" r="5" fill="#2563eb" stroke="#ffffff" stroke-width="1.5"/>
+  <line x1="760.0" y1="460.0" x2="760.0" y2="460.0" stroke="#1d4ed8" stroke-width="1.5"/>
+  <line x1="756.0" y1="460.0" x2="764.0" y2="460.0" stroke="#1d4ed8" stroke-width="1.5"/>
+  <line x1="756.0" y1="460.0" x2="764.0" y2="460.0" stroke="#1d4ed8" stroke-width="1.5"/>
+  <circle cx="760.0" cy="460.0" r="5" fill="#2563eb" stroke="#ffffff" stroke-width="1.5"/>
+  <line x1="90" y1="526" x2="760" y2="526" stroke="#e5e7eb" stroke-width="1"/>
+  <text x="90" y="542" font-size="10" fill="#9ca3af">Kick the Fly v3.1.1 | Target: Looming escape vs approach speed | Seeds: 1000..1001 (n=2) | Default LIF sim (dt=5ms, tau=20ms) | Generated: GOLDEN</text>
+</svg>

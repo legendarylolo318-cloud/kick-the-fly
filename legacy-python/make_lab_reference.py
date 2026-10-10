@@ -183,4 +183,16 @@ if __name__ == "__main__":
     R.render("lab_laser", "Graphics", out / "page_lab_laser.png", prep=laser_prep())
     R.render("lab_laser", "Graphics", out / "page_lab_laser_pulse.png",
              prep=laser_prep(LaserState("MDN", "silence", 1.5, "pulse", 0.3), equipped=True))
+    from kickthefly.lab import labpsych
+    psych_gold = json.loads((gd / "psych.json").read_text().replace("NaN", "null"))
+
+    def psych_prep(res=None, target="looming", flies=3):
+        def prep(m):
+            prep_for("lab_psych")(m)
+            st = labpsych._st(m)
+            st.psych_target, st.psych_flies, st.psych_result = target, flies, res
+        return prep
+
+    R.render("lab_psych", "Graphics", out / "page_lab_psych_empty.png", prep=psych_prep())
+    R.render("lab_psych", "Graphics", out / "page_lab_psych.png", prep=psych_prep(psych_gold["tmaze"], "tmaze", 2))
     print("wrote", out)

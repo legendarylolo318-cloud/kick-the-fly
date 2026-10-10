@@ -14,6 +14,7 @@ pub mod laser;
 pub mod load_state;
 pub mod loadout;
 pub mod neurodex;
+pub mod psych;
 pub mod shapes_ask;
 pub mod share;
 pub mod whatsnew;
@@ -50,5 +51,6 @@ pub fn install_with(menu: &mut Menu, dex: neurodex::SharedDex) {
     menu.register_page("lab_clamp", Box::<clamp::LabClamp>::default());
     menu.register_page("lab_diff", Box::<diff::LabDiff>::default());
     menu.register_page("lab_laser", Box::<laser::LabLaser>::default());
+    menu.register_page("lab_psych", Box::<psych::LabPsych>::default());
     menu.register_page("whatsnew", Box::new(whatsnew::WhatsNew));
 }

@@ -34,6 +34,7 @@ pub mod neurodex;
 pub mod npy;
 pub mod outdoors;
 pub mod pack;
+pub mod psychometrics;
 pub mod race;
 pub mod rng;
 pub mod robustness;

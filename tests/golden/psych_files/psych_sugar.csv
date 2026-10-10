@@ -1,0 +1,4 @@
+"# Kick the Fly v3.1.1 | Target: Proboscis extension vs sugar concentration | Seeds: 1000..1001 (n=2) | Default LIF sim (dt=5ms, tau=20ms) | Generated: GOLDEN"
+sugar_concentration,n,response_rate_mean,response_rate_sem,response_rate_ci95,mn9_ratio_mean,mn9_ratio_sem
+0.0,2,0.2500,0.2500,0.4900,1.1528,0.0940
+0.4,2,0.2500,0.2500,0.4900,1.5976,0.2628

@@ -612,6 +612,11 @@ fn palette(name: &str) -> ([u8; 3], [u8; 3], [u8; 3], [u8; 3]) {
     }
 }
 
+/// `{x:g}` for the other pages.
+pub fn fmt_g_pub(x: f64) -> String {
+    fmt_g(x)
+}
+
 /// Python's `format(x, "g")`.
 fn fmt_g(x: f64) -> String {
     if x == 0.0 {
