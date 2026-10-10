@@ -13,6 +13,7 @@ pub mod neurodex;
 pub mod shapes_ask;
 pub mod share;
 pub mod whatsnew;
+pub mod wiring;
 
 pub fn install(menu: &mut Menu) {
     install_with(menu, std::sync::Arc::new(std::sync::Mutex::new(neurodex::NeurodexShared::new(Default::default()))));
@@ -40,5 +41,6 @@ pub fn install_with(menu: &mut Menu, dex: neurodex::SharedDex) {
     menu.register_page("lab_netsci", Box::<day4::LabNetsci>::default());
     menu.register_page("lab_sleepdep", Box::<day4::LabSleepdep>::default());
     menu.register_page("lab_sensitivity", Box::<day4::LabSensitivity>::default());
+    menu.register_page("lab_wiring", Box::<wiring::LabWiring>::default());
     menu.register_page("whatsnew", Box::new(whatsnew::WhatsNew));
 }

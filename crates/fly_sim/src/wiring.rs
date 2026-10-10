@@ -128,3 +128,103 @@ pub fn apply(weights: &Weights, labels: &Labels, counts: &[i32], w: &Wiring) -> 
     }
     Weights::new(csr, Weights::default_blocks())
 }
+
+// --- what a wiring would do, and the dataset's confidence in its transmitters --------------------------------------------------
+use serde_json::{Value, json};
+
+/// `threshold_stats(n)`: what a minimum-synapse threshold of n would remove, over the whole connectome.
+pub fn threshold_stats(csr: &Csr, counts: &[i32], n: i64) -> Value {
+    let nn = csr.n_rows;
+    let thr = n.max(1);
+    let (mut in_b, mut in_a, mut out_b, mut out_a, mut touched) =
+        (vec![0u32; nn], vec![0u32; nn], vec![0u32; nn], vec![0u32; nn], vec![0u32; nn]);
+    let (mut n_drop, mut syn_total, mut syn_drop) = (0u64, 0i64, 0i64);
+    for post in 0..nn {
+        let (a, b) = (csr.indptr[post] as usize, csr.indptr[post + 1] as usize);
+        for (&pre, &cnt) in csr.indices[a..b].iter().zip(&counts[a..b]) {
+            let pre = pre as usize;
+            let c = i64::from(cnt);
+            syn_total += c;
+            in_b[post] += 1;
+            out_b[pre] += 1;
+            if c < thr {
+                n_drop += 1;
+                syn_drop += c;
+                touched[post] += 1;
+                touched[pre] += 1;
+            } else {
+                in_a[post] += 1;
+                out_a[pre] += 1;
+            }
+        }
+    }
+    let total = counts.len() as u64;
+    json!({
+        "threshold": n, "connections": total, "connections_dropped": n_drop,
+        "connections_dropped_share": n_drop as f64 / total.max(1) as f64,
+        "synapses": syn_total, "synapses_dropped": syn_drop,
+        "neurons": nn, "neurons_touched": touched.iter().filter(|&&t| t > 0).count(),
+        "neurons_cut_off": (0..nn).filter(|&i| in_b[i] > 0 && in_a[i] == 0).count(),
+        "neurons_silenced_output": (0..nn).filter(|&i| out_b[i] > 0 && out_a[i] == 0).count(),
+    })
+}
+
+fn signed(labels: &Labels) -> Vec<bool> {
+    labels.nt.iter().map(|t| SIGN_OF.iter().any(|(k, _)| k == t)).collect()
+}
+
+/// Signed neurons the dataset is less than `max_conf` sure about, plus those it gives no confidence for (`flip_candidates`).
+pub fn flip_candidates(labels: &Labels, max_conf: f64) -> Vec<u32> {
+    let s = signed(labels);
+    let cut = max_conf as f32; // float32 array against a Python float: compared in float32
+    (0..labels.nt.len()).filter(|&i| s[i] && (labels.nt_conf[i].is_nan() || labels.nt_conf[i] < cut)).map(|i| i as u32).collect()
+}
+
+/// `confidence_stats`.
+pub fn confidence_stats(labels: &Labels, max_conf: f64) -> Value {
+    let s = signed(labels);
+    let cand = flip_candidates(labels, max_conf);
+    let unknown = (0..s.len()).filter(|&i| s[i] && labels.nt_conf[i].is_nan()).count();
+    let mut conf: Vec<f32> = (0..s.len()).filter(|&i| s[i] && !labels.nt_conf[i].is_nan()).map(|i| labels.nt_conf[i]).collect();
+    conf.sort_by(|a, b| a.total_cmp(b));
+    let median = if conf.is_empty() {
+        f64::NAN
+    } else if conf.len() % 2 == 1 {
+        f64::from(conf[conf.len() / 2])
+    } else {
+        f64::from((conf[conf.len() / 2 - 1] + conf[conf.len() / 2]) / 2.0)
+    };
+    json!({
+        "cutoff": max_conf, "neurons": labels.nt.len(), "signed": s.iter().filter(|&&b| b).count(),
+        "candidates": cand.len(), "unknown_confidence": unknown,
+        "measured": labels.nt_source.iter().filter(|s| *s == "ground_truth").count(),
+        "excitatory": labels.nt.iter().filter(|t| *t == "acetylcholine").count(),
+        "inhibitory": labels.nt.iter().filter(|t| INHIBITORY.contains(&t.as_str())).count(),
+        "median_confidence": median,
+    })
+}
+
+/// `random_flip`: each candidate flipped independently with probability `share`, from `default_rng(seed)`.
+pub fn random_flip(labels: &Labels, max_conf: f64, share: f64, seed: u64) -> Vec<u32> {
+    let cand = flip_candidates(labels, max_conf);
+    if share >= 1.0 {
+        return cand;
+    }
+    let mut rng = crate::rng::Generator::new(seed);
+    cand.into_iter().filter(|_| rng.random() < share).collect()
+}
+
+/// `inhibition_stats(g, scale)`.
+pub fn inhibition_stats(csr: &Csr, labels: &Labels, scale: f64) -> Value {
+    let inh: Vec<bool> = labels.nt.iter().map(|t| INHIBITORY.contains(&t.as_str())).collect();
+    let n_edges = csr.indices.len();
+    let n_inh = csr.indices.iter().filter(|&&p| inh[p as usize]).count();
+    json!({
+        "scale": scale, "severity": (1.0 - scale).clamp(0.0, 1.0), "total_connections": n_edges,
+        "inhibitory_connections": n_inh, "inhibitory_share": n_inh as f64 / n_edges.max(1) as f64,
+        "inhibitory_neurons": inh.iter().filter(|&&b| b).count(),
+        "gaba_neurons": labels.nt.iter().filter(|t| *t == "gaba").count(),
+        "glutamate_neurons": labels.nt.iter().filter(|t| *t == "glutamate").count(),
+        "total_neurons": labels.nt.len(),
+    })
+}

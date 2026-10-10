@@ -84,6 +84,8 @@ pub struct Memory {
     pub enabled: bool,
     pub dirty: bool,
     pub signature: [f64; 2],
+    /// `Memory._wiring_saved`: the plastic synapses a wiring changed, with the values to put back `(positions, w0, w)`.
+    wiring_saved: Option<(Vec<usize>, Vec<f32>, Vec<f32>)>,
 }
 
 /// A copy of what was learned (`challenges.memory_snapshot`): a challenge that borrows the memory puts it back afterwards.
@@ -218,7 +220,39 @@ impl Memory {
             enabled: true,
             dirty: false,
             signature,
+            wiring_saved: None,
         })
+    }
+
+    /// `wiring._restore` for the memory: put back what the last wiring changed.
+    pub fn wiring_restore(&mut self) {
+        if let Some((pos, w0, w)) = self.wiring_saved.take() {
+            for (k, &i) in pos.iter().enumerate() {
+                self.w0[i] = w0[k];
+                self.w[i] = w[k];
+            }
+        }
+    }
+
+    /// `wiring._apply_to_memory`: multiply the plastic synapses a wiring changes (learned weights keep what they learned).
+    pub fn wiring_apply(&mut self, idx: &[usize], mult: &[f32]) {
+        self.wiring_restore();
+        let mut pos = Vec::new();
+        let mut m = Vec::new();
+        for (i, &p) in self.csr_pos.iter().enumerate() {
+            if let Ok(k) = idx.binary_search(&(p as usize)) {
+                pos.push(i);
+                m.push(mult[k]);
+            }
+        }
+        if pos.is_empty() {
+            return;
+        }
+        self.wiring_saved = Some((pos.clone(), pos.iter().map(|&i| self.w0[i]).collect(), pos.iter().map(|&i| self.w[i]).collect()));
+        for (&i, &f) in pos.iter().zip(&m) {
+            self.w0[i] *= f;
+            self.w[i] *= f;
+        }
     }
 
     /// `wiring._apply_to_memory`: the plastic synapses start from the wired matrix's values (the learned state is still the connectome's).

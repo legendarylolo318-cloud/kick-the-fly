@@ -659,3 +659,53 @@ fn lab_day4_pages() {
         compare(name, &cv.to_rgb_over(BG), 0.02);
     }
 }
+
+#[test]
+fn lab_wiring_page() {
+    use ktf_ui::pages::wiring::LabWiring;
+    struct H(serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            if key == "lab.wiring_state" { self.0.clone() } else { serde_json::Value::Null }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    let load = |p: &str| -> serde_json::Value {
+        serde_json::from_slice(&std::fs::read(format!("{}/../../{p}", env!("CARGO_MANIFEST_DIR"))).unwrap()).unwrap()
+    };
+    let rob = load("tests/golden/robustness.json");
+    let stats = load("tests/ui_reference/lab_wiring_fixture.json");
+    let state = |live_min: i64, sweep: &serde_json::Value, flips: &serde_json::Value| {
+        serde_json::json!({
+            "job": null, "error": "", "msg": "", "busy": "",
+            "live": {"identity": live_min <= 1, "label": format!("drop <{live_min} synapses"), "min_synapses": live_min, "flips": 0, "inhibition_scale": 1.0},
+            "stats": stats, "sweep": sweep, "flips": flips,
+        })
+    };
+    let null = serde_json::Value::Null;
+    for (name, signflip, conf, st) in [
+        ("page_lab_wiring_threshold.png", false, 0.5, state(1, &null, &null)),
+        ("page_lab_wiring_sweep.png", false, 0.5, state(5, &rob["sweep"], &null)),
+        ("page_lab_wiring_signflip.png", true, 0.7, state(1, &null, &null)),
+        ("page_lab_wiring_flips.png", true, 0.7, state(1, &null, &rob["flips"])),
+    ] {
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        m.show("lab_wiring");
+        m.page_mut::<LabWiring>("lab_wiring").unwrap().set_view(signflip, 5, conf);
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(st));
+        if let Ok(dir) = std::env::var("KTF_DUMP") {
+            let rgb = cv.to_rgb_over(BG);
+            let file = std::fs::File::create(format!("{dir}/rust_{name}")).unwrap();
+            let mut enc = png::Encoder::new(std::io::BufWriter::new(file), 1280, 720);
+            enc.set_color(png::ColorType::Rgb);
+            enc.set_depth(png::BitDepth::Eight);
+            enc.write_header().unwrap().write_image_data(&rgb).unwrap();
+        }
+        compare(name, &cv.to_rgb_over(BG), 0.02);
+    }
+}

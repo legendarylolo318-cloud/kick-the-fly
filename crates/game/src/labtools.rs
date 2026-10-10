@@ -68,6 +68,12 @@ pub struct LabTools {
     pack: PackPath,
     /// Which brains have a valid cached analysis: looked up once when the page opens (hashing the pack), not every frame.
     cached_map: Option<Value>,
+    /// Lab > Connectome robustness: the live wiring, what the sliders ask about, the two analyses.
+    counts: Option<Arc<Vec<i32>>>,
+    live: fly_sim::wiring::Wiring,
+    wire_stats: Value,
+    sweep: Option<Value>,
+    flips: Option<Value>,
 }
 
 impl Default for LabTools {
@@ -82,6 +88,11 @@ impl Default for LabTools {
             sens: None,
             pack: PackPath(None),
             cached_map: None,
+            counts: None,
+            live: Default::default(),
+            wire_stats: Value::Null,
+            sweep: None,
+            flips: None,
         }
     }
 }
@@ -266,6 +277,8 @@ impl LabTools {
                 }
                 "Sleep deprivation" => self.sleep = Some(v),
                 "Sensitivity" => self.sens = Some(v),
+                "Threshold sweep" => self.sweep = Some(v),
+                "Sign flips" => self.flips = Some(v),
                 _ => {}
             },
         }
@@ -285,7 +298,79 @@ impl LabTools {
                     "sens": self.sens,
                 }
             }),
+            "lab_wiring" => json!({
+                "lab.wiring_state": {
+                    "job": self.job.as_ref().map(BgJob::json),
+                    "error": self.error,
+                    "msg": self.msg,
+                    "busy": if crate::sim_thread::WIRING_BUSY.load(Ordering::Relaxed) { self.live.label() } else { String::new() },
+                    "live": {"identity": self.live.is_identity(), "label": self.live.label(), "min_synapses": self.live.min_synapses,
+                             "flips": self.live.flip_rows.len(), "inhibition_scale": self.live.inhibition_scale},
+                    "stats": self.wire_stats,
+                    "sweep": self.sweep,
+                    "flips": self.flips,
+                }
+            }),
             _ => Value::Null,
+        }
+    }
+
+    fn ensure_counts(&mut self, pack: &PackPath) -> Option<Arc<Vec<i32>>> {
+        if self.counts.is_none() {
+            let path = pack.0.clone().filter(|p| p.exists()).or_else(fly_sim::pack::find_default)?;
+            self.counts = fly_sim::wiring::synapse_counts(&path).ok().map(Arc::new);
+        }
+        self.counts.clone()
+    }
+
+    fn start_wiring_job(&mut self, kind: &str, a: &Value, shared: Shared, pack: &PackPath) {
+        self.error.clear();
+        let Some(counts) = self.ensure_counts(pack) else {
+            self.error = "needs the brain pack".into();
+            return;
+        };
+        let workers = std::thread::available_parallelism().map_or(1, |n| n.get()).clamp(1, 4);
+        let created = crate::savestate_play::utc_stamp_pub();
+        match kind {
+            "sweep" => {
+                self.job = Some(BgJob::start("Threshold sweep", move |upd, cancel| {
+                    let c = fly_sim::robustness::Ctx { weights: &shared.weights, labels: &shared.labels, counts: &counts, workers };
+                    fly_sim::robustness::threshold_sweep(
+                        &c,
+                        &fly_sim::robustness::DEFAULT_THRESHOLDS,
+                        None,
+                        &fly_sim::robustness::DEFAULT_TESTS,
+                        &created,
+                        &mut |i, n, label| {
+                            upd(i as f64 / n.max(1) as f64, label);
+                            !cancel.load(Ordering::Relaxed)
+                        },
+                    )
+                }));
+            }
+            _ => {
+                let (cutoff, share, trials) = (
+                    a["cutoff"].as_f64().unwrap_or(fly_sim::robustness::DEFAULT_CUTOFF),
+                    a["share"].as_f64().unwrap_or(fly_sim::robustness::DEFAULT_SHARE),
+                    a["trials"].as_u64().unwrap_or(10) as usize,
+                );
+                self.job = Some(BgJob::start("Sign flips", move |upd, cancel| {
+                    let c = fly_sim::robustness::Ctx { weights: &shared.weights, labels: &shared.labels, counts: &counts, workers };
+                    fly_sim::robustness::signflip_trials(
+                        &c,
+                        cutoff,
+                        share,
+                        trials,
+                        None,
+                        &fly_sim::robustness::FLIP_TESTS,
+                        &created,
+                        &mut |i, n, label| {
+                            upd(i as f64 / n.max(1) as f64, label);
+                            !cancel.load(Ordering::Relaxed)
+                        },
+                    )
+                }));
+            }
         }
     }
 }
@@ -300,6 +385,16 @@ fn tick(
 ) {
     tools.pack = pack.clone();
     tools.collect();
+    if screen.0 == "lab_wiring" && tools.wire_stats.is_null() {
+        if let Some(counts) = tools.ensure_counts(&pack) {
+            if let Some(shared) = link.0.shared.lock().unwrap_or_else(PoisonError::into_inner).clone() {
+                tools.wire_stats = json!({
+                    "threshold": fly_sim::wiring::threshold_stats(&shared.weights.csr, &counts, 1),
+                    "confidence": fly_sim::wiring::confidence_stats(&shared.labels, 0.5),
+                });
+            }
+        }
+    }
     if tools.cached_map.is_none() && screen.0 == "lab_netsci" {
         tools.cached_map = Some(tools.cached(&pack));
     }
@@ -332,6 +427,62 @@ fn tick(
                     tools.start_sleep(n, shared, f64::from(crate::reactions::thresholds().sleep));
                 } else {
                     flash.write(crate::menu_ui::MenuFlash("The brain is still loading".into(), false));
+                }
+            }
+            "lab.wiring_want" => {
+                if let (Some(counts), Some(shared)) =
+                    (tools.ensure_counts(&pack), link.0.shared.lock().unwrap_or_else(PoisonError::into_inner).clone())
+                {
+                    let n = a["min_syn"].as_i64().unwrap_or(1);
+                    let conf = a["conf"].as_f64().unwrap_or(0.5);
+                    tools.wire_stats = json!({
+                        "threshold": fly_sim::wiring::threshold_stats(&shared.weights.csr, &counts, n),
+                        "confidence": fly_sim::wiring::confidence_stats(&shared.labels, conf),
+                    });
+                }
+            }
+            "lab.wiring_set" => {
+                if let (Some(counts), Some(shared)) =
+                    (tools.ensure_counts(&pack), link.0.shared.lock().unwrap_or_else(PoisonError::into_inner).clone())
+                {
+                    let mut w = tools.live.clone();
+                    if a["restore"].as_bool().unwrap_or(false) {
+                        w = fly_sim::wiring::Wiring::default();
+                    }
+                    if let Some(n) = a["min_synapses"].as_i64() {
+                        w.min_synapses = n;
+                    }
+                    if let (Some(conf), Some(share)) = (a["flip_conf"].as_f64(), a["flip_share"].as_f64()) {
+                        w.flip_rows = fly_sim::wiring::random_flip(&shared.labels, conf, share, 0);
+                    }
+                    if let Some(s) = a["inhibition_scale"].as_f64() {
+                        w.inhibition_scale = s;
+                    }
+                    tools.live = w.clone();
+                    link.0.send(crate::sim_thread::Command::SetWiring { wiring: Box::new(w), counts });
+                }
+            }
+            "lab.wiring_job" if !busy => {
+                if let Some(shared) = link.0.shared.lock().unwrap_or_else(PoisonError::into_inner).clone() {
+                    let kind = a["kind"].as_str().unwrap_or("sweep").to_string();
+                    tools.start_wiring_job(&kind, &a, shared, &pack);
+                }
+            }
+            "lab.wiring_export" => {
+                let which = a["which"].as_str().unwrap_or("sweep");
+                let res = if which == "sweep" { tools.sweep.clone() } else { tools.flips.clone() };
+                if let Some(res) = res {
+                    let kind = res["kind"].as_str().unwrap_or("result").to_string();
+                    let folder = exports_dir().join(format!("{}-{kind}", crate::savestate_play::utc_stamp_compact()));
+                    match fly_sim::robustness::save(&res, &folder) {
+                        Ok(()) => {
+                            let name = folder.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+                            flash.write(crate::menu_ui::MenuFlash(format!("saved to {name} in exports"), true));
+                        }
+                        Err(e) => {
+                            flash.write(crate::menu_ui::MenuFlash(e.to_string(), false));
+                        }
+                    }
                 }
             }
             "lab.sens_start" if !busy => {

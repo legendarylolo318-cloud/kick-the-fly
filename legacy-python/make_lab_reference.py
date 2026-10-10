@@ -111,4 +111,23 @@ if __name__ == "__main__":
     R.render("lab_sleepdep", "Graphics", out / "page_lab_sleepdep.png", prep=day4_prep("lab_sleepdep", sleep=sleep))
     R.render("lab_sensitivity", "Graphics", out / "page_lab_sensitivity_empty.png", prep=day4_prep("lab_sensitivity"))
     R.render("lab_sensitivity", "Graphics", out / "page_lab_sensitivity.png", prep=day4_prep("lab_sensitivity", sens=sens))
+    from kickthefly.lab import labwiring
+    from kickthefly.sim.wiring import Wiring
+    rob = json.loads((gd / "robustness.json").read_text())
+
+    def wiring_prep(tab, min_syn=1, conf=0.5, sweep=None, flips=None, live=None):
+        def prep(m):
+            prep_for("lab_wiring")(m)
+            m.host.wiring = live or Wiring()
+            m.host.wiring_busy = ""
+            st = labwiring._st(m)
+            st.wiring_tab, st.min_syn, st.flip_conf = tab, min_syn, conf
+            st.sweep_result, st.flip_result = sweep, flips
+        return prep
+
+    R.render("lab_wiring", "Graphics", out / "page_lab_wiring_threshold.png", prep=wiring_prep("threshold", 5))
+    R.render("lab_wiring", "Graphics", out / "page_lab_wiring_sweep.png",
+             prep=wiring_prep("threshold", 5, sweep=rob["sweep"], live=Wiring(min_synapses=5)))
+    R.render("lab_wiring", "Graphics", out / "page_lab_wiring_signflip.png", prep=wiring_prep("signflip", 5, 0.7))
+    R.render("lab_wiring", "Graphics", out / "page_lab_wiring_flips.png", prep=wiring_prep("signflip", 5, 0.7, flips=rob["flips"]))
     print("wrote", out)

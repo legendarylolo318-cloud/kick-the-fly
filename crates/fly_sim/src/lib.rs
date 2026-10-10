@@ -31,6 +31,7 @@ pub mod outdoors;
 pub mod pack;
 pub mod race;
 pub mod rng;
+pub mod robustness;
 pub mod sensitivity;
 pub mod sleepdep;
 pub mod stats;

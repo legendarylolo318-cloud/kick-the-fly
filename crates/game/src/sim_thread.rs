@@ -56,6 +56,9 @@ impl SimConfig {
     }
 }
 
+/// True while the sim thread rebuilds the matrix for a wiring change (`host.wiring_busy`).
+pub static WIRING_BUSY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
 /// Messages from the game to the brain.
 #[derive(Debug)]
 pub enum Command {
@@ -115,6 +118,11 @@ pub enum Command {
     DexEnabled(bool),
     /// `brain.mirror_weights`: run every fly on the left/right-averaged matrix (or back on the connectome). Learning starts over.
     SetMirror(bool),
+    /// `Game.set_wiring`: run every fly on the connectome with this wiring applied (reversible; the identity wiring restores it).
+    SetWiring {
+        wiring: Box<fly_sim::wiring::Wiring>,
+        counts: Arc<Vec<i32>>,
+    },
     /// `Memory.observe`: remember the Kenyon-cell pattern of a smell that is present now (the game sends it every 3rd frame).
     Observe(String),
     /// Start conditioning (`fear`, `like` or `test`) on a smell; `trials` 0 means 10.
@@ -438,6 +446,28 @@ fn run(
                         b.poke(&region, side, strength);
                     }
                 }
+                Ok(Command::SetWiring { wiring, counts }) => {
+                    WIRING_BUSY.store(true, std::sync::atomic::Ordering::Relaxed);
+                    let w = Arc::new(fly_sim::wiring::apply(&original_weights, &labels_for_mirror, &counts, &wiring));
+                    let (idx, mult) = if wiring.is_identity() {
+                        (Vec::new(), Vec::new())
+                    } else {
+                        fly_sim::wiring::modified_entries(&original_weights.csr, &labels_for_mirror, &counts, &wiring)
+                    };
+                    spawn_weights = w.clone();
+                    let set = |b: &mut Brain| {
+                        *b.sim.weights_mut() = w.clone();
+                        if let Some(m) = b.memory.as_mut() {
+                            m.wiring_apply(&idx, &mult);
+                            m.write_back(&mut b.sim, true);
+                        }
+                    };
+                    set(&mut brain);
+                    for (_, b) in &mut multi.extras {
+                        set(b);
+                    }
+                    WIRING_BUSY.store(false, std::sync::atomic::Ordering::Relaxed);
+                }
                 Ok(Command::SetMirror(on)) => {
                     let w = if on {
                         Arc::new(fly_sim::mirror::symmetrized_weights(&original_weights, &labels_for_mirror.instance))
@@ -643,7 +673,7 @@ fn apply(
             }
             false
         }
-        Command::SetMirror(_) => false,
+        Command::SetMirror(_) | Command::SetWiring { .. } => false,
         Command::DexEnabled(on) => {
             dex.enabled = on;
             false
