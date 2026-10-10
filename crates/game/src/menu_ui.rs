@@ -238,6 +238,7 @@ struct MenuCtx<'w, 's> {
     flashes: MessageReader<'w, 's, MenuFlash>,
     chal: ResMut<'w, crate::challenges::Challenges>,
     notes: ResMut<'w, crate::feedback::Notes>,
+    share_q: Res<'w, crate::share_play::ShareQueue>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -272,6 +273,7 @@ fn input(
         mut flashes,
         mut chal,
         mut notes,
+        share_q,
     } = mc;
     for f in flashes.read() {
         ui.menu.flash(&f.0, if f.1 { ktf_ui::theme::GOOD } else { ktf_ui::theme::BAD }, if f.1 { 4.0 } else { 6.0 });
@@ -338,11 +340,10 @@ fn input(
     }
     let three_d = true;
     let palette = cfg.0.get_str("access.palette").to_string();
-    let mut host = GameHost::new(&loadout.0.tools, crate::tools::TOOLS[tools.selected].0).with_arcade(if ui.menu.is_open() {
-        hub.snapshot(&palette)
-    } else {
-        Value::Null
-    });
+    let mut host = GameHost::new(&loadout.0.tools, crate::tools::TOOLS[tools.selected].0)
+        .with_arcade(if ui.menu.is_open() { hub.snapshot(&palette) } else { Value::Null })
+        .with_lesion(hub.sizes.clone(), hub.saved.clone())
+        .with_share(share_q.0.clone());
     if let Some(text) = hub.flash.take() {
         ui.menu.flash(&text, ktf_ui::theme::GOOD, 5.0);
     }
@@ -568,11 +569,18 @@ pub struct GameHost {
     arcade: Value,
     sizes: Arc<Value>,
     saved: Arc<Value>,
+    share: Option<Arc<std::sync::Mutex<Vec<(String, Value)>>>>,
 }
 
 impl GameHost {
     pub fn with_arcade(mut self, arcade: Value) -> Self {
         self.arcade = arcade;
+        self
+    }
+
+    /// Where an applied share code goes for the game to act on (`share_play`).
+    pub fn with_share(mut self, q: Arc<std::sync::Mutex<Vec<(String, Value)>>>) -> Self {
+        self.share = Some(q);
         self
     }
 
@@ -595,6 +603,7 @@ impl GameHost {
             arcade: Value::Null,
             sizes: Arc::new(Value::Null),
             saved: Arc::new(Value::Null),
+            share: None,
         }
     }
 }
@@ -645,7 +654,16 @@ impl PageHost for GameHost {
     fn command(&mut self, cmd: &str, args: Value) -> Value {
         use serde_json::json;
         match cmd {
-            "share_apply" => json!({"error": format!("this build can't apply a {} code yet", args["kind"].as_str().unwrap_or("?"))}),
+            "share_apply" => match (&self.share, crate::share_play::lines_for(&args["kind"], &args["payload"])) {
+                (Some(q), Ok(lines)) => {
+                    q.lock()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner)
+                        .push((args["kind"].as_str().unwrap_or("").into(), args["payload"].clone()));
+                    json!({"lines": lines})
+                }
+                (_, Err(e)) => json!({"error": e}),
+                (None, _) => json!({"error": "the game is not ready to apply a code"}),
+            },
             "protocol_payload" => json!({"error": "protocols are not part of this build yet"}),
             _ => crate::crash::diag_command(cmd, &args).unwrap_or(Value::Null),
         }

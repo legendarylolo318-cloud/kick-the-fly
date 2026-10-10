@@ -60,6 +60,7 @@ pub mod savestate_play;
 pub mod selftest;
 pub mod senses;
 pub mod shapes_play;
+pub mod share_play;
 pub mod sim_thread;
 pub mod snapshot;
 pub mod stethoscope_play;
@@ -189,6 +190,6 @@ impl Plugin for GamePlugin {
                 fly::FlyPlugin,
                 fly_visuals::FlyVisualsPlugin,
             ))
-            .add_plugins((arcade_hub::ArcadeHubPlugin, flies_play::FliesPlugin));
+            .add_plugins((arcade_hub::ArcadeHubPlugin, flies_play::FliesPlugin, share_play::SharePlugin));
     }
 }

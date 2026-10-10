@@ -46,6 +46,8 @@ const USAGE: &str = "usage: kick_the_fly [--pack FILE | --synthetic N] [--seed S
   --cam x,y,z,tx,ty,tz  fixed camera (screenshots)\n\
   --rain F --storm --day S   weather (outdoor arenas) and day/night cycle length\n\
   --fullscreen     start borderless fullscreen (a tiling compositor otherwise opens half-size windows)\n\
+  --flies N        start with N flies (N spawns another, F cycles the focus, J recalls lost ones)
+  --2d             accepted and ignored: the 2D game is not part of this build
   --menu SCREEN[:TAB]  open a menu screen at start (pause, confirm_quit, settings:Audio), for screenshots\n\
   --tool NAME [--fire S] [--hold S]  select a tool and press the left button at S seconds for HOLD seconds\n\
   --shot FILE [N]  save a screenshot after N frames (default 90) and exit\n\
@@ -92,6 +94,15 @@ fn parse(args: impl Iterator<Item = String>) -> Result<Args, String> {
             "--inspect" => inspect = Some(value("a neuron row")?.parse().map_err(|_| "bad neuron row")?),
             "--challenge" => challenge = Some(value("a challenge: tmaze sneak sweet reverse_surgery predict")?),
             "--bugreport" => bugreport = true,
+            "--2d" => {
+                // the original top-down pygame game is not part of this build (PORTING.md, "The 2D game")
+                eprintln!("note: --2d is not part of this build; starting the 3D game (it has every feature the 2D game had)");
+            }
+            "--flies" => {
+                let n: u32 = value("a number of extra flies")?.parse().map_err(|_| "bad number of flies")?;
+                // SAFETY: argument parsing runs first thing in `main`, before any thread exists
+                unsafe { std::env::set_var("KTF_FLIES", n.saturating_sub(1).to_string()) };
+            }
             "--out" => out = Some(PathBuf::from(value("a file or folder")?)),
             "--menu" => menu = Some(value("a screen, e.g. pause or settings:Audio")?),
             "--kill-at" => kill_at = Some(value("seconds")?.parse::<f32>().map_err(|_| "bad seconds")?),

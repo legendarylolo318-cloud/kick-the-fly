@@ -434,7 +434,7 @@ impl Page for SharePage {
         if self.tab == "export" { self.export_tab(m, cv, body, ctx) } else { self.import_tab(m, cv, body, ctx) }
     }
 
-    fn custom(&mut self, _m: &mut Menu, name: &str, text: Option<&str>, ctx: &mut Ctx) {
+    fn custom(&mut self, m: &mut Menu, name: &str, text: Option<&str>, ctx: &mut Ctx) {
         if let Some(t) = name.strip_prefix("tab:") {
             self.tab = t.into();
         } else if let Some(k) = name.strip_prefix("kind:") {
@@ -481,7 +481,21 @@ impl Page for SharePage {
             };
         } else if name == "apply" {
             let Some(code) = self.parsed.as_ref().and_then(|p| p.code.clone()) else { return };
-            let res = ctx.host.command("share_apply", json!({"kind": code.kind, "payload": code.payload}));
+            let res = if code.kind == "loadout" {
+                // `_apply_loadout`: the custom loadout, saved under its name, the Custom preset
+                let tools: Vec<String> = strings(&code.payload["tools"]).unwrap_or_default();
+                let name = code.payload["name"].as_str().filter(|n| !n.is_empty()).unwrap_or("Shared loadout").to_string();
+                ctx.cfg.set_custom_loadout(&tools);
+                let mut lines = Vec::new();
+                if ctx.cfg.save_loadout(&name, &tools) {
+                    lines.push(format!("saved loadout '{name}'"));
+                }
+                m.set_setting(ctx.cfg, "controls.loadout_preset", &json!("custom"), true);
+                lines.push("loadout set".to_string());
+                json!({"lines": lines})
+            } else {
+                ctx.host.command("share_apply", json!({"kind": code.kind, "payload": code.payload}))
+            };
             if let Some(e) = res.get("error").and_then(|e| e.as_str()) {
                 self.last = format!("{}: {e}", tr("Could not apply it"));
                 return;

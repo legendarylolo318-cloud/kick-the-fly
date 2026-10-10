@@ -323,3 +323,11 @@ save loads its brains exactly and its bodies by their first three particles, hea
 not restored. **Not done:** pokes that are not per-fly yet go to the focused brain (the contraption's wind, the memory scent), the
 arcade/tool wheel/puppeteer assume one fly, fly-vs-fly personality cards are not shown on the bodies, and the cap is not adapted to the machine (each extra brain costs about 0.3 ms per step here, so ~16 flies still ran real time on
 paper but this was only measured at 4).
+
+### The 2D game (`--2d`): decision
+**Not ported, on purpose.** The 2D game is the original top-down pygame game (`game/kick_the_fly.py:Game`, about 7,000 lines, its own software renderer,
+particle-spring body, HUD and tools). The 3D game superseded it in 3.0 and is the default; every Lab, arcade, challenge and persistence feature this port
+has was ported from the 3D side, and the 2D game shares none of its rendering or physics. Porting it means a second renderer and a second physics
+engine for a mode the Python game itself only keeps as a fallback when OpenGL 3.3 is missing (which wgpu/Vulkan/Metal/DX12 make moot).
+What the Rust build does instead: `--2d` is accepted and ignored with a note; a 2D save is refused with its reason ("made in the 2D game"; the compat
+check); the `--2d` rows of section 1 are written off with this reason, not ticked.
