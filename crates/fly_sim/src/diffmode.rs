@@ -18,7 +18,7 @@ pub struct Config {
 }
 
 /// `np.add.reduce` of a float32 array (pairwise, eight running totals per block of 128).
-fn np_sum_f32(a: &[f32]) -> f32 {
+pub fn np_sum_f32(a: &[f32]) -> f32 {
     let n = a.len();
     if n < 8 {
         let mut r = 0.0f32;

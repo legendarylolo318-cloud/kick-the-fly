@@ -614,24 +614,38 @@ fn palette(name: &str) -> ([u8; 3], [u8; 3], [u8; 3], [u8; 3]) {
 
 /// `{x:g}` for the other pages.
 pub fn fmt_g_pub(x: f64) -> String {
-    fmt_g(x)
+    fmt_gp(x, 6)
 }
 
-/// Python's `format(x, "g")`.
-fn fmt_g(x: f64) -> String {
+/// Python's `format(x, ".{p}g")`.
+pub fn fmt_gp(x: f64, p: usize) -> String {
     if x == 0.0 {
         return "0".into();
     }
-    let e = format!("{x:.5e}");
+    if !x.is_finite() {
+        return if x.is_nan() {
+            "nan".into()
+        } else if x > 0.0 {
+            "inf".into()
+        } else {
+            "-inf".into()
+        };
+    }
+    let p = p.max(1);
+    let e = format!("{:.*e}", p - 1, x);
     let (mant, exp) = e.split_once('e').unwrap_or((&e, "0"));
     let exp: i32 = exp.parse().unwrap_or(0);
-    if !(-4..6).contains(&exp) {
-        let m = mant.trim_end_matches('0').trim_end_matches('.');
+    if exp < -4 || exp >= p as i32 {
+        let m = if mant.contains('.') { mant.trim_end_matches('0').trim_end_matches('.') } else { mant };
         return format!("{m}e{}{:02}", if exp < 0 { '-' } else { '+' }, exp.abs());
     }
-    let dec = (5 - exp).max(0) as usize;
+    let dec = (p as i32 - 1 - exp).max(0) as usize;
     let s = format!("{x:.dec$}");
     if s.contains('.') { s.trim_end_matches('0').trim_end_matches('.').to_string() } else { s }
+}
+
+fn fmt_g(x: f64) -> String {
+    fmt_gp(x, 6)
 }
 
 pub struct LabSensitivity {

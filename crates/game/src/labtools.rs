@@ -81,6 +81,9 @@ pub struct LabTools {
     diff: Option<Value>,
     laser: Value,
     psych: Option<Value>,
+    autopsy_done: BTreeMap<String, Value>,
+    autopsy_fails: Option<Value>,
+    autopsy_error: String,
     class_status: (u64, String),
     class_groups: Option<std::collections::HashMap<&'static str, Vec<u32>>>,
     psych_msg: String,
@@ -110,6 +113,9 @@ impl Default for LabTools {
             diff: None,
             laser: Value::Null,
             psych: None,
+            autopsy_done: BTreeMap::new(),
+            autopsy_fails: None,
+            autopsy_error: String::new(),
             class_status: (0, String::new()),
             class_groups: None,
             psych_msg: String::new(),
@@ -303,6 +309,13 @@ impl LabTools {
                 "Neural clamp" => self.clamp = Some(v),
                 "Connectome diff" => self.diff = Some(v),
                 "Psych sweep" => self.psych = Some(v),
+                "Failure autopsy" => {
+                    for a in v.as_array().into_iter().flatten() {
+                        if let Some(id) = a["test"]["id"].as_str() {
+                            self.autopsy_done.insert(id.to_string(), a.clone());
+                        }
+                    }
+                }
                 "Critical path" => {
                     if let Some(t) = v["target"].as_str() {
                         self.critical.insert(t.to_string(), v.clone());
@@ -328,6 +341,10 @@ impl LabTools {
                 }
             }),
             "lab_laser" => json!({"lab.laser_state": self.laser}),
+            "lab_autopsy" => json!({"lab.autopsy_state": {
+                "fails": self.autopsy_fails, "error": if self.autopsy_fails.as_ref().is_some_and(|f| f.as_array().is_some_and(|a| !a.is_empty())) { self.error.clone() } else { self.autopsy_error.clone() },
+                "done": self.autopsy_done, "job": self.job.as_ref().map(BgJob::json),
+            }}),
             "lab_classroom" => json!({"lab.class_state": {"seq": self.class_status.0, "status": self.class_status.1}}),
             "lab_psych" => json!({
                 "lab.psych_state": {
@@ -375,6 +392,55 @@ impl LabTools {
             }),
             _ => Value::Null,
         }
+    }
+
+    fn start_autopsy(&mut self, only: Option<Vec<String>>, results: Value, shared: Shared, pack: &PackPath) {
+        self.error.clear();
+        let Some(path) = pack.0.clone().filter(|p| p.exists()).or_else(fly_sim::pack::find_default) else {
+            self.error = "needs the brain pack".into();
+            return;
+        };
+        self.job = Some(BgJob::start("Failure autopsy", move |upd, _cancel| {
+            let f = std::fs::File::open(&path).map_err(|e| e.to_string())?;
+            let mut npz = fly_sim::npy::Npz::read(std::io::BufReader::new(f)).map_err(|e| e.to_string())?;
+            let inv = npz.take("inv").and_then(|a| a.into_f32()).map_err(|e| e.to_string())?;
+            let created = crate::savestate_play::utc_stamp_pub();
+            let folder = exports_dir().join("failure-autopsy");
+            let out = fly_sim::failure_autopsy::run_all(
+                &shared.weights,
+                &shared.labels,
+                &inv,
+                &results,
+                &folder,
+                only.as_deref(),
+                &created,
+                &mut |d, n, label| upd(d as f64 / n.max(1) as f64, &format!("{label}  ·  {d}/{n}")),
+            )?;
+            Ok(Value::Array(out))
+        }));
+    }
+
+    fn load_autopsy(&mut self, results: &Value) {
+        if self.autopsy_fails.is_some() {
+            return;
+        }
+        if results.is_null() {
+            self.autopsy_fails = Some(json!([]));
+            self.autopsy_error = "No validation result yet: run Lab > Validation (or --validate) first.".into();
+            return;
+        }
+        let fails = fly_sim::failure_autopsy::failing_tests(results);
+        let folder = exports_dir().join("failure-autopsy");
+        for f in &fails {
+            let Some(id) = f["id"].as_str() else { continue };
+            if let Some(v) = std::fs::read_to_string(folder.join(format!("{id}.json")))
+                .ok()
+                .and_then(|t| serde_json::from_str::<Value>(&t.replace("NaN", "null")).ok())
+            {
+                self.autopsy_done.insert(id.to_string(), v);
+            }
+        }
+        self.autopsy_fails = Some(Value::Array(fails.iter().map(|f| json!({"id": f["id"], "name": f["name"]})).collect()));
     }
 
     fn start_psych(&mut self, target: &str, flies: usize, lif: [f64; 5], shared: Shared) {
@@ -570,9 +636,14 @@ fn tick(
     mut tool_state: ResMut<crate::tools::ToolState>,
     lab: Res<crate::share_play::LabState>,
     cfg: Res<crate::menu_ui::UserConfig>,
+    runs: Res<crate::lab_play::LabRuns>,
 ) {
     tools.base_seed = cfg.0.get_i64("brain.seed");
     tools.pack = pack.clone();
+    if screen.0 == "lab_autopsy" && tools.autopsy_fails.is_none() {
+        let results = runs.query()["results"].clone();
+        tools.load_autopsy(&results);
+    }
     if screen.0 == "lab_laser" {
         let l = &tool_state.laser;
         let laser_idx = crate::tools::TOOLS.iter().position(|t| t.0 == "laser");
@@ -773,6 +844,23 @@ fn tick(
                         tools.class_status = (tools.class_status.0 + 1, st);
                     }
                 }
+            }
+            "lab.autopsy_run" if !busy => {
+                if let Some(shared) = link.0.shared.lock().unwrap_or_else(PoisonError::into_inner).clone() {
+                    let only: Option<Vec<String>> =
+                        a["only"].as_array().map(|v| v.iter().filter_map(|x| x.as_str().map(String::from)).collect());
+                    let results = runs.query()["results"].clone();
+                    tools.start_autopsy(only, results, shared, &pack);
+                }
+            }
+            "lab.autopsy_export" => {
+                let src = exports_dir().join("failure-autopsy");
+                let dst = exports_dir().join(format!("{}-failure-autopsy", crate::savestate_play::utc_stamp_compact()));
+                let ok = std::fs::create_dir_all(&dst).is_ok()
+                    && std::fs::read_dir(&src)
+                        .is_ok_and(|rd| rd.flatten().all(|e| std::fs::copy(e.path(), dst.join(e.file_name())).is_ok()));
+                let name = dst.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+                flash.write(crate::menu_ui::MenuFlash(if ok { format!("saved to {name} in exports") } else { "export failed".into() }, ok));
             }
             "lab.psych_run" if !busy => {
                 if let Some(shared) = link.0.shared.lock().unwrap_or_else(PoisonError::into_inner).clone() {

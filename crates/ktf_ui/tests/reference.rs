@@ -891,3 +891,37 @@ fn lab_classroom_page() {
         compare(name, &cv.to_rgb_over(BG), 0.02);
     }
 }
+
+#[test]
+fn lab_autopsy_page() {
+    use ktf_ui::pages::autopsy_lab::LabAutopsy;
+    struct H(serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            if key == "lab.autopsy_state" { self.0.clone() } else { serde_json::Value::Null }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    let root = env!("CARGO_MANIFEST_DIR");
+    let fails: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(format!("{root}/../../tests/ui_reference/lab_autopsy_fixture.json")).unwrap()).unwrap();
+    let text = std::fs::read_to_string(format!("{root}/../../tests/golden/autopsy.json")).unwrap().replace("NaN", "null");
+    let gold: serde_json::Value = serde_json::from_str(&text).unwrap();
+    for (name, sel, done) in [
+        ("page_lab_autopsy_empty.png", "mdn_backward", serde_json::json!({})),
+        ("page_lab_autopsy.png", "grooming_hierarchy", gold.clone()),
+        ("page_lab_autopsy_scrolled.png", "mdn_backward", gold.clone()),
+    ] {
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        m.show("lab_autopsy");
+        m.page_mut::<LabAutopsy>("lab_autopsy").unwrap().set_sel(sel);
+        let mut cv = Canvas::new(1280, 720);
+        let st = serde_json::json!({"fails": fails, "error": "", "done": done, "job": null});
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(st));
+        compare(name, &cv.to_rgb_over(BG), 0.02);
+    }
+}

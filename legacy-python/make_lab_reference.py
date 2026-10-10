@@ -209,4 +209,20 @@ if __name__ == "__main__":
     R.render("lab_classroom", "Graphics", out / "page_lab_classroom_step.png",
              prep=class_prep("tmaze", 1, "Stimulus delivered to 30 neurons (odor_a)"))
     R.render("lab_classroom", "Graphics", out / "page_lab_classroom_last.png", prep=class_prep("gf_lesion", 3))
+    from kickthefly.lab import labautopsy, failure_autopsy as fa_mod
+    aut_gold = json.loads((gd / "autopsy.json").read_text().replace("NaN", "null"))
+    fails = fa_mod.failing_tests(published)
+    (out / "lab_autopsy_fixture.json").write_text(json.dumps([dict(id=f["id"], name=f["name"]) for f in fails]))
+
+    def aut_prep(sel, done):
+        def prep(m):
+            prep_for("lab_autopsy")(m)
+            m.host.lab_params = {}
+            st = labautopsy._st(m)
+            st["fails"], st["sel"], st["done"], st["error"] = fails, sel, done, None
+        return prep
+
+    R.render("lab_autopsy", "Graphics", out / "page_lab_autopsy_empty.png", prep=aut_prep("mdn_backward", {}))
+    R.render("lab_autopsy", "Graphics", out / "page_lab_autopsy.png", prep=aut_prep("grooming_hierarchy", dict(aut_gold)))
+    R.render("lab_autopsy", "Graphics", out / "page_lab_autopsy_scrolled.png", prep=aut_prep("mdn_backward", dict(aut_gold)))
     print("wrote", out)

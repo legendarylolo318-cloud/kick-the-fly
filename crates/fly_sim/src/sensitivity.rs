@@ -90,6 +90,11 @@ const EXPECTED: [&str; 12] = [
 
 /// Python's `format(x, "g")`.
 pub fn fmt_g(x: f64) -> String {
+    fmt_gp(x, 6)
+}
+
+/// Python's `format(x, ".{p}g")`.
+pub fn fmt_gp(x: f64, p: usize) -> String {
     if x == 0.0 {
         return "0".into();
     }
@@ -102,14 +107,15 @@ pub fn fmt_g(x: f64) -> String {
             "-inf".into()
         };
     }
-    let e = format!("{x:.5e}"); // 6 significant digits
+    let p = p.max(1);
+    let e = format!("{:.*e}", p - 1, x); // p significant digits
     let (mant, exp) = e.split_once('e').unwrap();
     let exp: i32 = exp.parse().unwrap();
-    if !(-4..6).contains(&exp) {
-        let m = mant.trim_end_matches('0').trim_end_matches('.');
+    if exp < -4 || exp >= p as i32 {
+        let m = if mant.contains('.') { mant.trim_end_matches('0').trim_end_matches('.') } else { mant };
         return format!("{m}e{}{:02}", if exp < 0 { '-' } else { '+' }, exp.abs());
     }
-    let dec = (5 - exp).max(0) as usize;
+    let dec = (p as i32 - 1 - exp).max(0) as usize;
     let s = format!("{x:.dec$}");
     if s.contains('.') { s.trim_end_matches('0').trim_end_matches('.').to_string() } else { s }
 }
