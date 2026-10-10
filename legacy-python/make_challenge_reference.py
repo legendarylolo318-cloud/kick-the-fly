@@ -163,4 +163,17 @@ if __name__ == "__main__":
     surf.fill(BG)
     k.Game._draw_autopsy(stub, surf, 100.0)
     pygame.image.save(surf, str(out / "challenge_autopsy.png"))
+    # the tool wheel (loadout_ui.draw_wheel) with the pointer to the right of the middle
+    from kickthefly.core import config as cfg_mod
+    from kickthefly.core import loadout as lo
+    from kickthefly.ui import loadout_ui
+    cfg = cfg_mod.Config()
+    loadout = lo.resolve(cfg)
+    wstub = SimpleNamespace(f_small=g.f_small, f_text=g.f_text, f_bold=g.f_bold, _text=g._text, cfg=cfg, loadout=loadout, three_d=True, hud_h=760,
+                            kwheel_open=True, kwheel_vec=[100.0, 0.0], pad=None, _wheel_tools=lambda: lo.available_tools(lab=cfg.lab, larva=False),
+                            tool_name=lambda: "hand")
+    surf = pygame.Surface((1280, 760))
+    surf.fill(BG)
+    loadout_ui.draw_wheel(wstub, surf)
+    pygame.image.save(surf, str(out / "challenge_wheel.png"))
     print("wrote", out)

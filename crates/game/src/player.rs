@@ -55,11 +55,13 @@ pub struct CameraOverride(pub Vec3, pub Vec3);
 #[derive(Resource, Debug, Clone, Copy)]
 pub struct MouseLook {
     pub captured: bool,
+    /// The tool wheel is open: the mouse points at a tool instead of turning the view.
+    pub wheel: bool,
 }
 
 impl Default for MouseLook {
     fn default() -> Self {
-        Self { captured: true }
+        Self { captured: true, wheel: false }
     }
 }
 
@@ -113,7 +115,7 @@ fn walk(
     let dt = time.delta_secs().min(0.05);
     let (p, tf, lv) = &mut *player;
     let p = &mut **p;
-    if look.captured {
+    if look.captured && !look.wheel {
         p.yaw += motion.delta.x * settings.mouse_sensitivity;
         p.pitch = (p.pitch - motion.delta.y * settings.mouse_sensitivity * if settings.invert_y { -1.0 } else { 1.0 }).clamp(-1.45, 1.45);
     }

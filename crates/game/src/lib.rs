@@ -65,6 +65,7 @@ pub mod tournament;
 pub mod tutorial_play;
 pub mod weather;
 pub mod weather_play;
+pub mod wheel_play;
 pub mod world;
 
 use std::time::{Duration, Instant};
@@ -157,6 +158,7 @@ impl Plugin for GamePlugin {
                 challenges::ChallengesPlugin,
                 surgery_play::SurgeryPlugin,
                 autopsy_play::AutopsyPlugin,
+                wheel_play::WheelPlugin,
                 actions::ActionsPlugin,
                 tutorial_play::TutorialPlugin,
                 first_run::FirstRunPlugin,

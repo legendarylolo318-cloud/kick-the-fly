@@ -255,6 +255,7 @@ struct HudIn<'w, 's> {
     chal: Res<'w, crate::challenges::Challenges>,
     surgery: Res<'w, crate::surgery_play::Surgery>,
     autopsy: Res<'w, crate::autopsy_play::AutopsyCard>,
+    wheel: Res<'w, crate::wheel_play::Wheel>,
     flies: Query<'w, 's, &'static Fly>,
 }
 
@@ -293,6 +294,7 @@ fn draw(
         chal,
         surgery,
         autopsy,
+        wheel,
         flies,
     } = i;
     let l = lay.0;
@@ -493,7 +495,9 @@ fn draw(
         }),
         tutorial: tutorial_view(&tut, &cfg.0, rnow as f32).filter(|_| !menu.0),
         training: learned.train_open.then(|| training_screen(&snap, &learned, rnow as f32)),
-        challenge: if autopsy.report.is_some() {
+        challenge: if wheel.open {
+            wheel.ops.clone()
+        } else if autopsy.report.is_some() {
             autopsy.ops.clone()
         } else if surgery.open {
             surgery.ops.clone()

@@ -226,6 +226,19 @@ pub enum Op {
         style: u8,
         enabled: bool,
     },
+    /// A tool icon (`draw_icon`).
+    Icon {
+        name: String,
+        c: (f32, f32),
+        color: Color,
+    },
+    /// A filled disc with an alpha.
+    DiscA {
+        c: (f32, f32),
+        r: f32,
+        color: Color,
+        alpha: u32,
+    },
     /// A click area with no drawing of its own.
     Hit {
         rect: Rect,
@@ -593,6 +606,8 @@ impl Hud<'_> {
                 ),
                 Op::Line { a, b, w, color } => self.cv.line(*a, *b, *w, *color, 255),
                 Op::Stars { c, n, size } => draw_stars(self.cv, *c, *n, *size),
+                Op::Icon { name, c, color } => draw_icon(self.cv, name, *c, *color),
+                Op::DiscA { c, r, color, alpha } => self.cv.aa_circle_a(*c, *r, *color, *alpha),
                 Op::Hit { rect, id } => hits.push((*rect, id.clone())),
                 Op::Button { rect, label, id, style, enabled } => {
                     let over = *enabled && rect.contains(mouse);
