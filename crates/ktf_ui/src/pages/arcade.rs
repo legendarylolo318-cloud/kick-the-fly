@@ -9,6 +9,8 @@
 
 use serde_json::Value;
 
+mod battle;
+
 use crate::canvas::{Canvas, Rect};
 use crate::i18n::{tr, tr_args};
 use crate::menu::{Act, Anchor, Ctx, Menu, Page, Style};
@@ -39,6 +41,7 @@ pub struct ArcadePage {
     stake: i64,
     bracket_serial: i64,
     race_serial: i64,
+    bt: battle::Battle,
 }
 
 impl Default for ArcadePage {
@@ -59,6 +62,7 @@ impl Default for ArcadePage {
             stake: 10,
             bracket_serial: -1,
             race_serial: -1,
+            bt: battle::Battle::default(),
         }
     }
 }
@@ -71,7 +75,7 @@ fn series(palette: &str) -> [[u8; 3]; 2] {
     }
 }
 
-fn tag(m: &Menu, cv: &mut Canvas, x: i32, y: i32, name: &str) -> i32 {
+pub(super) fn tag(m: &Menu, cv: &mut Canvas, x: i32, y: i32, name: &str) -> i32 {
     let col = match name {
         "CONNECTOME" | "GAME RULE" => tag_color(name),
         _ => [150, 120, 220],
@@ -83,7 +87,7 @@ fn tag(m: &Menu, cv: &mut Canvas, x: i32, y: i32, name: &str) -> i32 {
     r.right() + 6
 }
 
-fn f64_of(v: &Value) -> f64 {
+pub(super) fn f64_of(v: &Value) -> f64 {
     v.as_f64().unwrap_or(0.0)
 }
 
@@ -93,6 +97,42 @@ fn card_of(cards: &Value, seed: i64) -> Option<&Value> {
 
 impl ArcadePage {
     /// Put the page in a known state (tests and scripted captures): tab 0/1/2, the favorite, the selected match, the bet and a paused replay.
+    /// The battle tab in a known state (tests): phase 0 setup1, 1 pass, 2 setup2, 3 ready, 5 result.
+    #[allow(clippy::too_many_arguments)]
+    pub fn preset_battle(
+        &mut self,
+        phase: u8,
+        picks: [&[(&str, i8)]; 2],
+        search: &str,
+        rounds: u32,
+        seconds: f64,
+        msg: Option<(&str, bool)>,
+    ) {
+        use battle::{Loadout, Phase};
+        self.tab = Tab::Battle;
+        self.bt.phase = match phase {
+            1 => Phase::Pass,
+            2 => Phase::Setup2,
+            3 => Phase::Ready,
+            5 => Phase::Result,
+            _ => Phase::Setup1,
+        };
+        for (i, p) in picks.iter().enumerate() {
+            self.bt.los[i] = Loadout { name: format!("player {}", i + 1), picks: p.iter().map(|(t, m)| ((*t).to_string(), *m)).collect() };
+        }
+        self.bt.search = search.into();
+        self.bt.rounds = rounds;
+        self.bt.seconds = seconds;
+        self.bt.playing = false;
+        self.bt.replay_t = 0.0;
+        self.bt.sel_round = 1;
+        if let Some((t, bad)) = msg {
+            self.bt.msg = t.into();
+            self.bt.msg_bad = bad;
+        }
+        self.bt.serial = 1; // the fixture's serial, so drawing keeps the phase
+    }
+
     pub fn preset(&mut self, tab: u8, favorite: Option<i64>, sel_match: Option<(usize, usize)>, bet_fly: Option<i64>) {
         self.tab = match tab {
             1 => Tab::Race,
@@ -109,7 +149,16 @@ impl ArcadePage {
         self.race_serial = 1;
     }
 
-    fn draw_duel(&self, m: &Menu, cv: &mut Canvas, rect: Rect, frames: &[Value], t: f64, names: (&str, &str), cols: &[[u8; 3]; 2]) {
+    pub(super) fn draw_duel(
+        &self,
+        m: &Menu,
+        cv: &mut Canvas,
+        rect: Rect,
+        frames: &[Value],
+        t: f64,
+        names: (&str, &str),
+        cols: &[[u8; 3]; 2],
+    ) {
         cv.fill_rect(rect, [12, 15, 20], 8);
         cv.stroke_rect(rect, BORDER, 8);
         if frames.is_empty() {
@@ -747,15 +796,7 @@ impl Page for ArcadePage {
         y = match self.tab {
             Tab::Tournament => self.tournament(m, cv, body, y, &d, busy, &cols),
             Tab::Race => self.racing(m, cv, body, y, &d, busy, &cols),
-            Tab::Battle => m.wrapped(
-                cv,
-                &tr("The lesion battle is in the game's own page (the pause menu's Fly arcade overlay): see PORTING.md."),
-                (body.x + 8, y),
-                body.w - 24,
-                LABEL,
-                &f.small,
-                4,
-            ),
+            Tab::Battle => self.battle(m, cv, body, y, &d, busy, &cols, ctx),
         };
         m.set_content_h(key, (y + off - body.bottom() + 8).max(0));
         m.end_clip(cv);
@@ -808,17 +849,18 @@ impl Page for ArcadePage {
     }
 
     fn custom(&mut self, m: &mut Menu, name: &str, text: Option<&str>, ctx: &mut Ctx) {
+        if name.starts_with("bt:") || name == "text:bt_search" {
+            let n = if name == "text:bt_search" { "bt:text:bt_search" } else { name };
+            self.battle_custom(m, n, text, ctx);
+            return;
+        }
         let (verb, arg) = name.split_once(':').unwrap_or((name, ""));
         let busy = ctx.host.query("arcade")["job"].is_object();
         match verb {
             "tab" => {
                 self.tab = match arg {
                     "1" => Tab::Race,
-                    "2" => {
-                        // the lesion battle is the game's own page (`ui/battle_ui.py` is not ported here)
-                        m.action("arcade:battle");
-                        Tab::Tournament
-                    }
+                    "2" => Tab::Battle,
                     _ => Tab::Tournament,
                 }
             }
@@ -842,6 +884,8 @@ impl Page for ArcadePage {
                 match arg {
                     "arc_len" => self.match_s = v,
                     "arc_scrub" => self.replay_t = v,
+                    "bt_len" => self.bt.seconds = v,
+                    "bt_scrub" => self.bt.replay_t = v,
                     "race_lanes" => self.lanes = v.round() as i64,
                     _ => {}
                 }

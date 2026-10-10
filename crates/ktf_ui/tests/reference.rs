@@ -348,3 +348,65 @@ fn arcade_page() {
         compare(name, &cv.to_rgb_over(BG), 0.012);
     }
 }
+
+#[test]
+fn arcade_battle_tab() {
+    use ktf_ui::pages::arcade::ArcadePage;
+    struct H(serde_json::Value, serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            match key {
+                "arcade" => self.0.clone(),
+                "arcade_sizes" => self.1["sizes"].clone(),
+                "lesion_saved" => self.1["saved"].clone(),
+                _ => serde_json::Value::Null,
+            }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    let read = |f: &str| -> serde_json::Value {
+        serde_json::from_slice(&std::fs::read(format!("{}/../../tests/ui_reference/{f}", env!("CARGO_MANIFEST_DIR"))).unwrap()).unwrap()
+    };
+    let mut arcade = read("arcade_fixture.json");
+    let bt = read("arcade_battle_fixture.json");
+    arcade["battle"] = bt["result"].clone();
+    let a: &[(&str, i8)] = &[("DNp35", -1), ("MDN", 1)];
+    let b: &[(&str, i8)] = &[("LC10a", 1)];
+    let none: &[(&str, i8)] = &[];
+    #[allow(clippy::type_complexity)]
+    let cases: [(&str, u8, [&[(&str, i8)]; 2], &str, u32, f64, Option<(&str, bool)>); 5] = [
+        ("setup1", 0, [a, none], "DN", 1, 20.0, None),
+        (
+            "setup2",
+            2,
+            [&[("DNp35", -1)], &[("LC10a", 1), ("LC10b", -1), ("LPLC2", 1)]],
+            "LC",
+            1,
+            20.0,
+            Some(("the budget is 3 picks: take one out first", true)),
+        ),
+        ("pass", 1, [a, none], "", 1, 20.0, None),
+        ("ready", 3, [a, b], "", 3, 25.0, None),
+        ("result", 5, [a, b], "", 1, 20.0, None),
+    ];
+    for (name, phase, picks, search, rounds, secs, msg) in cases {
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        m.show("arcade");
+        m.page_mut::<ArcadePage>("arcade").unwrap().preset_battle(phase, picks, search, rounds, secs, msg);
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(arcade.clone(), bt.clone()));
+        if let Ok(dir) = std::env::var("KTF_DUMP") {
+            let rgb = cv.to_rgb_over(BG);
+            let file = std::fs::File::create(format!("{dir}/rust_battle_{name}.png")).unwrap();
+            let mut enc = png::Encoder::new(std::io::BufWriter::new(file), 1280, 720);
+            enc.set_color(png::ColorType::Rgb);
+            enc.set_depth(png::BitDepth::Eight);
+            enc.write_header().unwrap().write_image_data(&rgb).unwrap();
+        }
+        compare(&format!("page_arcade_battle_{name}.png"), &cv.to_rgb_over(BG), 0.012);
+    }
+}

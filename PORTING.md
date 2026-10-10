@@ -232,8 +232,9 @@ against the pygame version (screenshot pair, or the code read side by side). Any
   `--menu arcade`): tournament = measure cards (`fly_sim::cards`) then `run_bracket` with real brains (`Build::brain`: warm up on the individuality seed,
   then reseed with the match noise, as `build_fighter` does); look = cards + `odds_table`; race = `run_lane` per fly with `lane_noise`; bets settle in the
   `points::Wallet` (f64 odds, Python's rounding; the wallet file now also keeps the bet history). `arcade_hub_real.rs` runs a 4-fly tournament and a
-  3-lane look on the real pack through the page's own actions. **Not done:** the Lesion battle tab (`ui/battle_ui.py`) opens the game's older keyboard
-  page instead, gamepad nav (`pad_nav`), jobs run one brain pair at a time (Python used worker processes). **Added after:** `Measure the flies in play` works
+  3-lane look on the real pack through the page's own actions. **Lesion battle tab ported** (`pages/arcade/battle.rs` from `ui/battle_ui.py` + the rules of `game/lesion_battle.py`: setup/pass/setup/ready/result, picker
+  with search, saved loadouts in `lesion_loadouts.json` (Python's file format and order), share codes = surgery codes both ways, fight job in
+  `arcade_hub`); 5 screenshot pairs (setup 1, setup 2 with the budget message, pass, ready, result) match at the same limit. **Not done:** gamepad nav (`pad_nav`), jobs run one brain pair at a time (Python used worker processes). **Added after:** `Measure the flies in play` works
   with several flies (seeds 1000 + slot; the count of unmeasured ones is the cache's), and every measured card is stored in the Python-format cache
   `<data>/cache/personality_cards.json` (`fly_sim::cards::{lookup, store, read_cache}`, same key, version 2, atomic write); the bodies do not show
   their card yet.

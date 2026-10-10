@@ -97,6 +97,67 @@ if __name__ == "__main__":
     (out / "arcade_fixture.json").write_text(json.dumps(fx))
     R.INSTALL = []
     for name, tab, scroll in (("tournament_top", "tournament", 0), ("tournament_replay", "tournament", 330), ("tournament_end", "tournament", 560),
-                              ("race_top", "race", 0), ("race_lanes", "race", 100), ("battle", "battle", 0)):
+                              ("race_top", "race", 0), ("race_lanes", "race", 100)):
         R.render("arcade", "Graphics", out / f"page_arcade_{name}.png", prep=prep_for(tab, scroll))
     print("wrote", out)
+
+
+# --- the lesion battle tab -----------------------------------------------------------------------------------------------------------
+def battle_fixture():
+    from kickthefly.game import lesion_battle as lb
+
+    sizes = {"DNp35": 2, "DNpe052": 2, "DNa01": 4, "DNa02": 4, "DNp01": 2, "DNp09": 2, "LC10a": 120, "LC10b": 90, "LC11": 33, "LPLC2": 280, "LC4": 70,
+             "MDN": 4, "DNg02_a": 28, "PPL1": 130, "PAM": 311, "KCg": 1800, "DNpe010": 2, "DNp06": 2, "DNp07": 2, "LC12": 300, "LC16": 450, "LC17": 900,
+             "MBON01": 2, "DNg12_a": 15}
+    types = [t for t, n in sizes.items() for _ in range(n)]
+    saved = {"my best": {"DNp35": -1, "MDN": 1}, "sleepy": {"DNa01": -1}}
+    a = {"DNp35": -1, "MDN": 1}
+    b = {"LC10a": 1}
+
+    def rd(w, hp_a, hp_b):
+        return dict(winner=w, frames=frames(1, 2), shots={"A": 8, "B": 5}, hits={"A": 3, "B": 2}, hp={"A": hp_a, "B": hp_b},
+                    max_levels={"A": dict(fire=4.1, escape=2.2, run=1.0, walk=3.0), "B": dict(fire=3.4, escape=1.1, run=1.8, walk=2.2)})
+
+    result = dict(winner="A", wins={"A": 2, "B": 1}, rounds=[rd("A", 55.0, 0.0), rd("B", 0.0, 37.0), rd("A", 82.0, 0.0)], rounds_asked=3,
+                  seeds=dict(A=5000, B=5001), seconds_each=20.0, loadouts=dict(A=a, B=b), individuality="subtle", tag="MODEL PREDICTION")
+    return lb, sizes, types, saved, a, b, result
+
+
+def battle_prep(phase, los, search="", rounds=1, seconds=20.0, msg="", bad=False, result=None):
+    lb, sizes, types, saved, *_ = battle_fixture()
+    lb.load_saved = lambda: dict(saved)
+
+    def prep(m):
+        from kickthefly.ui import battle_ui
+
+        m.pages["arcade"] = arcade_ui.page
+        m.host.brain = SimpleNamespace(types=types)
+        st = arcade_ui.state(m)
+        st.tab, st.wallet, st.error = "battle", SimpleNamespace(points=100), ""
+        bt = battle_ui.bstate(st)
+        bt.phase, bt.search, bt.rounds, bt.seconds = phase, search, rounds, seconds
+        bt.los = [lb.Loadout("player 1", dict(los[0])), lb.Loadout("player 2", dict(los[1]))]
+        bt.msg, bt.msg_bad, bt.playing, bt.replay_t, bt.result, bt.sel_round = msg, bad, False, 0.0, result, 1
+        m.scroll["arcade_battle"] = 0
+    return prep
+
+
+def write_battle(out):
+    lb, sizes, types, saved, a, b, result = battle_fixture()
+    fx2 = dict(sizes=sizes, saved=[[n, [[t, m] for t, m in p.items()]] for n, p in saved.items()],
+               result=dict(serial=1, winner=result["winner"], wins=result["wins"], rounds=result["rounds"],
+                           loadouts={k: [[t, m] for t, m in v.items()] for k, v in result["loadouts"].items()}))
+    (out / "arcade_battle_fixture.json").write_text(json.dumps(fx2))
+    cases = (("battle_setup1", battle_prep("setup1", (a, {}), search="DN")),
+             ("battle_setup2", battle_prep("setup2", ({"DNp35": -1}, {"LC10a": 1, "LC10b": -1, "LPLC2": 1}), search="LC",
+                                           msg="the budget is 3 picks: take one out first", bad=True)),
+             ("battle_pass", battle_prep("pass", (a, {}))),
+             ("battle_ready", battle_prep("ready", (a, b), rounds=3, seconds=25.0)),
+             ("battle_result", battle_prep("result", (a, b), result=result)))
+    for name, prep in cases:
+        R.render("arcade", "Graphics", out / f"page_arcade_{name}.png", prep=prep)
+
+
+if __name__ == "__main__":
+    out = Path(sys.argv[1] if len(sys.argv) > 1 else Path(__file__).resolve().parent.parent / "tests" / "ui_reference")
+    write_battle(out)

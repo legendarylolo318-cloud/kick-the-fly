@@ -31,6 +31,7 @@ struct HubJob {
 }
 
 enum Done {
+    Battle(Value),
     Measured(Vec<Card>),
     Bracket(Value),
     Field(Vec<Card>),
@@ -58,6 +59,11 @@ pub struct ArcadeHub {
     /// The seeds of the flies in play (set every frame by `flies_play`), the personality-card cache keys already measured for them, and
     /// the individuality mode they were asked under.
     pub play: Vec<u64>,
+    /// `{cell type: neurons}` of the brain (the lesion picker) and the saved lesion loadouts as `[[name, [[type, mode]...]]...]`.
+    pub sizes: Arc<Value>,
+    pub saved: Arc<Value>,
+    battle: Value,
+    battle_serial: i64,
     measured: std::collections::HashSet<String>,
     measured_for: (Vec<u64>, String),
 }
@@ -79,10 +85,109 @@ impl Default for ArcadeHub {
             want_lesion: false,
             flash: None,
             play: Vec::new(),
+            sizes: Arc::new(Value::Null),
+            saved: Arc::new(load_saved()),
+            battle: Value::Null,
+            battle_serial: 0,
             measured: Default::default(),
             measured_for: Default::default(),
         }
     }
+}
+
+// --- lesion loadouts (`game/lesion_battle.py`) -------------------------------------------------------------------------------------
+/// A JSON object read in file order (Python's dict order is the order the buttons come in).
+struct Ordered<T>(Vec<(String, T)>);
+
+impl<'de, T: serde::Deserialize<'de>> serde::Deserialize<'de> for Ordered<T> {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        struct V<T>(std::marker::PhantomData<T>);
+        impl<'de, T: serde::Deserialize<'de>> serde::de::Visitor<'de> for V<T> {
+            type Value = Ordered<T>;
+            fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                f.write_str("an object")
+            }
+            fn visit_map<A: serde::de::MapAccess<'de>>(self, mut a: A) -> Result<Self::Value, A::Error> {
+                let mut v = Vec::new();
+                while let Some((k, x)) = a.next_entry::<String, T>()? {
+                    v.push((k, x));
+                }
+                Ok(Ordered(v))
+            }
+        }
+        d.deserialize_map(V(std::marker::PhantomData))
+    }
+}
+
+fn saved_path() -> std::path::PathBuf {
+    crate::paths::data_dir().join("lesion_loadouts.json")
+}
+
+/// `lesion_battle.load_saved`: names cut to 24 characters, only picks that are -1 or 1.
+fn load_saved() -> Value {
+    let Ok(text) = std::fs::read_to_string(saved_path()) else { return json!([]) };
+    let Ok(Ordered(all)) = serde_json::from_str::<Ordered<Ordered<i64>>>(&text) else { return json!([]) };
+    Value::Array(
+        all.into_iter()
+            .filter(|(_, picks)| picks.0.iter().all(|(_, m)| *m == -1 || *m == 1))
+            .map(|(name, picks)| {
+                let picks: Vec<Value> = picks.0.into_iter().map(|(t, m)| json!([t, m])).collect();
+                json!([name.chars().take(24).collect::<String>(), picks])
+            })
+            .collect(),
+    )
+}
+
+/// `lesion_battle.save_loadout`: under its name (overwriting that name); false when the list is full of other names.
+fn save_loadout(saved: &Value, name: &str, picks: &[(String, i64)]) -> Option<Value> {
+    let name: String = name.trim().chars().take(24).collect();
+    let name = if name.is_empty() { "my fly".to_string() } else { name };
+    let mut list: Vec<(String, Vec<(String, i64)>)> = saved
+        .as_array()
+        .map(|a| {
+            a.iter()
+                .filter_map(|e| {
+                    Some((
+                        e[0].as_str()?.to_string(),
+                        e[1].as_array()?.iter().filter_map(|p| Some((p[0].as_str()?.to_string(), p[1].as_i64()?))).collect(),
+                    ))
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    if let Some(i) = list.iter().position(|e| e.0 == name) {
+        list[i].1 = picks.to_vec();
+    } else if list.len() >= 20 {
+        return None;
+    } else {
+        list.push((name, picks.to_vec()));
+    }
+    // json.dumps(indent=1)
+    let mut text = String::from("{");
+    for (i, (n, p)) in list.iter().enumerate() {
+        text.push_str(if i == 0 { "\n " } else { ",\n " });
+        text.push_str(&format!("{}: ", serde_json::to_string(n).unwrap_or_default()));
+        if p.is_empty() {
+            text.push_str("{}");
+        } else {
+            text.push('{');
+            for (j, (t, m)) in p.iter().enumerate() {
+                text.push_str(if j == 0 { "\n  " } else { ",\n  " });
+                text.push_str(&format!("{}: {m}", serde_json::to_string(t).unwrap_or_default()));
+            }
+            text.push_str("\n }");
+        }
+    }
+    text.push_str(if list.is_empty() { "}" } else { "\n}" });
+    let path = saved_path();
+    if let Some(dir) = path.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    let tmp = path.with_extension("tmp");
+    if std::fs::write(&tmp, text).is_ok() {
+        let _ = std::fs::rename(&tmp, &path);
+    }
+    Some(Value::Array(list.into_iter().map(|(n, p)| json!([n, p.into_iter().map(|(t, m)| json!([t, m])).collect::<Vec<_>>()])).collect()))
 }
 
 fn cache_path() -> std::path::PathBuf {
@@ -238,6 +343,17 @@ impl ArcadeHub {
         self.play = seeds;
     }
 
+    /// The brain's cell-type sizes for the lesion picker (once, from the loaded connectome).
+    pub fn set_sizes(&mut self, shared: &Shared) {
+        if self.sizes.is_null() {
+            let m = crate::lesion::type_sizes(&shared.labels.types);
+            let mut keys: Vec<_> = m.into_iter().collect();
+            keys.sort();
+            let obj: serde_json::Map<String, Value> = keys.into_iter().map(|(t, n)| (t, json!(n))).collect();
+            self.sizes = Arc::new(Value::Object(obj));
+        }
+    }
+
     pub fn busy(&self) -> bool {
         self.job.is_some()
     }
@@ -251,12 +367,35 @@ impl ArcadeHub {
         json!({
             "points": self.wallet.points, "slots": self.play.len(), "unmeasured": self.unmeasured(), "job": job, "error": self.error, "palette": palette,
             "bracket_serial": self.bracket_serial, "bracket": self.bracket, "race_serial": self.race_serial, "field": self.field,
-            "odds": self.odds, "race": self.race, "bet_result": self.bet_result,
+            "odds": self.odds, "race": self.race, "bet_result": self.bet_result, "battle": self.battle,
         })
     }
 
     /// An `arcade:<command>:<args>` action from the page.
     pub fn command(&mut self, action: &str, shared: Option<Shared>, mode: &str) {
+        if let Some(arg) = action.strip_prefix("arcade:lesion_save:") {
+            if let Ok(v) = serde_json::from_str::<Value>(arg) {
+                let picks: Vec<(String, i64)> = v["picks"]
+                    .as_array()
+                    .map(|a| a.iter().filter_map(|p| Some((p[0].as_str()?.to_string(), p[1].as_i64()?))).collect())
+                    .unwrap_or_default();
+                if let Some(list) = save_loadout(&self.saved, v["name"].as_str().unwrap_or(""), &picks) {
+                    self.saved = Arc::new(list);
+                }
+            }
+            return;
+        }
+        if let Some(arg) = action.strip_prefix("arcade:fight:") {
+            if self.job.is_some() {
+                return;
+            }
+            let Some(shared) = shared else { return self.fail("the brain is not loaded yet") };
+            match serde_json::from_str::<Value>(arg) {
+                Ok(v) => self.spawn_battle(shared, &v, mode),
+                Err(e) => self.fail(&format!("bad battle: {e}")),
+            }
+            return;
+        }
         let parts: Vec<&str> = action.split(':').collect();
         match parts.get(1).copied() {
             Some("cancel") => {
@@ -329,6 +468,83 @@ impl ArcadeHub {
             let out = tournament::run_bracket(&seeds, secs, favorite, 0, true, &mut player)?;
             let cards: Vec<(u64, Card)> = seeds.iter().copied().zip(measured).collect();
             Ok(Done::Bracket(bracket_json(&out, &cards, &mode)))
+        });
+    }
+
+    fn spawn_battle(&mut self, shared: Shared, v: &Value, mode: &str) {
+        let mode = mode.to_string();
+        let picks = |k: &str| -> Vec<(String, i8)> {
+            v[k].as_array()
+                .map(|a| a.iter().filter_map(|p| Some((p[0].as_str()?.to_string(), p[1].as_i64()? as i8))).collect())
+                .unwrap_or_default()
+        };
+        let (pa, pb) = (picks("a"), picks("b"));
+        let (sa, sb) = (v["seed_a"].as_u64().unwrap_or(5000), v["seed_b"].as_u64().unwrap_or(5001));
+        let rounds = v["rounds"].as_u64().unwrap_or(1).clamp(1, 3);
+        let seconds = v["seconds"].as_f64().unwrap_or(20.0);
+        let battle_seed = v["battle_seed"].as_u64().unwrap_or(sa);
+        self.start("Battle", move |progress, cancel| {
+            let build = Build { weights: &shared.weights, labels: &shared.labels, mode: &mode, sigma: None, lif: cards::LIF_DEFAULTS };
+            let mut wins = [0u32; 2];
+            let mut results = Vec::new();
+            for r in 0..rounds {
+                if cancel.load(Ordering::Relaxed) {
+                    return Err("cancelled".into());
+                }
+                set(progress, r as f64 / rounds as f64, &format!("round {} of {rounds}", r + 1));
+                let (mseed, na, nb) = tournament::match_noise(battle_seed, sa, sb, r);
+                let (mut ba, mut bb) = (build.brain(sa, Some(na), 600), build.brain(sb, Some(nb), 600));
+                for (b, p) in [(&mut ba, &pa), (&mut bb, &pb)] {
+                    for (t, m) in p {
+                        if let Ok(rows) = b.rows_of(&format!("type:{t}")) {
+                            b.set_surgery(&rows, *m);
+                        }
+                    }
+                }
+                let res = duel::run_duel(&mut ba, &mut bb, mseed, seconds, true, false, |_| !cancel.load(Ordering::Relaxed));
+                if cancel.load(Ordering::Relaxed) {
+                    return Err("cancelled".into());
+                }
+                let w = match res.winner {
+                    Some(duel::Side::A) => {
+                        wins[0] += 1;
+                        json!("A")
+                    }
+                    Some(duel::Side::B) => {
+                        wins[1] += 1;
+                        json!("B")
+                    }
+                    None => Value::Null,
+                };
+                let lv = |i: usize| json!({"fire": res.max_levels[i][0], "escape": res.max_levels[i][1], "run": res.max_levels[i][2], "walk": res.max_levels[i][3]});
+                results.push(json!({
+                    "winner": w, "hp": {"A": res.hp[0], "B": res.hp[1]}, "shots": {"A": res.shots[0], "B": res.shots[1]},
+                    "hits": {"A": res.hits[0], "B": res.hits[1]}, "seconds": res.seconds, "knockout": res.knockout,
+                    "max_levels": {"A": lv(0), "B": lv(1)},
+                    "events": res.events.iter().map(|e| json!([e.kind, e.t, if e.who == 0 { "A" } else { "B" }])).collect::<Vec<_>>(),
+                    "frames": res.frames.iter().map(|f| json!([f.t, f.pos[0][0], f.pos[0][1], f.yaw[0], f.hp[0], f.pos[1][0], f.pos[1][1], f.yaw[1], f.hp[1],
+                        f.pellets.iter().map(|p| json!([p.0, p.1, p.2])).collect::<Vec<_>>()])).collect::<Vec<_>>(),
+                    "round": r, "match_seed": mseed,
+                }));
+            }
+            let need = rounds / 2 + 1;
+            let winner = if u64::from(wins[0]) >= need {
+                json!("A")
+            } else if u64::from(wins[1]) >= need {
+                json!("B")
+            } else if wins[0] == wins[1] {
+                Value::Null
+            } else if wins[0] > wins[1] {
+                json!("A")
+            } else {
+                json!("B")
+            };
+            let pj = |p: &[(String, i8)]| Value::Array(p.iter().map(|(t, m)| json!([t, m])).collect());
+            Ok(Done::Battle(json!({
+                "winner": winner, "wins": {"A": wins[0], "B": wins[1]}, "rounds": results, "rounds_asked": rounds,
+                "seeds": {"A": sa, "B": sb}, "seconds_each": seconds, "loadouts": {"A": pj(&pa), "B": pj(&pb)},
+                "individuality": mode, "tag": "MODEL PREDICTION",
+            })))
         });
     }
 
@@ -430,6 +646,11 @@ impl ArcadeHub {
                     });
                 }
                 self.bracket = b;
+            }
+            Ok(Done::Battle(mut b)) => {
+                self.battle_serial += 1;
+                b["serial"] = json!(self.battle_serial);
+                self.battle = b;
             }
             Ok(Done::Measured(cards)) => {
                 self.measured.extend(cards.iter().map(|c| c.card_key.clone()));

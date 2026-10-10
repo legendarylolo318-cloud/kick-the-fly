@@ -23,6 +23,9 @@ fn tournament_and_field_jobs_fill_the_pages_data() {
         eprintln!("SKIPPED: no brain pack");
         return;
     };
+    let home = std::env::temp_dir().join(format!("ktf-hub-{}", std::process::id()));
+    // SAFETY: this test binary has one test, so nothing else reads the environment meanwhile
+    unsafe { std::env::set_var("KICK_THE_FLY_HOME", &home) };
     let p = Pack::load(path).unwrap();
     let shared = Shared { weights: Arc::new(p.weights), labels: Arc::new(p.labels) };
     let mut hub = ArcadeHub::with_wallet(kick_the_fly::points::Wallet::in_memory());
@@ -42,6 +45,28 @@ fn tournament_and_field_jobs_fill_the_pages_data() {
     assert!(m["frames"].as_array().unwrap().len() >= 5, "a replay is recorded");
     assert!(b["cards"]["2000"]["title"].as_str().is_some());
     assert_eq!(b["favorite"], 2001);
+
+    // a one-round battle with surgery, and the saved list
+    hub.command(
+        r#"arcade:fight:{"seed_a":5000,"seed_b":5001,"a":[["DNp35",-1],["MDN",1]],"b":[],"rounds":1,"seconds":2,"battle_seed":5000}"#,
+        Some(shared.clone()),
+        "subtle",
+    );
+    wait(&mut hub);
+    let q = hub.snapshot("default");
+    assert_eq!(q["error"], "", "{}", q["error"]);
+    let bt = &q["battle"];
+    assert_eq!(bt["serial"], 1);
+    assert_eq!(bt["rounds"].as_array().unwrap().len(), 1);
+    assert_eq!(bt["loadouts"]["A"][0][0], "DNp35");
+    assert!(bt["rounds"][0]["frames"].as_array().unwrap().len() >= 5);
+    hub.command(r#"arcade:lesion_save:{"name":"my best","picks":[["DNp35",-1],["MDN",1]]}"#, None, "subtle");
+    assert_eq!(hub.saved[0][0], "my best");
+    assert_eq!(hub.saved[0][1][1][0], "MDN");
+    let text = std::fs::read_to_string(home.join("data").join("lesion_loadouts.json"))
+        .or_else(|_| std::fs::read_to_string(home.join("lesion_loadouts.json")));
+    assert!(text.is_ok_and(|t| t.contains("\"my best\"")), "the saved file is written under the data folder");
+    let _ = std::fs::remove_dir_all(&home);
 
     hub.command("arcade:look:3:3000", Some(shared), "subtle");
     wait(&mut hub);

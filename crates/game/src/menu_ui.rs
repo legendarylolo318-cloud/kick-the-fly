@@ -9,6 +9,8 @@ use bevy::asset::RenderAssetUsages;
 use bevy::input::ButtonState;
 use bevy::input::keyboard::KeyboardInput;
 use bevy::input::mouse::{MouseButtonInput, MouseScrollUnit, MouseWheel};
+use std::sync::Arc;
+
 use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use bevy::window::{MonitorSelection, PrimaryWindow, WindowMode};
@@ -564,11 +566,19 @@ pub struct GameHost {
     selected: String,
     saves: Vec<Value>,
     arcade: Value,
+    sizes: Arc<Value>,
+    saved: Arc<Value>,
 }
 
 impl GameHost {
     pub fn with_arcade(mut self, arcade: Value) -> Self {
         self.arcade = arcade;
+        self
+    }
+
+    pub fn with_lesion(mut self, sizes: Arc<Value>, saved: Arc<Value>) -> Self {
+        self.sizes = sizes;
+        self.saved = saved;
         self
     }
 
@@ -578,7 +588,14 @@ impl GameHost {
     }
 
     pub fn new(loadout: &[String], selected: &str) -> Self {
-        GameHost { loadout: loadout.to_vec(), selected: selected.into(), saves: vec![], arcade: Value::Null }
+        GameHost {
+            loadout: loadout.to_vec(),
+            selected: selected.into(),
+            saves: vec![],
+            arcade: Value::Null,
+            sizes: Arc::new(Value::Null),
+            saved: Arc::new(Value::Null),
+        }
     }
 }
 
@@ -612,6 +629,8 @@ impl PageHost for GameHost {
             "selected_tool" => json!(self.selected),
             "saves" => Value::Array(self.saves.clone()),
             "arcade" => self.arcade.clone(),
+            "arcade_sizes" => (*self.sizes).clone(),
+            "lesion_saved" => (*self.saved).clone(),
             "saves_dir" => json!(ktf_data::paths::get().saves_dir.to_string_lossy()),
             "lab_modified" => json!({}),
             "protocol_files" => json!([]),

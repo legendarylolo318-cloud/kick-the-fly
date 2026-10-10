@@ -3816,6 +3816,7 @@ dependencies = [
  "ktf_ui",
  "md-5",
  "png",
+ "serde",
  "serde_json",
  "sha2",
  "ureq",
