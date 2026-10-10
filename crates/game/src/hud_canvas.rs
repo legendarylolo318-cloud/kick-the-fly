@@ -254,6 +254,7 @@ struct HudIn<'w, 's> {
     learned: Res<'w, crate::memory_play::Learned>,
     chal: Res<'w, crate::challenges::Challenges>,
     surgery: Res<'w, crate::surgery_play::Surgery>,
+    autopsy: Res<'w, crate::autopsy_play::AutopsyCard>,
     flies: Query<'w, 's, &'static Fly>,
 }
 
@@ -291,6 +292,7 @@ fn draw(
         learned,
         chal,
         surgery,
+        autopsy,
         flies,
     } = i;
     let l = lay.0;
@@ -437,7 +439,7 @@ fn draw(
         pages: loadout.0.n_pages(),
         look: look.captured,
         free_mouse_key: cfg.0.key_of("free_mouse").into(),
-        overlay_open: st.help || view.big || arcade.open || learned.train_open || chal.overlay || surgery.open,
+        overlay_open: st.help || view.big || arcade.open || learned.train_open || chal.overlay || surgery.open || autopsy.report.is_some(),
         menu_open: menu.0,
         dead_player: false,
         crosshair_hot: false,
@@ -491,7 +493,13 @@ fn draw(
         }),
         tutorial: tutorial_view(&tut, &cfg.0, rnow as f32).filter(|_| !menu.0),
         training: learned.train_open.then(|| training_screen(&snap, &learned, rnow as f32)),
-        challenge: if surgery.open { surgery.ops.clone() } else { chal.ops.clone() },
+        challenge: if autopsy.report.is_some() {
+            autopsy.ops.clone()
+        } else if surgery.open {
+            surgery.ops.clone()
+        } else {
+            chal.ops.clone()
+        },
         mouse: window.cursor_position().map_or((-1, -1), |p| ((p.x * sf / l.scale) as i32, (p.y * sf / l.scale) as i32)),
         ..Default::default()
     };
@@ -554,6 +562,8 @@ struct ClickCtx<'w> {
     chal: ResMut<'w, crate::challenges::Challenges>,
     virt: Res<'w, Time<Virtual>>,
     surgery: Res<'w, crate::surgery_play::Surgery>,
+    autopsy: Res<'w, crate::autopsy_play::AutopsyCard>,
+    reset: MessageWriter<'w, ResetFly>,
     sfx: MessageWriter<'w, crate::feedback::Sfx>,
 }
 
@@ -574,7 +584,7 @@ fn hud_clicks(
     mut tut: ResMut<crate::tutorial_play::Tutorial>,
     cx: ClickCtx,
 ) {
-    let ClickCtx { mut learned, snap, mut chal, virt, surgery, mut sfx } = cx;
+    let ClickCtx { mut learned, snap, mut chal, virt, surgery, autopsy, mut reset, mut sfx } = cx;
     if !buttons.just_pressed(MouseButton::Left) || look.captured || menu.0 {
         return;
     }
@@ -583,6 +593,9 @@ fn hud_clicks(
     let pos = ((p.x * k) as i32, (p.y * k) as i32);
     let at = |r: Option<ktf_ui::Rect>| r.is_some_and(|r| r.contains(pos));
     let now = real.elapsed_secs();
+    if crate::autopsy_play::click(&autopsy, pos, &mut reset, &mut notes, &mut sfx, virt.elapsed_secs()) {
+        return;
+    }
     if surgery.open {
         let modes = snap.0.as_deref().map(|s| s.surgery_modes.clone()).unwrap_or_default();
         crate::surgery_play::click(&surgery, pos, &link, &mut notes, &mut sfx, virt.elapsed_secs(), &modes);

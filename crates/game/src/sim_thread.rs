@@ -170,6 +170,8 @@ pub enum SimEvent {
     /// The fly answered a sugar offer: (dose, extended, ratio).
     SweetAnswer(u32, bool, f32),
     SweetFinished(Option<u32>),
+    /// The brain autopsy, 3 s of brain time after death.
+    Autopsy(Box<fly_sim::autopsy::Autopsy>),
 }
 
 pub struct SimHandle {
@@ -654,6 +656,7 @@ struct MemState {
     surgery_types: Vec<(String, i8)>,
     chal_view: Option<Arc<ChallengeView>>,
     chal_speed: f32,
+    autopsy_done: bool,
 }
 
 fn unix_now() -> f64 {
@@ -676,6 +679,7 @@ impl MemState {
             surgery_types: vec![],
             chal_view: None,
             chal_speed: 1.0,
+            autopsy_done: false,
         }
     }
 
@@ -757,6 +761,7 @@ impl MemState {
     /// After every brain step: the conditioning protocol, the 30 s autosave, and the view the game reads (every 12 steps).
     fn after_step(&mut self, brain: &mut Brain, events: &Sender<SimEvent>) {
         self.tick_challenges(brain, events);
+        self.check_autopsy(brain, events);
         if brain.memory.is_none() {
             return;
         }
@@ -806,6 +811,20 @@ impl MemState {
         self.borrowed = false;
         self.chal_view = None;
         self.chal_speed = 1.0;
+    }
+
+    fn check_autopsy(&mut self, brain: &Brain, events: &Sender<SimEvent>) {
+        if !brain.dead() {
+            self.autopsy_done = false;
+            return;
+        }
+        let g = brain.groups_ref();
+        if !self.autopsy_done && g.hist_n >= brain.death_sample + 150 {
+            self.autopsy_done = true;
+            if let Some(a) = fly_sim::autopsy::compute(g, brain.death_sample, &brain.death_base, g.pain_level) {
+                let _ = events.send(SimEvent::Autopsy(Box::new(a)));
+            }
+        }
     }
 
     fn tick_challenges(&mut self, brain: &mut Brain, events: &Sender<SimEvent>) {

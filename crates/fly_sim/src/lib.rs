@@ -11,6 +11,7 @@
 
 pub mod activity;
 pub mod assays;
+pub mod autopsy;
 pub mod brain;
 pub mod challenge;
 pub mod csr;

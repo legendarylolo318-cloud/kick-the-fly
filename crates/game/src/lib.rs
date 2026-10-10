@@ -15,6 +15,7 @@ pub mod app;
 pub mod arcade;
 pub mod arena;
 pub mod audio;
+pub mod autopsy_play;
 pub mod brainview;
 pub mod capture;
 pub mod challenges;
@@ -155,6 +156,7 @@ impl Plugin for GamePlugin {
                 memory_play::MemoryPlayPlugin,
                 challenges::ChallengesPlugin,
                 surgery_play::SurgeryPlugin,
+                autopsy_play::AutopsyPlugin,
                 actions::ActionsPlugin,
                 tutorial_play::TutorialPlugin,
                 first_run::FirstRunPlugin,

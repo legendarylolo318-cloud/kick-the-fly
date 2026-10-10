@@ -175,6 +175,8 @@ pub enum FontSel {
 pub enum Op {
     /// A veil over the whole HUD (`(4, 5, 8, alpha)`).
     Veil(u32),
+    /// A veil of another colour.
+    VeilC(Color, u32),
     /// A filled rounded rectangle with an alpha.
     Card {
         rect: Rect,
@@ -569,6 +571,7 @@ impl Hud<'_> {
         for op in ops {
             match op {
                 Op::Veil(a) => self.cv.veil([4, 5, 8], *a),
+                Op::VeilC(c, a) => self.cv.veil(*c, *a),
                 Op::Card { rect, fill, alpha, radius } => self.cv.fill_rect_a(*rect, *fill, *alpha, *radius),
                 Op::Stroke { rect, color, width, radius } => {
                     if *width <= 1 {

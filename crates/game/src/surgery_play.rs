@@ -28,7 +28,7 @@ fn build(s: &mut Surgery, counts: &[u32], modes: &[i8], types: &[(String, i8)]) 
     let panel = Rect::new(75, 12, 740, (H - 24).min(690));
     ops.push(Op::Veil(170));
     ops.push(Op::Card { rect: panel, fill: [18, 21, 28], alpha: 255, radius: 16 });
-    ops.push(Op::Stroke { rect: panel, color: [52, 60, 76], width: 1, radius: 16 });
+    ops.push(Op::Stroke { rect: panel, color: [40, 47, 60], width: 1, radius: 16 });
     let x = panel.x + 24;
     let text = |ops: &mut Vec<Op>, s: &str, pos: (i32, i32), color: [u8; 3], font: FontSel, anchor: &'static str| {
         ops.push(Op::Text { s: s.into(), pos, color, font, anchor });
@@ -38,7 +38,7 @@ fn build(s: &mut Surgery, counts: &[u32], modes: &[i8], types: &[(String, i8)]) 
         &mut ops,
         "Silence (OFF) or stimulate (ON) real neuron groups. Hemifield lesions test wiring outcomes, not injury.",
         (x + 2, panel.y + 50),
-        [130, 142, 160],
+        [120, 132, 150],
         FontSel::Small,
         "topleft",
     );
@@ -57,7 +57,7 @@ fn build(s: &mut Surgery, counts: &[u32], modes: &[i8], types: &[(String, i8)]) 
             [205, 212, 224]
         };
         text(&mut ops, label, (x, y), col, if label.chars().count() > 34 { FontSel::Small } else { FontSel::Text }, "topleft");
-        text(&mut ops, &ktf_data::diag::group3(n as usize), (panel.right() - 240, y + 2), [130, 142, 160], FontSel::Small, "topright");
+        text(&mut ops, &ktf_data::diag::group3(n as usize), (panel.right() - 240, y + 2), [120, 132, 150], FontSel::Small, "topright");
         for (j, (m, label)) in [(-1i8, "OFF"), (0, "-"), (1, "ON")].into_iter().enumerate() {
             let r = Rect::new(panel.right() - 216 + j as i32 * 64, y - 1, 56, 22);
             let on = mode == m;
@@ -71,7 +71,7 @@ fn build(s: &mut Surgery, counts: &[u32], modes: &[i8], types: &[(String, i8)]) 
                 [30, 34, 44]
             };
             ops.push(Op::Card { rect: r, fill, alpha: 255, radius: 6 });
-            text(&mut ops, label, r.center(), if on { [240, 243, 248] } else { [130, 142, 160] }, FontSel::Small, "center");
+            text(&mut ops, label, r.center(), if on { [240, 243, 248] } else { [120, 132, 150] }, FontSel::Small, "center");
             ops.push(Op::Hit { rect: r, id: format!("row:{k}:{m}") });
             hits.push((r, format!("row:{k}:{m}")));
         }
@@ -91,7 +91,7 @@ fn build(s: &mut Surgery, counts: &[u32], modes: &[i8], types: &[(String, i8)]) 
         &mut ops,
         "OFF adds -2.4 per step (silences). ON adds +0.48. Reported as wiring outcomes, not physical trauma.",
         (x, panel.bottom() - 30),
-        [80, 88, 102],
+        [70, 78, 92],
         FontSel::Small,
         "topleft",
     );

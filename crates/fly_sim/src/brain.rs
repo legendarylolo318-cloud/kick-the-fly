@@ -77,6 +77,9 @@ pub struct Brain {
     /// Named groups, the poke queue and the rate trackers (`Brain.poke`, `level`, `hz`).
     pub groups: Groups,
     gain_adapt: f64,
+    /// History sample count and calm baselines at the moment of death (the autopsy reads them).
+    pub death_sample: usize,
+    pub death_base: Vec<f32>,
     /// Learning on the mushroom body synapses (`Brain.memory`), when the pack has the dopamine tables and it was switched on.
     pub memory: Option<Box<crate::memory::Memory>>,
 }
@@ -129,6 +132,8 @@ impl Brain {
             groups,
             gain_adapt,
             memory: None,
+            death_sample: 0,
+            death_base: Vec::new(),
         }
     }
 
@@ -206,6 +211,8 @@ impl Brain {
 
     /// `Brain.kill`: start the death ramp and stop the gain controller adapting.
     pub fn kill(&mut self) {
+        self.death_sample = self.groups.hist_n;
+        self.death_base = self.groups.base.clone();
         self.death_step = Some(self.steps);
         self.sim.p.gain_adapt = 0.0;
     }

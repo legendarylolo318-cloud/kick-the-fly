@@ -48,7 +48,9 @@ class Game:
 
     def _text(self, surf, s, pos, color=ch.TEXT, font=None, anchor="topleft"):
         img = (font or self.f_text).render(s, True, color)
-        surf.blit(img, img.get_rect(**{anchor: pos}))
+        rect = img.get_rect(**{anchor: pos})
+        surf.blit(img, rect)
+        return rect
 
     def sneak_distance(self, slot):
         return 1.7
@@ -142,4 +144,23 @@ if __name__ == "__main__":
     surf.fill(BG)
     k.Game._draw_surgery(stub, surf)
     pygame.image.save(surf, str(out / "challenge_surgery.png"))
+    # the brain autopsy card (Game._draw_autopsy) from tests/golden/autopsy.json
+    import json
+    gold = json.loads((ROOT.parent / "tests" / "golden" / "autopsy.json").read_text())
+    pretty = {"head": "touch: head", "body": "touch: body", "legs": "touch: legs", "wing": "touch: wings", "heat": "heat sensors",
+              "cold": "cold sensors", "smell": "smell ORNs", "taste": "taste neurons", "reward": "PAM reward DANs",
+              "jump": "DNs: jump group", "run": "DNs: run group", "fly": "DNs: DNg02 flight"}
+    pops = {n for n, _ in k.POPS}
+    rows = [dict(name=pretty.get(r["name"], r["name"]), base=r["base"], final=r["final"], after=r["after"], ratio=r["ratio"],
+                 section="pop" if r["name"] in pops or r["name"] == "whole brain" else "detail") for r in gold["rows"]]
+    top = max(rows[1:], key=lambda r: r["ratio"])
+    rep = dict(rows=rows, series=list(zip(("whole brain", "touch neurons", "descending"), [np.array(s) for s in gold["series"]])),
+               death_at=gold["death_at"], n=gold["n"], top=top, pain=np.array(gold["pain"]), pain_last=gold["pain_last"],
+               pain_peak=42.0, pain_max_s=1.5, alive_s=95.0, hits=7, by="being kicked")
+    stub = SimpleNamespace(f_small=g.f_small, f_text=g.f_text, f_bold=g.f_bold, f_head=g.f_head, f_title=g.f_title, _text=g._text, report=rep,
+                           fly=SimpleNamespace(dead_at=0.0), x3=SimpleNamespace(kc_available=lambda: False))
+    surf = pygame.Surface((1280, 760))
+    surf.fill(BG)
+    k.Game._draw_autopsy(stub, surf, 100.0)
+    pygame.image.save(surf, str(out / "challenge_autopsy.png"))
     print("wrote", out)
