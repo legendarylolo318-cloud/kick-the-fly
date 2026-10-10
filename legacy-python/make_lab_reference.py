@@ -39,4 +39,9 @@ if __name__ == "__main__":
     R.render("lab_params", "Graphics", out / "page_lab_params_scrolled.png", prep=prep_for("lab_params", mod, 600))
     R.render("lab_assumptions", "Graphics", out / "page_lab_assumptions.png", prep=prep_for("lab_assumptions"))
     R.render("lab_assumptions", "Graphics", out / "page_lab_assumptions_scrolled.png", prep=prep_for("lab_assumptions", None, 700))
+    from kickthefly.lab import validation as val_mod
+    published = json.loads((Path(__file__).resolve().parent.parent / "docs" / "results" / "3.0-release" / "validate_after.json").read_text())
+    val_mod.load_results = lambda: (published, "from this build")
+    R.render("lab_validation", "Graphics", out / "page_lab_validation.png", prep=prep_for("lab_validation"))
+    R.render("lab_validation", "Graphics", out / "page_lab_validation_scrolled.png", prep=prep_for("lab_validation", None, 700))
     print("wrote", out)

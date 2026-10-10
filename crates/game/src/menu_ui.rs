@@ -240,6 +240,7 @@ struct MenuCtx<'w, 's> {
     notes: ResMut<'w, crate::feedback::Notes>,
     share_q: Res<'w, crate::share_play::ShareQueue>,
     lab: Res<'w, crate::share_play::LabState>,
+    runs: Res<'w, crate::lab_play::LabRuns>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -276,6 +277,7 @@ fn input(
         mut notes,
         share_q,
         lab,
+        runs,
     } = mc;
     for f in flashes.read() {
         ui.menu.flash(&f.0, if f.1 { ktf_ui::theme::GOOD } else { ktf_ui::theme::BAD }, if f.1 { 4.0 } else { 6.0 });
@@ -346,7 +348,8 @@ fn input(
         .with_arcade(if ui.menu.is_open() { hub.snapshot(&palette) } else { Value::Null })
         .with_lesion(hub.sizes.clone(), hub.saved.clone())
         .with_share(share_q.0.clone())
-        .with_lab(lab.json());
+        .with_lab(lab.json())
+        .with_validation(if ui.menu.is_open() { runs.query() } else { Value::Null });
     if let Some(text) = hub.flash.take() {
         ui.menu.flash(&text, ktf_ui::theme::GOOD, 5.0);
     }
@@ -500,6 +503,8 @@ fn draw(
     saves: Res<crate::savestate_play::SaveLoad>,
     hub: Res<crate::arcade_hub::ArcadeHub>,
     lab: Res<crate::share_play::LabState>,
+    runs: Res<crate::lab_play::LabRuns>,
+    screen: Res<MenuScreen>,
 ) {
     let Ok((mut v, mut node)) = vis.single_mut() else { return };
     if !ui.menu.is_open() {
@@ -516,6 +521,7 @@ fn draw(
     }
     let k = window.scale_factor() / lay.0.scale;
     let mouse = window.cursor_position().map_or((-1, -1), |p| ((p.x * k) as i32, (p.y * k) as i32));
+    let screen_is_validation = screen.0 == "lab_validation";
     let arcade_json = if menu_screen_is_open(&ui) { hub.snapshot(cfg.0.get_str("access.palette")) } else { Value::Null };
     let MenuUi { menu, canvas, image, .. } = &mut *ui;
     canvas.clear();
@@ -529,7 +535,8 @@ fn draw(
             .with_saves(&saves.entries)
             .with_arcade(arcade_json)
             .with_lesion(hub.sizes.clone(), hub.saved.clone())
-            .with_lab(lab.json()),
+            .with_lab(lab.json())
+            .with_validation(if screen_is_validation { runs.query() } else { Value::Null }),
     );
     if let Some(mut img) = images.get_mut(&*image) {
         img.data = Some(canvas.px.clone());
@@ -579,6 +586,7 @@ pub struct GameHost {
     saved: Arc<Value>,
     share: Option<Arc<std::sync::Mutex<Vec<(String, Value)>>>>,
     lab: Value,
+    validation: Value,
 }
 
 impl GameHost {
@@ -595,6 +603,11 @@ impl GameHost {
 
     pub fn with_lab(mut self, values: Value) -> Self {
         self.lab = values;
+        self
+    }
+
+    pub fn with_validation(mut self, v: Value) -> Self {
+        self.validation = v;
         self
     }
 
@@ -619,6 +632,7 @@ impl GameHost {
             saved: Arc::new(Value::Null),
             share: None,
             lab: Value::Null,
+            validation: Value::Null,
         }
     }
 }
@@ -654,6 +668,7 @@ impl PageHost for GameHost {
             "saves" => Value::Array(self.saves.clone()),
             "arcade" => self.arcade.clone(),
             "lab_params" => self.lab.clone(),
+            "validation_results" => self.validation.clone(),
             "lab_pages" => ktf_data::labparams::pages().clone(),
             "lab_engine" => json!("Rust · CPU (rayon)"),
             "lab_notes" => json!([]),
@@ -683,6 +698,12 @@ impl PageHost for GameHost {
                 (_, Err(e)) => json!({"error": e}),
                 (None, _) => json!({"error": "the game is not ready to apply a code"}),
             },
+            "start_validation" => {
+                if let Some(q) = &self.share {
+                    q.lock().unwrap_or_else(std::sync::PoisonError::into_inner).push(("start_validation".into(), json!({})));
+                }
+                Value::Null
+            }
             "set_lab_param" => match &self.share {
                 Some(q) => {
                     q.lock().unwrap_or_else(std::sync::PoisonError::into_inner).push(("lab_param".into(), args));

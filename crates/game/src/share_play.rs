@@ -143,6 +143,7 @@ fn apply_queue(
     mut chal: ResMut<crate::challenges::Challenges>,
     mut flash: MessageWriter<MenuFlash>,
     mut lab: ResMut<LabState>,
+    mut runs: ResMut<crate::lab_play::LabRuns>,
 ) {
     let todo: Vec<(String, Value)> = std::mem::take(&mut *queue.0.lock().unwrap_or_else(PoisonError::into_inner));
     for (kind, p) in todo {
@@ -163,6 +164,12 @@ fn apply_queue(
                     }
                 }
                 continue; // no flash for a slider drag
+            }
+            "start_validation" => {
+                if let Some(shared) = link.0.shared.lock().unwrap_or_else(PoisonError::into_inner).clone() {
+                    runs.start_validation(shared);
+                }
+                continue;
             }
             "surgery" => apply_surgery(&link, &p),
             "challenge" => {

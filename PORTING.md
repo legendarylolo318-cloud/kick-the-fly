@@ -262,7 +262,7 @@ against the pygame version (screenshot pair, or the code read side by side). Any
 - [ ] Menu page `lab_rigs`
 - [ ] Menu page `lab_sensitivity`
 - [ ] Menu page `lab_sleepdep`
-- [ ] Menu page `lab_validation`
+- [x] Menu page `lab_validation`: the page (cards, PASS/FAIL chips, numbers by test kind, criteria, citations, hover notes, run button with progress) matches pygame on the published results (2 screenshot pairs); the **Run validation now** button runs the real suite in the game (`game::lab_play`, a thread with 4 workers, progress bar) and saves `<data>/validation_results.json` as Python does; a run on this PC wins over the bundled one.
 - [ ] Menu page `lab_wiring`
 - [ ] Menu page `live_inputs`
 - [ ] Menu page `load_state`
@@ -346,4 +346,7 @@ check); the `--2d` rows of section 1 are written off with this reason, not ticke
 - Needed on the way, and fixed for the whole game: `Brain.poke` takes Python's double-precision strength (`poke64`) and the share recruited is
   `int(len(pop) * share)` in f64 (the f32 version recruited one neuron fewer at some boundaries, which changed the wind probe); NumPy's pairwise
   summation (`np_sum`, `np_sum_complex`) for means and the circular statistics.
-- **Not done yet:** the run-all driver + results file, the validation page, the larva tests (2), `--validate`; the sensitivity/robustness sweeps.
+- **The whole suite on the 10 held-out seeds (`validation::run`, 4 workers, 22 min): 12 PASS / 9 FAIL, every one of the 21 verdicts equal to the published
+  Python run, and every measured number equal to it to 1e-6 except the two numbers of the one `da1pn_to_lh_asp` control response above.** The run is kept
+  as the build's bundled results (`docs/results/4.0/validation_results.json`; `validation_real.rs full_suite -- --ignored`).
+- **Not done yet:** the larva tests (2), `--validate` on the command line, the sensitivity/robustness sweeps.

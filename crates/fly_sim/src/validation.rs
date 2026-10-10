@@ -954,3 +954,314 @@ pub fn probe_epg_wind(weights: &Arc<Weights>, labels: &Arc<Labels>, seeds: &[u64
         ),
     })
 }
+
+// --- the whole suite (`validation.run`) -----------------------------------------------------------------------------------------------
+enum Job {
+    Path(u64),
+    Tmaze(u64, bool, bool),
+    Ext(u64),
+    Soc(u64, bool),
+}
+
+enum Done {
+    Path(u64, serde_json::Map<String, Value>),
+    Tmaze(u64, bool, TmazeResult),
+    Ext(u64, ExtinctionResult),
+    Soc(u64, bool, SecondOrderResult),
+}
+
+/// Run the suite. `include`: test ids (None = all 21); `progress(done, total, label)` returns false to cancel. Returns the same dict as Python's
+/// `validation.run` (without the platform fields the caller adds: `app_version`, `created`, `backend`).
+pub fn run(
+    weights: &Arc<Weights>,
+    labels: &Arc<Labels>,
+    seeds: &[u64],
+    include: Option<&[&str]>,
+    workers: usize,
+    mut progress: impl FnMut(usize, usize, &str) -> bool,
+) -> Result<Value, String> {
+    let all: Vec<&str> = tests().iter().filter_map(|t| t["id"].as_str()).collect();
+    let inc: Vec<&str> = include.map_or_else(|| all.clone(), <[&str]>::to_vec);
+    let has = |id: &str| inc.contains(&id);
+    let only: Option<Vec<&str>> = if all.iter().all(|a| inc.contains(a)) { None } else { Some(inc.clone()) };
+    let non_path = ["mb_conditioning", "mb_extinction", "mb_second_order", "epg_compass", "epg_compass_wind"];
+    let mut jobs: Vec<Job> = Vec::new();
+    if inc.iter().any(|i| !non_path.contains(i)) {
+        jobs.extend(seeds.iter().map(|&s| Job::Path(s)));
+    }
+    if has("mb_conditioning") {
+        for &s in seeds {
+            for paired in [true, false] {
+                for a_plus in [true, false] {
+                    jobs.push(Job::Tmaze(s, a_plus, paired));
+                }
+            }
+        }
+    }
+    if has("mb_extinction") {
+        jobs.extend(seeds.iter().map(|&s| Job::Ext(s)));
+    }
+    if has("mb_second_order") {
+        for &s in seeds {
+            for paired in [true, false] {
+                jobs.push(Job::Soc(s, paired));
+            }
+        }
+    }
+    let total = jobs.len();
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let stop = std::sync::atomic::AtomicBool::new(false);
+    let (tx, rx) = std::sync::mpsc::channel::<Done>();
+    let jobs = &jobs;
+    let only_ref = only.as_deref();
+    let mut path_res: HashMap<u64, serde_json::Map<String, Value>> = HashMap::new();
+    let mut tmaze: Vec<(u64, bool, TmazeResult)> = Vec::new();
+    let mut ext: HashMap<u64, ExtinctionResult> = HashMap::new();
+    let mut soc: HashMap<(u64, bool), SecondOrderResult> = HashMap::new();
+    let mut cancelled = false;
+    std::thread::scope(|scope| {
+        for _ in 0..workers.max(1).min(total.max(1)) {
+            let tx = tx.clone();
+            let (next, stop) = (&next, &stop);
+            scope.spawn(move || {
+                let build = Build { weights, labels, mode: "off", sigma: None, lif: crate::cards::LIF_DEFAULTS };
+                loop {
+                    if stop.load(std::sync::atomic::Ordering::Relaxed) {
+                        return;
+                    }
+                    let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    let Some(job) = jobs.get(i) else { return };
+                    let done = match job {
+                        Job::Path(s) => Done::Path(*s, pathway_seed(weights, labels, *s, only_ref)),
+                        Job::Tmaze(s, a_plus, paired) => {
+                            let (seed, cs) = if *a_plus { (*s, "odor_a") } else { (*s + 50_000, "odor_b") };
+                            Done::Tmaze(*s, *paired, tmaze_fly(&build, seed, cs, 6, 20, *paired, 0.08))
+                        }
+                        Job::Ext(s) => Done::Ext(*s, extinction_fly(&build, *s)),
+                        Job::Soc(s, paired) => Done::Soc(*s, *paired, second_order_fly(&build, *s, *paired)),
+                    };
+                    if tx.send(done).is_err() {
+                        return;
+                    }
+                }
+            });
+        }
+        drop(tx);
+        let mut n = 0;
+        while let Ok(d) = rx.recv() {
+            n += 1;
+            let label = match d {
+                Done::Path(s, r) => {
+                    path_res.insert(s, r);
+                    "path"
+                }
+                Done::Tmaze(s, paired, r) => {
+                    tmaze.push((s, paired, r));
+                    "tmaze"
+                }
+                Done::Ext(s, r) => {
+                    ext.insert(s, r);
+                    "ext"
+                }
+                Done::Soc(s, paired, r) => {
+                    soc.insert((s, paired), r);
+                    "soc"
+                }
+            };
+            if !progress(n, total, label) {
+                stop.store(true, std::sync::atomic::Ordering::Relaxed);
+                cancelled = true;
+            }
+        }
+    });
+    if cancelled {
+        return Err("cancelled".into());
+    }
+    let (ratio_min, p_max, pi_min, control_pi_max) = (
+        table()["ratio_min"].as_f64().unwrap_or(1.5),
+        table()["p_max"].as_f64().unwrap_or(0.01),
+        table()["pi_min"].as_f64().unwrap_or(0.5),
+        table()["control_pi_max"].as_f64().unwrap_or(0.25),
+    );
+    let mut results = Vec::new();
+    for t in tests() {
+        let id = t["id"].as_str().unwrap_or("");
+        if !has(id) {
+            continue;
+        }
+        let mut r = t.clone();
+        match id {
+            "epg_compass_wind" => {
+                let w = probe_epg_wind(weights, labels, seeds, 600);
+                r["measured"] = json!({
+                    "mean_contrast": w["mean_contrast"], "sd_contrast": w["sd_contrast"], "baseline_contrast": w["baseline_contrast"],
+                    "mean_persistence_ms": w["mean_persistence_ms"], "direction_tracking": w["direction_tracking"],
+                    "direction_tracking_p": w["direction_tracking_p"], "direction_tracking_null": w["direction_tracking_null"],
+                    "epg_rate_baseline_hz": w["epg_rate_baseline_hz"], "epg_rate_wind_hz": w["epg_rate_wind_hz"],
+                    "wind_speed_m_s": w["wind_speed_m_s"], "n": seeds.len(),
+                });
+                r["criteria"] = w["criteria"].clone();
+                r["passed"] = w["passed"].clone();
+                r["finding"] = w["finding"].clone();
+                r["per_seed"] = w["per_seed"].clone();
+            }
+            "epg_compass" => {
+                let w = probe_epg_compass(weights, labels, seeds, 150);
+                r["measured"] = json!({
+                    "mean_contrast": w["mean_contrast"], "sd_contrast": w["sd_contrast"], "mean_persistence_ms": w["mean_persistence_ms"],
+                    "mean_baseline_hz": w["mean_baseline_hz"], "mean_baseline_sd_hz": w["mean_baseline_sd_hz"], "n": seeds.len(),
+                });
+                r["criteria"] = w["criteria"].clone();
+                r["passed"] = w["passed"].clone();
+                r["finding"] = w["finding"].clone();
+            }
+            "mb_extinction" => {
+                let col = |f: &dyn Fn(&ExtinctionResult) -> f64| -> Vec<f64> { seeds.iter().map(|s| f(&ext[s])).collect() };
+                let (pi_ext, pi_unext) = (col(&|e| e.pi_ext), col(&|e| e.pi_unext));
+                let p = wilcoxon_greater(&pi_unext, &pi_ext);
+                r["measured"] = json!({
+                    "extinguished_pi_mean": mean(&pi_ext), "extinguished_pi_sd": sd(&pi_ext), "unextinguished_pi_mean": mean(&pi_unext),
+                    "unextinguished_pi_sd": sd(&pi_unext), "fear_extinguished": mean(&col(&|e| e.fear_ext)),
+                    "fear_unextinguished": mean(&col(&|e| e.fear_unext)), "p_value": p, "n": seeds.len(),
+                });
+                r["criteria"] =
+                    json!(format!("extinguished PI < {pi_min} and unextinguished > extinguished (one-sided Wilcoxon p < {p_max})"));
+                r["passed"] = json!(mean(&pi_ext) < pi_min && p < p_max);
+                r["per_seed"] = Value::Array(
+                    seeds
+                        .iter()
+                        .zip(pi_ext.iter().zip(&pi_unext))
+                        .map(|(s, (a, b))| json!({"seed": s, "pi_ext": a, "pi_unext": b}))
+                        .collect(),
+                );
+            }
+            "mb_second_order" => {
+                let col = |paired: bool, f: &dyn Fn(&SecondOrderResult) -> f64| -> Vec<f64> {
+                    seeds.iter().map(|s| f(&soc[&(*s, paired)])).collect()
+                };
+                let (pi_p, pi_u) = (col(true, &|e| e.pi), col(false, &|e| e.pi));
+                let p = wilcoxon_greater(&pi_p, &pi_u);
+                r["measured"] = json!({
+                    "pi_mean": mean(&pi_p), "pi_sd": sd(&pi_p), "control_pi_mean": mean(&pi_u), "control_pi_sd": sd(&pi_u),
+                    "fear_b_paired": mean(&col(true, &|e| e.fear_b)), "fear_b_unpaired": mean(&col(false, &|e| e.fear_b)), "p_value": p, "n": seeds.len(),
+                });
+                r["criteria"] =
+                    json!(format!("PI >= {pi_min}, |unpaired PI| <= {control_pi_max}, paired > unpaired (one-sided Wilcoxon p < {p_max})"));
+                r["passed"] = json!(mean(&pi_p) >= pi_min && mean(&pi_u).abs() <= control_pi_max && p < p_max);
+                r["per_seed"] = Value::Array(
+                    seeds.iter().zip(pi_p.iter().zip(&pi_u)).map(|(s, (a, b))| json!({"seed": s, "pi": a, "control_pi": b})).collect(),
+                );
+            }
+            "mb_conditioning" => {
+                let by = |s: u64, paired: bool| -> Vec<&TmazeResult> {
+                    tmaze.iter().filter(|x| x.0 == s && x.1 == paired).map(|x| &x.2).collect()
+                };
+                let avg = |paired: bool, f: &dyn Fn(&TmazeResult) -> f64| -> Vec<f64> {
+                    seeds.iter().map(|&s| mean(&by(s, paired).iter().map(|h| f(h)).collect::<Vec<_>>())).collect()
+                };
+                let (pi_p, pi_u) = (avg(true, &|h| h.pi), avg(false, &|h| h.pi));
+                let p = wilcoxon_greater(&pi_p, &pi_u);
+                r["measured"] = json!({
+                    "pi_mean": mean(&pi_p), "pi_sd": sd(&pi_p), "control_pi_mean": mean(&pi_u), "control_pi_sd": sd(&pi_u),
+                    "fear_cs_plus": mean(&avg(true, &|h| h.fear_plus)), "fear_cs_minus": mean(&avg(true, &|h| h.fear_minus)),
+                    "approach_mbon_cs_plus_hz": mean(&avg(true, &|h| h.mbon_plus_hz)),
+                    "approach_mbon_cs_minus_hz": mean(&avg(true, &|h| h.mbon_minus_hz)), "p_value": p, "n": seeds.len(),
+                });
+                r["criteria"] =
+                    json!(format!("PI >= {pi_min}, |unpaired PI| <= {control_pi_max}, paired > unpaired (one-sided Wilcoxon p < {p_max})"));
+                r["passed"] = json!(mean(&pi_p) >= pi_min && mean(&pi_u).abs() <= control_pi_max && p < p_max);
+                r["per_seed"] = Value::Array(
+                    seeds.iter().zip(pi_p.iter().zip(&pi_u)).map(|(s, (a, b))| json!({"seed": s, "pi": a, "control_pi": b})).collect(),
+                );
+            }
+            _ => {
+                let per: Vec<(u64, Value)> =
+                    seeds.iter().map(|s| (*s, path_res.get(s).and_then(|m| m.get(id)).cloned().unwrap_or(Value::Null))).collect();
+                r = judge_pathway(t, &per);
+            }
+        }
+        results.push(r);
+    }
+    let _ = ratio_min; // (kept for the criteria text above)
+    Ok(json!({
+        "brain": "adult", "seeds": seeds, "workers": workers, "n_neurons": labels.types.len(), "sweet_n": 30, "tests": results,
+    }))
+}
+
+/// `validation.summary`
+pub fn summary(res: &Value) -> String {
+    let seeds = res["seeds"].as_array().cloned().unwrap_or_default();
+    let (a, b) = (seeds.first().and_then(Value::as_u64).unwrap_or(0), seeds.last().and_then(Value::as_u64).unwrap_or(0));
+    let mut lines = vec![format!(
+        "Kick the Fly {} validation, seeds {a}-{b} (n={}), {}s, backend {}",
+        res["app_version"].as_str().unwrap_or(""),
+        seeds.len(),
+        res["seconds"],
+        res["backend"].as_str().unwrap_or("not recorded"),
+    )];
+    let f = |v: &Value| v.as_f64().unwrap_or(f64::NAN);
+    for t in res["tests"].as_array().cloned().unwrap_or_default() {
+        let m = &t["measured"];
+        let nums = if m.get("drive_ratio_mean").is_some() {
+            format!(
+                "{}: x{:.2} when driving {} vs x{:.2} for {}, p={:.4}",
+                t["readout_label"].as_str().unwrap_or(""),
+                f(&m["drive_ratio_mean"]),
+                t["drive_label"].as_str().unwrap_or(""),
+                f(&m["control_ratio_mean"]),
+                t["control_label"].as_str().unwrap_or(""),
+                f(&m["p_value"])
+            )
+        } else if m.get("p_priority").is_some() {
+            format!(
+                "hind-leg MNs x{:.2} for abdomen alone; with head too, front-leg x{:.2} vs hind-leg x{:.2} (priority p={:.4}, suppression p={:.4})",
+                f(&m["posterior_hind_mean"]),
+                f(&m["both_front_mean"]),
+                f(&m["both_hind_mean"]),
+                f(&m["p_priority"]),
+                f(&m["p_suppression"])
+            )
+        } else if m.get("extinguished_pi_mean").is_some() {
+            format!(
+                "extinguished PI {:.2} \u{00b1} {:.2} vs unextinguished {:.2} \u{00b1} {:.2}, p={:.4}",
+                f(&m["extinguished_pi_mean"]),
+                f(&m["extinguished_pi_sd"]),
+                f(&m["unextinguished_pi_mean"]),
+                f(&m["unextinguished_pi_sd"]),
+                f(&m["p_value"])
+            )
+        } else if m.get("pi_mean").is_some() {
+            format!(
+                "PI {:.2} \u{00b1} {:.2} vs unpaired {:.2}, p={:.4}",
+                f(&m["pi_mean"]),
+                f(&m["pi_sd"]),
+                f(&m["control_pi_mean"]),
+                f(&m["p_value"])
+            )
+        } else if m.get("direction_tracking").is_some() {
+            format!(
+                "wind: contrast {:.2}x (no wind {:.2}x), persist {:.0} ms, tracking |r| {:.2} (p={:.2})",
+                f(&m["mean_contrast"]),
+                f(&m["baseline_contrast"]),
+                f(&m["mean_persistence_ms"]),
+                f(&m["direction_tracking"]),
+                f(&m["direction_tracking_p"])
+            )
+        } else if m.get("mean_contrast").is_some() {
+            format!(
+                "contrast {:.2} \u{00b1} {:.2}x, persist {:.0} ms",
+                f(&m["mean_contrast"]),
+                m["sd_contrast"].as_f64().unwrap_or(0.0),
+                f(&m["mean_persistence_ms"])
+            )
+        } else {
+            m.to_string()
+        };
+        lines.push(format!(
+            "  [{}] {}: {nums}",
+            if t["passed"].as_bool().unwrap_or(false) { "PASS" } else { "FAIL" },
+            t["name"].as_str().unwrap_or("")
+        ));
+    }
+    lines.join("\n")
+}

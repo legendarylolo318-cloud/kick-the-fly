@@ -129,3 +129,49 @@ fn compass_probes_equal_the_published_python_results() {
         }
     }
 }
+
+/// The whole suite on the 10 held-out seeds against the published Python run. Takes about ten minutes: `cargo test -p fly_sim --test
+/// validation_real full_suite -- --ignored --nocapture`.
+#[test]
+#[ignore]
+fn full_suite_equals_the_published_python_run() {
+    let Some(path) = pack::find_default() else { return };
+    let published: Value = serde_json::from_slice(
+        &std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../../docs/results/3.0-release/validate_after.json")).unwrap(),
+    )
+    .unwrap();
+    let pk = Pack::load(path).unwrap();
+    let (w, l) = (Arc::new(pk.weights), Arc::new(pk.labels));
+    let seeds = validation::seeds();
+    let res = validation::run(&w, &l, &seeds, None, 4, |d, n, label| {
+        eprintln!("  {d}/{n} {label}");
+        true
+    })
+    .unwrap();
+    // keep the run: the build's bundled results are this file (data/validation_results.json) once the verdicts equal Python's
+    if let Ok(out) = std::env::var("KTF_VALIDATION_OUT") {
+        let mut v = res.clone();
+        v["app_version"] = serde_json::json!(env!("CARGO_PKG_VERSION"));
+        v["created"] = serde_json::json!("2026-10-10 00:00:00");
+        v["synapses"] = serde_json::json!(w.csr.nnz());
+        std::fs::write(out, serde_json::to_string_pretty(&v).unwrap()).unwrap();
+    }
+    let mut pass = 0;
+    let mut diffs = Vec::new();
+    for (mine, theirs) in res["tests"].as_array().unwrap().iter().zip(published["tests"].as_array().unwrap()) {
+        let id = mine["id"].as_str().unwrap();
+        assert_eq!(id, theirs["id"].as_str().unwrap());
+        pass += usize::from(mine["passed"].as_bool().unwrap());
+        eprintln!("[{}] {id} (python {})", if mine["passed"].as_bool().unwrap() { "PASS" } else { "FAIL" }, theirs["passed"]);
+        assert_eq!(mine["passed"], theirs["passed"], "{id}: the verdict");
+        for (k, v) in theirs["measured"].as_object().unwrap() {
+            let (Some(a), Some(b)) = (mine["measured"][k].as_f64(), v.as_f64()) else { continue };
+            if (a - b).abs() > 1e-6 * b.abs().max(1.0) {
+                diffs.push(format!("{id}.{k}: {a} vs {b}"));
+            }
+        }
+    }
+    eprintln!("{pass} PASS / {} FAIL", 21 - pass);
+    eprintln!("measured numbers that differ from the published run:\n{}", diffs.join("\n"));
+    assert_eq!(pass, 12);
+}

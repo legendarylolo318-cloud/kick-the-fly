@@ -481,3 +481,38 @@ fn lab_pages() {
         compare(name, &cv.to_rgb_over(BG), if screen == "lab_assumptions" { 0.02 } else { 0.012 });
     }
 }
+
+#[test]
+fn lab_validation_page() {
+    struct H(serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            if key == "validation_results" {
+                serde_json::json!({"results": self.0, "source": "from this build", "job": null})
+            } else if key == "lab_params" {
+                serde_json::json!({})
+            } else {
+                serde_json::Value::Null
+            }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    let published: serde_json::Value = serde_json::from_slice(
+        &std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../../docs/results/3.0-release/validate_after.json")).unwrap(),
+    )
+    .unwrap();
+    for (name, scroll) in [("page_lab_validation.png", 0), ("page_lab_validation_scrolled.png", 700)] {
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        m.show("lab_validation");
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(published.clone()));
+        m.set_scroll("lab_validation", scroll);
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(published.clone()));
+        compare(name, &cv.to_rgb_over(BG), 0.02);
+    }
+}

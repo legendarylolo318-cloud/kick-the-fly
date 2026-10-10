@@ -36,6 +36,11 @@ fn saves_dir() -> PathBuf {
     ktf_data::paths::get().saves_dir
 }
 
+/// `YYYY-MM-DD HH:MM:SS` in UTC (the format Python's results files use).
+pub fn utc_stamp_pub() -> String {
+    utc_stamp(false)
+}
+
 fn utc_stamp(fmt_dash: bool) -> String {
     let secs = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs()) as i64;
     let (days, rem) = (secs.div_euclid(86_400), secs.rem_euclid(86_400));
