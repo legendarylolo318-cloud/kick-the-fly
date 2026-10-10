@@ -119,6 +119,7 @@ pub fn threshold_sweep(
     Ok(json!({
         "kind": "threshold_sweep", "created": created, "seconds": (t0.elapsed().as_secs_f64() * 10.0).round() / 10.0,
         "seeds": seeds, "thresholds": th, "pack_min_synapses": MIN_PACK_SYNAPSES, "steps": steps, "breaks": breaks,
+        "order": include,
     }))
 }
 
@@ -205,7 +206,7 @@ pub fn signflip_trials(
     Ok(json!({
         "kind": "signflip_trials", "created": created, "seconds": (t0.elapsed().as_secs_f64() * 10.0).round() / 10.0,
         "seeds": seeds, "cutoff": cutoff, "share": share, "trials": trials, "trial_seed": 0,
-        "candidates": cand_stats, "control": control, "runs": runs, "behaviors": per,
+        "candidates": cand_stats, "control": control, "runs": runs, "behaviors": per, "order": include,
     }))
 }
 

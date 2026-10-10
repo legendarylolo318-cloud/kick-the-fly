@@ -248,7 +248,7 @@ against the pygame version (screenshot pair, or the code read side by side). Any
 - [x] Menu page `lab_asymmetry` — matched with pygame (normal and mirrored). The Mirror toggle really runs every fly on `simcore.symmetrize_weights` (`fly_sim::mirror`, nnz and sum of the real pack equal Python's); learning restarts when it flips (Python keeps the old plastic state in a matrix it replaced).
 - [ ] Menu page `lab_autopsy`
 - [x] Menu page `lab_benchmark` — matched with pygame (idle and results); the job (`fly_sim::benchmark`, Start button, `benchmark_results.json`) measures steps/s per fly count on this machine, so numbers are machine-specific by nature.
-- [ ] Menu page `lab_clamp`
+- [x] Menu page `lab_clamp` — matched with pygame (empty, and a threshold-10 replay; 0.4-0.75 %). `fly_sim::clamp` equals Python's reference run and replays (region rates, readouts) exactly; golden `tests/golden/clamp.json`. **Python defect**: `labclamp.py` uses `np` without importing it, so the two lesion modifications (silence looming detectors / giant fiber, the default one) fail with `NameError`; here they run as intended.
 - [ ] Menu page `lab_classroom`
 - [x] Menu page `lab_critical` — matched with pygame (empty, and a ranked run with one lesion applied; 0.2-0.35 %). `fly_sim::criticalpath` equals Python's shortlist (float32 sums in SciPy's order), behavior and assay runs; golden `tests/golden/critical.json`. The Python page has no Cancel button, so none here.
 - [ ] Menu page `lab_diff`

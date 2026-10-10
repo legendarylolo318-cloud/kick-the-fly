@@ -260,6 +260,12 @@ impl Brain {
         self.sedation == 0.0 && !self.surgery && !self.driving && self.steps as i64 - self.groups.last_poke > 400
     }
 
+    /// `sim.step(override if surgery else None)`: one bare simulator step as the neural clamp takes it (no pokes, no group trackers).
+    pub fn sim_step_override(&mut self) -> &[u32] {
+        let drv = if self.surgery { Some(&self.override_cur[..]) } else { None };
+        self.sim.step(drv)
+    }
+
     /// `Brain.set_current`: give the named source `value` on `rows`, replacing what that source had; the sources add up.
     pub fn set_current(&mut self, name: &str, rows: &[u32], value: f32) {
         let mut arr = vec![0.0f32; self.n()];

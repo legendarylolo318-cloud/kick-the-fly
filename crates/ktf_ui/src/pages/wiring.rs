@@ -55,6 +55,25 @@ fn intro(m: &Menu, cv: &mut Canvas, body: Rect, y: i32, lead: &str, more: &str, 
     y2.max(r.bottom()) + 10
 }
 
+/// A result map's entries in the order Python made them (serde_json sorts keys; the result carries `order`).
+pub fn ordered<'a>(map: &'a Value, order: &Value) -> Vec<(String, &'a Value)> {
+    let Some(obj) = map.as_object() else { return Vec::new() };
+    let mut out: Vec<(String, &Value)> = Vec::new();
+    if let Some(o) = order.as_array() {
+        for k in o.iter().filter_map(|k| k.as_str()) {
+            if let Some(v) = obj.get(k) {
+                out.push((k.to_string(), v));
+            }
+        }
+    }
+    for (k, v) in obj {
+        if !out.iter().any(|(x, _)| x == k) {
+            out.push((k.clone(), v));
+        }
+    }
+    out
+}
+
 fn progress(m: &Menu, cv: &mut Canvas, x: i32, y: i32, w: i32, job: &Value) {
     let f = m.fonts();
     cv.fill_rect(Rect::new(x, y + 14, w, 12), [30, 36, 48], 6);
@@ -190,12 +209,12 @@ impl LabWiring {
             m.text(cv, label, (*hx, y), LABEL, &f.small, Anchor::TopLeft);
         }
         y += 20;
-        for (id, b) in res["breaks"].as_object().into_iter().flatten() {
+        for (id, b) in ordered(&res["breaks"], &res["order"]) {
             let name: String = b["name"].as_str().unwrap_or("").chars().take(44).collect();
             m.text(cv, &name, (area.x, y), TEXT, &f.small, Anchor::TopLeft);
             for (i, t) in th.iter().enumerate() {
                 let step = res["steps"].as_array().and_then(|s| s.iter().find(|s| s["threshold"].as_i64() == Some(*t)));
-                let ok = step.is_some_and(|s| s["behaviors"][id]["passed"] == true);
+                let ok = step.is_some_and(|s| s["behaviors"][&id]["passed"] == true);
                 m.text(cv, if ok { "pass" } else { "fail" }, (xs[i + 1], y), if ok { GOOD } else { BAD }, &f.small, Anchor::TopLeft);
             }
             let br = b["breaks_at"].as_i64();
@@ -390,7 +409,7 @@ impl LabWiring {
             m.text(cv, label, (area.x + x, y), LABEL, &f.small, Anchor::TopLeft);
         }
         y += 20;
-        for b in res["behaviors"].as_object().into_iter().flat_map(|o| o.values()) {
+        for (_, b) in ordered(&res["behaviors"], &res["order"]) {
             let col = match b["verdict"].as_str() {
                 Some("survives") => GOOD,
                 Some("breaks") => BAD,

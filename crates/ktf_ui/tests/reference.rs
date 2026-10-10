@@ -738,3 +738,32 @@ fn lab_critical_page() {
         compare(name, &cv.to_rgb_over(BG), 0.02);
     }
 }
+
+#[test]
+fn lab_clamp_page() {
+    use ktf_ui::pages::clamp::LabClamp;
+    struct H(serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            if key == "lab.clamp_state" { self.0.clone() } else { serde_json::Value::Null }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    let gold: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(format!("{}/../../tests/golden/clamp.json", env!("CARGO_MANIFEST_DIR"))).unwrap()).unwrap();
+    for (name, result, scen, modi) in [
+        ("page_lab_clamp_empty.png", serde_json::Value::Null, "looming", "lesion_gf"),
+        ("page_lab_clamp.png", gold["thresh"].clone(), "looming", "thresh_10"),
+    ] {
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        m.show("lab_clamp");
+        m.page_mut::<LabClamp>("lab_clamp").unwrap().set_view(scen, modi);
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(serde_json::json!({"job": null, "error": "", "result": result})));
+        compare(name, &cv.to_rgb_over(BG), 0.02);
+    }
+}

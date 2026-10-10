@@ -17,6 +17,7 @@ pub mod benchmark;
 pub mod brain;
 pub mod cards;
 pub mod challenge;
+pub mod clamp;
 pub mod criticalpath;
 pub mod csr;
 pub mod duel;

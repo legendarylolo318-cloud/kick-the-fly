@@ -201,6 +201,20 @@ impl LifSim {
         &mut self.weights
     }
 
+    /// `clamp.run_neural_clamp`: replace the latest spikes of the clamped neurons by the forced ones (and reset those, as a spike would).
+    pub fn force_spikes(&mut self, clamp_mask: &[bool], forced: &[u32]) {
+        let mut a: Vec<u32> = self.active.iter().copied().filter(|&i| !clamp_mask[i as usize]).collect();
+        a.extend_from_slice(forced);
+        a.sort_unstable();
+        a.dedup();
+        self.active = a;
+        let (v_reset, refr) = (self.p.v_reset as f32, self.p.refractory_steps);
+        for &i in forced {
+            self.v[i as usize] = v_reset;
+            self.refr[i as usize] = refr;
+        }
+    }
+
     /// Spikes of the latest step (ascending indices).
     pub fn spikes(&self) -> &[u32] {
         &self.active

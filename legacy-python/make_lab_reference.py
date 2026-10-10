@@ -145,4 +145,16 @@ if __name__ == "__main__":
     R.render("lab_critical", "Graphics", out / "page_lab_critical_empty.png", prep=crit_prep("looming_escape"))
     R.render("lab_critical", "Graphics", out / "page_lab_critical.png",
              prep=crit_prep("looming_escape", crit["behavior"], applied=("LC4",)))
+    from kickthefly.lab import labclamp
+    clamp_gold = json.loads((gd / "clamp.json").read_text())
+
+    def clamp_prep(res=None, scenario="looming", mod="lesion_gf"):
+        def prep(m):
+            prep_for("lab_clamp")(m)
+            st = labclamp._st(m)
+            st.clamp_scenario, st.clamp_mod, st.clamp_result = scenario, mod, res
+        return prep
+
+    R.render("lab_clamp", "Graphics", out / "page_lab_clamp_empty.png", prep=clamp_prep())
+    R.render("lab_clamp", "Graphics", out / "page_lab_clamp.png", prep=clamp_prep(clamp_gold["thresh"], "looming", "thresh_10"))
     print("wrote", out)
