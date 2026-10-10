@@ -28,6 +28,7 @@ struct Args {
     menu: Option<String>,
     fullscreen: bool,
     selftest: bool,
+    train_screen: bool,
     bugreport: bool,
     out: Option<PathBuf>,
     crash_screen: Option<Vec<PathBuf>>,
@@ -46,6 +47,7 @@ const USAGE: &str = "usage: kick_the_fly [--pack FILE | --synthetic N] [--seed S
   --tool NAME [--fire S] [--hold S]  select a tool and press the left button at S seconds for HOLD seconds\n\
   --shot FILE [N]  save a screenshot after N frames (default 90) and exit\n\
   --selftest [--out FILE.json]  check this install (brain pack, simulator, GPU, audio, folders, disk, memory, a 10 s run); exit 0 all pass, 1 any FAIL, 3 warnings\n\
+  --train-screen   open the training screen (T) at start, for screenshots\n\
   --bugreport [--out DIR]  print what a bug report would contain (nothing is sent) and write DIR/bugreport.md";
 
 fn parse(args: impl Iterator<Item = String>) -> Result<Args, String> {
@@ -57,6 +59,7 @@ fn parse(args: impl Iterator<Item = String>) -> Result<Args, String> {
     let mut menu = None;
     let mut fullscreen = false;
     let (mut selftest, mut bugreport, mut out, mut crash_screen) = (false, false, None, None);
+    let mut train_screen = false;
     while let Some(a) = args.next() {
         if a == "--crash-screen" {
             crash_screen = Some(args.by_ref().map(PathBuf::from).collect());
@@ -77,6 +80,7 @@ fn parse(args: impl Iterator<Item = String>) -> Result<Args, String> {
             "--storm" => storm = true,
             "--fullscreen" => fullscreen = true,
             "--selftest" => selftest = true,
+            "--train-screen" => train_screen = true,
             "--bugreport" => bugreport = true,
             "--out" => out = Some(PathBuf::from(value("a file or folder")?)),
             "--menu" => menu = Some(value("a screen, e.g. pause or settings:Audio")?),
@@ -128,6 +132,7 @@ fn parse(args: impl Iterator<Item = String>) -> Result<Args, String> {
         menu,
         fullscreen,
         selftest,
+        train_screen,
         bugreport,
         out,
         crash_screen,
@@ -179,6 +184,7 @@ fn main() -> ExitCode {
     let pack_path = if let Source::Pack(p) = &args.source { Some(p.clone()) } else { None };
     let mut config = SimConfig::new(args.source);
     config.seed = args.seed;
+    config.memory_dir = Some(ktf_data::paths::get().memory_dir);
 
     if let Some(seconds) = args.smoke {
         return match run_smoke(config, seconds) {
@@ -246,6 +252,9 @@ fn main() -> ExitCode {
         st.rain = args.rain;
         st.storm = args.storm;
         st.day_night_s = args.day;
+    }
+    if args.train_screen {
+        app.world_mut().resource_mut::<kick_the_fly::memory_play::Learned>().train_open = true;
     }
     if let Some(m) = &args.menu {
         app.insert_resource(kick_the_fly::menu_ui::MenuStart(m.clone()));

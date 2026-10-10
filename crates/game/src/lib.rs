@@ -35,6 +35,7 @@ pub mod killcam;
 pub mod killcam_play;
 pub mod kitchen;
 pub mod lesion;
+pub mod memory_play;
 pub mod menu_ui;
 pub mod mic;
 pub mod mic_analysis;
@@ -149,6 +150,7 @@ impl Plugin for GamePlugin {
             .add_plugins(menu_ui::MenuPlugin)
             .add_plugins((
                 crash::CrashPlugin,
+                memory_play::MemoryPlayPlugin,
                 actions::ActionsPlugin,
                 tutorial_play::TutorialPlugin,
                 first_run::FirstRunPlugin,

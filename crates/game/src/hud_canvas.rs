@@ -251,6 +251,7 @@ struct HudIn<'w, 's> {
     settings: Res<'w, crate::config::Settings>,
     dex: Res<'w, Dex>,
     tut: Res<'w, crate::tutorial_play::Tutorial>,
+    learned: Res<'w, crate::memory_play::Learned>,
     flies: Query<'w, 's, &'static Fly>,
 }
 
@@ -267,7 +268,8 @@ fn draw(
     mut node: Single<&mut ImageNode, With<HudNode>>,
     mut hits_out: ResMut<HudHitsRes>,
 ) {
-    let HudIn { time, real, snap, st, notes, tools, loadout, arena, cfg, view, tc, look, menu, arcade, settings, dex, tut, flies } = i;
+    let HudIn { time, real, snap, st, notes, tools, loadout, arena, cfg, view, tc, look, menu, arcade, settings, dex, tut, learned, flies } =
+        i;
     let l = lay.0;
     let crisp = (l.scale.fract() == 0.0) && l.scale >= 1.0;
     if (hc.canvas.w, hc.canvas.h) != (l.hud_w, l.hud_h) || hc.crisp != crisp {
@@ -404,7 +406,7 @@ fn draw(
         pain_connectome: false,
         reward: st.reward,
         reward_level,
-        memory: vec![],
+        memory: snap.0.as_deref().and_then(|s| s.memory.as_deref()).map_or(vec![], |m| m.scores.clone()),
         tools: slots,
         tool_name: sel.0.into(),
         tool_line: format!("{key_label}  {}: {hint}", sel.1),
@@ -412,7 +414,7 @@ fn draw(
         pages: loadout.0.n_pages(),
         look: look.captured,
         free_mouse_key: cfg.0.key_of("free_mouse").into(),
-        overlay_open: st.help || view.big || arcade.open,
+        overlay_open: st.help || view.big || arcade.open || learned.train_open,
         menu_open: menu.0,
         dead_player: false,
         crosshair_hot: false,
@@ -465,6 +467,7 @@ fn draw(
             look3d: look.captured,
         }),
         tutorial: tutorial_view(&tut, &cfg.0, rnow as f32).filter(|_| !menu.0),
+        training: learned.train_open.then(|| training_screen(&snap, &learned, rnow as f32)),
         ..Default::default()
     };
     let fonts = HudFonts::new(cfg.0.get_bool("access.larger_text"));
@@ -473,6 +476,48 @@ fn draw(
     hits_out.0 = Hud { cv: canvas, lay: l, f: &fonts }.draw(&state, rnow);
     if let Some(mut img) = images.get_mut(&*image) {
         img.data = Some(canvas.px.clone());
+    }
+}
+
+/// What the T screen shows (`Game._draw_training`) from the sim thread's memory view.
+fn training_screen(snap: &LatestSnapshot, l: &crate::memory_play::Learned, now: f32) -> ktf_ui::hud::TrainingScreen {
+    use ktf_ui::hud::{TrainProgress, TrainRow, TrainingScreen};
+    let s = snap.0.as_deref();
+    let Some(m) = s.and_then(|s| s.memory.as_deref()) else {
+        return TrainingScreen { available: false, ..Default::default() };
+    };
+    let score = |n: &str| m.scores.iter().find(|r| r.0 == n).map_or((0.0, 0.0), |r| (r.1, r.2));
+    let rows = fly_sim::groups::TOOL_NAMES
+        .iter()
+        .map(|n| {
+            let (fear, like) = score(n);
+            let trials = m.log.get(*n).map_or(0, |v| v.iter().filter(|e| e.kind == "fear" || e.kind == "like").count());
+            TrainRow { name: (*n).into(), fear, like, trials }
+        })
+        .collect();
+    let log = m.log.get(l.train_scent);
+    let curve = log.map_or(vec![], |v| v.iter().filter(|e| e.kind != "naive").map(|e| (e.fear as f32, e.like as f32)).collect());
+    let last_hz = log.and_then(|v| v.iter().rev().find_map(|e| e.mbon_hz));
+    TrainingScreen {
+        available: true,
+        rows,
+        selected: l.train_scent.into(),
+        curve,
+        naive_hz: m.naive_mbon.get(l.train_scent).copied(),
+        last_hz,
+        weakened: m.weakened,
+        synapses: m.synapses,
+        speed: l.train_speed,
+        wipe_armed: l.wipe_armed_at.is_some_and(|t| now - t < 3.0),
+        path: m.path.clone(),
+        train: m.train.as_ref().map(|t| TrainProgress {
+            kind: t.kind.clone(),
+            scent: t.scent.clone(),
+            done: t.done,
+            trials: t.trials,
+            phase: t.phase.clone(),
+            steps_per_s: s.map_or(0.0, |s| s.steps_per_s),
+        }),
     }
 }
 
@@ -491,6 +536,8 @@ fn hud_clicks(
     mut notes: ResMut<Notes>,
     real: Res<Time<Real>>,
     mut tut: ResMut<crate::tutorial_play::Tutorial>,
+    mut learned: ResMut<crate::memory_play::Learned>,
+    snap: Res<LatestSnapshot>,
 ) {
     if !buttons.just_pressed(MouseButton::Left) || look.captured || menu.0 {
         return;
@@ -500,6 +547,45 @@ fn hud_clicks(
     let pos = ((p.x * k) as i32, (p.y * k) as i32);
     let at = |r: Option<ktf_ui::Rect>| r.is_some_and(|r| r.contains(pos));
     let now = real.elapsed_secs();
+    if learned.train_open {
+        let busy = snap.0.as_deref().and_then(|s| s.memory.as_deref()).is_some_and(|m| m.train.is_some());
+        if let Some((_, what, arg)) = hits.0.train.iter().find(|(r, ..)| r.contains(pos)).cloned() {
+            match what.as_str() {
+                "select" if !busy => {
+                    if let Some(a) = arg {
+                        learned.train_scent = crate::tools::name_static(&a);
+                    }
+                }
+                "fear" | "like" | "test" if !busy => {
+                    link.0.send(Command::Train { kind: what.clone(), scent: learned.train_scent.into(), trials: 10 });
+                    notes.push(now, format!("TRAINING {what} on {}", learned.train_scent), Tag::GameRule);
+                }
+                "speed" => {
+                    learned.train_speed = if learned.train_speed < 1.5 {
+                        2.0
+                    } else if learned.train_speed < 2.5 {
+                        3.0
+                    } else {
+                        1.0
+                    }
+                }
+                "stop" => {
+                    link.0.send(Command::StopTrain);
+                }
+                "wipe" if !busy => {
+                    if learned.wipe_armed_at.is_some_and(|t| now - t < 3.0) {
+                        link.0.send(Command::WipeMemory);
+                        learned.wipe_armed_at = None;
+                        notes.push(now, "MEMORY   wiped", Tag::GameRule);
+                    } else {
+                        learned.wipe_armed_at = Some(now);
+                    }
+                }
+                _ => {}
+            }
+        }
+        return;
+    }
     if tut.active && at(hits.0.tutorial_next) {
         tut.request = Some("next");
     } else if tut.active && at(hits.0.tutorial_skip) {
