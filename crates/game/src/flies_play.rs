@@ -204,10 +204,17 @@ fn collisions(
 /// `k2.FLY_TOUCH_RADIUS * S`: how close two flies get before they bump, in metres.
 const FLY_TOUCH_RADIUS: f32 = 40.0 * 0.006;
 
+/// The seeds of the flies in play, for the arcade page's "Measure the flies in play".
+fn publish_play(bodies: Query<&Slot, With<Fly>>, cfg: Res<UserConfig>, mut hub: ResMut<crate::arcade_hub::ArcadeHub>) {
+    let mut seeds: Vec<u64> = bodies.iter().map(|s| 1000 + u64::from(s.0)).collect();
+    seeds.sort_unstable();
+    hub.set_play(seeds, cfg.0.get_str("brain.individuality"));
+}
+
 pub struct FliesPlugin;
 
 impl Plugin for FliesPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Flies>().add_systems(Update, (spawn_and_cycle, follow_nearest, recall, collisions));
+        app.init_resource::<Flies>().add_systems(Update, (spawn_and_cycle, follow_nearest, recall, collisions, publish_play));
     }
 }

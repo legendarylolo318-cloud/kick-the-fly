@@ -31,6 +31,7 @@ struct HubJob {
 }
 
 enum Done {
+    Measured(Vec<Card>),
     Bracket(Value),
     Field(Vec<Card>),
     Race { race: Value, bet: Option<(u64, i64)> },
@@ -54,6 +55,11 @@ pub struct ArcadeHub {
     pub want_lesion: bool,
     /// A line for the menu's flash message.
     pub flash: Option<String>,
+    /// The seeds of the flies in play (set every frame by `flies_play`), the personality-card cache keys already measured for them, and
+    /// the individuality mode they were asked under.
+    pub play: Vec<u64>,
+    measured: std::collections::HashSet<String>,
+    measured_for: (Vec<u64>, String),
 }
 
 impl Default for ArcadeHub {
@@ -72,8 +78,20 @@ impl Default for ArcadeHub {
             field_odds: Vec::new(),
             want_lesion: false,
             flash: None,
+            play: Vec::new(),
+            measured: Default::default(),
+            measured_for: Default::default(),
         }
     }
+}
+
+fn cache_path() -> std::path::PathBuf {
+    crate::paths::data_dir().join("cache").join("personality_cards.json")
+}
+
+fn pack_sha() -> String {
+    static SHA: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    SHA.get_or_init(|| fly_sim::pack::find_default().and_then(|p| cards::pack_sha256(&p)).unwrap_or_default()).clone()
 }
 
 fn card_numbers(c: &Card) -> CardNumbers {
@@ -192,7 +210,9 @@ fn measure(build: &Build, seeds: &[u64], sha: &str, cancel: &AtomicBool, progres
     let mut out = Vec::new();
     for (i, &s) in seeds.iter().enumerate() {
         set(progress, i as f64 / seeds.len() as f64, &format!("measuring the personality card of fly {s} ({}/{})", i + 1, seeds.len()));
-        out.push(cards::measure_card(build, s, sha, 600, || cancel.load(Ordering::Relaxed))?);
+        let card = cards::measure_card(build, s, sha, 600, || cancel.load(Ordering::Relaxed))?;
+        cards::store(&cache_path(), std::slice::from_ref(&card)); // each card is kept as it comes back, as Python's measure_cards does
+        out.push(card);
     }
     Ok(out)
 }
@@ -201,6 +221,21 @@ impl ArcadeHub {
     /// A hub with this wallet (tests keep the points in memory).
     pub fn with_wallet(wallet: crate::points::Wallet) -> Self {
         Self { wallet, ..Self::default() }
+    }
+
+    /// How many flies in play have no measured card yet under the current individuality mode.
+    fn unmeasured(&self) -> usize {
+        let mode = &self.measured_for.1;
+        self.play.iter().filter(|&&s| !self.measured.contains(&cards::card_key(s, mode, None, &cards::LIF_DEFAULTS, &pack_sha()))).count()
+    }
+
+    /// Called by `flies_play` each frame with the flies' seeds and the individuality mode; re-reads the cache when they change.
+    pub fn set_play(&mut self, seeds: Vec<u64>, mode: &str) {
+        if self.measured_for.0 != seeds || self.measured_for.1 != mode {
+            self.measured = cards::read_cache(&cache_path()).into_keys().collect();
+            self.measured_for = (seeds.clone(), mode.to_string());
+        }
+        self.play = seeds;
     }
 
     pub fn busy(&self) -> bool {
@@ -214,7 +249,7 @@ impl ArcadeHub {
             json!({"label": j.label, "note": note, "frac": frac, "elapsed": j.started.elapsed().as_secs_f64()})
         });
         json!({
-            "points": self.wallet.points, "slots": 0, "unmeasured": 0, "job": job, "error": self.error, "palette": palette,
+            "points": self.wallet.points, "slots": self.play.len(), "unmeasured": self.unmeasured(), "job": job, "error": self.error, "palette": palette,
             "bracket_serial": self.bracket_serial, "bracket": self.bracket, "race_serial": self.race_serial, "field": self.field,
             "odds": self.odds, "race": self.race, "bet_result": self.bet_result,
         })
@@ -230,6 +265,10 @@ impl ArcadeHub {
                 }
             }
             Some("battle") => self.want_lesion = true,
+            Some("measure_play") if self.job.is_none() => {
+                let Some(shared) = shared else { return self.fail("the brain is not loaded yet") };
+                self.spawn_measure_play(shared, mode);
+            }
             Some("tournament") if parts.len() >= 6 && self.job.is_none() => {
                 let size: usize = parts[2].parse().unwrap_or(8);
                 let base: u64 = parts[3].parse().unwrap_or(2000);
@@ -283,13 +322,22 @@ impl ArcadeHub {
         self.bracket = Value::Null;
         self.start("Tournament", move |progress, cancel| {
             let seeds: Vec<u64> = (0..size as u64).map(|i| base + i).collect();
-            let sha = fly_sim::pack::find_default().and_then(|p| cards::pack_sha256(&p)).unwrap_or_default();
+            let sha = pack_sha();
             let build = Build { weights: &shared.weights, labels: &shared.labels, mode: &mode, sigma: None, lif: cards::LIF_DEFAULTS };
             let measured = measure(&build, &seeds, &sha, cancel, progress)?;
             let mut player = RealPlayer { build: &build, bracket_seed: 0, cancel, progress, played: 0, total: size - 1 };
             let out = tournament::run_bracket(&seeds, secs, favorite, 0, true, &mut player)?;
             let cards: Vec<(u64, Card)> = seeds.iter().copied().zip(measured).collect();
             Ok(Done::Bracket(bracket_json(&out, &cards, &mode)))
+        });
+    }
+
+    fn spawn_measure_play(&mut self, shared: Shared, mode: &str) {
+        let mode = mode.to_string();
+        let seeds = self.play.clone();
+        self.start("Measuring the flies in play", move |progress, cancel| {
+            let build = Build { weights: &shared.weights, labels: &shared.labels, mode: &mode, sigma: None, lif: cards::LIF_DEFAULTS };
+            Ok(Done::Measured(measure(&build, &seeds, &pack_sha(), cancel, progress)?))
         });
     }
 
@@ -301,7 +349,7 @@ impl ArcadeHub {
         self.bet_result = Value::Null;
         self.start("Looking at the field", move |progress, cancel| {
             let seeds: Vec<u64> = (0..lanes as u64).map(|i| base + i).collect();
-            let sha = fly_sim::pack::find_default().and_then(|p| cards::pack_sha256(&p)).unwrap_or_default();
+            let sha = pack_sha();
             let build = Build { weights: &shared.weights, labels: &shared.labels, mode: &mode, sigma: None, lif: cards::LIF_DEFAULTS };
             Ok(Done::Field(measure(&build, &seeds, &sha, cancel, progress)?))
         });
@@ -382,6 +430,10 @@ impl ArcadeHub {
                     });
                 }
                 self.bracket = b;
+            }
+            Ok(Done::Measured(cards)) => {
+                self.measured.extend(cards.iter().map(|c| c.card_key.clone()));
+                self.flash = Some(format!("Measured {} personality card(s): the flies in play show them now.", cards.len()));
             }
             Ok(Done::Field(cards)) => {
                 let seeds: Vec<u64> = cards.iter().map(|c| c.seed).collect();

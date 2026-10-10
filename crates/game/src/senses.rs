@@ -73,21 +73,21 @@ fn vision(
     threats: Res<Threats>,
     link: Res<SimLink>,
     time: Res<Time<Fixed>>,
-    mut flies: Query<(&mut Fly, &mut LoomMemory)>,
+    mut flies: Query<(&mut Fly, &mut LoomMemory, &crate::fly::Slot)>,
     parts: Query<(&FlyPart, &Transform)>,
 ) {
     let dt = time.delta_secs().max(1e-4);
-    for (mut f, mut mem) in &mut flies {
+    for (mut f, mut mem, slot) in &mut flies {
         if f.dead() || f.frozen_at.is_some() {
             mem.rate = 0.0;
             continue;
         }
         let Ok((_, head)) = parts.get(f.parts[Part::Head.index()]) else { continue };
-        seen(&threats, &mut mem, &mut f, head.translation, dt, &link);
+        seen(&threats, &mut mem, &mut f, head.translation, dt, &link, slot.0);
     }
 }
 
-fn seen(threats: &Threats, mem: &mut LoomMemory, f: &mut Fly, head: Vec3, dt: f32, link: &SimLink) {
+fn seen(threats: &Threats, mem: &mut LoomMemory, f: &mut Fly, head: Vec3, dt: f32, link: &SimLink, slot: u32) {
     let (mut best, mut best_pos) = (0.0f32, None);
     let mut now_seen = HashMap::with_capacity(threats.0.len());
     for t in &threats.0 {
@@ -108,14 +108,14 @@ fn seen(threats: &Threats, mem: &mut LoomMemory, f: &mut Fly, head: Vec3, dt: f3
     if strength > 0.0
         && let Some(p) = best_pos
     {
-        link.0.send(Command::Poke { region: "loom".into(), side: None, strength });
+        link.0.send(Command::PokeFly { slot, region: "loom".into(), side: None, strength });
         f.threat_x = p;
     }
 }
 
 /// Smells that reach the fly's head poke its olfactory neurons.
-fn smell(scents: Res<Scents>, link: Res<SimLink>, flies: Query<&Fly>, parts: Query<&Transform, With<FlyPart>>) {
-    for f in &flies {
+fn smell(scents: Res<Scents>, link: Res<SimLink>, flies: Query<(&Fly, &crate::fly::Slot)>, parts: Query<&Transform, With<FlyPart>>) {
+    for (f, slot) in &flies {
         if f.dead() {
             continue;
         }
@@ -123,7 +123,7 @@ fn smell(scents: Res<Scents>, link: Res<SimLink>, flies: Query<&Fly>, parts: Que
         for s in &scents.0 {
             let d = if s.flat { Vec2::new(s.pos.x - head.x, s.pos.z - head.z).length() } else { (s.pos - head).length() };
             if d < s.range {
-                link.0.send(Command::Poke { region: format!("scent:{}", s.scent), side: None, strength: s.strength });
+                link.0.send(Command::PokeFly { slot: slot.0, region: format!("scent:{}", s.scent), side: None, strength: s.strength });
             }
         }
     }

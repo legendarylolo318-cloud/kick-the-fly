@@ -348,3 +348,74 @@ pub fn measure_card(b: &Build, seed: u64, pack_sha: &str, warmup: usize, mut can
         card_key: key,
     })
 }
+
+// --- the cache file (`core/cards.py`: `<data>/cache/personality_cards.json`) --------------------------------------------------------
+/// The cards of a cache file by key; an unreadable file, another version or garbage is an empty cache.
+pub fn read_cache(path: &std::path::Path) -> std::collections::HashMap<String, Value> {
+    let Ok(text) = std::fs::read_to_string(path) else { return Default::default() };
+    let Ok(v) = serde_json::from_str::<Value>(&text) else { return Default::default() };
+    if v.get("version").and_then(Value::as_u64) != Some(u64::from(CARD_VERSION)) {
+        return Default::default();
+    }
+    v.get("cards").and_then(Value::as_object).map(|m| m.iter().map(|(k, c)| (k.clone(), c.clone())).collect()).unwrap_or_default()
+}
+
+/// `cards.lookup`: the measured card for exactly these settings, or None.
+pub fn lookup(path: &std::path::Path, key: &str) -> Option<Card> {
+    let c = read_cache(path).remove(key)?;
+    let card = Card::from_json(&c)?;
+    (card.card_key == key).then_some(card)
+}
+
+/// `cards.store`: add measured cards to the cache. Never fails the caller: a read-only folder just means the card is missing next time.
+pub fn store(path: &std::path::Path, cards: &[Card]) -> usize {
+    if cards.is_empty() {
+        return 0;
+    }
+    let mut cur = read_cache(path);
+    for c in cards {
+        cur.insert(c.card_key.clone(), c.to_json());
+    }
+    let body = json!({"version": CARD_VERSION, "cards": cur});
+    if let Some(dir) = path.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    let tmp = path.with_extension("tmp");
+    if std::fs::write(&tmp, body.to_string()).is_ok() && std::fs::rename(&tmp, path).is_ok() { cards.len() } else { 0 }
+}
+
+#[cfg(test)]
+mod cache_tests {
+    use super::*;
+
+    #[test]
+    fn a_stored_card_is_found_by_its_key_and_only_by_it() {
+        let dir = std::env::temp_dir().join(format!("ktf-cards-{}", std::process::id()));
+        let path = dir.join("cache").join("personality_cards.json");
+        let (title, summary, traits) = trait_words(0.25, 1.0, 2.0);
+        let key = card_key(7, "subtle", None, &LIF_DEFAULTS, "abc");
+        let card = Card {
+            seed: 7,
+            mode: "subtle".into(),
+            loom_latency_s: 0.25,
+            loom_crossed: true,
+            sugar_ratio: 2.0,
+            turning_ratio: 1.0,
+            turning_log_ratio: 0.0,
+            walk_level_calm: 1.1,
+            title,
+            summary,
+            traits,
+            sigma: 0.05,
+            lif_params: LIF_DEFAULTS,
+            pack_sha256: "abc".into(),
+            card_key: key.clone(),
+        };
+        assert_eq!(store(&path, std::slice::from_ref(&card)), 1);
+        assert_eq!(lookup(&path, &key), Some(card));
+        assert!(lookup(&path, "other").is_none());
+        std::fs::write(&path, "garbage").unwrap();
+        assert!(lookup(&path, &key).is_none(), "a damaged cache is an empty one");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+}
