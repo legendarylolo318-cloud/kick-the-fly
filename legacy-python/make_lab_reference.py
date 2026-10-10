@@ -225,4 +225,26 @@ if __name__ == "__main__":
     R.render("lab_autopsy", "Graphics", out / "page_lab_autopsy_empty.png", prep=aut_prep("mdn_backward", {}))
     R.render("lab_autopsy", "Graphics", out / "page_lab_autopsy.png", prep=aut_prep("grooming_hierarchy", dict(aut_gold)))
     R.render("lab_autopsy", "Graphics", out / "page_lab_autopsy_scrolled.png", prep=aut_prep("mdn_backward", dict(aut_gold)))
+    from kickthefly.lab import genetics as gen_mod, labtoolkit
+    from kickthefly.core import simcore as sc_mod
+    pack_g = sc_mod.pack()[0]
+
+    def gen_prep(query, selected, type_ops=None, note=""):
+        def prep(m):
+            prep_for("lab_genetics")(m)
+            m.host.brain = SimpleNamespace(types=pack_g.type, graph=pack_g)
+            m.host.type_ops = dict(type_ops or {})
+            st = labtoolkit._st(m)
+            st.query, st.selected, st.note = query, selected, note
+            st.results = gen_mod.search(query)
+        return prep
+
+    R.render("lab_genetics", "Graphics", out / "page_lab_genetics.png", prep=gen_prep("DNp01", "SS00727"))
+    R.render("lab_genetics", "Graphics", out / "page_lab_genetics_ops.png",
+             prep=gen_prep("LC10", None, {"DNp01": -1}, "line SS00727: silenced"))
+    R.render("lab_genetics", "Graphics", out / "page_lab_genetics_empty.png", prep=gen_prep("zzz", None))
+    gen_fx = {q: [dict(name=l.name, quality=l.quality, cell_types=list(l.cell_types)) for l in gen_mod.search(q)] for q in ("DNp01", "LC10", "zzz")}
+    gen_fx["describe"] = {n: gen_mod.describe(n, pack_g.type) for n in ("SS00727",)}
+    gen_fx["coverage"] = gen_mod.coverage(pack_g.type)
+    (out / "lab_genetics_fixture.json").write_text(json.dumps(gen_fx))
     print("wrote", out)

@@ -925,3 +925,40 @@ fn lab_autopsy_page() {
         compare(name, &cv.to_rgb_over(BG), 0.02);
     }
 }
+
+#[test]
+fn lab_genetics_page() {
+    struct H(serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            if key == "lab.genetics_state" { self.0.clone() } else { serde_json::Value::Null }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    let fx: serde_json::Value = serde_json::from_slice(
+        &std::fs::read(format!("{}/../../tests/ui_reference/lab_genetics_fixture.json", env!("CARGO_MANIFEST_DIR"))).unwrap(),
+    )
+    .unwrap();
+    let mk = |query: &str, selected: Option<&str>, ops: serde_json::Value, note: &str| {
+        serde_json::json!({
+            "error": "", "coverage": fx["coverage"], "query": query, "results": fx[query], "selected": selected,
+            "describe": if selected.is_some() { fx["describe"]["SS00727"].clone() } else { serde_json::Value::Null },
+            "type_ops": ops, "note": note,
+        })
+    };
+    for (name, st) in [
+        ("page_lab_genetics.png", mk("DNp01", Some("SS00727"), serde_json::json!({}), "")),
+        ("page_lab_genetics_ops.png", mk("LC10", None, serde_json::json!({"DNp01": -1}), "line SS00727: silenced")),
+        ("page_lab_genetics_empty.png", mk("zzz", None, serde_json::json!({}), "")),
+    ] {
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        m.show("lab_genetics");
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(st));
+        compare(name, &cv.to_rgb_over(BG), 0.02);
+    }
+}

@@ -92,7 +92,7 @@ pub fn resolve_rows(labels: &Labels, target: &str) -> Vec<u32> {
     let types: Vec<String> = labels.types.iter().map(|t| t.to_lowercase()).collect();
     let rows = |pred: &dyn Fn(&str) -> bool| -> Vec<u32> { (0..types.len() as u32).filter(|&i| pred(&types[i as usize])).collect() };
     if tt.starts_with("line:") {
-        return Vec::new();
+        return crate::genetics::rows_of_lines(labels, target).unwrap_or_default();
     }
     if tt.starts_with("type:") || tt.starts_with("prefix:") || tt.starts_with("side:") {
         let (kind, rest) = tt.split_once(':').unwrap_or((&tt, ""));

@@ -84,6 +84,13 @@ pub struct LabTools {
     autopsy_done: BTreeMap<String, Value>,
     autopsy_fails: Option<Value>,
     autopsy_error: String,
+    gen_query: String,
+    gen_results: Vec<Value>,
+    gen_selected: Option<String>,
+    gen_note: String,
+    gen_coverage: Option<Value>,
+    gen_describe: Value,
+    all_type_ops: Vec<(String, i8)>,
     class_status: (u64, String),
     class_groups: Option<std::collections::HashMap<&'static str, Vec<u32>>>,
     psych_msg: String,
@@ -116,6 +123,13 @@ impl Default for LabTools {
             autopsy_done: BTreeMap::new(),
             autopsy_fails: None,
             autopsy_error: String::new(),
+            gen_query: "DNp01".into(),
+            gen_results: Vec::new(),
+            gen_selected: None,
+            gen_note: String::new(),
+            gen_coverage: None,
+            gen_describe: Value::Null,
+            all_type_ops: Vec::new(),
             class_status: (0, String::new()),
             class_groups: None,
             psych_msg: String::new(),
@@ -341,6 +355,13 @@ impl LabTools {
                 }
             }),
             "lab_laser" => json!({"lab.laser_state": self.laser}),
+            "lab_genetics" => {
+                let ops: serde_json::Map<String, Value> = self.all_type_ops.iter().map(|(t, m)| (t.clone(), json!(m))).collect();
+                json!({"lab.genetics_state": {
+                    "error": self.error, "coverage": self.gen_coverage, "query": self.gen_query, "results": self.gen_results,
+                    "selected": self.gen_selected, "describe": self.gen_describe, "type_ops": ops, "note": self.gen_note,
+                }})
+            }
             "lab_autopsy" => json!({"lab.autopsy_state": {
                 "fails": self.autopsy_fails, "error": if self.autopsy_fails.as_ref().is_some_and(|f| f.as_array().is_some_and(|a| !a.is_empty())) { self.error.clone() } else { self.autopsy_error.clone() },
                 "done": self.autopsy_done, "job": self.job.as_ref().map(BgJob::json),
@@ -653,6 +674,26 @@ fn tick(
             "has_tool": laser_idx.is_some(), "equipped": laser_idx == Some(tool_state.selected),
         });
     }
+    if screen.0 == "lab_genetics" {
+        tools.all_type_ops = snap.0.as_deref().map_or_else(Vec::new, |s| s.surgery_types.clone());
+        if tools.gen_coverage.is_none() {
+            let shared = link.0.shared.lock().unwrap_or_else(PoisonError::into_inner).clone();
+            if let Some(sh) = shared {
+                tools.gen_coverage = Some(fly_sim::genetics::coverage(&sh.labels));
+                let q = tools.gen_query.clone();
+                tools.gen_results = fly_sim::genetics::search(&q, 50)
+                    .iter()
+                    .map(|l| json!({"name": l.name, "quality": l.quality, "cell_types": l.cell_types}))
+                    .collect();
+                tools.gen_selected = tools.gen_results.first().and_then(|r| r["name"].as_str().map(String::from));
+            }
+        }
+        let shared = link.0.shared.lock().unwrap_or_else(PoisonError::into_inner).clone();
+        let stale = tools.gen_describe["line"].as_str() != tools.gen_selected.as_deref();
+        if let (Some(sel), Some(sh), true) = (tools.gen_selected.clone(), shared, stale) {
+            tools.gen_describe = fly_sim::genetics::describe(&sel, &sh.labels).unwrap_or(Value::Null);
+        }
+    }
     if screen.0 == "lab_critical" {
         tools.type_ops =
             snap.0.as_deref().map_or_else(Vec::new, |s| s.surgery_types.iter().filter(|t| t.1 == -1).map(|t| t.0.clone()).collect());
@@ -861,6 +902,61 @@ fn tick(
                         .is_ok_and(|rd| rd.flatten().all(|e| std::fs::copy(e.path(), dst.join(e.file_name())).is_ok()));
                 let name = dst.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
                 flash.write(crate::menu_ui::MenuFlash(if ok { format!("saved to {name} in exports") } else { "export failed".into() }, ok));
+            }
+            "lab.gen_search" => {
+                let q = a["q"].as_str().unwrap_or("").trim().to_string();
+                tools.gen_results = fly_sim::genetics::search(&q, 50)
+                    .iter()
+                    .map(|l| json!({"name": l.name, "quality": l.quality, "cell_types": l.cell_types}))
+                    .collect();
+                tools.gen_query = q;
+                if let Some(first) = tools.gen_results.first().and_then(|r| r["name"].as_str().map(String::from)) {
+                    tools.gen_selected = Some(first);
+                }
+                tools.gen_note.clear();
+            }
+            "lab.gen_pick" => tools.gen_selected = a["line"].as_str().map(String::from),
+            "lab.gen_surgery" => {
+                let mode = a["mode"].as_i64().unwrap_or(0) as i8;
+                let types: Vec<String> = tools.gen_describe["matched"].as_object().into_iter().flat_map(|o| o.keys().cloned()).collect();
+                let line = a["line"].as_str().unwrap_or("").to_string();
+                for t in &types {
+                    link.0.send(crate::sim_thread::Command::SurgeryType { ty: t.clone(), mode });
+                }
+                let what = if mode < 0 {
+                    "silenced"
+                } else if mode > 0 {
+                    "stimulated"
+                } else {
+                    "cleared"
+                };
+                tools.gen_note = format!("line {line}: {what}");
+                flash.write(crate::menu_ui::MenuFlash(
+                    format!(
+                        "SURGERY  line {line} ({}): {}",
+                        types.join(", "),
+                        if mode < 0 {
+                            "off"
+                        } else if mode > 0 {
+                            "on"
+                        } else {
+                            "normal"
+                        }
+                    ),
+                    true,
+                ));
+            }
+            "lab.gen_laser" => {
+                let line = a["line"].as_str().unwrap_or("");
+                tool_state.laser.set_target(&format!("line:{line}"));
+                tool_state.laser.set_mode("activate");
+                if let Some(i) = crate::tools::TOOLS.iter().position(|t| t.0 == "laser") {
+                    tool_state.selected = i;
+                }
+                tools.gen_note = format!("laser aimed at line {line} (activate)");
+            }
+            "lab.gen_thermo" => {
+                tools.gen_note = "thermogenetics is not part of this build yet (Lab > Thermogenetics)".into();
             }
             "lab.psych_run" if !busy => {
                 if let Some(shared) = link.0.shared.lock().unwrap_or_else(PoisonError::into_inner).clone() {

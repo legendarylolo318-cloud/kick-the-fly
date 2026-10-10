@@ -23,6 +23,7 @@ pub mod csr;
 pub mod diffmode;
 pub mod duel;
 pub mod failure_autopsy;
+pub mod genetics;
 pub mod groups;
 pub mod inspect;
 pub mod laser;

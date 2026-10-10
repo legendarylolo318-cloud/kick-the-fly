@@ -10,9 +10,6 @@ fn rows_equal_python() {
         serde_json::from_slice(&std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/golden/laser.json")).unwrap()).unwrap();
     let pk = pack::Pack::load(&path).unwrap();
     for (target, want) in golden.as_object().unwrap() {
-        if target.starts_with("line:") {
-            continue; // driver lines come with the genetic toolkit page
-        }
         let rows = laser::resolve_rows(&pk.labels, target); // the constructor keeps the text as given (set_target would strip it)
         let sum: u64 = rows.iter().map(|&r| u64::from(r)).sum();
         assert_eq!((rows.len() as u64, sum), (want["n"].as_u64().unwrap(), want["sum"].as_u64().unwrap()), "{target:?}");
