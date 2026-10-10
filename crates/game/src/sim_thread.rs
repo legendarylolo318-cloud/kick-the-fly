@@ -59,6 +59,78 @@ impl SimConfig {
 /// True while the sim thread rebuilds the matrix for a wiring change (`host.wiring_busy`).
 pub static WIRING_BUSY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
+/// What the Lab's thermogenetics page shows: `{error, status: [..]}` of the first fly (`ThermoLive.status`).
+pub static THERMO_STATUS: std::sync::Mutex<Option<serde_json::Value>> = std::sync::Mutex::new(None);
+
+/// `livelab.ThermoLive` on the sim thread: the expressions and each fly's live state.
+#[derive(Default)]
+struct ThermoLive {
+    expressions: Vec<(String, String, f64)>,
+    steady: bool,
+    arena_source: bool,
+    temperature_c: f64,
+    per_slot: std::collections::HashMap<u32, (fly_sim::thermogenetics::Thermogenetics, u64)>,
+    arena_temp: std::collections::HashMap<u32, (f64, Instant)>,
+    error: Option<String>,
+}
+
+impl ThermoLive {
+    fn clear_state(&mut self, brains: &mut [&mut Brain]) {
+        for b in brains {
+            b.clear_current(fly_sim::thermogenetics::SOURCE);
+        }
+        self.per_slot.clear();
+    }
+
+    /// Update every fly's effectors (the loop calls this every 10 brain steps).
+    fn tick(&mut self, brain: &mut Brain, focus: u32, extras: &mut [(u32, Brain)]) {
+        use fly_sim::thermogenetics::{Expression, Thermogenetics};
+        if self.expressions.is_empty() {
+            if !self.per_slot.is_empty() {
+                let mut all: Vec<&mut Brain> = vec![brain];
+                all.extend(extras.iter_mut().map(|e| &mut e.1));
+                self.clear_state(&mut all);
+                *THERMO_STATUS.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = None;
+            }
+            return;
+        }
+        let mut slots: Vec<(u32, &mut Brain)> = vec![(focus, brain)];
+        slots.extend(extras.iter_mut().map(|e| (e.0, &mut e.1)));
+        let live: Vec<u32> = slots.iter().map(|s| s.0).collect();
+        self.per_slot.retain(|k, _| live.contains(k));
+        for (slot, br) in slots {
+            if !self.per_slot.contains_key(&slot) {
+                let exprs: Vec<Expression> = self.expressions.iter().filter_map(|(e, t, s)| Expression::new(e, t, *s).ok()).collect();
+                let mut th = Thermogenetics::new(exprs, self.steady, 1.0);
+                if let Err(e) = th.resolve(br) {
+                    // an expression the brain can't resolve is dropped, as ThermoLive does (the others stay)
+                    let bad: Vec<String> = th.expressions.iter().filter(|x| x.rows.is_none()).map(|x| x.target.clone()).collect();
+                    self.expressions.retain(|(_, t, _)| !bad.contains(t));
+                    self.error = Some(format!("dropped {e}"));
+                    self.per_slot.clear();
+                    return;
+                }
+                br.clear_current(fly_sim::thermogenetics::SOURCE);
+                self.per_slot.insert(slot, (th, br.steps));
+            }
+            let fresh = self.arena_temp.get(&slot).filter(|t| t.1.elapsed() < Duration::from_secs(1)).map(|t| t.0);
+            let temp = if self.arena_source { fresh.unwrap_or(self.temperature_c) } else { self.temperature_c };
+            if let Some((th, last)) = self.per_slot.get_mut(&slot) {
+                let dt = br.steps.saturating_sub(*last) as f64 * 0.005;
+                th.steady = self.steady;
+                let _ = th.update(br, temp, dt);
+                *last = br.steps;
+            }
+        }
+        if let Some((th, _)) = self.per_slot.get(&focus).or_else(|| self.per_slot.values().next()) {
+            *THERMO_STATUS.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = Some(serde_json::json!({
+                "rows": th.describe(), "error": self.error,
+                "arena": self.arena_temp.values().filter(|t| t.1.elapsed() < Duration::from_secs(1)).map(|t| t.0).collect::<Vec<_>>(),
+            }));
+        }
+    }
+}
+
 /// Messages from the game to the brain.
 #[derive(Debug)]
 pub enum Command {
@@ -116,6 +188,18 @@ pub enum Command {
     DexKnown(Vec<String>),
     /// `brain.neurodex` on/off.
     DexEnabled(bool),
+    /// Lab > Thermogenetics: the expressions `(effector, target, strength)`, the kinetics, the temperature source and the slider value.
+    ThermoConfig {
+        expressions: Vec<(String, String, f64)>,
+        steady: bool,
+        arena_source: bool,
+        temperature_c: f64,
+    },
+    /// The thermo arena's temperature at one fly (a game rule), sent while that arena is on.
+    ThermoArena {
+        slot: u32,
+        temp_c: f64,
+    },
     /// Classroom: a sensory poke of these rows (`br.sense[("classroom", spec)] = rows; br.poke(...)`).
     PokeRows {
         rows: Vec<u32>,
@@ -375,6 +459,7 @@ fn run(
     let labels_for_mirror = labels.clone();
     let (mut spawn_weights, spawn_labels) = (weights.clone(), labels.clone());
     let mut multi = Multi { extras: Vec::new(), focus: 0, seeds: vec![(0, cfg.seed)] };
+    let mut thermo = ThermoLive { temperature_c: 22.0, ..Default::default() };
     let mut brain = Brain::new(LifSim::new(weights, params, cfg.seed), labels);
     let mut mem = MemState::new(cfg.memory_dir.clone());
     if mem.dir.is_some() && brain.enable_memory() {
@@ -473,6 +558,21 @@ fn run(
                     }
                     WIRING_BUSY.store(false, std::sync::atomic::Ordering::Relaxed);
                 }
+                Ok(Command::ThermoConfig { expressions, steady, arena_source, temperature_c }) => {
+                    if expressions != thermo.expressions {
+                        let mut all: Vec<&mut Brain> = vec![&mut brain];
+                        all.extend(multi.extras.iter_mut().map(|e| &mut e.1));
+                        thermo.clear_state(&mut all);
+                        thermo.error = None;
+                    }
+                    thermo.expressions = expressions;
+                    thermo.steady = steady;
+                    thermo.arena_source = arena_source;
+                    thermo.temperature_c = temperature_c;
+                }
+                Ok(Command::ThermoArena { slot, temp_c }) => {
+                    thermo.arena_temp.insert(slot, (temp_c, Instant::now()));
+                }
                 Ok(Command::SetMirror(on)) => {
                     let w = if on {
                         Arc::new(fly_sim::mirror::symmetrized_weights(&original_weights, &labels_for_mirror.instance))
@@ -550,6 +650,9 @@ fn run(
             b.step();
         }
         done += 1;
+        if brain.steps.is_multiple_of(10) {
+            thermo.tick(&mut brain, multi.focus, &mut multi.extras);
+        }
         dex_check(&brain, &mut dex, &events);
         mem.after_step(&mut brain, &events);
         if let Some(mask) = mem.steth_mask.as_ref() {
@@ -679,6 +782,7 @@ fn apply(
             false
         }
         Command::SetMirror(_) | Command::SetWiring { .. } => false,
+        Command::ThermoConfig { .. } | Command::ThermoArena { .. } => false,
         Command::PokeRows { rows, strength } => {
             brain.groups.add_sense("classroom", rows);
             brain.poke("classroom", None, strength);

@@ -90,6 +90,10 @@ pub struct LabTools {
     gen_note: String,
     gen_coverage: Option<Value>,
     gen_describe: Value,
+    thermo_cfg: (Vec<(String, String, f64)>, bool, bool, f64),
+    thermo_note: String,
+    thermo_t: String,
+    thermo_eff: usize,
     all_type_ops: Vec<(String, i8)>,
     class_status: (u64, String),
     class_groups: Option<std::collections::HashMap<&'static str, Vec<u32>>>,
@@ -129,6 +133,10 @@ impl Default for LabTools {
             gen_note: String::new(),
             gen_coverage: None,
             gen_describe: Value::Null,
+            thermo_cfg: (Vec::new(), false, false, 22.0),
+            thermo_note: String::new(),
+            thermo_t: "type:DNp01".into(),
+            thermo_eff: 0,
             all_type_ops: Vec::new(),
             class_status: (0, String::new()),
             class_groups: None,
@@ -355,6 +363,17 @@ impl LabTools {
                 }
             }),
             "lab_laser" => json!({"lab.laser_state": self.laser}),
+            "lab_thermo" => {
+                let st = crate::sim_thread::THERMO_STATUS.lock().unwrap_or_else(PoisonError::into_inner).clone();
+                json!({"lab.thermo_state": {
+                    "expressions": self.thermo_cfg.0.iter().map(|(e, t, s)| json!({"effector": e, "target": t, "strength": s})).collect::<Vec<_>>(),
+                    "steady": self.thermo_cfg.1, "arena_source": self.thermo_cfg.2, "temperature_c": self.thermo_cfg.3,
+                    "status": st.as_ref().map_or(Value::Null, |v| v["rows"].clone()),
+                    "arena": st.as_ref().map_or(Value::Null, |v| v["arena"].clone()),
+                    "note": if self.thermo_note.is_empty() { st.as_ref().and_then(|v| v["error"].as_str().map(String::from)).unwrap_or_default() } else { self.thermo_note.clone() },
+                    "target": self.thermo_t, "effector": self.thermo_eff,
+                }})
+            }
             "lab_genetics" => {
                 let ops: serde_json::Map<String, Value> = self.all_type_ops.iter().map(|(t, m)| (t.clone(), json!(m))).collect();
                 json!({"lab.genetics_state": {
@@ -584,6 +603,11 @@ impl LabTools {
             let _ = fly_sim::criticalpath::save(&res, &folder);
             Ok(res)
         }));
+    }
+
+    fn send_thermo(&self, link: &crate::app::SimLink) {
+        let (e, steady, arena, t) = self.thermo_cfg.clone();
+        link.0.send(crate::sim_thread::Command::ThermoConfig { expressions: e, steady, arena_source: arena, temperature_c: t });
     }
 
     fn ensure_counts(&mut self, pack: &PackPath) -> Option<Arc<Vec<i32>>> {
@@ -956,7 +980,75 @@ fn tick(
                 tools.gen_note = format!("laser aimed at line {line} (activate)");
             }
             "lab.gen_thermo" => {
-                tools.gen_note = "thermogenetics is not part of this build yet (Lab > Thermogenetics)".into();
+                let (eff, line) = (a["effector"].as_str().unwrap_or("trpa1").to_string(), a["line"].as_str().unwrap_or("").to_string());
+                let shared = link.0.shared.lock().unwrap_or_else(PoisonError::into_inner).clone();
+                let target = format!("line:{line}");
+                let ok = shared.as_ref().map_or(Err("the brain is still loading".to_string()), |sh| {
+                    fly_sim::genetics::rows_of_lines(&sh.labels, &target).map(|_| ())
+                });
+                match ok {
+                    Ok(()) => {
+                        tools.thermo_cfg.0.push((eff.clone(), target, 1.0));
+                        tools.send_thermo(&link);
+                        tools.gen_note = format!("{eff} expressed in line {line}: set the temperature in Lab > Thermogenetics");
+                    }
+                    Err(e) => tools.gen_note = e,
+                }
+            }
+            "lab.thermo_set" => {
+                if let Some(v) = a["steady"].as_bool() {
+                    tools.thermo_cfg.1 = v;
+                }
+                if let Some(v) = a["arena_source"].as_bool() {
+                    tools.thermo_cfg.2 = v;
+                }
+                if let Some(v) = a["temperature_c"].as_f64() {
+                    tools.thermo_cfg.3 = v;
+                }
+                if let Some(v) = a["effector"].as_u64() {
+                    tools.thermo_eff = v as usize;
+                }
+                if let Some(v) = a["target"].as_str() {
+                    tools.thermo_t = v.to_string();
+                }
+                if let Some(i) = a["remove"].as_u64().filter(|&i| (i as usize) < tools.thermo_cfg.0.len()) {
+                    tools.thermo_cfg.0.remove(i as usize);
+                }
+                if a["clear"].as_bool().unwrap_or(false) {
+                    tools.thermo_cfg.0.clear();
+                }
+                if a["add"].as_bool().unwrap_or(false) {
+                    let eff = if tools.thermo_eff == 0 { "trpa1" } else { "shibire" };
+                    let target = tools.thermo_t.trim().to_string();
+                    let shared = link.0.shared.lock().unwrap_or_else(PoisonError::into_inner).clone();
+                    let check = match &shared {
+                        None => Err("the brain is still loading".to_string()),
+                        Some(sh) => {
+                            if target.is_empty() {
+                                Err("give a neuron target: a cell type, prefix:KC or line:SS00727".to_string())
+                            } else if target.to_lowercase().starts_with("line:") {
+                                fly_sim::genetics::rows_of_lines(&sh.labels, &target).map(|_| ())
+                            } else {
+                                fly_sim::brain::rows_of(&sh.labels, sh.weights.n(), &target).map_err(|e| e.to_string()).and_then(|r| {
+                                    if r.is_empty() { Err(format!("{target:?} selects no neurons in this brain")) } else { Ok(()) }
+                                })
+                            }
+                        }
+                    };
+                    match check {
+                        Ok(()) => {
+                            tools.thermo_cfg.0.push((eff.to_string(), target, 1.0));
+                            tools.thermo_note = "added; it applies to every fly on the next frames".into();
+                        }
+                        Err(e) => tools.thermo_note = e,
+                    }
+                } else if a.get("note").is_some() {
+                    tools.thermo_note.clear();
+                }
+                tools.send_thermo(&link);
+            }
+            "lab.thermo_assay" => {
+                tools.thermo_note.clear();
             }
             "lab.psych_run" if !busy => {
                 if let Some(shared) = link.0.shared.lock().unwrap_or_else(PoisonError::into_inner).clone() {

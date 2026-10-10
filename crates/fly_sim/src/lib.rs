@@ -45,6 +45,7 @@ pub mod sleepdep;
 pub mod stats;
 pub mod surgery;
 pub mod synthetic;
+pub mod thermogenetics;
 pub mod tournament;
 pub mod training;
 pub mod util;

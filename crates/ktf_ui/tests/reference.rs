@@ -962,3 +962,67 @@ fn lab_genetics_page() {
         compare(name, &cv.to_rgb_over(BG), 0.02);
     }
 }
+
+#[test]
+fn lab_thermo_page() {
+    struct H(serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            if key == "lab.thermo_state" { self.0.clone() } else { serde_json::Value::Null }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    for (name, st) in [
+        (
+            "page_lab_thermo.png",
+            serde_json::json!({"expressions": [], "steady": false, "arena_source": false, "temperature_c": 22.0, "status": null, "arena": null,
+                               "note": "", "target": "type:DNp01", "effector": 0}),
+        ),
+        (
+            "page_lab_thermo_expr.png",
+            serde_json::json!({"expressions": [{"effector": "trpa1", "target": "type:DNp01", "strength": 1.0},
+                                               {"effector": "shibire", "target": "line:SS00727", "strength": 1.0}],
+                               "steady": true, "arena_source": true, "temperature_c": 30.5, "status": null, "arena": [],
+                               "note": "added; it applies to every fly on the next frames", "target": "prefix:KC", "effector": 1}),
+        ),
+    ] {
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        m.show("lab_thermo");
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(st));
+        compare(name, &cv.to_rgb_over(BG), 0.02);
+    }
+}
+
+#[test]
+fn lab_assays_thermo_and_sleep_results() {
+    use ktf_ui::pages::lab::LabAssays;
+    struct H(serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            if key == "assay_state" { self.0.clone() } else { serde_json::Value::Null }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    let load = |n: &str| -> serde_json::Value {
+        serde_json::from_slice(&std::fs::read(format!("{}/../../tests/ui_reference/{n}", env!("CARGO_MANIFEST_DIR"))).unwrap()).unwrap()
+    };
+    let (fx, ext) = (load("lab_assays_fixture.json"), load("lab_assays_ext_fixture.json"));
+    for (name, kind) in [("page_lab_assays_thermo.png", "thermo_escape"), ("page_lab_assays_sleep.png", "sleep_deprivation")] {
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        m.show("lab_assays");
+        m.page_mut::<LabAssays>("lab_assays").unwrap().set_view(kind, 6, 0, false);
+        let mut cv = Canvas::new(1280, 720);
+        let st = serde_json::json!({"job": null, "result": ext[kind], "options": fx["options"], "kinds": fx["kinds"], "base_seed": 1000});
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(st));
+        compare(name, &cv.to_rgb_over(BG), 0.02);
+    }
+}

@@ -247,4 +247,46 @@ if __name__ == "__main__":
     gen_fx["describe"] = {n: gen_mod.describe(n, pack_g.type) for n in ("SS00727",)}
     gen_fx["coverage"] = gen_mod.coverage(pack_g.type)
     (out / "lab_genetics_fixture.json").write_text(json.dumps(gen_fx))
+    from kickthefly.lab import livelab
+
+    def thermo_prep(exprs=(), source="slider", temp=22.0, kinetics="real", note="", eff=0, target="type:DNp01"):
+        def prep(m):
+            prep_for("lab_thermo")(m)
+            tl = livelab.ThermoLive()
+            tl.expressions = [dict(effector=e, target=t, strength=1.0) for e, t in exprs]
+            tl.source, tl.temperature_c, tl.kinetics = source, temp, kinetics
+            m.host.thermo_live = tl
+            m.host.flies, m.host.arena_i = [], 0
+            m.host.brain = SimpleNamespace(types=pack_g.type, graph=pack_g)
+            st = labtoolkit._st(m)
+            st.note, st.t_effector, st.t_target = note, eff, target
+        return prep
+
+    R.render("lab_thermo", "Graphics", out / "page_lab_thermo.png", prep=thermo_prep())
+    R.render("lab_thermo", "Graphics", out / "page_lab_thermo_expr.png",
+             prep=thermo_prep([("trpa1", "type:DNp01"), ("shibire", "line:SS00727")], "arena", 30.5, "steady",
+                              "added; it applies to every fly on the next frames", 1, "prefix:KC"))
+    from kickthefly.lab import sleepdep as sd_mod, thermogenetics as th_mod
+    thermo_gold = json.loads((gd / "thermo.json").read_text())
+    sd_gold = json.loads((gd / "sleepdep.json").read_text().replace("NaN", "null"))
+    sd_flies = [dict(seed=c["seed"], deprive_s=45.0, recover_s=60.0, individuality="off", control=c, deprived=d)
+                for c, d in zip(sd_gold["control"], sd_gold["deprived"])]
+    ext_res = {
+        "thermo_escape": dict(kind="thermo_escape", label="Thermogenetic escape", seeds=[1000, 1001], surgery=None, control=None,
+                              treated=thermo_gold["summary"]),
+        "sleep_deprivation": dict(kind="sleep_deprivation", label="Sleep deprivation", seeds=[1000, 1001, 1002], surgery=None, control=None,
+                                  treated=sd_mod.summarize(sd_flies)),
+    }
+    (out / "lab_assays_ext_fixture.json").write_text(json.dumps(ext_res))
+
+    def ext_prep(kind):
+        def prep(m):
+            prep_for("lab_assays")(m)
+            st = lab._state(m)
+            st.kind, st.flies, st.surgery_i, st.stimulate = kind, 6, 0, False
+            st.job, st.result = None, ext_res[kind]
+        return prep
+
+    R.render("lab_assays", "Graphics", out / "page_lab_assays_thermo.png", prep=ext_prep("thermo_escape"))
+    R.render("lab_assays", "Graphics", out / "page_lab_assays_sleep.png", prep=ext_prep("sleep_deprivation"))
     print("wrote", out)

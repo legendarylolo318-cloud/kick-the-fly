@@ -251,6 +251,10 @@ fn arena_effects(
             "thermo" => {
                 let t = thx.x / THERMO_HALF3;
                 let (cold, hot) = (t.clamp(-1.0, 1.0).min(0.0).abs(), t.clamp(-1.0, 1.0).max(0.0));
+                if tick.is_multiple_of(3) {
+                    // what TrpA1 / shibire-ts expressed in this fly sense (`slot.arena_temp_c`)
+                    link.0.send(Command::ThermoArena { slot: fo.slot, temp_c: fly_sim::thermogenetics::arena_temperature(f64::from(t)) });
+                }
                 if !dead && tick.is_multiple_of(3) {
                     if cold > 0.05 {
                         link.0.send(Command::PokeFly { slot: fo.slot, region: "cold".into(), side: None, strength: cold });

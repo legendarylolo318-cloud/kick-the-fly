@@ -313,3 +313,41 @@ pub fn run(
     let dep: Vec<Value> = seeds.iter().map(|s| results[&(*s, true)].clone()).collect();
     Ok(aggregate(seeds, &ctrl, &dep, mode, DEPRIVE_S, RECOVER_S, t0.elapsed().as_secs_f64(), created))
 }
+
+/// `fly_pair`: both conditions for one seed (the Lab assay path); the control and deprived flies share the seed.
+pub fn fly_pair(weights: &Arc<Weights>, labels: &Arc<Labels>, seed: u64, mode: &str, thresh_sleep: f64) -> Result<Value, String> {
+    let never = AtomicBool::new(false);
+    let run = |disturb: bool| -> Result<Value, String> {
+        let b = Build { weights, labels, mode, sigma: None, lif: LIF_DEFAULTS, wired: None };
+        let mut brain = b.brain_with(seed, None, 600, true);
+        run_fly(&mut brain, seed, disturb, DEPRIVE_S, RECOVER_S, SETTLE_S, thresh_sleep, &never).ok_or_else(|| "cancelled".to_string())
+    };
+    let control = run(false)?;
+    let deprived = run(true)?;
+    Ok(
+        json!({"seed": seed, "deprive_s": DEPRIVE_S, "recover_s": RECOVER_S, "individuality": mode, "control": control, "deprived": deprived}),
+    )
+}
+
+/// `summarize`: the assay's statistics over `fly_pair` results (the labjobs path).
+pub fn summarize(flies: &[Value]) -> Value {
+    let seeds: Vec<u64> = flies.iter().filter_map(|f| f["seed"].as_u64()).collect();
+    let ctrl: Vec<Value> = flies.iter().map(|f| f["control"].clone()).collect();
+    let dep: Vec<Value> = flies.iter().map(|f| f["deprived"].clone()).collect();
+    let res = aggregate(
+        &seeds,
+        &ctrl,
+        &dep,
+        flies[0]["individuality"].as_str().unwrap_or("off"),
+        flies[0]["deprive_s"].as_f64().unwrap_or(DEPRIVE_S),
+        flies[0]["recover_s"].as_f64().unwrap_or(RECOVER_S),
+        0.0,
+        "",
+    );
+    let per_fly: Vec<f64> =
+        ctrl.iter().zip(&dep).map(|(c, d)| field(d, &["sleep_s", "recovery"]) - field(c, &["sleep_s", "recovery"])).collect();
+    json!({
+        "metric": "rebound sleep, deprived minus control (s) - GAME RULE pressure through the CONNECTOME dFB; MODEL PREDICTION",
+        "criteria": res["criteria"], "mean": res["mean"], "all_passed": res["all_passed"], "components": res["components"], "per_fly": per_fly,
+    })
+}

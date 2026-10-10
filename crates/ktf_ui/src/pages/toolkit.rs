@@ -310,3 +310,238 @@ impl Page for LabGenetics {
         }
     }
 }
+
+// ==== Thermogenetics ===============================================================================================================
+/// Host: query `lab.thermo_state` = `{expressions: [{effector, target, strength}], steady, arena_source, temperature_c, status: [{neurons,
+/// activation}] | null, arena: [temps] | null, note, target, effector}`; command `lab.thermo_set {arena_source?, temperature_c?, steady?,
+/// effector?, target?, add?, remove?, clear?}`.
+#[derive(Default)]
+pub struct LabThermo;
+
+const EFFECTORS: [(&str, &str, bool, &str, &str); 2] = [
+    (
+        "trpa1",
+        "TrpA1 (activates above a threshold temperature)",
+        true,
+        "onset near 25 C (Pulver 2009: tonic spiking at about 25 C on a 21-27 C ramp; little adaptation)",
+        "full activation at 29 C, the 1 s kinetics, and the current size are game rules",
+    ),
+    (
+        "shibire",
+        "shibire-ts (silences above a threshold temperature)",
+        false,
+        "restrictive temperature 30 C: motionless within 2 min, walking again within about 1 min of cooling (Kitamoto 2001)",
+        "the 28 C start of the ramp, the 40 s / 20 s time constants and the silencing current are game rules",
+    ),
+];
+
+impl Page for LabThermo {
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
+    fn draw(&mut self, m: &mut Menu, cv: &mut Canvas, rect: Rect, ctx: &mut Ctx) {
+        let f = m.fonts();
+        let q = ctx.host.query("lab.thermo_state");
+        let mut y = title(
+            m,
+            cv,
+            rect,
+            "THERMOGENETICS",
+            "TrpA1 activates and shibire-ts silences the neurons that express them, above a threshold temperature.",
+            &[
+                ("LITERATURE", "onset ~25 C TrpA1 (Pulver 2009); shibire-ts 30 C (Kitamoto 2001)"),
+                ("RULE", "the rest of the curve, kinetics and current size"),
+                ("MODEL", "only expressing neurons respond"),
+            ],
+        );
+        let x = rect.x + 24;
+        let arena = q["arena_source"].as_bool().unwrap_or(false);
+        m.text(cv, "Temperature source", (x, y + 14), TEXT, &f.text, Anchor::MidLeft);
+        m.segmented(
+            cv,
+            Rect::new(x + 200, y, 360, 28),
+            &["Lab slider".into(), "Thermo arena".into()],
+            usize::from(arena),
+            &[Act::Custom("src:0".into()), Act::Custom("src:1".into())],
+            "th_src",
+            true,
+            "Thermo arena: each fly senses the temperature where it stands, 15 C at the cold wall to 35 C at the hot wall (a game rule). Elsewhere the slider applies.",
+        );
+        y += 36;
+        m.text(cv, "Temperature", (x, y + 14), TEXT, &f.text, Anchor::MidLeft);
+        m.page_slider(
+            cv,
+            Rect::new(x + 200, y, 360, 28),
+            num(&q["temperature_c"]),
+            (10.0, 45.0, 0.5),
+            "{:.1f} C",
+            "th_temp",
+            !arena,
+            Some("Lab slider temperature. Nothing in the model changes with temperature except the effectors you add here."),
+        );
+        if arena {
+            let temps: Vec<f64> = q["arena"].as_array().into_iter().flatten().filter_map(Value::as_f64).collect();
+            let text = if temps.is_empty() {
+                "not in the thermo arena: the slider applies".to_string()
+            } else {
+                format!(
+                    "flies sense {} (thermo arena, game rule)",
+                    temps.iter().take(4).map(|t| format!("{t:.1} C")).collect::<Vec<_>>().join(", ")
+                )
+            };
+            m.text(cv, &text, (x + 580, y + 14), AMBER, &f.small, Anchor::MidLeft);
+        }
+        y += 36;
+        m.text(cv, "Kinetics", (x, y + 14), TEXT, &f.text, Anchor::MidLeft);
+        m.segmented(
+            cv,
+            Rect::new(x + 200, y, 360.max(2 * f.small.size("Realistic (game rule)") + 40), 28.max(f.small.linesize + 10)),
+            &["Realistic (game rule)".into(), "Instant".into()],
+            usize::from(q["steady"].as_bool().unwrap_or(false)),
+            &[Act::Custom("kin:0".into()), Act::Custom("kin:1".into())],
+            "th_kin",
+            true,
+            "Realistic: TrpA1 follows the temperature in about 1 s, shibire-ts takes about 40 s to block and 20 s to recover (read from Kitamoto 2001: paralysis within 2 min, recovery in about 1 min). Instant: the steady-state level.",
+        );
+        y += 44;
+        m.text(cv, "Expression", (x, y), INK, &f.bold, Anchor::TopLeft);
+        y += 22.max(f.bold.linesize + 2);
+        let exprs = q["expressions"].as_array().cloned().unwrap_or_default();
+        let status = q["status"].as_array().cloned().unwrap_or_default();
+        for (i, e) in exprs.iter().enumerate() {
+            let s = status.get(i).cloned().unwrap_or(Value::Null);
+            let eff = e["effector"].as_str().unwrap_or("trpa1");
+            let ef = EFFECTORS.iter().find(|x| x.0 == eff).unwrap_or(&EFFECTORS[0]);
+            m.text(cv, &format!("{}  ->  {}", ef.0, e["target"].as_str().unwrap_or("")), (x, y + 12), TEXT, &f.small, Anchor::MidLeft);
+            let n = s["neurons"].as_u64().unwrap_or(0);
+            m.text(
+                cv,
+                &if n > 0 { format!("{} neurons", super::day4::grp(n as f64, 0)) } else { "(resolved when a fly is live)".to_string() },
+                (x + 330, y + 12),
+                LABEL,
+                &f.small,
+                Anchor::MidLeft,
+            );
+            let a = s["activation"].as_f64().unwrap_or(0.0);
+            cv.fill_rect(Rect::new(x + 480, y + 4, 160, 14), [30, 36, 48], 7);
+            cv.fill_rect(Rect::new(x + 480, y + 4, 3.max((160.0 * a) as i32), 14), if ef.2 { AMBER } else { [90, 150, 230] }, 7);
+            m.text(cv, &format!("{:.0}%", a * 100.0), (x + 650, y + 12), TEXT, &f.small, Anchor::MidLeft);
+            m.button(
+                cv,
+                Rect::new(x + 700, y, m.bw("Remove", 70), 24.max(f.small.linesize + 6)),
+                "Remove",
+                Act::Custom(format!("rm:{i}")),
+                &format!("th_rm:{i}"),
+                Style::Normal,
+                true,
+                None,
+                false,
+                Some(f.small.clone()),
+            );
+            y += 28;
+        }
+        if exprs.is_empty() {
+            m.text(cv, "none yet", (x, y), LABEL, &f.small, Anchor::TopLeft);
+            y += 22;
+        }
+        y += 6;
+        let seg_w = 340.max(2 * (f.small.size("shibire-ts (silence)") + 28));
+        m.segmented(
+            cv,
+            Rect::new(x, y, seg_w, 28),
+            &["TrpA1 (activate)".into(), "shibire-ts (silence)".into()],
+            q["effector"].as_u64().unwrap_or(0) as usize,
+            &[Act::Custom("eff:0".into()), Act::Custom("eff:1".into())],
+            "th_eff",
+            true,
+            "",
+        );
+        m.text_field(
+            cv,
+            Rect::new(x + seg_w + 16, y, 240, 28),
+            q["target"].as_str().unwrap_or(""),
+            "th_target",
+            Some("A cell type (type:DNp01), prefix:KC, a group, or a driver line (line:SS00727). Lab > Genetic toolkit finds lines."),
+            40,
+            false,
+        );
+        let items = [
+            RowButton {
+                label: "Add".into(),
+                click: Act::Custom("add".into()),
+                id: "th_add".into(),
+                style: Style::Normal,
+                enabled: true,
+                tip: None,
+                w: 90,
+            },
+            RowButton {
+                label: "Clear".into(),
+                click: Act::Custom("clear".into()),
+                id: "th_clear".into(),
+                style: Style::Danger,
+                enabled: true,
+                tip: None,
+                w: 70,
+            },
+        ];
+        m.button_row(cv, x + seg_w + 266, y, 28, &items, 8, None);
+        y += 38;
+        if let Some(note) = q["note"].as_str().filter(|n| !n.is_empty()) {
+            m.text(cv, note, (x, y), AMBER, &f.small, Anchor::TopLeft);
+            y += 20;
+        }
+        if let Some(e) = exprs.first() {
+            let eff = e["effector"].as_str().unwrap_or("trpa1");
+            let ef = EFFECTORS.iter().find(|x| x.0 == eff).unwrap_or(&EFFECTORS[0]);
+            m.wrapped(cv, &format!("{}: {}. Game rules: {}.", ef.1, ef.3, ef.4), (x, y), rect.w - 60, LABEL, &f.small, 3);
+        }
+        let note = "MODEL: temperature changes nothing else (no Q10). shibire-ts really blocks synaptic vesicle recycling at the terminal; here it silences the neuron, a coarser intervention. Expression is all-or-nothing in the chosen neurons.";
+        let n_note = Menu::fit_lines(&f.small, note, rect.w - 220, 3).0.len() as i32;
+        m.wrapped(cv, note, (x, rect.bottom() - 66 - n_note * f.small.linesize), rect.w - 220, LABEL, &f.small, 3);
+        m.button(
+            cv,
+            Rect::new(x, rect.bottom() - 58, 300.max(f.bold.size("Open the escape-vs-temperature assay") + 32), 42),
+            "Open the escape-vs-temperature assay",
+            Act::Custom("assay".into()),
+            "th_assay",
+            Style::Normal,
+            true,
+            Some("Thermogenetic activation of DNp01: escape rate vs temperature, expressing flies against a no-expression control."),
+            false,
+            None,
+        );
+        back(m, cv, rect, "thermo");
+    }
+
+    fn custom(&mut self, m: &mut Menu, name: &str, text: Option<&str>, ctx: &mut Ctx) {
+        let val = text.and_then(|t| t.parse::<f64>().ok());
+        if let Some(i) = name.strip_prefix("src:") {
+            ctx.host.command("lab.thermo_set", json!({"arena_source": i == "1"}));
+        } else if let Some(i) = name.strip_prefix("kin:") {
+            ctx.host.command("lab.thermo_set", json!({"steady": i == "1"}));
+        } else if let Some(i) = name.strip_prefix("eff:") {
+            ctx.host.command("lab.thermo_set", json!({"effector": i.parse::<u64>().unwrap_or(0)}));
+        } else if let Some(i) = name.strip_prefix("rm:") {
+            ctx.host.command("lab.thermo_set", json!({"remove": i.parse::<u64>().unwrap_or(0)}));
+        } else if name == "slide:th_temp" {
+            if let Some(v) = val {
+                ctx.host.command("lab.thermo_set", json!({"temperature_c": v}));
+            }
+        } else if name == "text:th_target" {
+            if let Some(t) = text {
+                ctx.host.command("lab.thermo_set", json!({"target": t}));
+            }
+        } else if name == "add" {
+            ctx.host.command("lab.thermo_set", json!({"add": true}));
+        } else if name == "clear" {
+            ctx.host.command("lab.thermo_set", json!({"clear": true}));
+        } else if name == "assay" {
+            if let Some(p) = m.page_mut::<super::lab::LabAssays>("lab_assays") {
+                p.set_kind("thermo_escape");
+            }
+            m.show("lab_assays");
+        }
+    }
+}

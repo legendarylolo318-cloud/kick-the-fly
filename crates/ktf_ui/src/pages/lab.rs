@@ -621,6 +621,67 @@ fn draw_assay_result(m: &mut Menu, cv: &mut Canvas, area: Rect, res: &serde_json
                 ));
             }
         }
+        "thermo_escape" => {
+            let tr = rows_of(t);
+            let xs: Vec<String> = tr.iter().map(|r| crate::menu::py_g(r["temperature_c"].as_f64().unwrap_or(0.0))).collect();
+            let mk = |k: &str| -> Vec<serde_json::Value> {
+                tr.iter().map(|r| serde_json::json!({"mean": r[k], "lo": null, "hi": null})).collect()
+            };
+            draw_chart(
+                m,
+                cv,
+                chart,
+                &xs,
+                &[("TrpA1 in DNp01".into(), ACCENT, mk("escape_rate")), ("control (no expression)".into(), WHITE_GREY, mk("control_rate"))],
+                "temperature (C)",
+                "escape rate",
+                Some(1.0),
+                true,
+            );
+            for r in &tr {
+                rows.push((
+                    format!("{} C", crate::menu::py_g(r["temperature_c"].as_f64().unwrap_or(0.0))),
+                    format!(
+                        "{}/{} escaped (control {}), DNp01 {} Hz",
+                        r["escapes"],
+                        r["flies"],
+                        r["control_escapes"],
+                        ci(&r["dnp01_hz"], "{:.0f}")
+                    ),
+                    format!("{}/{}", r["escapes"], r["flies"]),
+                ));
+            }
+            rows.push(("MODEL".into(), "the temperature curve is a game rule; escape = the game's DNp01 rule".into(), String::new()));
+        }
+        "sleep_deprivation" => {
+            let mm = &t["mean"];
+            let pt = |k: &str| serde_json::json!({"mean": mm[k], "lo": null, "hi": null});
+            draw_chart(
+                m,
+                cv,
+                chart,
+                &["deprivation window".to_string(), "recovery window".to_string()],
+                &[
+                    ("control".into(), WHITE_GREY, vec![pt("deprivation_sleep_control"), pt("recovery_sleep_control")]),
+                    ("deprived".into(), ACCENT, vec![pt("deprivation_sleep_deprived"), pt("recovery_sleep_deprived")]),
+                ],
+                "window",
+                "sleep (s)",
+                None,
+                false,
+            );
+            for (cid, x) in t["criteria"].as_object().into_iter().flatten() {
+                let ok = x["passed"].as_bool().unwrap_or(false);
+                let p = if x.get("p").is_some() { format!(", {}", fmt_p(x["p"].as_f64().unwrap_or(f64::NAN))) } else { String::new() };
+                rows.push((
+                    format!("{cid} {}", if ok { "PASS" } else { "FAIL" }),
+                    format!("{}{p}", x["label"].as_str().unwrap_or("")),
+                    String::new(),
+                ));
+            }
+            rows.push(("GAME RULE".into(), "sleep pressure, disturbances, what counts as sleep".into(), String::new()));
+            rows.push(("CONNECTOME".into(), "the dFB firing the pressure drives; MODEL PREDICTION: the rebound".into(), String::new()));
+        }
         _ => {
             // sugar
             let tr = rows_of(t);
@@ -717,6 +778,10 @@ impl Default for LabAssays {
 }
 
 impl LabAssays {
+    pub fn set_kind(&mut self, kind: &str) {
+        self.kind = kind.into();
+    }
+
     pub fn set_view(&mut self, kind: &str, flies: i64, surgery_i: usize, stimulate: bool) {
         self.kind = kind.into();
         self.flies = flies;

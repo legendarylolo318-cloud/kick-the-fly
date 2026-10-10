@@ -277,6 +277,8 @@ pub fn summarize(kind: &str, flies: &[Value]) -> Value {
                 .collect();
             json!({"metric": "MN9 dose-response", "rows": rows, "per_fly": per_fly})
         }
+        "thermo_escape" => crate::thermogenetics::summarize(flies),
+        "sleep_deprivation" => crate::sleepdep::summarize(flies),
         _ => Value::Null,
     }
 }
@@ -359,6 +361,24 @@ pub fn assay_task(
                 options["doses"].as_array().map_or_else(|| DOSES.to_vec(), |a| a.iter().filter_map(Value::as_f64).collect());
             let repeats = options["repeats"].as_u64().unwrap_or(2) as usize;
             Ok(sugar_fly(&build, &g, seed, &doses, repeats, surgery))
+        }
+        "sleep_deprivation" => {
+            if !surgery.is_empty() {
+                return Err("the sleep deprivation assay is its own paired design: it takes no surgery".into());
+            }
+            crate::sleepdep::fly_pair(weights, labels, seed, "off", 2.0)
+        }
+        "thermo_escape" => {
+            let temps: Vec<f64> = options["temps"]
+                .as_array()
+                .map_or_else(|| crate::thermogenetics::ASSAY_TEMPS.to_vec(), |a| a.iter().filter_map(Value::as_f64).collect());
+            let target = options["target"].as_str().unwrap_or("type:DNp01");
+            let eff = options["effector_name"].as_str().unwrap_or("trpa1");
+            let mut br = new_brain(&build, seed, true);
+            apply_surgery(&mut br, &g, surgery);
+            rest(&mut br, 400);
+            let dn = g["dnp01"].clone();
+            crate::thermogenetics::escape_fly(&mut br, &dn, seed, &temps, target, eff, T_ESCAPE)
         }
         other => Err(format!("the {other} assay is not part of this build yet")),
     }
