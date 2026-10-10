@@ -232,6 +232,12 @@ pub enum Op {
         c: (f32, f32),
         color: Color,
     },
+    /// A one-pixel anti-aliased circle outline.
+    Ring {
+        c: (f32, f32),
+        r: f32,
+        color: Color,
+    },
     /// A filled disc with an alpha.
     DiscA {
         c: (f32, f32),
@@ -607,6 +613,7 @@ impl Hud<'_> {
                 Op::Line { a, b, w, color } => self.cv.line(*a, *b, *w, *color, 255),
                 Op::Stars { c, n, size } => draw_stars(self.cv, *c, *n, *size),
                 Op::Icon { name, c, color } => draw_icon(self.cv, name, *c, *color),
+                Op::Ring { c, r, color } => self.cv.aa_ring(*c, *r, *color),
                 Op::DiscA { c, r, color, alpha } => self.cv.aa_circle_a(*c, *r, *color, *alpha),
                 Op::Hit { rect, id } => hits.push((*rect, id.clone())),
                 Op::Button { rect, label, id, style, enabled } => {

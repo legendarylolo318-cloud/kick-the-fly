@@ -16,6 +16,7 @@ pub mod brain;
 pub mod challenge;
 pub mod csr;
 pub mod groups;
+pub mod inspect;
 pub mod lif;
 pub mod memory;
 pub mod neurodex;

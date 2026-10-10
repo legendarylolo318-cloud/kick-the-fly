@@ -256,6 +256,7 @@ struct HudIn<'w, 's> {
     surgery: Res<'w, crate::surgery_play::Surgery>,
     autopsy: Res<'w, crate::autopsy_play::AutopsyCard>,
     wheel: Res<'w, crate::wheel_play::Wheel>,
+    inspector: Res<'w, crate::inspector_play::Inspector>,
     fruit: Res<'w, crate::environment::Fruit>,
     kitchen: Res<'w, crate::environment::Kitchen>,
     weather: Res<'w, crate::weather_play::WeatherRes>,
@@ -299,6 +300,7 @@ fn draw(
         surgery,
         autopsy,
         wheel,
+        inspector,
         fruit,
         kitchen,
         weather,
@@ -544,6 +546,8 @@ fn draw(
         training: learned.train_open.then(|| training_screen(&snap, &learned, rnow as f32)),
         challenge: if wheel.open {
             wheel.ops.clone()
+        } else if view.big && !inspector.ops.is_empty() && autopsy.report.is_none() {
+            inspector.ops.clone()
         } else if autopsy.report.is_some() {
             autopsy.ops.clone()
         } else if surgery.open {

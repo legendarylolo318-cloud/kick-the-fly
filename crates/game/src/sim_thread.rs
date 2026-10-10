@@ -138,6 +138,8 @@ pub enum Command {
     SweetOffer(u32),
     /// Close the running challenge (the memory it borrowed is put back).
     EndChallenge,
+    /// Look one neuron up for the inspector: the answer is [`SimEvent::Neuron`].
+    Inspect(u32),
     /// The brain stethoscope's target (`audio.stethoscope_target`, or a selected brain region by its pack label): None switches it off.
     Stethoscope {
         target: Option<String>,
@@ -177,6 +179,7 @@ pub enum SimEvent {
     SweetFinished(Option<u32>),
     /// The brain autopsy, 3 s of brain time after death.
     Autopsy(Box<fly_sim::autopsy::Autopsy>),
+    Neuron(Box<fly_sim::inspect::NeuronInfo>),
 }
 
 pub struct SimHandle {
@@ -479,6 +482,12 @@ fn apply(
         }
         Command::DexEnabled(on) => {
             dex.enabled = on;
+            false
+        }
+        Command::Inspect(i) => {
+            if let Some(info) = fly_sim::inspect::neuron_info(brain.labels(), brain.sim.weights(), i as usize) {
+                let _ = events.send(SimEvent::Neuron(Box::new(info)));
+            }
             false
         }
         Command::Stethoscope { target, region } => {

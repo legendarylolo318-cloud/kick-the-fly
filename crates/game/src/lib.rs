@@ -33,6 +33,7 @@ pub mod flyeye;
 pub mod fx;
 pub mod gpu;
 pub mod hud_canvas;
+pub mod inspector_play;
 pub mod killcam;
 pub mod killcam_play;
 pub mod kitchen;
@@ -161,6 +162,7 @@ impl Plugin for GamePlugin {
                 autopsy_play::AutopsyPlugin,
                 wheel_play::WheelPlugin,
                 stethoscope_play::StethoscopePlugin,
+                inspector_play::InspectorPlugin,
                 actions::ActionsPlugin,
                 tutorial_play::TutorialPlugin,
                 first_run::FirstRunPlugin,
