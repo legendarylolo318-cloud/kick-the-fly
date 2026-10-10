@@ -35,28 +35,34 @@ download). Everything above has its PORTING.md entry with the verification and t
 Predict KeyError, x-goog-hash first-header bug, stethoscope central_complex/optic_lobes silent).
 
 ## Session 2026-10-10 (day 2) status
-Done and committed since the arcade: arcade page + battle + game hookup, multiple flies (N spawn, F focus, J recall; saves hold every fly), share codes apply
-(surgery, loadout, challenge, contraption slot, protocol file), `--flies`, 2D game decision (not ported, written), validation engine (21 tests, 12 PASS / 9 FAIL as
-Python; full run equals the published results except one control response), Lab hub / parameters (live) / assumptions / validation / assays / asymmetry / benchmark pages
-matched with pygame, `fly_sim::mirror` (Mirror-weights rule applied to every fly via `Command::SetMirror`; learning restarts on a flip).
-Engines in `fly_sim`: `duel, cards, race, tournament, stats, validation, assay_jobs, benchmark, mirror`. Test goldens: `duel_golden, arcade_real, stats_golden,
-bracket_golden, validation_real (+ #[ignore] full_suite_equals_the_published_python_run, 22 min), assay_jobs_golden, mirror_real`.
-Waiting: never use `pgrep` loops; read the task output file (see memory note).
-Git identity is not set in this checkout: commit with `git -c user.name=Logan -c user.email=legendarylolo318@gmail.com commit`.
+Everything below is committed; `cargo build/test/clippy` were clean at the last full run (the long goldens are `--release` tests, see below).
 
-## Next, in order (what is still `[ ]` in PORTING.md section 16 and the Lab list)
-Each of these is a read-the-Python, port-the-engine, test-against-a-golden, draw-the-page, compare-with-pygame cycle:
-1. Lab pages that need small engines: `lab_minipapers` (`lab/minipapers.py`, 487 lines), `lab_classroom`, `lab_netsci` (`lab/netsci.py`, 692), `lab_sleepdep`
-   (`sleepdep.py`), `lab_sensitivity` (`sensitivity.py`, `robustness.py`), `lab_wiring` (`labwiring.py`), `lab_critical`, `lab_clamp`, `lab_diff`, `lab_laser` (`laser.py`),
-   `lab_psych` (`psychometrics.py`), `lab_autopsy`.
-2. Toolkit pages in `lab/labtoolkit.py`: genetics, thermo (`thermogenetics.py`), patch (`patchclamp.py`), imaging, pharm (`pharmacology.py`); rigs (`labrigs.py`,
-   `rigassay.py`); screens (`screens.py`, `labscreen.py`: activation/knockout).
-3. `lab_export` + `lab_protocols`: need the recorder (`recorder.py`: CSV/npz + metadata JSON; NWB needs HDF5, report "not available" like Python's `nwbexport.available()`),
-   the YAML protocol loader/runner (`protocol.py`, 883 lines; protocols are JSON-as-YAML here, so a YAML reader is needed to run the 42 shipped files), bundles (`bundle.py`).
-4. The five assay kinds not in `assay_jobs`: orchard, thermo_escape, predator_escape, hum_demo, sleep_deprivation; larva validation tests; `--validate` / `--headless`.
-5. UI leftovers: `live_inputs`, remaining arcade pad navigation, photo mode, neuron search + path tracer, UI scale, pet mode (+ `pet.ktfsave`).
-6. Multi-fly leftovers: contraption wind / memory scent pokes go to the focused brain; arcade/tool wheel/puppeteer assume one fly; personality card not on bodies.
-7. Finish: README, tick PORTING.md boxes only when verified, clean `cargo build/test/clippy`, commit.
+**Done since the arcade** (engine in `fly_sim`, page in `ktf_ui::pages`, game side in `game::labtools`, each equal to Python on the real pack):
+arcade + battle, multi-fly, share codes, validation, assays, asymmetry (+ mirror weights), benchmark, **netsci, sleepdep, sensitivity, wiring (robustness), critical path, neural clamp**; the diff-mode *engine*.
+Goldens (Python, `tests/golden/make_*.py` -> json; Rust tests are `crates/fly_sim/tests/*_real.rs`, run with `cargo test -p fly_sim --release --test NAME`):
+netsci (3 min), sleepdep, sensitivity, robustness, critical, clamp, diff. Page references: `legacy-python/make_lab_reference.py`
+(needs the venv: `python3 -m venv V; V/bin/pip install numpy scipy pygame-ce pytest pillow pyyaml pyarrow moderngl fonttools`, run with `SDL_VIDEODRIVER=dummy`).
+
+**How a Lab tool page is wired** (copy `pages/critical.rs` + `game/src/labtools.rs`): page queries `lab.<name>_state`, sends commands `lab.<verb>`;
+`LabTools` owns one `BgJob` slot, results, exports; `GameHost::with_tools` carries both. Gotchas learned: `serde_json` sorts map keys
+(so carry an explicit `order` array where Python's insertion order is drawn; do NOT enable `preserve_order`, the stores rely on sorted keys);
+the Python `labclamp.py` and `labdiff.py` forget `import numpy as np` (their lesion options crash there; ours run); commit with
+`git -c user.name=Logan -c user.email=legendarylolo318@gmail.com commit`.
+
+## Next, in order
+1. **`lab_diff` page** (`lab/labdiff.py`, 208 lines): engine is done (`fly_sim::diffmode`, `lesions`). Add `ktf_ui::pages::diff` (timeline strip, diverging bars),
+   `lab.diff_run/export` in `labtools.rs` (modifications: lesion_loom, lesion_gf, hemi_vis, hemi_all, thresh_10, flips, inhibition_0; Fly A unperturbed),
+   reference render in `make_lab_reference.py` from `tests/golden/diff.json`, test in `crates/ktf_ui/tests/reference.rs`, tick PORTING.md.
+2. Remaining Lab pages: `lab_laser` (`laser.py` 204, `lablaser.py` 112), `lab_psych` (`psychometrics.py` 451: SVG/PDF/CSV), `lab_classroom` (`classroom.py` 499),
+   `lab_minipapers` (`minipapers.py` 487 + `ui/minipaper_ui.py`), `lab_autopsy` (failure autopsy), `lab_activation` / `lab_knockout` (`screens.py`, `labscreen.py`).
+3. Toolkit: `lab_genetics`, `lab_thermo`, `lab_patch`, `lab_imaging`, `lab_pharm` (`labtoolkit.py` 871, `thermogenetics.py`, `patchclamp.py`, `pharmacology.py`; the wiring
+   engine already has `nt_scales` for pharmacology); `lab_rigs` (`labrigs.py`, `rigassay.py`).
+4. `lab_export` + `lab_protocols`: recorder (CSV/npz + metadata; NWB unavailable like Python's `nwbexport.available()`), YAML protocol runner (`protocol.py`, 883 lines;
+   needs a YAML reader for the 42 shipped files), bundles (`bundle.py`).
+5. Five assay kinds missing from `assay_jobs` (orchard, thermo_escape, predator_escape, hum_demo, sleep_deprivation as a labjobs kind), larva validation tests,
+   `--headless`/`--validate`, pet mode, photo mode, `live_inputs`, neuron search.
+6. Multi-fly leftovers (contraption wind / memory scent pokes go to the focused brain; personality card not on bodies).
+7. Finish: README, tick PORTING.md only for verified boxes, clean `cargo build/test/clippy`, commit.
 
 ## Known deviations (written in PORTING.md)
 FreeSans font (check redistribution), linear-light alpha LUT, glyph AA, 3D brain cloud and whole-window big view instead of the flat image, Neuron of the Day uses UTC,

@@ -251,7 +251,7 @@ against the pygame version (screenshot pair, or the code read side by side). Any
 - [x] Menu page `lab_clamp` — matched with pygame (empty, and a threshold-10 replay; 0.4-0.75 %). `fly_sim::clamp` equals Python's reference run and replays (region rates, readouts) exactly; golden `tests/golden/clamp.json`. **Python defect**: `labclamp.py` uses `np` without importing it, so the two lesion modifications (silence looming detectors / giant fiber, the default one) fail with `NameError`; here they run as intended.
 - [ ] Menu page `lab_classroom`
 - [x] Menu page `lab_critical` — matched with pygame (empty, and a ranked run with one lesion applied; 0.2-0.35 %). `fly_sim::criticalpath` equals Python's shortlist (float32 sums in SciPy's order), behavior and assay runs; golden `tests/golden/critical.json`. The Python page has no Cancel button, so none here.
-- [ ] Menu page `lab_diff`
+- [~] Menu page `lab_diff` — ENGINE done, PAGE not yet: `fly_sim::{lesions,diffmode}` equal Python's hemifield/hemisphere rows and both diffs (golden `tests/golden/diff.json`, readouts in float32 as NumPy 2 gives them). **Python defect**: `labdiff.py` uses `np` without importing it, so the default Fly B (silence looming) and the giant-fiber lesion fail with `NameError`.
 - [ ] Menu page `lab_export`
 - [ ] Menu page `lab_laser`
 - [ ] Menu page `lab_minipapers`
