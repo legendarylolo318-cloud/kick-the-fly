@@ -157,4 +157,16 @@ if __name__ == "__main__":
 
     R.render("lab_clamp", "Graphics", out / "page_lab_clamp_empty.png", prep=clamp_prep())
     R.render("lab_clamp", "Graphics", out / "page_lab_clamp.png", prep=clamp_prep(clamp_gold["thresh"], "looming", "thresh_10"))
+    from kickthefly.lab import labdiff
+    diff_gold = json.loads((gd / "diff.json").read_text())
+
+    def diff_prep(res=None, scenario="looming", mod="lesion_loom"):
+        def prep(m):
+            prep_for("lab_diff")(m)
+            st = labdiff._st(m)
+            st.diff_scenario, st.diff_mod, st.diff_result = scenario, mod, res
+        return prep
+
+    R.render("lab_diff", "Graphics", out / "page_lab_diff_empty.png", prep=diff_prep())
+    R.render("lab_diff", "Graphics", out / "page_lab_diff.png", prep=diff_prep(diff_gold["looming"], "looming", "hemi_vis"))
     print("wrote", out)

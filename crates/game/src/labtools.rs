@@ -78,6 +78,7 @@ pub struct LabTools {
     critical: BTreeMap<String, Value>,
     type_ops: Vec<String>,
     clamp: Option<Value>,
+    diff: Option<Value>,
 }
 
 impl Default for LabTools {
@@ -100,6 +101,7 @@ impl Default for LabTools {
             critical: BTreeMap::new(),
             type_ops: Vec::new(),
             clamp: None,
+            diff: None,
         }
     }
 }
@@ -287,6 +289,7 @@ impl LabTools {
                 "Threshold sweep" => self.sweep = Some(v),
                 "Sign flips" => self.flips = Some(v),
                 "Neural clamp" => self.clamp = Some(v),
+                "Connectome diff" => self.diff = Some(v),
                 "Critical path" => {
                     if let Some(t) = v["target"].as_str() {
                         self.critical.insert(t.to_string(), v.clone());
@@ -309,6 +312,13 @@ impl LabTools {
                     "cached": self.cached_map.clone().unwrap_or(Value::Null),
                     "sleep": self.sleep,
                     "sens": self.sens,
+                }
+            }),
+            "lab_diff" => json!({
+                "lab.diff_state": {
+                    "job": self.job.as_ref().map(BgJob::json),
+                    "error": self.error,
+                    "result": self.diff,
                 }
             }),
             "lab_clamp" => json!({
@@ -341,6 +351,37 @@ impl LabTools {
             }),
             _ => Value::Null,
         }
+    }
+
+    fn start_diff(&mut self, scenario: &str, modification: &str, shared: Shared, pack: &PackPath) {
+        self.error.clear();
+        let Some(counts) = self.ensure_counts(pack) else {
+            self.error = "needs the brain pack".into();
+            return;
+        };
+        let (scenario, modification) = (scenario.to_string(), modification.to_string());
+        self.job = Some(BgJob::start("Connectome diff", move |upd, _cancel| {
+            use fly_sim::diffmode::Config;
+            use fly_sim::wiring::Wiring;
+            upd(0.0, "running connectome diff");
+            let (labels, types) = (&shared.labels, &shared.labels.types);
+            let rows_of =
+                |names: &[&str]| -> Vec<u32> { (0..types.len() as u32).filter(|&i| names.contains(&types[i as usize].as_str())).collect() };
+            let a = Config { wiring: Wiring::default(), lesion_rows: None, label: "Fly A (Unperturbed)".into() };
+            let mut b = Config { wiring: Wiring::default(), lesion_rows: None, label: format!("Fly B ({modification})") };
+            match modification.as_str() {
+                "lesion_loom" => b.lesion_rows = Some(rows_of(&["LPLC2", "LC4"])),
+                "lesion_gf" => b.lesion_rows = Some(rows_of(&["DNp01"])),
+                "hemi_vis" => b.lesion_rows = Some(fly_sim::lesions::hemifield_visual_rows(labels, 'L')),
+                "hemi_all" => b.lesion_rows = Some(fly_sim::lesions::hemisphere_rows(labels, 'L')),
+                "thresh_10" => b.wiring.min_synapses = 10,
+                "flips" => b.wiring.flip_rows = fly_sim::wiring::random_flip(labels, 0.5, 0.5, 1),
+                "inhibition_0" => b.wiring.inhibition_scale = 0.0,
+                _ => {}
+            }
+            let created = crate::savestate_play::utc_stamp_pub();
+            Ok(fly_sim::diffmode::run_connectome_diff(&shared.weights, &shared.labels, &counts, &a, &b, &scenario, 200, 1000, &created))
+        }));
     }
 
     fn start_clamp(&mut self, scenario: &str, modification: &str, shared: Shared, pack: &PackPath) {
@@ -572,6 +613,27 @@ fn tick(
                     let kind = res["kind"].as_str().unwrap_or("result").to_string();
                     let folder = exports_dir().join(format!("{}-{kind}", crate::savestate_play::utc_stamp_compact()));
                     match fly_sim::robustness::save(&res, &folder) {
+                        Ok(()) => {
+                            let name = folder.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+                            flash.write(crate::menu_ui::MenuFlash(format!("saved to {name} in exports"), true));
+                        }
+                        Err(e) => {
+                            flash.write(crate::menu_ui::MenuFlash(e.to_string(), false));
+                        }
+                    }
+                }
+            }
+            "lab.diff_run" if !busy => {
+                if let Some(shared) = link.0.shared.lock().unwrap_or_else(PoisonError::into_inner).clone() {
+                    let (sc, md) =
+                        (a["scenario"].as_str().unwrap_or("looming").to_string(), a["mod"].as_str().unwrap_or("lesion_loom").to_string());
+                    tools.start_diff(&sc, &md, shared, &pack);
+                }
+            }
+            "lab.diff_export" => {
+                if let Some(res) = tools.diff.clone() {
+                    let folder = exports_dir().join(format!("{}-connectome-diff", crate::savestate_play::utc_stamp_compact()));
+                    match fly_sim::diffmode::save(&res, &folder) {
                         Ok(()) => {
                             let name = folder.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
                             flash.write(crate::menu_ui::MenuFlash(format!("saved to {name} in exports"), true));

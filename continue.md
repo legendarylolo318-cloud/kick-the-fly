@@ -50,9 +50,7 @@ the Python `labclamp.py` and `labdiff.py` forget `import numpy as np` (their les
 `git -c user.name=Logan -c user.email=legendarylolo318@gmail.com commit`.
 
 ## Next, in order
-1. **`lab_diff` page** (`lab/labdiff.py`, 208 lines): engine is done (`fly_sim::diffmode`, `lesions`). Add `ktf_ui::pages::diff` (timeline strip, diverging bars),
-   `lab.diff_run/export` in `labtools.rs` (modifications: lesion_loom, lesion_gf, hemi_vis, hemi_all, thresh_10, flips, inhibition_0; Fly A unperturbed),
-   reference render in `make_lab_reference.py` from `tests/golden/diff.json`, test in `crates/ktf_ui/tests/reference.rs`, tick PORTING.md.
+1. (done) `lab_diff` page.
 2. Remaining Lab pages: `lab_laser` (`laser.py` 204, `lablaser.py` 112), `lab_psych` (`psychometrics.py` 451: SVG/PDF/CSV), `lab_classroom` (`classroom.py` 499),
    `lab_minipapers` (`minipapers.py` 487 + `ui/minipaper_ui.py`), `lab_autopsy` (failure autopsy), `lab_activation` / `lab_knockout` (`screens.py`, `labscreen.py`).
 3. Toolkit: `lab_genetics`, `lab_thermo`, `lab_patch`, `lab_imaging`, `lab_pharm` (`labtoolkit.py` 871, `thermogenetics.py`, `patchclamp.py`, `pharmacology.py`; the wiring
