@@ -322,6 +322,10 @@ pub fn pad_pretty(binding: &str) -> String {
     }
 }
 
+pub fn py_g(x: f64) -> String {
+    g(x)
+}
+
 fn g(x: f64) -> String {
     ktf_data::sharecode::g(x)
 }
@@ -710,6 +714,12 @@ impl Menu {
 
     /// `host.set_setting(key, value)`: validate and store in `cfg`; the host applies it live and saves.
     fn set_setting_inner(&mut self, cfg: &mut Config, key: &str, value: &Value, save: bool) {
+        if let Some(id) = key.strip_prefix("page:") {
+            // a page's own slider: the page keeps the value
+            let v = value.as_f64().map_or_else(|| value.to_string(), |f| format!("{f}"));
+            self.customs.push_back((format!("slide:{id}"), Some(v)));
+            return;
+        }
         match cfg.set(key, value) {
             Ok(_) => self.fx.push(Effect::SettingChanged { key: Some(key.into()), save }),
             Err(e) => self.flash(&e, BAD, 4.0),
@@ -1132,6 +1142,11 @@ impl Menu {
         over
     }
 
+    /// A clickable region with no look of its own (the page draws it): `ui/menu.py:Menu._register(rect, "button", ...)`.
+    pub fn click_area(&mut self, rect: Rect, click: Act, id: &str, enabled: bool, tip: Option<&str>) -> bool {
+        self.register(rect, Kind::Button { click }, id, enabled, tip)
+    }
+
     pub fn btn(&mut self, cv: &mut Canvas, rect: Rect, label: &str, click: Act, id: &str) -> bool {
         self.button(cv, rect, label, click, id, Style::Normal, true, None, false, None)
     }
@@ -1205,14 +1220,45 @@ impl Menu {
 
     #[allow(clippy::too_many_arguments)]
     fn slider(&mut self, cv: &mut Canvas, rect: Rect, value: f64, s: &Setting, enabled: bool, tip: &str) {
-        let (lo, hi) = (s.lo, s.hi);
-        let key = s.key.as_str();
+        self.slider_raw(cv, rect, value, (s.lo, s.hi, s.step), &s.fmt, &s.key, enabled, tip);
+    }
+
+    /// A slider that is not a setting: the page gets `custom("slide:<id>", Some(value))` on every change (`ui/menu.py:Menu.slider` with a
+    /// `change` callback). `fmt` is a Python format ("{:.0f} s duels"; a `%` shows and types as a percentage).
+    #[allow(clippy::too_many_arguments)]
+    pub fn page_slider(
+        &mut self,
+        cv: &mut Canvas,
+        rect: Rect,
+        value: f64,
+        range: (f64, f64, f64),
+        fmt: &str,
+        id: &str,
+        enabled: bool,
+        tip: Option<&str>,
+    ) {
+        self.slider_raw(cv, rect, value, range, fmt, &format!("page:{id}"), enabled, tip.unwrap_or(""));
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn slider_raw(
+        &mut self,
+        cv: &mut Canvas,
+        rect: Rect,
+        value: f64,
+        range: (f64, f64, f64),
+        fmt: &str,
+        key: &str,
+        enabled: bool,
+        tip: &str,
+    ) {
+        let (lo, hi) = (range.0, range.1);
         let bx = Rect::new(rect.right() - 76, rect.y, 76, rect.h);
         let track = Rect::new(rect.x, rect.centery() - 3, rect.w - 92, 6);
         let grab = Rect::new(track.x - 8, rect.y, track.w + 16, rect.h);
         let mut over = false;
         if enabled {
-            over = self.register(grab, Kind::Slider { track, lo, hi, step: s.step, key: key.into() }, key, true, Some(tip));
+            over = self.register(grab, Kind::Slider { track, lo, hi, step: range.2, key: key.into() }, key, true, Some(tip));
         }
         let frac = if hi == lo { 0.0 } else { (value - lo) / (hi - lo) };
         cv.fill_rect(track, [50, 56, 68], 3);
@@ -1233,10 +1279,10 @@ impl Menu {
                 DIM
             },
         );
-        let pct = s.fmt.contains('%');
+        let pct = fmt.contains('%');
         let editing = self.edit.as_ref().is_some_and(|e| e.id == key);
         let caret = if (self.now * 2.0) as i64 % 2 != 0 { "|" } else { "" };
-        let shown = if editing { format!("{}{caret}", self.edit.as_ref().unwrap().text) } else { py_fmt(&s.fmt, value) };
+        let shown = if editing { format!("{}{caret}", self.edit.as_ref().unwrap().text) } else { py_fmt(fmt, value) };
         if enabled {
             let text = if pct { g(value * 100.0) } else { g(value) };
             self.register(

@@ -2,6 +2,7 @@
 
 use crate::menu::Menu;
 
+pub mod arcade;
 pub mod challenges;
 pub mod diag;
 pub mod load_state;
@@ -26,5 +27,6 @@ pub fn install_with(menu: &mut Menu, dex: neurodex::SharedDex) {
     menu.register_page("challenges", Box::new(challenges::ChallengesPage));
     menu.register_page("selftest", Box::new(diag::SelfTestPage));
     menu.register_page("bugreport", Box::<diag::BugReportPage>::default());
+    menu.register_page("arcade", Box::<arcade::ArcadePage>::default());
     menu.register_page("whatsnew", Box::new(whatsnew::WhatsNew));
 }

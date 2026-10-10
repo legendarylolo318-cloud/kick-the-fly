@@ -303,3 +303,48 @@ fn challenges_page() {
         compare(name, &cv.to_rgb_over(BG), 0.012);
     }
 }
+
+#[test]
+fn arcade_page() {
+    use ktf_ui::pages::arcade::ArcadePage;
+    struct H(serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            if key == "arcade" { self.0.clone() } else { serde_json::Value::Null }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    let fx: serde_json::Value = serde_json::from_slice(
+        &std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/ui_reference/arcade_fixture.json")).unwrap(),
+    )
+    .unwrap();
+    for (name, tab, scroll) in [
+        ("page_arcade_tournament_top.png", 0u8, 0),
+        ("page_arcade_tournament_replay.png", 0, 330),
+        ("page_arcade_tournament_end.png", 0, 560),
+        ("page_arcade_race_top.png", 1, 0),
+        ("page_arcade_race_lanes.png", 1, 100),
+    ] {
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        m.show("arcade");
+        m.page_mut::<ArcadePage>("arcade").unwrap().preset(tab, Some(2003), Some((2, 0)), Some(3002));
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(fx.clone())); // the first frame learns the content height the scroll clamps to
+        m.set_scroll(if tab == 0 { "arcade_tournament" } else { "arcade_race" }, scroll);
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(fx.clone()));
+        if let Ok(dir) = std::env::var("KTF_DUMP") {
+            let rgb = cv.to_rgb_over(BG);
+            let file = std::fs::File::create(format!("{dir}/rust_{name}")).unwrap();
+            let mut enc = png::Encoder::new(std::io::BufWriter::new(file), 1280, 720);
+            enc.set_color(png::ColorType::Rgb);
+            enc.set_depth(png::BitDepth::Eight);
+            enc.write_header().unwrap().write_image_data(&rgb).unwrap();
+        }
+        compare(name, &cv.to_rgb_over(BG), 0.012);
+    }
+}
