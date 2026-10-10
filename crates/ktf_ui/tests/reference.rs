@@ -859,3 +859,35 @@ fn lab_psych_page() {
         compare(name, &cv.to_rgb_over(BG), 0.02);
     }
 }
+
+#[test]
+fn lab_classroom_page() {
+    use ktf_ui::pages::classroom::LabClassroom;
+    struct H(serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            if key == "lab.class_state" { self.0.clone() } else { serde_json::Value::Null }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    for (name, lecture, step, status) in [
+        ("page_lab_classroom.png", "looming", 0, None),
+        ("page_lab_classroom_step.png", "tmaze", 1, Some("Stimulus delivered to 30 neurons (odor_a)")),
+        ("page_lab_classroom_last.png", "gf_lesion", 3, None),
+    ] {
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        m.show("lab_classroom");
+        m.page_mut::<LabClassroom>("lab_classroom").unwrap().set_view(lecture, step);
+        let mut cv = Canvas::new(1280, 720);
+        let st = serde_json::json!({"seq": u64::from(status.is_some()), "status": status.unwrap_or("")});
+        // the first draw takes the status the way the game's state would deliver it
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(st.clone()));
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(st));
+        compare(name, &cv.to_rgb_over(BG), 0.02);
+    }
+}

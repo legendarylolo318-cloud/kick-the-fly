@@ -116,6 +116,11 @@ pub enum Command {
     DexKnown(Vec<String>),
     /// `brain.neurodex` on/off.
     DexEnabled(bool),
+    /// Classroom: a sensory poke of these rows (`br.sense[("classroom", spec)] = rows; br.poke(...)`).
+    PokeRows {
+        rows: Vec<u32>,
+        strength: f32,
+    },
     /// `brain.mirror_weights`: run every fly on the left/right-averaged matrix (or back on the connectome). Learning starts over.
     SetMirror(bool),
     /// `Game.set_wiring`: run every fly on the connectome with this wiring applied (reversible; the identity wiring restores it).
@@ -674,6 +679,11 @@ fn apply(
             false
         }
         Command::SetMirror(_) | Command::SetWiring { .. } => false,
+        Command::PokeRows { rows, strength } => {
+            brain.groups.add_sense("classroom", rows);
+            brain.poke("classroom", None, strength);
+            false
+        }
         Command::DexEnabled(on) => {
             dex.enabled = on;
             false

@@ -1,0 +1,496 @@
+[
+ {
+  "id": "looming",
+  "title": "Looming Visual Escape Circuit",
+  "description": "How visual projection neurons LPLC2 and LC4 drive the giant fiber DNp01 to trigger escape.",
+  "steps": [
+   {
+    "title": "1. Spontaneous Baseline State",
+    "explanation": "Under calm resting conditions, Drosophila visual projection neurons and descending motor pathways exhibit low spontaneous stochastic firing (~5-8 Hz). Inhibitory and excitatory inputs maintain homeostatic equilibrium without triggering motor commands.",
+    "key_takeaway": "Resting state exhibits calm stochastic firing without premature escape trigger.",
+    "citation": "von Reyn et al. 2014, Nat Neurosci 17:962; Ache et al. 2019, Curr Biol 29:1073",
+    "grounding": "EM reconstruction wiring: MaleCNS v1.0 posterior slope innervation.",
+    "action": {
+     "kind": "reset"
+    },
+    "neurons": [
+     {
+      "label": "LPLC2 + LC4 (Looming Detectors)",
+      "spec": "type:LPLC2,LC4",
+      "role": "Visual projection neurons sensitive to optical expansion",
+      "count": 311
+     },
+     {
+      "label": "DNp01 (Giant Fiber)",
+      "spec": "dnp01",
+      "role": "Descending escape command neuron in the posterior slope",
+      "count": 2
+     }
+    ]
+   },
+   {
+    "title": "2. Expanding Retinal Loom Detection",
+    "explanation": "When a predator or flyswatter rapidly approaches, its optical image expands exponentially on the retina. Lobula plate projection neurons LPLC2 and lobula neurons LC4 compute non-linear angular expansion rates and fire bursts of high-frequency action potentials.",
+    "key_takeaway": "LPLC2 and LC4 selectively detect rapid angular expansion of dark looming shadows.",
+    "citation": "Ache et al. 2019, Curr Biol 29:1073",
+    "grounding": "Connectome visual inputs: sensory tuning based on patch-clamp and 2-photon imaging (Ache 2019).",
+    "action": {
+     "kind": "stimulus",
+     "target": "type:LPLC2,LC4",
+     "strength": 0.85,
+     "for_s": 0.6
+    },
+    "neurons": [
+     {
+      "label": "LPLC2 (Lobula Plate/Lobula Col. 2)",
+      "spec": "type:LPLC2",
+      "role": "Encodes looming edge expansion across receptive field",
+      "count": 204
+     },
+     {
+      "label": "LC4 (Lobula Col. 4)",
+      "spec": "type:LC4",
+      "role": "Encodes visual angular size and velocity of expanding cue",
+      "count": 107
+     }
+    ]
+   },
+   {
+    "title": "3. Synaptic Convergence onto Giant Fiber",
+    "explanation": "LPLC2 and LC4 axons terminate directly in the posterior slope, forming extensive chemical synapses onto the giant dendrites of descending neuron DNp01 (the giant fiber). Summation of these hundreds of inputs rapidly depolarizes the giant fiber membrane toward firing threshold.",
+    "key_takeaway": "Convergent synaptic input from hundreds of detectors drives DNp01 past threshold.",
+    "citation": "von Reyn et al. 2014, Nat Neurosci 17:962",
+    "grounding": "Direct EM synaptic connectivity verified in MaleCNS v1.0 (mean >11x drive ratio).",
+    "action": {
+     "kind": "drive",
+     "target": "type:LPLC2,LC4",
+     "amp": 0.65,
+     "for_s": 0.5
+    },
+    "neurons": [
+     {
+      "label": "DNp01 (Giant Fiber)",
+      "spec": "dnp01",
+      "role": "Large-diameter axon descending into the ventral nerve cord",
+      "count": 2
+     },
+     {
+      "label": "LPLC2, LC4 Axon Terminals",
+      "spec": "type:LPLC2,LC4",
+      "role": "Presynaptic partners innervating the posterior slope",
+      "count": 311
+     }
+    ]
+   },
+   {
+    "title": "4. All-or-None Escape Jump Motor Readout",
+    "explanation": "Once DNp01 fires, its action potential propagates down the cervical connective into the thoracic ganglion at over 5 m/s, directly activating the tergotrochanteral motor neuron (TTMn) to trigger an explosive middle-leg extension and wing depression.",
+    "key_takeaway": "DNp01 activation triggers an unguided, ultra-fast jump takeoff in <5 milliseconds.",
+    "citation": "von Reyn et al. 2014, Nat Neurosci 17:962; Allen et al. 2006, J Neurosci 26:1565",
+    "grounding": "Escape jump threshold: 4.0x DNp01 calm baseline rate (sim validation passed).",
+    "action": {
+     "kind": "drive",
+     "target": "dnp01",
+     "amp": 1.0,
+     "for_s": 0.4
+    },
+    "neurons": [
+     {
+      "label": "DNp01 (Giant Fiber)",
+      "spec": "dnp01",
+      "role": "Descending command trigger",
+      "count": 2
+     },
+     {
+      "label": "Thoracic leg motor pool",
+      "spec": "mn_legs",
+      "role": "Tergotrochanteral and leg motor effectors",
+      "count": 381
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "tmaze",
+  "title": "Mushroom Body Olfactory Conditioning",
+  "description": "Dopaminergic depression of Kenyon cell to MBON synapses underlying learned odor avoidance.",
+  "steps": [
+   {
+    "title": "1. Sparse Odor Encoding by Kenyon Cells",
+    "explanation": "Antennal olfactory receptor neurons project to antennal lobe projection neurons (PNs), which divergence-map onto ~2,000 intrinsic mushroom body Kenyon Cells (KCs). Each distinct odor activates a sparse, random ~5% subset of KCs in the mushroom body calyx.",
+    "key_takeaway": "Kenyon cells form sparse, decorrelated representations of specific chemical odors.",
+    "citation": "Aso et al. 2014, eLife 3:e04577; Turner et al. 2008, Nature 454:493",
+    "grounding": "MaleCNS v1.0 mushroom body connectome structure.",
+    "action": {
+     "kind": "stimulus",
+     "target": "odor_a",
+     "strength": 0.7,
+     "for_s": 0.5
+    },
+    "neurons": [
+     {
+      "label": "Kenyon Cells (KCg, KCab, KCap)",
+      "spec": "prefix:KC",
+      "role": "Sparse odor-representing intrinsic neurons",
+      "count": 1920
+     },
+     {
+      "label": "Olfactory Projection Neurons",
+      "spec": "olfactory",
+      "role": "Antennal lobe relay neurons targeting calyx",
+      "count": 150
+     }
+    ]
+   },
+   {
+    "title": "2. Dopaminergic Reinforcement (PPL1 / Electric Shock)",
+    "explanation": "During aversive conditioning, presentation of the conditioned odor (CS+) is paired with electric shock. Nociceptive pathways activate PPL1 dopaminergic neurons (DANs) that innervate the mushroom body lobes. Dopamine release acts co-incidentally with active Kenyon cell presynaptic terminals.",
+    "key_takeaway": "PPL1 dopaminergic neurons signal negative reinforcement to specific mushroom body compartments.",
+    "citation": "Claridge-Chang et al. 2009, Cell 139:405; Aso et al. 2014, eLife 3:e04577",
+    "grounding": "MaleCNS v1.0 connectome: compartmental DAN innervation confirmed by Aso 2014.",
+    "action": {
+     "kind": "drive",
+     "target": "type:PPL101,PPL103",
+     "amp": 0.8,
+     "for_s": 0.5
+    },
+    "neurons": [
+     {
+      "label": "PPL1 Dopaminergic Neurons",
+      "spec": "type:PPL101,PPL103",
+      "role": "Aversive reinforcement dopamine release",
+      "count": 12
+     },
+     {
+      "label": "Kenyon Cells (CS+ activated)",
+      "spec": "prefix:KC",
+      "role": "Co-active presynaptic boutons",
+      "count": 100
+     }
+    ]
+   },
+   {
+    "title": "3. Long-Term Synaptic Depression at KC-to-MBON Synapses",
+    "explanation": "Coincident KC spike activity and dopamine receptor activation induces long-term depression (LTD) of synapses between active KCs and mushroom body output neurons (MBONs) that direct approach behavior. Synaptic efficacy from CS+ KCs to positive MBONs is selectively scaled down.",
+    "key_takeaway": "LTD of approach MBONs tips the net circuit balance toward learned avoidance.",
+    "citation": "Hige et al. 2015, Neuron 88:985; Owald & Waddell 2015, Curr Opin Neurobiol 35:178",
+    "grounding": "Synaptic plasticity rule: game-implemented LTD verified by T-maze PI > 0.5.",
+    "action": {
+     "kind": "assay_step",
+     "target": "tmaze_condition"
+    },
+    "neurons": [
+     {
+      "label": "Mushroom Body Output Neurons",
+      "spec": "mbon",
+      "role": "Readout neurons projecting to motor centers",
+      "count": 42
+     },
+     {
+      "label": "KC-to-MBON Synapses",
+      "spec": "prefix:KC",
+      "role": "Undergo dopamine-gated depression",
+      "count": 1920
+     }
+    ]
+   },
+   {
+    "title": "4. Memory Recall & T-Maze Choice",
+    "explanation": "Upon subsequent exposure in the T-maze choice point, the CS+ odor evokes depressed approach MBON firing. Unbalanced avoidance MBON signals prevail, steering the fly away from the learned shock odor into the unpaired safe odor arm (Performance Index > 0.5).",
+    "key_takeaway": "Flies robustly avoid the shock-paired odor with statistically significant avoidance.",
+    "citation": "Tully & Quinn 1985, J Comp Physiol A 157:263",
+    "grounding": "Connectome validation suite confirmed: paired PI = 1.0 vs unpaired |PI| <= 0.25 (p < 0.01).",
+    "action": {
+     "kind": "stimulus",
+     "target": "odor_a",
+     "strength": 0.8,
+     "for_s": 0.5
+    },
+    "neurons": [
+     {
+      "label": "Approach MBONs",
+      "spec": "type:MBON01,MBON03",
+      "role": "Reduced output to CS+",
+      "count": 14
+     },
+     {
+      "label": "Avoidance MBONs",
+      "spec": "type:MBON02,MBON04",
+      "role": "Relative dominance drives avoidance steering",
+      "count": 16
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "moonwalker",
+  "title": "Moonwalker Backward Walking Circuit",
+  "description": "How Moonwalker Descending Neurons (MDN) coordinate reversal of leg motor walking rhythms.",
+  "steps": [
+   {
+    "title": "1. Forward Walking Default Program",
+    "explanation": "In foraging flies, descending neurons like DNp09 promote forward walking. Thoracic motor circuits generate coordinated tripod gaits (front/rear ipsilateral legs move in phase with contralateral middle leg) propelling the body forward.",
+    "key_takeaway": "Forward locomotion is maintained by forward-promoting descending command neurons.",
+    "citation": "Bidaye et al. 2014, Science 344:97; Bidaye et al. 2020, Neuron 108:109",
+    "grounding": "Connectome descending pathways to ventral nerve cord leg neuromeres.",
+    "action": {
+     "kind": "drive",
+     "target": "type:DNp09",
+     "amp": 0.6,
+     "for_s": 0.5
+    },
+    "neurons": [
+     {
+      "label": "DNp09 (Forward Walking DN)",
+      "spec": "type:DNp09",
+      "role": "Drives forward tripod locomotion",
+      "count": 2
+     },
+     {
+      "label": "Leg Motor Neurons (T1-T3)",
+      "spec": "mn_legs",
+      "role": "Thoracic motor pools for leg joints",
+      "count": 381
+     }
+    ]
+   },
+   {
+    "title": "2. Obstacle Encounter & MDN Activation",
+    "explanation": "When head touch or antennal mechanoreceptors detect an unyielding physical obstacle or dead end, sensory inputs recruit the pair of bilateral Moonwalker Descending Neurons (MDN, 4 cells total). MDNs project from the gnathal ganglion directly down the neck connective.",
+    "key_takeaway": "Head collisions and mechanosensory touch rapidly excite MDN command neurons.",
+    "citation": "Bidaye et al. 2014, Science 344:97",
+    "grounding": "Connectome annotations (MaleCNS v1.0): MDN (4 cells).",
+    "action": {
+     "kind": "drive",
+     "target": "mdn",
+     "amp": 0.8,
+     "for_s": 0.5
+    },
+    "neurons": [
+     {
+      "label": "MDN (Moonwalker Descending Neurons)",
+      "spec": "mdn",
+      "role": "Bilateral descending pair directing backward walking",
+      "count": 4
+     },
+     {
+      "label": "Antennal mechanosensory neurons",
+      "spec": "jo_ce",
+      "role": "Sensory detection of obstacles and touch",
+      "count": 335
+     }
+    ]
+   },
+   {
+    "title": "3. Backward Gait Motor Program Coordination",
+    "explanation": "In biological flies, MDN axons branch across prothoracic (T1), mesothoracic (T2), and metathoracic (T3) neuromeres. MDN activation simultaneously suppresses forward motor rhythm generators and activates backward walking pattern generators, inverting the leg stepping sequence.",
+    "key_takeaway": "MDN switches the central pattern generator state from forward tripod to backward walking.",
+    "citation": "Bidaye et al. 2014, Science 344:97; Feng et al. 2020, Nature 585:395",
+    "grounding": "Note: Sim models connectome reach; leg kinematics are game rules.",
+    "action": {
+     "kind": "drive",
+     "target": "mdn",
+     "amp": 1.0,
+     "for_s": 0.6
+    },
+    "neurons": [
+     {
+      "label": "MDN Axons",
+      "spec": "mdn",
+      "role": "Invert stepping phase across thoracic motor centers",
+      "count": 4
+     },
+     {
+      "label": "Thoracic Leg Motor Pools",
+      "spec": "mn_legs",
+      "role": "Execute reverse leg kinematics",
+      "count": 381
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "sugar",
+  "title": "Sugar Gustatory Pathway & Proboscis Extension",
+  "description": "How gustatory receptor neurons on the labellum and tarsus reach motor neuron MN9 to extend proboscis.",
+  "steps": [
+   {
+    "title": "1. Gustatory Detection by Sugar Receptors",
+    "explanation": "When a hungry fly lands on food, sucrose contacts gustatory receptor neurons (GRNs) on the legs and labellum expressing Gr5a/Gr64f. These sugar-sensing sensory neurons fire action potentials relaying nutrient detection directly to the subesophageal zone (SEZ).",
+    "key_takeaway": "Sugar contact activates gustatory sensory neurons that innervate the SEZ feeding center.",
+    "citation": "Shiu et al. 2024, Nature 634:210; Yao & Scott 2022, Cell 185:2472",
+    "grounding": "Connectome wiring: sugar GRNs identified via wiring to Yao & Scott 2022 sugar-SEL projection neurons.",
+    "action": {
+     "kind": "stimulus",
+     "target": "sweet",
+     "strength": 0.8,
+     "for_s": 0.5
+    },
+    "neurons": [
+     {
+      "label": "Sugar Gustatory Neurons",
+      "spec": "sweet",
+      "role": "Sensory taste neurons projecting to gnathal ganglion",
+      "count": 30
+     }
+    ]
+   },
+   {
+    "title": "2. Gnathal Relay via Second-Order SEL Projection Neurons",
+    "explanation": "Sugar sensory afferents synapse onto subesophageal layer projection neurons (Sugar SEL PNs, GNG540/GNG550). These second-order relay neurons process nutritional salience and distribute excitatory currents toward feeding motor command pools.",
+    "key_takeaway": "Sugar SEL PNs integrate taste signals and transmit excitation to proboscis motor circuits.",
+    "citation": "Yao & Scott 2022, Cell 185:2472; Shiu et al. 2024, Nature 634:210",
+    "grounding": "Connectome synaptome (MaleCNS v1.0) verifies direct synaptic chain from sweet GRNs to SEL PNs.",
+    "action": {
+     "kind": "drive",
+     "target": "type:GNG540,GNG550",
+     "amp": 0.7,
+     "for_s": 0.5
+    },
+    "neurons": [
+     {
+      "label": "Sugar SEL PNs (GNG540, GNG550)",
+      "spec": "type:GNG540,GNG550",
+      "role": "Second-order gustatory relay neurons",
+      "count": 8
+     }
+    ]
+   },
+   {
+    "title": "3. Proboscis Motor Neuron 9 (MN9) Activation",
+    "explanation": "Excitatory signals reach motor neuron 9 (MN9) in the ventral SEZ. MN9 innervates muscle 9 (the retractor bulbi), whose contraction produces the characteristic Proboscis Extension Response (PER). In contrast, bitter substances inhibit this circuit, preventing ingestion.",
+    "key_takeaway": "MN9 excitation produces proboscis extension; bitter pathways fail to activate MN9.",
+    "citation": "Shiu et al. 2024, Nature 634:210; Schwarz et al. 2017, eLife 6:e19892",
+    "grounding": "Sim validation passed: sweet/control drive ratio > 1.5x (p < 0.01).",
+    "action": {
+     "kind": "drive",
+     "target": "sweet",
+     "amp": 0.9,
+     "for_s": 0.5
+    },
+    "neurons": [
+     {
+      "label": "MN9 (Proboscis Motor Neuron)",
+      "spec": "mn9",
+      "role": "Motor neuron innervating feeding muscle 9",
+      "count": 2
+     },
+     {
+      "label": "Bitter-sensing neurons (Control)",
+      "spec": "bitter",
+      "role": "Bitter pathway fails to activate MN9",
+      "count": 30
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "gf_lesion",
+  "title": "Giant Fiber Lesion: Visual vs Tactile Escape Pathways",
+  "description": "Ablating DNp01 abolishes visual looming escapes while leaving mechanosensory escapes intact.",
+  "steps": [
+   {
+    "title": "1. Dual Escape Circuits in the Fly Brain",
+    "explanation": "Drosophila possesses parallel escape mechanisms: (A) a fast visual escape mediated by the giant fiber (DNp01), and (B) mechanosensory / tactile escapes driven by antennal (JO-C/E) and leg mechanoreceptors through non-giant descending pathways.",
+    "key_takeaway": "Parallel neural circuits mediate escape from looming shadows vs physical touch.",
+    "citation": "von Reyn et al. 2014, Nat Neurosci 17:962; Hampel et al. 2015, eLife 4:e08758",
+    "grounding": "Verified in connectome: distinct descending projections for visual vs tactile modalities.",
+    "action": {
+     "kind": "reset"
+    },
+    "neurons": [
+     {
+      "label": "DNp01 (Giant Fiber)",
+      "spec": "dnp01",
+      "role": "Visual looming escape command",
+      "count": 2
+     },
+     {
+      "label": "Antennal & Leg mechanoreceptors",
+      "spec": "jo_ce",
+      "role": "Tactile escape initiators",
+      "count": 335
+     }
+    ]
+   },
+   {
+    "title": "2. Silencing the Giant Fiber (DNp01 Lesion)",
+    "explanation": "Targeted ablation or silencing of DNp01 (e.g. via Kir2.1 hyperpolarization or connectome row silencing) completely severs the direct link between lobula looming detectors and thoracic jump motor neurons. The giant fiber membrane potential is locked at resting baseline.",
+    "key_takeaway": "DNp01 lesion selectively breaks the rapid visual looming escape conduit.",
+    "citation": "von Reyn et al. 2014, Nat Neurosci 17:962",
+    "grounding": "Simulated as static silencing of DNp01 rows in brain.override.",
+    "action": {
+     "kind": "surgery",
+     "target": "dnp01",
+     "mode": -1
+    },
+    "neurons": [
+     {
+      "label": "DNp01 (Silenced)",
+      "spec": "dnp01",
+      "role": "Override set to 0.0 (permanently clamped silent)",
+      "count": 2
+     }
+    ]
+   },
+   {
+    "title": "3. Testing Looming Visual Cue (Fails)",
+    "explanation": "With DNp01 silenced, presenting an identical rapid looming visual stimulus drives LPLC2 and LC4 neurons vigorously, but no escape action potential reaches the thoracic ganglia. The fly fails to dodge or jump.",
+    "key_takeaway": "Visual looming stimuli fail to elicit an escape reflex in the absence of DNp01.",
+    "citation": "von Reyn et al. 2014, Nat Neurosci 17:962",
+    "grounding": "Sim validation: silencing DNp01 reduces visual escape rate to 0.0 Hz.",
+    "action": {
+     "kind": "stimulus",
+     "target": "type:LPLC2,LC4",
+     "strength": 0.85,
+     "for_s": 0.6
+    },
+    "neurons": [
+     {
+      "label": "LPLC2 + LC4 (Active)",
+      "spec": "type:LPLC2,LC4",
+      "role": "Active but signal cannot cross severed DNp01",
+      "count": 311
+     },
+     {
+      "label": "DNp01 (Silenced)",
+      "spec": "dnp01",
+      "role": "Produces 0 action potentials",
+      "count": 2
+     }
+    ]
+   },
+   {
+    "title": "4. Testing Tactile Mechanosensory Cue (Preserved)",
+    "explanation": "In contrast, presenting a tactile air puff or physical touch to antennae (JO-C/E mechanoreceptors) recruits alternative non-giant descending pathways (e.g. antennal groom/jump command neurons). Tactile escape remains fully functional, proving circuit selectivity.",
+    "key_takeaway": "Non-giant mechanosensory escape pathways remain completely functional despite DNp01 ablation.",
+    "citation": "Hampel et al. 2015, eLife 4:e08758; Allen et al. 2006, J Neurosci 26:1565",
+    "grounding": "Connectome pathways: JO-C/E bypasses DNp01 and projects to aDN and alternative motor circuits.",
+    "action": {
+     "kind": "stimulus",
+     "target": "jo_ce",
+     "strength": 0.9,
+     "for_s": 0.5
+    },
+    "neurons": [
+     {
+      "label": "JO-C/E Mechanosensory",
+      "spec": "jo_ce",
+      "role": "Sensory detection of air puff / touch",
+      "count": 335
+     },
+     {
+      "label": "Non-giant descending neurons",
+      "spec": "adn",
+      "role": "Alternative escape/grooming descending conduits",
+      "count": 4
+     }
+    ]
+   }
+  ]
+ }
+]

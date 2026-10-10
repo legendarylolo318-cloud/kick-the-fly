@@ -195,4 +195,18 @@ if __name__ == "__main__":
 
     R.render("lab_psych", "Graphics", out / "page_lab_psych_empty.png", prep=psych_prep())
     R.render("lab_psych", "Graphics", out / "page_lab_psych.png", prep=psych_prep(psych_gold["tmaze"], "tmaze", 2))
+    from kickthefly.lab.classroom import ClassroomSession
+
+    def class_prep(lecture, step, status=None):
+        def prep(m):
+            prep_for("lab_classroom")(m)
+            sess = ClassroomSession(lecture_id=lecture, brain=None)
+            sess.step_idx, sess.last_action_applied = step, status
+            m.host.classroom_session = sess
+        return prep
+
+    R.render("lab_classroom", "Graphics", out / "page_lab_classroom.png", prep=class_prep("looming", 0))
+    R.render("lab_classroom", "Graphics", out / "page_lab_classroom_step.png",
+             prep=class_prep("tmaze", 1, "Stimulus delivered to 30 neurons (odor_a)"))
+    R.render("lab_classroom", "Graphics", out / "page_lab_classroom_last.png", prep=class_prep("gf_lesion", 3))
     print("wrote", out)

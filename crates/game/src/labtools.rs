@@ -81,6 +81,8 @@ pub struct LabTools {
     diff: Option<Value>,
     laser: Value,
     psych: Option<Value>,
+    class_status: (u64, String),
+    class_groups: Option<std::collections::HashMap<&'static str, Vec<u32>>>,
     psych_msg: String,
     base_seed: i64,
 }
@@ -108,6 +110,8 @@ impl Default for LabTools {
             diff: None,
             laser: Value::Null,
             psych: None,
+            class_status: (0, String::new()),
+            class_groups: None,
             psych_msg: String::new(),
             base_seed: 1000,
         }
@@ -324,6 +328,7 @@ impl LabTools {
                 }
             }),
             "lab_laser" => json!({"lab.laser_state": self.laser}),
+            "lab_classroom" => json!({"lab.class_state": {"seq": self.class_status.0, "status": self.class_status.1}}),
             "lab_psych" => json!({
                 "lab.psych_state": {
                     "job": self.job.as_ref().map(BgJob::json),
@@ -720,6 +725,52 @@ fn tick(
                         Err(e) => {
                             flash.write(crate::menu_ui::MenuFlash(e.to_string(), false));
                         }
+                    }
+                }
+            }
+            "lab.class_action" => {
+                let shared = link.0.shared.lock().unwrap_or_else(PoisonError::into_inner).clone();
+                if let Some(sh) = shared {
+                    use crate::sim_thread::Command;
+                    let kind = a["kind"].as_str().unwrap_or("none");
+                    let target = a["target"].as_str().unwrap_or("");
+                    let status: Option<String> = if kind == "reset_session" {
+                        link.0.send(Command::SurgeryClear);
+                        None
+                    } else if kind == "reset" {
+                        link.0.send(Command::SurgeryClear);
+                        Some("Reset all overrides to baseline".into())
+                    } else if kind == "assay_step" {
+                        Some(format!("Assay step executed: {target}"))
+                    } else {
+                        let groups = tools.class_groups.get_or_insert_with(|| fly_sim::validation::groups(&sh.labels, &sh.weights));
+                        let rows: Vec<u32> = if target.is_empty() {
+                            Vec::new()
+                        } else if let Some(r) = groups.get(target) {
+                            r.clone()
+                        } else {
+                            fly_sim::brain::rows_of(&sh.labels, sh.weights.n(), target).unwrap_or_default()
+                        };
+                        match kind {
+                            "stimulus" if !rows.is_empty() => {
+                                let strength = a["strength"].as_f64().unwrap_or(0.8);
+                                let n = rows.len();
+                                link.0.send(Command::PokeRows { rows, strength: strength as f32 });
+                                Some(format!("Stimulus delivered to {n} neurons ({target})"))
+                            }
+                            "drive" if !rows.is_empty() => {
+                                let amp = a["amp"].as_f64().unwrap_or(0.5);
+                                let n = rows.len();
+                                link.0.send(Command::DriveRows { rows, amp: amp as f32 });
+                                Some(format!("Current drive ({amp:+.2}) injected into {n} neurons ({target})"))
+                            }
+                            // Python writes override 0.0 (silence) or 1.0 without raising the surgery flag, so nothing happens
+                            "surgery" if !rows.is_empty() => Some(format!("Surgery: silenced {} neurons ({target})", rows.len())),
+                            _ => Some("Action completed".into()),
+                        }
+                    };
+                    if let Some(st) = status {
+                        tools.class_status = (tools.class_status.0 + 1, st);
                     }
                 }
             }

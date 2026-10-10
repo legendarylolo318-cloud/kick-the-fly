@@ -5,6 +5,7 @@ use crate::menu::Menu;
 pub mod arcade;
 pub mod challenges;
 pub mod clamp;
+pub mod classroom;
 pub mod critical;
 pub mod day4;
 pub mod diag;
@@ -52,5 +53,6 @@ pub fn install_with(menu: &mut Menu, dex: neurodex::SharedDex) {
     menu.register_page("lab_diff", Box::<diff::LabDiff>::default());
     menu.register_page("lab_laser", Box::<laser::LabLaser>::default());
     menu.register_page("lab_psych", Box::<psych::LabPsych>::default());
+    menu.register_page("lab_classroom", Box::<classroom::LabClassroom>::default());
     menu.register_page("whatsnew", Box::new(whatsnew::WhatsNew));
 }
