@@ -920,7 +920,7 @@ fn reset_fly(
     flies: Query<(Entity, &Fly, &Slot, Option<&crate::fly_visuals::FlyVisuals>)>,
     link: Res<SimLink>,
     mut flies_res: ResMut<crate::flies_play::Flies>,
-    cfg: Res<crate::menu_ui::UserConfig>,
+    cfg: Option<Res<crate::menu_ui::UserConfig>>,
     virt: Res<Time<Virtual>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -953,7 +953,7 @@ fn reset_fly(
     *seed += 1;
     if !req.restore.is_empty() {
         let now = virt.elapsed_secs();
-        let sigma = fly_sim::cards::sigma_of(cfg.0.get_str("brain.individuality"), None);
+        let sigma = fly_sim::cards::sigma_of(cfg.as_ref().map_or("off", |c| c.0.get_str("brain.individuality")), None);
         for (i, pose) in req.restore.iter().enumerate() {
             let slot = if i == 0 { flies_res.focus } else { flies_res.alloc() };
             let e = spawn_fly(&mut commands, &mut meshes, &mut materials, pose.thorax, pose.yaw, pose.seed, slot);

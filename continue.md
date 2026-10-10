@@ -34,32 +34,29 @@ stethoscope; arena status text; neuron inspector; real shapes (last piece: Neuro
 download). Everything above has its PORTING.md entry with the verification and the Python defects found (TEST trains liking, Mystery defect silences nothing,
 Predict KeyError, x-goog-hash first-header bug, stethoscope central_complex/optic_lobes silent).
 
-## Session 2026-10-10 (stopped early on the user's usage budget)
-Done, committed: `fly_sim::{duel,cards,race}`, NumPy-exact `choice` in pokes, goldens `duel_engine.json`, `choice.json`, `arcade.json`
-(`tests/golden/make_{duel_engine,choice,arcade}.py`), see the PORTING.md section "Arcade engine parity". `serde_json` now has `float_roundtrip`
-(goldens with 17-digit floats need it). NOT touched: every item below. First steps next time:
-1. (done) `game/{duel,race}.rs` are shims over `fly_sim::{duel,race}`; the arcade's `build_brain` uses `cards::Build::brain`.
-2. (done) `fly_sim::stats` + `fly_sim::tournament::analyze`. Race `analyze`, `run_bracket`, `run_race`, `odds_table` are done in `fly_sim`, and the arcade *page* is drawn (`ktf_ui::pages::arcade`, 5 pairs). The page is wired
-   to the game (`game::arcade_hub`). Next: port `battle_ui.py` (lesion battle tab) and write the personality-card cache; a brain-backed `MatchPlayer`/lane closure in the game
-   (measure cards with `cards::measure_card`, play with `Build::brain(seed, Some(noise), 600)` + `lane_noise`), then the arcade page in `ktf_ui::pages` from `ui/arcade_ui.py`. Do not wait on background jobs with `pgrep`; read the task output file.
-3. Then the list below, in order. Venv: `python3 -m venv V; V/bin/pip install numpy scipy pygame-ce pytest pillow pyyaml pyarrow fonttools`.
+## Session 2026-10-10 (day 2) status
+Done and committed since the arcade: arcade page + battle + game hookup, multiple flies (N spawn, F focus, J recall; saves hold every fly), share codes apply
+(surgery, loadout, challenge, contraption slot, protocol file), `--flies`, 2D game decision (not ported, written), validation engine (21 tests, 12 PASS / 9 FAIL as
+Python; full run equals the published results except one control response), Lab hub / parameters (live) / assumptions / validation / assays / asymmetry / benchmark pages
+matched with pygame, `fly_sim::mirror` (Mirror-weights rule applied to every fly via `Command::SetMirror`; learning restarts on a flip).
+Engines in `fly_sim`: `duel, cards, race, tournament, stats, validation, assay_jobs, benchmark, mirror`. Test goldens: `duel_golden, arcade_real, stats_golden,
+bracket_golden, validation_real (+ #[ignore] full_suite_equals_the_published_python_run, 22 min), assay_jobs_golden, mirror_real`.
+Waiting: never use `pgrep` loops; read the task output file (see memory note).
+Git identity is not set in this checkout: commit with `git -c user.name=Logan -c user.email=legendarylolo318@gmail.com commit`.
 
-## Multiple flies (done this session, see PORTING.md "Multiple flies")
-N spawn, F focus, J recall, per-fly brains. Left: per-fly looming/contraption/memory pokes, saves of several flies, a cap tuned to the machine.
-
-## Next, in order
-1. Commit anything uncommitted (`git status`); the real-shapes commit may still be pending.
-2. Remaining UI pages (port line by line from `legacy-python/kickthefly/ui/*.py`, `lab/*.py`): `arcade` + battle (`arcade_ui.py`, `battle_ui.py`; needs personality cards
-   `core/cards.py` and replay frames from the Rust tournament/race engines), `live_inputs` (mic + streamer), `lab_minipapers`, Lab hub + ~20 `lab_*` pages.
-   Also: duel card, photo mode (F10), neuron search + path tracer (`lab/neurosearch.py`), pad navigation, UI scale/menu size (U), language switch live, transitions,
-   big-view region selection feeding the stethoscope, kill cam button on the autopsy card, GIF capture (SAVE DEATH GIF).
-3. The **2D game** (`--2d`): not ported at all. Decide and write it into PORTING.md (likely "not ported, reason").
-4. Item 3, Lab tools (`lab/*.py`): driver lines (`data/driver_lines.yaml`, needs a YAML crate), thermogenetics, patch clamp, calcium imaging, pharmacology, rigs, netsci,
-   bundles, sleep deprivation, sensitivity, knockout/activation screens, failure autopsy, assays-as-challenges, stats export (CSV/JSON identical to Python; compare with
-   `docs/results/`), validation suite (expected 12 PASS / 9 FAIL), headless flags, protocols (42 YAML), replays/bundles formats, pet mode + `pet.ktfsave`.
-5. Item 6: apply a loaded save fully (fly body from `flies[i].fly/slot`, surgery modes), share-code apply for surgery/lab/challenge/protocol/contraption (host returns
-   "can't apply" now), scores sharing.
-6. Finish: every PORTING.md box ticked or reasoned (incl. section 16), README, clean `cargo build/test/clippy`, commit.
+## Next, in order (what is still `[ ]` in PORTING.md section 16 and the Lab list)
+Each of these is a read-the-Python, port-the-engine, test-against-a-golden, draw-the-page, compare-with-pygame cycle:
+1. Lab pages that need small engines: `lab_minipapers` (`lab/minipapers.py`, 487 lines), `lab_classroom`, `lab_netsci` (`lab/netsci.py`, 692), `lab_sleepdep`
+   (`sleepdep.py`), `lab_sensitivity` (`sensitivity.py`, `robustness.py`), `lab_wiring` (`labwiring.py`), `lab_critical`, `lab_clamp`, `lab_diff`, `lab_laser` (`laser.py`),
+   `lab_psych` (`psychometrics.py`), `lab_autopsy`.
+2. Toolkit pages in `lab/labtoolkit.py`: genetics, thermo (`thermogenetics.py`), patch (`patchclamp.py`), imaging, pharm (`pharmacology.py`); rigs (`labrigs.py`,
+   `rigassay.py`); screens (`screens.py`, `labscreen.py`: activation/knockout).
+3. `lab_export` + `lab_protocols`: need the recorder (`recorder.py`: CSV/npz + metadata JSON; NWB needs HDF5, report "not available" like Python's `nwbexport.available()`),
+   the YAML protocol loader/runner (`protocol.py`, 883 lines; protocols are JSON-as-YAML here, so a YAML reader is needed to run the 42 shipped files), bundles (`bundle.py`).
+4. The five assay kinds not in `assay_jobs`: orchard, thermo_escape, predator_escape, hum_demo, sleep_deprivation; larva validation tests; `--validate` / `--headless`.
+5. UI leftovers: `live_inputs`, remaining arcade pad navigation, photo mode, neuron search + path tracer, UI scale, pet mode (+ `pet.ktfsave`).
+6. Multi-fly leftovers: contraption wind / memory scent pokes go to the focused brain; arcade/tool wheel/puppeteer assume one fly; personality card not on bodies.
+7. Finish: README, tick PORTING.md boxes only when verified, clean `cargo build/test/clippy`, commit.
 
 ## Known deviations (written in PORTING.md)
 FreeSans font (check redistribution), linear-light alpha LUT, glyph AA, 3D brain cloud and whole-window big view instead of the flat image, Neuron of the Day uses UTC,
