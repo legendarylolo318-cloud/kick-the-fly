@@ -386,13 +386,12 @@ fn tick(
     tools.pack = pack.clone();
     tools.collect();
     if screen.0 == "lab_wiring" && tools.wire_stats.is_null() {
-        if let Some(counts) = tools.ensure_counts(&pack) {
-            if let Some(shared) = link.0.shared.lock().unwrap_or_else(PoisonError::into_inner).clone() {
-                tools.wire_stats = json!({
-                    "threshold": fly_sim::wiring::threshold_stats(&shared.weights.csr, &counts, 1),
-                    "confidence": fly_sim::wiring::confidence_stats(&shared.labels, 0.5),
-                });
-            }
+        let shared = link.0.shared.lock().unwrap_or_else(PoisonError::into_inner).clone();
+        if let (Some(counts), Some(shared)) = (tools.ensure_counts(&pack), shared) {
+            tools.wire_stats = json!({
+                "threshold": fly_sim::wiring::threshold_stats(&shared.weights.csr, &counts, 1),
+                "confidence": fly_sim::wiring::confidence_stats(&shared.labels, 0.5),
+            });
         }
     }
     if tools.cached_map.is_none() && screen.0 == "lab_netsci" {
