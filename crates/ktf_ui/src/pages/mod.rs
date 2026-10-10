@@ -4,6 +4,7 @@ use crate::menu::Menu;
 
 pub mod arcade;
 pub mod challenges;
+pub mod day4;
 pub mod diag;
 pub mod lab;
 pub mod load_state;
@@ -36,5 +37,8 @@ pub fn install_with(menu: &mut Menu, dex: neurodex::SharedDex) {
     menu.register_page("lab_assays", Box::<lab::LabAssays>::default());
     menu.register_page("lab_asymmetry", Box::new(lab::LabAsymmetry));
     menu.register_page("lab_benchmark", Box::new(lab::LabBenchmark));
+    menu.register_page("lab_netsci", Box::<day4::LabNetsci>::default());
+    menu.register_page("lab_sleepdep", Box::<day4::LabSleepdep>::default());
+    menu.register_page("lab_sensitivity", Box::<day4::LabSensitivity>::default());
     menu.register_page("whatsnew", Box::new(whatsnew::WhatsNew));
 }

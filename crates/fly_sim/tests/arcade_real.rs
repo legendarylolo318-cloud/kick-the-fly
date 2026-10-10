@@ -35,7 +35,7 @@ fn measured_cards_equal_python() {
     let (w, l) = (Arc::new(pk.weights), Arc::new(pk.labels));
     for (k, c) in g["cards"].as_object().unwrap() {
         let (seed, mode) = k.split_once(':').unwrap();
-        let b = Build { weights: &w, labels: &l, mode, sigma: None, lif: cards::LIF_DEFAULTS };
+        let b = Build { weights: &w, labels: &l, mode, sigma: None, lif: cards::LIF_DEFAULTS, wired: None };
         let got = cards::measure_card(&b, seed.parse().unwrap(), &sha, 600, || false).unwrap();
         let f = |n: &str| c[n].as_f64().unwrap();
         eprintln!(
@@ -70,7 +70,7 @@ fn duel_and_race_lane_on_the_real_pack_equal_python() {
     let g = golden();
     let pk = Pack::load(&path).unwrap();
     let (w, l) = (Arc::new(pk.weights), Arc::new(pk.labels));
-    let b = Build { weights: &w, labels: &l, mode: "subtle", sigma: None, lif: cards::LIF_DEFAULTS };
+    let b = Build { weights: &w, labels: &l, mode: "subtle", sigma: None, lif: cards::LIF_DEFAULTS, wired: None };
     let d = &g["duel"];
     let (sa, sb) = (d["a"].as_u64().unwrap(), d["b"].as_u64().unwrap());
     let (na, nb) = (d["noise"][0].as_u64().unwrap(), d["noise"][1].as_u64().unwrap());

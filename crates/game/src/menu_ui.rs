@@ -241,6 +241,7 @@ struct MenuCtx<'w, 's> {
     share_q: Res<'w, crate::share_play::ShareQueue>,
     lab: Res<'w, crate::share_play::LabState>,
     runs: Res<'w, crate::lab_play::LabRuns>,
+    lab_tools: Res<'w, crate::labtools::LabTools>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -278,6 +279,7 @@ fn input(
         share_q,
         lab,
         runs,
+        lab_tools,
     } = mc;
     for f in flashes.read() {
         ui.menu.flash(&f.0, if f.1 { ktf_ui::theme::GOOD } else { ktf_ui::theme::BAD }, if f.1 { 4.0 } else { 6.0 });
@@ -351,7 +353,8 @@ fn input(
         .with_lab(lab.json())
         .with_validation(if ui.menu.is_open() { runs.query() } else { Value::Null })
         .with_assay(if ui.menu.is_open() { runs.assay_query(cfg.0.get_i64("brain.seed")) } else { Value::Null })
-        .with_bench(if ui.menu.is_open() { runs.bench_query() } else { Value::Null });
+        .with_bench(if ui.menu.is_open() { runs.bench_query() } else { Value::Null })
+        .with_tools(lab_tools.state_for(&screen.0), lab_tools.queue.clone());
     if let Some(text) = hub.flash.take() {
         ui.menu.flash(&text, ktf_ui::theme::GOOD, 5.0);
     }
@@ -506,6 +509,7 @@ fn draw(
     hub: Res<crate::arcade_hub::ArcadeHub>,
     lab: Res<crate::share_play::LabState>,
     runs: Res<crate::lab_play::LabRuns>,
+    lab_tools: Res<crate::labtools::LabTools>,
     screen: Res<MenuScreen>,
 ) {
     let Ok((mut v, mut node)) = vis.single_mut() else { return };
@@ -542,7 +546,8 @@ fn draw(
             .with_lab(lab.json())
             .with_validation(if screen_is_validation { runs.query() } else { Value::Null })
             .with_assay(if screen_is_assays { runs.assay_query(brain_seed) } else { Value::Null })
-            .with_bench(if screen.0 == "lab_benchmark" { runs.bench_query() } else { Value::Null }),
+            .with_bench(if screen.0 == "lab_benchmark" { runs.bench_query() } else { Value::Null })
+            .with_tools(lab_tools.state_for(&screen.0), lab_tools.queue.clone()),
     );
     if let Some(mut img) = images.get_mut(&*image) {
         img.data = Some(canvas.px.clone());
@@ -595,9 +600,18 @@ pub struct GameHost {
     validation: Value,
     assay: Value,
     bench: Value,
+    tools: Value,
+    tool_q: Option<Arc<std::sync::Mutex<Vec<(String, Value)>>>>,
 }
 
 impl GameHost {
+    /// The Lab tool pages' state (`labtools`) and the queue their `lab.*` commands go to.
+    pub fn with_tools(mut self, state: Value, q: Arc<std::sync::Mutex<Vec<(String, Value)>>>) -> Self {
+        self.tools = state;
+        self.tool_q = Some(q);
+        self
+    }
+
     pub fn with_arcade(mut self, arcade: Value) -> Self {
         self.arcade = arcade;
         self
@@ -653,6 +667,8 @@ impl GameHost {
             validation: Value::Null,
             assay: Value::Null,
             bench: Value::Null,
+            tools: Value::Null,
+            tool_q: None,
         }
     }
 }
@@ -691,6 +707,7 @@ impl PageHost for GameHost {
             "validation_results" => self.validation.clone(),
             "assay_state" => self.assay.clone(),
             "benchmark_state" => self.bench.clone(),
+            k if k.starts_with("lab.") => self.tools[k].clone(),
             "lab_pages" => ktf_data::labparams::pages().clone(),
             "lab_engine" => json!("Rust · CPU (rayon)"),
             "lab_notes" => json!([]),
@@ -709,6 +726,12 @@ impl PageHost for GameHost {
 
     fn command(&mut self, cmd: &str, args: Value) -> Value {
         use serde_json::json;
+        if cmd.starts_with("lab.") {
+            if let Some(q) = &self.tool_q {
+                q.lock().unwrap_or_else(std::sync::PoisonError::into_inner).push((cmd.into(), args));
+            }
+            return Value::Null;
+        }
         match cmd {
             "share_apply" => match (&self.share, crate::share_play::lines_for(&args["kind"], &args["payload"])) {
                 (Some(q), Ok(lines)) => {

@@ -68,6 +68,10 @@ pub struct Brain {
     /// Brain surgery: per-neuron silencing (-0.6) or stimulating (+0.12) current.
     override_cur: Vec<f32>,
     surgery: bool,
+    /// Named extra currents (`Brain.currents`: thermogenetics, the patch electrode, sleep pressure), in insertion order, and their sum.
+    currents: Vec<(String, Vec<f32>)>,
+    inject: Vec<f32>,
+    injecting: bool,
     /// 0..1 share of the death inhibition (solvent, cold, venom).
     pub sedation: f32,
     death_step: Option<u64>,
@@ -125,6 +129,9 @@ impl Brain {
             driving: false,
             override_cur: vec![0.0; n],
             surgery: false,
+            currents: Vec::new(),
+            inject: Vec::new(),
+            injecting: false,
             sedation: 0.0,
             death_step: None,
             steps: 0,
@@ -245,12 +252,56 @@ impl Brain {
 
     /// True while nothing but the sensory pokes drives the brain: the baseline only learns then.
     fn calm(&self) -> bool {
-        self.death_step.is_none() && self.sedation == 0.0 && !self.surgery && !self.driving
+        self.death_step.is_none() && self.sedation == 0.0 && !self.surgery && !self.driving && !self.injecting
     }
 
     /// The Neurodex's "calm" (`Extras.dex_tick`): nothing touched it for 2 s, no sedation, no surgery, no drive.
     pub fn dex_calm(&self) -> bool {
         self.sedation == 0.0 && !self.surgery && !self.driving && self.steps as i64 - self.groups.last_poke > 400
+    }
+
+    /// `Brain.set_current`: give the named source `value` on `rows`, replacing what that source had; the sources add up.
+    pub fn set_current(&mut self, name: &str, rows: &[u32], value: f32) {
+        let mut arr = vec![0.0f32; self.n()];
+        for &r in rows {
+            arr[r as usize] = value;
+        }
+        match self.currents.iter_mut().find(|c| c.0 == name) {
+            Some(c) => c.1 = arr,
+            None => self.currents.push((name.to_string(), arr)),
+        }
+        self.sum_currents();
+    }
+
+    /// `Brain.set_current` with one value per row.
+    pub fn set_current_values(&mut self, name: &str, rows: &[u32], values: &[f32]) {
+        let mut arr = vec![0.0f32; self.n()];
+        for (&r, &v) in rows.iter().zip(values) {
+            arr[r as usize] = v;
+        }
+        match self.currents.iter_mut().find(|c| c.0 == name) {
+            Some(c) => c.1 = arr,
+            None => self.currents.push((name.to_string(), arr)),
+        }
+        self.sum_currents();
+    }
+
+    pub fn clear_current(&mut self, name: &str) {
+        if let Some(i) = self.currents.iter().position(|c| c.0 == name) {
+            self.currents.remove(i);
+            self.sum_currents();
+        }
+    }
+
+    fn sum_currents(&mut self) {
+        let mut total = vec![0.0f32; self.n()];
+        for (_, arr) in &self.currents {
+            for (t, a) in total.iter_mut().zip(arr) {
+                *t += a;
+            }
+        }
+        self.injecting = total.iter().any(|&v| v != 0.0);
+        self.inject = total;
     }
 
     /// Brain surgery or a held drive is on.
@@ -319,7 +370,7 @@ impl Brain {
             return self.sim.spikes();
         }
         let poked = self.groups.has_pending();
-        let any = self.sedation > 0.0 || self.surgery || self.driving || poked;
+        let any = self.sedation > 0.0 || self.surgery || self.driving || self.injecting || poked;
         if !any {
             self.sim.step(None);
         } else {
@@ -344,6 +395,11 @@ impl Brain {
             }
             if self.driving {
                 for (x, d) in self.scratch.iter_mut().zip(&self.drive_cur) {
+                    *x += d;
+                }
+            }
+            if self.injecting {
+                for (x, d) in self.scratch.iter_mut().zip(&self.inject) {
                     *x += d;
                 }
             }

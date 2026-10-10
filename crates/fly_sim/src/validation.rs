@@ -225,7 +225,19 @@ fn emd_stage(g: &HashMap<&'static str, Vec<u32>>, yaw: f64) -> Vec<(Vec<u32>, f3
 /// One seed's pathway tests (`validation._pathway_seed`): a brain built with individuality off, then every drive and its control from the
 /// same snapshot. `only`: just these test ids (the control draws are made as if all had run, so skipping never changes a result).
 pub fn pathway_seed(weights: &Arc<Weights>, labels: &Arc<Labels>, seed: u64, only: Option<&[&str]>) -> serde_json::Map<String, Value> {
-    let build = Build { weights, labels, mode: "off", sigma: None, lif: crate::cards::LIF_DEFAULTS };
+    pathway_seed_with(weights, labels, seed, only, crate::cards::LIF_DEFAULTS, None)
+}
+
+/// [`pathway_seed`] with Lab model parameters (`noise_std, bias, target_rate_hz, ext_gain, gain_adapt`), as the sensitivity analysis varies them.
+pub fn pathway_seed_with(
+    weights: &Arc<Weights>,
+    labels: &Arc<Labels>,
+    seed: u64,
+    only: Option<&[&str]>,
+    lif: [f64; 5],
+    wired: Option<&Arc<Weights>>,
+) -> serde_json::Map<String, Value> {
+    let build = Build { weights, labels, mode: "off", sigma: None, lif, wired };
     let mut br = build.brain(seed, None, 600);
     let g = groups(labels, weights);
     let snap = br.export_state(seed);
@@ -758,7 +770,7 @@ fn count_rows(br: &mut Brain, rows: &[u32], steps: usize) -> Vec<f64> {
 /// `probe_epg_compass`: does a stable head-direction bump form and persist? (Python's wedge drive, `br.override[wedge] = 1.0`, sets the
 /// override without the `surgery` flag, so the brain never applies it: the "driven" wedge is not driven. Reproduced as it is.)
 pub fn probe_epg_compass(weights: &Arc<Weights>, labels: &Arc<Labels>, seeds: &[u64], warmup: usize) -> Value {
-    let build = Build { weights, labels, mode: "off", sigma: None, lif: crate::cards::LIF_DEFAULTS };
+    let build = Build { weights, labels, mode: "off", sigma: None, lif: crate::cards::LIF_DEFAULTS, wired: None };
     let (mut contrasts, mut persist, mut base_sd, mut base_mean) = (Vec::new(), Vec::new(), Vec::new(), Vec::new());
     for &s in seeds {
         let mut br = build.brain_with(s, None, warmup, true);
@@ -875,7 +887,7 @@ fn circ_corr(a: &[f64], b: &[f64]) -> f64 {
 
 /// `probe_epg_wind`: steady directional wind, the open field's cue, as the only input: does an E-PG bump form, persist, track?
 pub fn probe_epg_wind(weights: &Arc<Weights>, labels: &Arc<Labels>, seeds: &[u64], warmup: usize) -> Value {
-    let build = Build { weights, labels, mode: "off", sigma: None, lif: crate::cards::LIF_DEFAULTS };
+    let build = Build { weights, labels, mode: "off", sigma: None, lif: crate::cards::LIF_DEFAULTS, wired: None };
     let speed = WIND_FULL;
     let (mut contrasts, mut persists, mut corr_l, mut corr_r, mut base_contrasts) = (vec![], vec![], vec![], vec![], vec![]);
     let (mut per_seed, mut pva_sets, mut base_hz, mut wind_hz) = (vec![], vec![], vec![], vec![]);
@@ -997,6 +1009,21 @@ pub fn run(
     seeds: &[u64],
     include: Option<&[&str]>,
     workers: usize,
+    progress: impl FnMut(usize, usize, &str) -> bool,
+) -> Result<Value, String> {
+    run_with(weights, labels, seeds, include, workers, crate::cards::LIF_DEFAULTS, None, progress)
+}
+
+/// [`run`] with Lab model parameters for the pathway and T-maze flies (`validation.run(params=...)`; the other tests ignore them).
+#[allow(clippy::too_many_arguments)]
+pub fn run_with(
+    weights: &Arc<Weights>,
+    labels: &Arc<Labels>,
+    seeds: &[u64],
+    include: Option<&[&str]>,
+    workers: usize,
+    lif: [f64; 5],
+    wired: Option<&Arc<Weights>>,
     mut progress: impl FnMut(usize, usize, &str) -> bool,
 ) -> Result<Value, String> {
     let all: Vec<&str> = tests().iter().filter_map(|t| t["id"].as_str()).collect();
@@ -1043,7 +1070,8 @@ pub fn run(
             let tx = tx.clone();
             let (next, stop) = (&next, &stop);
             scope.spawn(move || {
-                let build = Build { weights, labels, mode: "off", sigma: None, lif: crate::cards::LIF_DEFAULTS };
+                let build = Build { weights, labels, mode: "off", sigma: None, lif, wired };
+                let plain = Build { weights, labels, mode: "off", sigma: None, lif: crate::cards::LIF_DEFAULTS, wired: None };
                 loop {
                     if stop.load(std::sync::atomic::Ordering::Relaxed) {
                         return;
@@ -1051,13 +1079,13 @@ pub fn run(
                     let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                     let Some(job) = jobs.get(i) else { return };
                     let done = match job {
-                        Job::Path(s) => Done::Path(*s, pathway_seed(weights, labels, *s, only_ref)),
+                        Job::Path(s) => Done::Path(*s, pathway_seed_with(weights, labels, *s, only_ref, lif, wired)),
                         Job::Tmaze(s, a_plus, paired) => {
                             let (seed, cs) = if *a_plus { (*s, "odor_a") } else { (*s + 50_000, "odor_b") };
                             Done::Tmaze(*s, *paired, tmaze_fly(&build, seed, cs, 6, 20, *paired, 0.08))
                         }
-                        Job::Ext(s) => Done::Ext(*s, extinction_fly(&build, *s)),
-                        Job::Soc(s, paired) => Done::Soc(*s, *paired, second_order_fly(&build, *s, *paired)),
+                        Job::Ext(s) => Done::Ext(*s, extinction_fly(&plain, *s)),
+                        Job::Soc(s, paired) => Done::Soc(*s, *paired, second_order_fly(&plain, *s, *paired)),
                     };
                     if tx.send(done).is_err() {
                         return;

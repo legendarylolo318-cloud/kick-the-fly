@@ -177,6 +177,7 @@ pub fn build_brain(shared: &Shared, seed: u64, noise_seed: u64, sigma: f64) -> B
         mode: "subtle",
         sigma: Some(sigma),
         lif: fly_sim::cards::LIF_DEFAULTS,
+        wired: None,
     };
     build.brain(seed, Some(noise_seed), 600)
 }

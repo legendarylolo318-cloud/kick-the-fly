@@ -604,3 +604,58 @@ fn lab_asymmetry_and_benchmark_pages() {
         compare(name, &cv.to_rgb_over(BG), 0.02);
     }
 }
+
+#[test]
+fn lab_day4_pages() {
+    struct H(serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            if key == "lab.day4_state" { self.0.clone() } else { serde_json::Value::Null }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    let load = |n: &str| -> serde_json::Value {
+        serde_json::from_slice(&std::fs::read(format!("{}/../../tests/golden/{n}.json", env!("CARGO_MANIFEST_DIR"))).unwrap()).unwrap()
+    };
+    let (net, sleep, sens) = (load("netsci"), load("sleepdep"), load("sensitivity"));
+    let empty =
+        serde_json::json!({"job": null, "error": "", "msg": "", "net": {}, "cached": {"adult": false}, "sleep": null, "sens": null});
+    for (name, screen, state) in [
+        ("page_lab_netsci_empty.png", "lab_netsci", empty.clone()),
+        (
+            "page_lab_netsci.png",
+            "lab_netsci",
+            serde_json::json!({"job": null, "error": "", "msg": "", "net": {"adult": net}, "cached": {"adult": true}, "sleep": null, "sens": null}),
+        ),
+        ("page_lab_sleepdep_empty.png", "lab_sleepdep", empty.clone()),
+        (
+            "page_lab_sleepdep.png",
+            "lab_sleepdep",
+            serde_json::json!({"job": null, "error": "", "msg": "", "net": {}, "cached": {}, "sleep": sleep, "sens": null}),
+        ),
+        ("page_lab_sensitivity_empty.png", "lab_sensitivity", empty.clone()),
+        (
+            "page_lab_sensitivity.png",
+            "lab_sensitivity",
+            serde_json::json!({"job": null, "error": "", "msg": "", "net": {}, "cached": {}, "sleep": null, "sens": sens}),
+        ),
+    ] {
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        m.show(screen);
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(state));
+        if let Ok(dir) = std::env::var("KTF_DUMP") {
+            let rgb = cv.to_rgb_over(BG);
+            let file = std::fs::File::create(format!("{dir}/rust_{name}")).unwrap();
+            let mut enc = png::Encoder::new(std::io::BufWriter::new(file), 1280, 720);
+            enc.set_color(png::ColorType::Rgb);
+            enc.set_depth(png::BitDepth::Eight);
+            enc.write_header().unwrap().write_image_data(&rgb).unwrap();
+        }
+        compare(name, &cv.to_rgb_over(BG), 0.02);
+    }
+}

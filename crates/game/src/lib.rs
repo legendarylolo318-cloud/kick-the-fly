@@ -40,6 +40,7 @@ pub mod killcam;
 pub mod killcam_play;
 pub mod kitchen;
 pub mod lab_play;
+pub mod labtools;
 pub mod lesion;
 pub mod memory_play;
 pub mod menu_ui;
@@ -191,6 +192,12 @@ impl Plugin for GamePlugin {
                 fly::FlyPlugin,
                 fly_visuals::FlyVisualsPlugin,
             ))
-            .add_plugins((arcade_hub::ArcadeHubPlugin, flies_play::FliesPlugin, share_play::SharePlugin, lab_play::LabPlugin));
+            .add_plugins((
+                arcade_hub::ArcadeHubPlugin,
+                flies_play::FliesPlugin,
+                share_play::SharePlugin,
+                lab_play::LabPlugin,
+                labtools::LabToolsPlugin,
+            ));
     }
 }

@@ -462,7 +462,8 @@ impl ArcadeHub {
         self.start("Tournament", move |progress, cancel| {
             let seeds: Vec<u64> = (0..size as u64).map(|i| base + i).collect();
             let sha = pack_sha();
-            let build = Build { weights: &shared.weights, labels: &shared.labels, mode: &mode, sigma: None, lif: cards::LIF_DEFAULTS };
+            let build =
+                Build { weights: &shared.weights, labels: &shared.labels, mode: &mode, sigma: None, lif: cards::LIF_DEFAULTS, wired: None };
             let measured = measure(&build, &seeds, &sha, cancel, progress)?;
             let mut player = RealPlayer { build: &build, bracket_seed: 0, cancel, progress, played: 0, total: size - 1 };
             let out = tournament::run_bracket(&seeds, secs, favorite, 0, true, &mut player)?;
@@ -484,7 +485,7 @@ impl ArcadeHub {
         let seconds = v["seconds"].as_f64().unwrap_or(20.0);
         let battle_seed = v["battle_seed"].as_u64().unwrap_or(sa);
         self.start("Battle", move |progress, cancel| {
-            let build = Build { weights: &shared.weights, labels: &shared.labels, mode: &mode, sigma: None, lif: cards::LIF_DEFAULTS };
+            let build = Build { weights: &shared.weights, labels: &shared.labels, mode: &mode, sigma: None, lif: cards::LIF_DEFAULTS, wired: None };
             let mut wins = [0u32; 2];
             let mut results = Vec::new();
             for r in 0..rounds {
@@ -552,7 +553,8 @@ impl ArcadeHub {
         let mode = mode.to_string();
         let seeds = self.play.clone();
         self.start("Measuring the flies in play", move |progress, cancel| {
-            let build = Build { weights: &shared.weights, labels: &shared.labels, mode: &mode, sigma: None, lif: cards::LIF_DEFAULTS };
+            let build =
+                Build { weights: &shared.weights, labels: &shared.labels, mode: &mode, sigma: None, lif: cards::LIF_DEFAULTS, wired: None };
             Ok(Done::Measured(measure(&build, &seeds, &pack_sha(), cancel, progress)?))
         });
     }
@@ -566,7 +568,8 @@ impl ArcadeHub {
         self.start("Looking at the field", move |progress, cancel| {
             let seeds: Vec<u64> = (0..lanes as u64).map(|i| base + i).collect();
             let sha = pack_sha();
-            let build = Build { weights: &shared.weights, labels: &shared.labels, mode: &mode, sigma: None, lif: cards::LIF_DEFAULTS };
+            let build =
+                Build { weights: &shared.weights, labels: &shared.labels, mode: &mode, sigma: None, lif: cards::LIF_DEFAULTS, wired: None };
             Ok(Done::Field(measure(&build, &seeds, &sha, cancel, progress)?))
         });
     }
@@ -581,7 +584,8 @@ impl ArcadeHub {
             if seeds.len() != lanes || seeds.is_empty() {
                 return Err("the field changed: look at it again".into());
             }
-            let build = Build { weights: &shared.weights, labels: &shared.labels, mode: &mode, sigma: None, lif: cards::LIF_DEFAULTS };
+            let build =
+                Build { weights: &shared.weights, labels: &shared.labels, mode: &mode, sigma: None, lif: cards::LIF_DEFAULTS, wired: None };
             let nums: Vec<CardNumbers> = field.iter().map(card_numbers).collect();
             let mut done = 0usize;
             let mut lane = |seed: u64, repeat: usize| -> Result<race::LaneResult, String> {

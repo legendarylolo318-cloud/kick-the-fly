@@ -230,6 +230,9 @@ pub struct Build<'a> {
     pub mode: &'a str,
     pub sigma: Option<f64>,
     pub lif: [f64; 5],
+    /// The connectome with a [`crate::wiring::Wiring`] applied: groups and the learning table are chosen on `weights`, then the simulator
+    /// runs on this (`simcore.new_brain(wiring=...)` applies it after the brain is built).
+    pub wired: Option<&'a Arc<Weights>>,
 }
 
 impl Build<'_> {
@@ -241,15 +244,27 @@ impl Build<'_> {
 
     /// As [`Build::brain`]; `memory` switches the mushroom-body learning on before the warm-up, as `simcore.new_brain(memory=True)` does.
     pub fn brain_with(&self, seed: u64, noise: Option<u64>, warmup: usize, memory: bool) -> Brain {
-        let mut sim = LifSim::new(self.weights.clone(), lif_params(&self.lif), seed);
+        // the defaults first, then `lab.apply_to_sim` for what differs (the noise bank is pre-scaled, so the order matters in the last bit)
+        let mut sim = LifSim::new(self.weights.clone(), lif_params(&LIF_DEFAULTS), seed);
         let s = sigma_of(self.mode, self.sigma);
         if !self.mode.eq_ignore_ascii_case("off") {
             sim.set_individuality(Individuality::compute(seed, self.weights.n(), s));
+        }
+        for (k, key) in LIF_KEYS.iter().enumerate() {
+            if self.lif[k] != LIF_DEFAULTS[k] {
+                sim.set_model_param(key, self.lif[k]);
+            }
         }
         let mut b = Brain::new(sim, self.labels.clone());
         b.set_poke_seed(seed);
         if memory {
             b.enable_memory();
+        }
+        if let Some(w) = self.wired {
+            *b.sim.weights_mut() = w.clone();
+            if let Some(m) = b.memory.as_mut() {
+                m.rebase(w);
+            }
         }
         b.warmup(warmup);
         if let Some(n) = noise {

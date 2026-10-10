@@ -255,13 +255,13 @@ against the pygame version (screenshot pair, or the code read side by side). Any
 - [ ] Menu page `lab_export`
 - [ ] Menu page `lab_laser`
 - [ ] Menu page `lab_minipapers`
-- [ ] Menu page `lab_netsci`
+- [x] Menu page `lab_netsci` — matched with pygame (empty and with the real result). `fly_sim::netsci` equals Python's whole analysis on the real pack within 1e-9 (degrees, reciprocity, motifs vs the degree-preserving null, rich club, Louvain communities, regions; NumPy RNG streams, pairwise sums and SciPy's accumulation order reproduced); golden `tests/golden/netsci.json`. Larva has no pack here: the page shows Python's own "brain pack not found" error. Python defect kept: the scroll extent counts the offset twice (`_end`).
 - [x] Menu page `lab_params` + **live parameters**: the 43 parameters as data from `lab.PARAMS` (`ktf_data::labparams`), sliders with typed values, MODEL/GAME RULE chips, tips with defaults, Reset; 2 screenshot pairs 0.40-0.46 %. Model parameters go to every fly's brain (`Command::SetModelParam`, `LifSim::set_model_param` = `lab.apply_to_sim`, also for flies spawned later); rule thresholds are live in `reactions::thresholds()` (the reactions and the looming drive read them). **Not applied:** `indiv.sigma_*` (individuality sigma), `pet.*` (no pet mode yet), the open-field/weather/orchard/outdoor constants (`world.rs` reads its own constants), and the duel's own thresholds (`fly_sim::duel::T_*`); the values are kept and shown.
 - [ ] Menu page `lab_protocols`
 - [ ] Menu page `lab_psych`
 - [ ] Menu page `lab_rigs`
-- [ ] Menu page `lab_sensitivity`
-- [ ] Menu page `lab_sleepdep`
+- [x] Menu page `lab_sensitivity` — matched with pygame. `fly_sim::sensitivity` + `fly_sim::wiring` (synapse threshold applied after the brain is built, learning rebased, as `simcore.new_brain(wiring=)`) equal Python's noise and synapse-threshold cells; golden `tests/golden/sensitivity.json`. The full grid is hours, as in Python.
+- [x] Menu page `lab_sleepdep` — matched with pygame. `fly_sim::sleepdep` (+ `outdoors`, named held currents `Brain::set_current`) equals Python's assay on seeds 1000-1002 (sleep seconds exact, pressures and dFB levels to 1e-6); golden `tests/golden/sleepdep.json`.
 - [x] Menu page `lab_validation`: the page (cards, PASS/FAIL chips, numbers by test kind, criteria, citations, hover notes, run button with progress) matches pygame on the published results (2 screenshot pairs); the **Run validation now** button runs the real suite in the game (`game::lab_play`, a thread with 4 workers, progress bar) and saves `<data>/validation_results.json` as Python does; a run on this PC wins over the bundled one.
 - [ ] Menu page `lab_wiring`
 - [ ] Menu page `live_inputs`

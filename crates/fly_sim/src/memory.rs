@@ -221,6 +221,16 @@ impl Memory {
         })
     }
 
+    /// `wiring._apply_to_memory`: the plastic synapses start from the wired matrix's values (the learned state is still the connectome's).
+    pub fn rebase(&mut self, weights: &Weights) {
+        for (i, &p) in self.csr_pos.iter().enumerate() {
+            let v = weights.csr.data[p as usize];
+            self.w0[i] = v;
+            self.w[i] = v;
+            self.written[i] = v;
+        }
+    }
+
     /// `Memory.step`: called every [`UPDATE_STEPS`] steps with the simulator (its rate EMA, its weights) and whether the brain is calm.
     pub fn step(&mut self, sim: &mut LifSim, calm: bool) {
         let rates = sim.activity.rates();

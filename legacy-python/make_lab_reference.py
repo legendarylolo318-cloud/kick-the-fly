@@ -88,4 +88,27 @@ if __name__ == "__main__":
         return prep
 
     R.render("lab_benchmark", "Graphics", out / "page_lab_benchmark.png", prep=bench_prep(bench))
+    from kickthefly.lab import labday4
+    gd = Path(__file__).resolve().parent.parent / "tests" / "golden"
+
+    def day4_prep(screen, net=None, sleep=None, sens=None, cached=False):
+        def prep(m):
+            prep_for(screen)(m)
+            st = labday4._St()
+            if net:
+                st.net["adult"] = net
+            st.cached["adult"] = cached
+            st.sleep, st.sens = sleep, sens
+            m.host._day4_lab = st
+        return prep
+
+    net = json.loads((gd / "netsci.json").read_text())
+    sleep = json.loads((gd / "sleepdep.json").read_text())
+    sens = json.loads((gd / "sensitivity.json").read_text())
+    R.render("lab_netsci", "Graphics", out / "page_lab_netsci_empty.png", prep=day4_prep("lab_netsci"))
+    R.render("lab_netsci", "Graphics", out / "page_lab_netsci.png", prep=day4_prep("lab_netsci", net=net, cached=True))
+    R.render("lab_sleepdep", "Graphics", out / "page_lab_sleepdep_empty.png", prep=day4_prep("lab_sleepdep"))
+    R.render("lab_sleepdep", "Graphics", out / "page_lab_sleepdep.png", prep=day4_prep("lab_sleepdep", sleep=sleep))
+    R.render("lab_sensitivity", "Graphics", out / "page_lab_sensitivity_empty.png", prep=day4_prep("lab_sensitivity"))
+    R.render("lab_sensitivity", "Graphics", out / "page_lab_sensitivity.png", prep=day4_prep("lab_sensitivity", sens=sens))
     print("wrote", out)

@@ -333,7 +333,7 @@ pub fn assay_task(
     options: &Value,
     surgery: &[(String, i8)],
 ) -> Result<Value, String> {
-    let build = Build { weights, labels, mode: "off", sigma: None, lif: LIF_DEFAULTS };
+    let build = Build { weights, labels, mode: "off", sigma: None, lif: LIF_DEFAULTS, wired: None };
     let g = validation::groups(labels, weights);
     match kind {
         "tmaze" => {

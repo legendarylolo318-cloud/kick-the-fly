@@ -59,7 +59,7 @@ fn conditioning_assays_equal_the_published_python_results() {
     .unwrap();
     let pk = Pack::load(path).unwrap();
     let (w, l) = (Arc::new(pk.weights), Arc::new(pk.labels));
-    let build = Build { weights: &w, labels: &l, mode: "off", sigma: None, lif: LIF_DEFAULTS };
+    let build = Build { weights: &w, labels: &l, mode: "off", sigma: None, lif: LIF_DEFAULTS, wired: None };
     let find = |id: &str, seed: u64| -> Value {
         published["tests"].as_array().unwrap().iter().find(|t| t["id"] == id).unwrap()["per_seed"]
             .as_array()
