@@ -10,7 +10,9 @@
 //! Nothing here depends on Bevy or on a window; everything runs headless.
 
 pub mod activity;
+pub mod assays;
 pub mod brain;
+pub mod challenge;
 pub mod csr;
 pub mod groups;
 pub mod lif;

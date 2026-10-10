@@ -275,3 +275,31 @@ fn bugreport_page() {
 fn crash_page() {
     compare_size("page_crash.png", &diag_shot("crash", (900, 620), |_| {}), 0.009, (900, 620));
 }
+
+#[test]
+fn challenges_page() {
+    struct H(serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            if key == "challenge_scores" { self.0.clone() } else { serde_json::Value::Null }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    for (name, scores) in [
+        (
+            "page_challenges.png",
+            serde_json::json!({"tmaze": 8, "sneak": 1.4, "sweet": 35, "reverse_surgery": 2, "puppeteer": 4, "predict": 7}),
+        ),
+        ("page_challenges_new.png", serde_json::json!({})),
+    ] {
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        m.show("challenges");
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(scores));
+        compare(name, &cv.to_rgb_over(BG), 0.012);
+    }
+}

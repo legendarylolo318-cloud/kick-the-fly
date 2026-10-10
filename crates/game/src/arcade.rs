@@ -85,6 +85,14 @@ pub struct Arcade {
     result: Vec<String>,
 }
 
+impl Arcade {
+    /// Challenges > Puppeteer: the arcade at its puppeteer level list.
+    pub fn open_puppeteer(&mut self) {
+        self.open = true;
+        self.page = Page::Puppeteer;
+    }
+}
+
 impl Default for Arcade {
     fn default() -> Self {
         Self {

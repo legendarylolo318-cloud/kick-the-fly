@@ -142,6 +142,11 @@ if __name__ == "__main__":
             "br", dict(items=bugreport_items(), sel=sel, note="The fly froze when I used the bomb", saved=None, msg="")))
     render("bugreport", "Graphics", out / "page_bugreport_saved.png", prep=lambda m: m.__dict__.__setitem__(
         "br", dict(items=bugreport_items(), sel=3, note="", saved="/home/user/.local/state/kick-the-fly/bugreports/kickthefly-bugreport-20261009-120000.txt", msg="")))
+    from kickthefly.lab import challenges as ch_mod
+    ch_mod.load_scores = lambda: dict(tmaze=8, sneak=1.4, sweet=35, reverse_surgery=2, puppeteer=4, predict=7)
+    render("challenges", "Graphics", out / "page_challenges.png", prep=lambda m: m.pages.__setitem__("challenges", ch_mod.page_challenges))
+    ch_mod.load_scores = lambda: {}
+    render("challenges", "Graphics", out / "page_challenges_new.png", prep=lambda m: m.pages.__setitem__("challenges", ch_mod.page_challenges))
     host_paths = [Path("/home/user/.local/state/kick-the-fly/KickTheFly-crash.txt"), Path("/opt/kick/KickTheFly-crash.txt")]
     render("crash", "Graphics", out / "page_crash.png", w=900, h=620, prep=lambda m: setattr(m.host, "paths", host_paths))
     print("wrote", out)

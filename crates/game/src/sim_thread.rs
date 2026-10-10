@@ -17,7 +17,7 @@ use fly_sim::pack::{Labels, Pack};
 use fly_sim::training::{Kind, Outcome, Training};
 use fly_sim::{Brain, synthetic};
 
-use crate::snapshot::{BrainInfo, Mailbox, MemoryView, Phase, Snapshot, TrainView};
+use crate::snapshot::{BrainInfo, ChallengeView, Mailbox, MemoryView, Phase, Snapshot, TrainView};
 
 /// Brain steps behind real time that are dropped rather than caught up (Python: `due - done > 40`).
 const MAX_BACKLOG: u64 = 40;
@@ -116,6 +116,16 @@ pub enum Command {
     MemoryBorrowed(bool),
     /// Write `fly-memory.npz` now.
     SaveMemory,
+    /// `TMaze.pick`: start the door-learning challenge (`odor_a` or `odor_b` zaps).
+    StartTMaze {
+        zap: String,
+        seed: u64,
+    },
+    StartSweet,
+    /// Offer sugar at this strength (0..100 %).
+    SweetOffer(u32),
+    /// Close the running challenge (the memory it borrowed is put back).
+    EndChallenge,
     /// Report the whole brain state (a save): the answer comes as [`SimEvent::State`].
     ExportState,
     /// Put a saved brain state back (a loaded save).
@@ -138,6 +148,16 @@ pub enum SimEvent {
     Discovered(fly_sim::neurodex::Found),
     /// The answer to [`Command::ExportState`].
     State(Box<fly_sim::brain::BrainState>),
+    /// The T-maze made a choice (`right` = the door that does not zap).
+    TMazeChose {
+        right: bool,
+    },
+    TMazeFinished {
+        right: usize,
+    },
+    /// The fly answered a sugar offer: (dose, extended, ratio).
+    SweetAnswer(u32, bool, f32),
+    SweetFinished(Option<u32>),
 }
 
 pub struct SimHandle {
@@ -336,7 +356,7 @@ fn run(
         brain.step();
         done += 1;
         dex_check(&brain, &mut dex, &events);
-        mem.after_step(&mut brain);
+        mem.after_step(&mut brain, &events);
         if rate_t.elapsed() >= Duration::from_secs(1) {
             steps_per_s = (brain.steps - rate_steps) as f32 / rate_t.elapsed().as_secs_f32();
             rate_t = Instant::now();
@@ -430,6 +450,30 @@ fn apply(
         }
         Command::DexEnabled(on) => {
             dex.enabled = on;
+            false
+        }
+        Command::StartTMaze { zap, seed } => {
+            mem.end_challenge(brain);
+            if let (Some(t), Some(m)) = (fly_sim::challenge::TMaze::start(brain, &zap, seed), brain.memory.as_ref()) {
+                mem.saved = Some(m.snapshot());
+                mem.borrowed = true;
+                mem.tmaze = Some(t);
+            }
+            false
+        }
+        Command::StartSweet => {
+            mem.end_challenge(brain);
+            mem.sweet = Some(fly_sim::challenge::Sweet::new());
+            false
+        }
+        Command::SweetOffer(dose) => {
+            if let Some(s) = mem.sweet.as_mut() {
+                s.offer(brain, dose);
+            }
+            false
+        }
+        Command::EndChallenge => {
+            mem.end_challenge(brain);
             false
         }
         Command::Observe(scent) => {
@@ -553,6 +597,8 @@ fn publish(
             s.info = Some(info.clone());
         }
         s.memory.clone_from(&mem.view);
+        s.challenge.clone_from(&mem.chal_view);
+        s.challenge_speed = mem.chal_speed;
         s.published_at = Some(Instant::now());
     });
 }
@@ -564,6 +610,11 @@ struct MemState {
     training: Option<Training>,
     borrowed: bool,
     view: Option<Arc<MemoryView>>,
+    tmaze: Option<fly_sim::challenge::TMaze>,
+    sweet: Option<fly_sim::challenge::Sweet>,
+    saved: Option<fly_sim::memory::Saved>,
+    chal_view: Option<Arc<ChallengeView>>,
+    chal_speed: f32,
 }
 
 fn unix_now() -> f64 {
@@ -572,7 +623,18 @@ fn unix_now() -> f64 {
 
 impl MemState {
     fn new(dir: Option<std::path::PathBuf>) -> Self {
-        MemState { dir, last_save: Instant::now(), training: None, borrowed: false, view: None }
+        MemState {
+            dir,
+            last_save: Instant::now(),
+            training: None,
+            borrowed: false,
+            view: None,
+            tmaze: None,
+            sweet: None,
+            saved: None,
+            chal_view: None,
+            chal_speed: 1.0,
+        }
     }
 
     fn file(&self) -> Option<std::path::PathBuf> {
@@ -651,7 +713,8 @@ impl MemState {
     }
 
     /// After every brain step: the conditioning protocol, the 30 s autosave, and the view the game reads (every 12 steps).
-    fn after_step(&mut self, brain: &mut Brain) {
+    fn after_step(&mut self, brain: &mut Brain, events: &Sender<SimEvent>) {
+        self.tick_challenges(brain, events);
         if brain.memory.is_none() {
             return;
         }
@@ -669,6 +732,91 @@ impl MemState {
         }
         if brain.steps.is_multiple_of(12) || self.view.is_none() {
             self.rebuild_view(brain);
+        }
+    }
+
+    /// Put back the memory a challenge borrowed and let go of it.
+    fn end_challenge(&mut self, brain: &mut Brain) {
+        self.tmaze = None;
+        self.sweet = None;
+        if let (Some(saved), Some(mut m)) = (self.saved.take(), brain.memory.take()) {
+            m.restore_snapshot(&mut brain.sim, saved);
+            brain.memory = Some(m);
+        }
+        self.borrowed = false;
+        self.chal_view = None;
+        self.chal_speed = 1.0;
+    }
+
+    fn tick_challenges(&mut self, brain: &mut Brain, events: &Sender<SimEvent>) {
+        use fly_sim::challenge::{SEvent, SPhase, TEvent, TPhase};
+        let now = unix_now();
+        if let Some(t) = self.tmaze.as_mut() {
+            match t.tick(brain, now) {
+                TEvent::Chose { right } => {
+                    let _ = events.send(SimEvent::TMazeChose { right });
+                }
+                TEvent::Finished { right } => {
+                    let _ = events.send(SimEvent::TMazeFinished { right });
+                    // the borrowed memory goes back at once; the panel keeps showing the result
+                    if let (Some(saved), Some(mut m)) = (self.saved.take(), brain.memory.take()) {
+                        m.restore_snapshot(&mut brain.sim, saved);
+                        brain.memory = Some(m);
+                    }
+                    self.borrowed = false;
+                }
+                TEvent::None => {}
+            }
+        }
+        if let Some(s) = self.sweet.as_mut() {
+            match s.tick(brain, now) {
+                SEvent::Answer(d, e, r) => {
+                    let _ = events.send(SimEvent::SweetAnswer(d, e, r));
+                }
+                SEvent::Finished(score) => {
+                    let _ = events.send(SimEvent::SweetFinished(score));
+                }
+                SEvent::None => {}
+            }
+        }
+        if brain.steps.is_multiple_of(4) {
+            self.chal_view = if let Some(t) = &self.tmaze {
+                self.chal_speed = t.speed();
+                Some(Arc::new(ChallengeView {
+                    kind: "tmaze".into(),
+                    phase: match t.phase {
+                        TPhase::Naive => "naive",
+                        TPhase::Train => "train",
+                        TPhase::Test => "test",
+                        TPhase::Done => "done",
+                    }
+                    .into(),
+                    stage: t.stage,
+                    cycle: t.cycle,
+                    zap: t.zap.clone(),
+                    choices: t.choices.clone(),
+                    anim_at: t.anim_at,
+                    ..Default::default()
+                }))
+            } else {
+                self.sweet.as_ref().map(|s| {
+                    Arc::new(ChallengeView {
+                        kind: "sweet".into(),
+                        phase: match s.phase {
+                            SPhase::Ready => "ready",
+                            SPhase::Before => "before",
+                            SPhase::During => "during",
+                            SPhase::Shown => "shown",
+                            SPhase::Done => "done",
+                        }
+                        .into(),
+                        dose: s.dose,
+                        offers: s.offers.clone(),
+                        score: s.score,
+                        ..Default::default()
+                    })
+                })
+            };
         }
     }
 

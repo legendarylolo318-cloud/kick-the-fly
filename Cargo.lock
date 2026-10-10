@@ -3780,6 +3780,7 @@ dependencies = [
  "fs4",
  "ktf_data",
  "ktf_ui",
+ "png",
  "serde_json",
  "sha2",
  "wgpu",

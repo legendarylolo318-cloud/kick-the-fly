@@ -424,3 +424,17 @@ fn neurodex_matches_python() {
         assert!((g.3 - w["x"].as_f64().unwrap()).abs() < 0.011, "ratio {} vs {}", g.3, w["x"]);
     }
 }
+
+/// `lab/assays.py:groups`: the sweet and bitter taste neurons, ranked by reach onto the sugar and bitter pathways.
+#[test]
+fn taste_groups_match_python() {
+    let Some(path) = fly_sim::pack::find_default() else { return };
+    let g: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/golden/assay_groups.json")).unwrap())
+            .unwrap();
+    let pack = fly_sim::Pack::load(path).unwrap();
+    let (sweet, bitter) = fly_sim::assays::taste_groups(&pack.labels, &pack.weights.csr);
+    let want = |k: &str| -> Vec<u32> { g[k].as_array().unwrap().iter().map(|v| v.as_u64().unwrap() as u32).collect() };
+    assert_eq!(sweet, want("sweet"));
+    assert_eq!(bitter, want("bitter"));
+}

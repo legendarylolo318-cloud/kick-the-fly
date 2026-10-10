@@ -422,6 +422,11 @@ impl Groups {
         }
     }
 
+    /// A group that can be poked (`sense[(region, None)]`) without being a readout (the assay groups `sweet` and `bitter`).
+    pub fn add_sense(&mut self, region: &str, rows: Vec<u32>) {
+        self.sense.insert((region.to_string(), None), rows);
+    }
+
     pub fn clear_pending(&mut self) {
         self.pending.clear();
     }

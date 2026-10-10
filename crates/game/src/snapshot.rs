@@ -54,6 +54,24 @@ pub struct TrainView {
     pub phase: String,
 }
 
+/// A challenge that runs on the brain's clock (T-maze, sweet tooth), for its panel.
+#[derive(Debug, Clone, Default)]
+pub struct ChallengeView {
+    /// `tmaze` or `sweet`.
+    pub kind: String,
+    /// `naive`, `train`, `test`, `done` / `ready`, `before`, `during`, `shown`, `done`.
+    pub phase: String,
+    pub stage: u32,
+    pub cycle: u32,
+    pub zap: String,
+    pub choices: Vec<(String, bool)>,
+    /// Wall-clock seconds (Unix) of the latest T-maze choice.
+    pub anim_at: f64,
+    pub dose: u32,
+    pub offers: Vec<(u32, bool, f32)>,
+    pub score: Option<u32>,
+}
+
 /// What the training screen and the MEMORY card show: the memory of each smell, how many synapses are weakened, the training log.
 #[derive(Debug, Clone, Default)]
 pub struct MemoryView {
@@ -111,6 +129,9 @@ pub struct Snapshot {
     pub info: Option<Arc<BrainInfo>>,
     /// What the mushroom body has learned (None when learning is off or the pack has no dopamine tables).
     pub memory: Option<Arc<MemoryView>>,
+    pub challenge: Option<Arc<ChallengeView>>,
+    /// Brain speed factor the running challenge wants (the T-maze runs the brain at x3 while training and testing).
+    pub challenge_speed: f32,
     /// When the sim thread made this snapshot, to measure how stale the render side's view is.
     pub published_at: Option<Instant>,
 }

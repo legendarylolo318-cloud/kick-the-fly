@@ -252,6 +252,7 @@ struct HudIn<'w, 's> {
     dex: Res<'w, Dex>,
     tut: Res<'w, crate::tutorial_play::Tutorial>,
     learned: Res<'w, crate::memory_play::Learned>,
+    chal: Res<'w, crate::challenges::Challenges>,
     flies: Query<'w, 's, &'static Fly>,
 }
 
@@ -268,8 +269,28 @@ fn draw(
     mut node: Single<&mut ImageNode, With<HudNode>>,
     mut hits_out: ResMut<HudHitsRes>,
 ) {
-    let HudIn { time, real, snap, st, notes, tools, loadout, arena, cfg, view, tc, look, menu, arcade, settings, dex, tut, learned, flies } =
-        i;
+    let HudIn {
+        time,
+        real,
+        snap,
+        st,
+        notes,
+        tools,
+        loadout,
+        arena,
+        cfg,
+        view,
+        tc,
+        look,
+        menu,
+        arcade,
+        settings,
+        dex,
+        tut,
+        learned,
+        chal,
+        flies,
+    } = i;
     let l = lay.0;
     let crisp = (l.scale.fract() == 0.0) && l.scale >= 1.0;
     if (hc.canvas.w, hc.canvas.h) != (l.hud_w, l.hud_h) || hc.crisp != crisp {
@@ -414,7 +435,7 @@ fn draw(
         pages: loadout.0.n_pages(),
         look: look.captured,
         free_mouse_key: cfg.0.key_of("free_mouse").into(),
-        overlay_open: st.help || view.big || arcade.open || learned.train_open,
+        overlay_open: st.help || view.big || arcade.open || learned.train_open || chal.overlay,
         menu_open: menu.0,
         dead_player: false,
         crosshair_hot: false,
@@ -468,6 +489,8 @@ fn draw(
         }),
         tutorial: tutorial_view(&tut, &cfg.0, rnow as f32).filter(|_| !menu.0),
         training: learned.train_open.then(|| training_screen(&snap, &learned, rnow as f32)),
+        challenge: chal.ops.clone(),
+        mouse: window.cursor_position().map_or((-1, -1), |p| ((p.x * sf / l.scale) as i32, (p.y * sf / l.scale) as i32)),
         ..Default::default()
     };
     let fonts = HudFonts::new(cfg.0.get_bool("access.larger_text"));
@@ -538,6 +561,8 @@ fn hud_clicks(
     mut tut: ResMut<crate::tutorial_play::Tutorial>,
     mut learned: ResMut<crate::memory_play::Learned>,
     snap: Res<LatestSnapshot>,
+    mut chal: ResMut<crate::challenges::Challenges>,
+    virt: Res<Time<Virtual>>,
 ) {
     if !buttons.just_pressed(MouseButton::Left) || look.captured || menu.0 {
         return;
@@ -547,6 +572,9 @@ fn hud_clicks(
     let pos = ((p.x * k) as i32, (p.y * k) as i32);
     let at = |r: Option<ktf_ui::Rect>| r.is_some_and(|r| r.contains(pos));
     let now = real.elapsed_secs();
+    if chal.is_active() && crate::challenges::click(&mut chal, pos, &link, virt.elapsed_secs()) {
+        return;
+    }
     if learned.train_open {
         let busy = snap.0.as_deref().and_then(|s| s.memory.as_deref()).is_some_and(|m| m.train.is_some());
         if let Some((_, what, arg)) = hits.0.train.iter().find(|(r, ..)| r.contains(pos)).cloned() {

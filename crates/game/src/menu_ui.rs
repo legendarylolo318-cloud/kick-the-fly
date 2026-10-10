@@ -234,6 +234,8 @@ struct MenuCtx<'w, 's> {
     first: Res<'w, crate::first_run::FirstRun>,
     saves: ResMut<'w, crate::savestate_play::SaveLoad>,
     flashes: MessageReader<'w, 's, MenuFlash>,
+    chal: ResMut<'w, crate::challenges::Challenges>,
+    notes: ResMut<'w, crate::feedback::Notes>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -248,13 +250,26 @@ fn input(
     mut window: Single<&mut Window, With<PrimaryWindow>>,
     mc: MenuCtx,
     mut settings: ResMut<Settings>,
-    arcade: Res<crate::arcade::Arcade>,
+    mut arcade: ResMut<crate::arcade::Arcade>,
     link: Res<SimLink>,
     mut exit: MessageWriter<AppExit>,
     lay: Res<HudLayout>,
     actions: Res<crate::actions::Actions>,
 ) {
-    let MenuCtx { mut look, mut tc, mut open, mut loadout, mut tools, mut screen, mut tut, first, mut saves, mut flashes } = mc;
+    let MenuCtx {
+        mut look,
+        mut tc,
+        mut open,
+        mut loadout,
+        mut tools,
+        mut screen,
+        mut tut,
+        first,
+        mut saves,
+        mut flashes,
+        mut chal,
+        mut notes,
+    } = mc;
     for f in flashes.read() {
         ui.menu.flash(&f.0, if f.1 { ktf_ui::theme::GOOD } else { ktf_ui::theme::BAD }, if f.1 { 4.0 } else { 6.0 });
     }
@@ -354,6 +369,34 @@ fn input(
                     ui.menu.flash(&format!("{label} mode"), ktf_ui::theme::GOOD, 4.0);
                 }
                 "click_sound" => {}
+                a if a.starts_with("start_challenge:") => {
+                    let key = &a["start_challenge:".len()..];
+                    match key {
+                        "puppeteer" => {
+                            arcade.open_puppeteer();
+                            look.captured = false;
+                            ui.menu.close();
+                            tc.menu_paused = false;
+                            link.0.send(Command::Pause(tc.paused));
+                            open.0 = false;
+                        }
+                        "contraption" => {
+                            ui.menu.close();
+                            tc.menu_paused = false;
+                            link.0.send(Command::Pause(tc.paused));
+                            open.0 = false;
+                            notes.push(
+                                0.0,
+                                "CONTRAPTION press C to build it and run it at the fly (Shift+C changes the payload)",
+                                crate::feedback::Tag::GameRule,
+                            );
+                        }
+                        _ => {
+                            chal.request = Some(key.to_string());
+                            ui.menu.close();
+                        }
+                    }
+                }
                 "tutorial_replay" => tut.request = Some("replay"),
                 "save_state" => crate::savestate_play::request_save(&mut saves, &link),
                 a if a.starts_with("load_state:") => {
@@ -540,6 +583,7 @@ impl PageHost for GameHost {
             "challenge_keys" => json!([]),
             "clipboard_get" => json!(arboard::Clipboard::new().and_then(|mut c| c.get_text()).unwrap_or_default()),
             "now_stamp" => json!(stamp()),
+            "challenge_scores" => json!(crate::paths::Scores::default_file().map),
             _ => crate::crash::diag_query(key).unwrap_or(Value::Null),
         }
     }

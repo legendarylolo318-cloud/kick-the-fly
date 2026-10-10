@@ -2,6 +2,7 @@
 
 use crate::menu::Menu;
 
+pub mod challenges;
 pub mod diag;
 pub mod load_state;
 pub mod loadout;
@@ -22,6 +23,7 @@ pub fn install_with(menu: &mut Menu, dex: neurodex::SharedDex) {
     menu.register_page("loadout_notice", Box::<loadout::LoadoutNotice>::default());
     menu.register_page("neuron_shapes_ask", Box::new(shapes_ask::ShapesAsk));
     menu.register_page("share", Box::<share::SharePage>::default());
+    menu.register_page("challenges", Box::new(challenges::ChallengesPage));
     menu.register_page("selftest", Box::new(diag::SelfTestPage));
     menu.register_page("bugreport", Box::<diag::BugReportPage>::default());
     menu.register_page("whatsnew", Box::new(whatsnew::WhatsNew));

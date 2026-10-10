@@ -86,7 +86,36 @@ pub struct Memory {
     pub signature: [f64; 2],
 }
 
+/// A copy of what was learned (`challenges.memory_snapshot`): a challenge that borrows the memory puts it back afterwards.
+#[derive(Clone)]
+pub struct Saved {
+    w: Vec<f32>,
+    templates: BTreeMap<String, Vec<f32>>,
+    naive_mbon: BTreeMap<String, f64>,
+    log: TrialLog,
+    dirty: bool,
+}
+
 impl Memory {
+    pub fn snapshot(&self) -> Saved {
+        Saved {
+            w: self.w.clone(),
+            templates: self.templates.clone(),
+            naive_mbon: self.naive_mbon.clone(),
+            log: self.log.clone(),
+            dirty: self.dirty,
+        }
+    }
+
+    pub fn restore_snapshot(&mut self, sim: &mut LifSim, s: Saved) {
+        self.w = s.w;
+        self.templates = s.templates;
+        self.naive_mbon = s.naive_mbon;
+        self.log = s.log;
+        self.dirty = s.dirty;
+        self.write_back(sim, false);
+    }
+
     /// `None` when the pack has no dopamine/MBON tables (an older pack, a synthetic network).
     pub fn new(labels: &Labels, weights: &Weights) -> Option<Self> {
         if labels.dan.is_empty() || labels.mbon.is_empty() || labels.dan_mbon.len() != labels.dan.len() * labels.mbon.len() {

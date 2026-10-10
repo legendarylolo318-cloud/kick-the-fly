@@ -110,7 +110,10 @@ impl Brain {
 
     pub fn new(sim: LifSim, labels: Arc<Labels>) -> Self {
         let n = sim.n;
-        let groups = Groups::new(&labels, n, sim.p.dt_ms, 0x6b69_636b);
+        let mut groups = Groups::new(&labels, n, sim.p.dt_ms, 0x6b69_636b);
+        let (sweet, bitter) = crate::assays::taste_groups(&labels, &sim.weights().csr);
+        groups.add_sense("sweet", sweet);
+        groups.add_sense("bitter", bitter);
         let gain_adapt = sim.p.gain_adapt;
         Self {
             sim,
@@ -150,7 +153,14 @@ impl Brain {
         &self.labels
     }
 
+    /// Rows of a spec (`type:..`, `prefix:..`, ...) or of a pokeable group by name (`sweet`, `bitter`, `reward`, ...).
     pub fn rows_of(&self, spec: &str) -> Result<Vec<u32>, Error> {
+        if !spec.contains(':') {
+            let g = self.groups.sense(spec, None);
+            if !g.is_empty() {
+                return Ok(g.to_vec());
+            }
+        }
         rows_of(&self.labels, self.sim.n, spec)
     }
 

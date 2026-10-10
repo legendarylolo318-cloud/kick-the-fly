@@ -179,7 +179,8 @@ fn keys(
 /// Training runs the brain at the screen's SPEED (x1, x2, x3) on top of the slow-motion setting, and restores it afterwards.
 fn train_speed(mut l: ResMut<Learned>, snap: Res<LatestSnapshot>, tc: Res<TimeControl>, link: Res<SimLink>) {
     let active = snap.0.as_deref().and_then(|s| s.memory.as_deref()).is_some_and(|m| m.train.is_some());
-    let want = tc.speed * if active { l.train_speed } else { 1.0 };
+    let challenge = snap.0.as_deref().map_or(1.0, |s| if s.challenge.is_some() { s.challenge_speed.max(1.0) } else { 1.0 });
+    let want = tc.speed * if active { l.train_speed } else { challenge };
     if (want - l.speed_sent).abs() > 1e-4 {
         l.speed_sent = want;
         link.0.send(Command::SetSpeed(want));

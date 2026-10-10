@@ -155,6 +155,75 @@ pub struct HudState {
     pub tutorial: Option<TutorialView>,
     /// The training screen (T), while it is open.
     pub training: Option<TrainingScreen>,
+    /// The mouse in HUD units (button hover shades).
+    pub mouse: (i32, i32),
+    /// The challenge panel (`Challenge.draw`), as drawing operations, and where its buttons sit afterwards.
+    pub challenge: Vec<Op>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FontSel {
+    Small,
+    Text,
+    Bold,
+    Head,
+    Title,
+}
+
+/// One drawing step of a challenge panel: the pygame calls of `Challenge.draw`, recorded by the game and replayed here.
+#[derive(Debug, Clone)]
+pub enum Op {
+    /// A veil over the whole HUD (`(4, 5, 8, alpha)`).
+    Veil(u32),
+    /// A filled rounded rectangle with an alpha.
+    Card {
+        rect: Rect,
+        fill: Color,
+        alpha: u32,
+        radius: i32,
+    },
+    Stroke {
+        rect: Rect,
+        color: Color,
+        width: i32,
+        radius: i32,
+    },
+    Text {
+        s: String,
+        pos: (i32, i32),
+        color: Color,
+        font: FontSel,
+        anchor: &'static str,
+    },
+    Circle {
+        c: (i32, i32),
+        r: i32,
+        color: Color,
+    },
+    Ellipse {
+        rect: Rect,
+        color: Color,
+    },
+    Line {
+        a: (i32, i32),
+        b: (i32, i32),
+        w: i32,
+        color: Color,
+    },
+    /// Three stars, `n` of them lit (`draw_stars`).
+    Stars {
+        c: (f32, f32),
+        n: usize,
+        size: i32,
+    },
+    /// A challenge button (`style`: 0 normal, 1 primary, 2 danger); `mouse` decides the hover shade.
+    Button {
+        rect: Rect,
+        label: String,
+        id: String,
+        style: u8,
+        enabled: bool,
+    },
 }
 
 /// One smell of the training screen's list.
@@ -236,6 +305,8 @@ pub struct HudHits {
     pub tutorial_skip: Option<Rect>,
     /// The training screen's buttons: (rectangle, what, which smell for `select`).
     pub train: Vec<(Rect, String, Option<String>)>,
+    /// The challenge panel's enabled buttons: (rectangle, id).
+    pub challenge: Vec<(Rect, String)>,
 }
 
 /// `draw_source_chip`: a REAL / RULE pill.
@@ -467,11 +538,74 @@ impl Hud<'_> {
         if let Some(t) = &st.training {
             hits.train = self.training(t);
         }
+        if !st.challenge.is_empty() {
+            hits.challenge = self.ops(&st.challenge, st.mouse);
+        }
         if let Some((label, user)) = &st.time_label {
             let w = self.f.bold.size(label);
             let bx = Rect::new(play_w / 2 - w / 2 - 11, 92 - 5, w + 22, self.f.bold.linesize + 10);
             self.cv.fill_rect(bx, if *user { AMBER } else { ACCENT }, 8);
             text(self.cv, label, bx.center(), [20, 16, 8], &self.f.bold, "center");
+        }
+        hits
+    }
+
+    /// Replay a challenge panel's drawing steps; returns its enabled buttons.
+    fn ops(&mut self, ops: &[Op], mouse: (i32, i32)) -> Vec<(Rect, String)> {
+        let f = self.f;
+        let font = |s: FontSel| match s {
+            FontSel::Small => &f.small,
+            FontSel::Text => &f.text,
+            FontSel::Bold => &f.bold,
+            FontSel::Head => &f.head,
+            FontSel::Title => &f.title,
+        };
+        let mut hits = vec![];
+        for op in ops {
+            match op {
+                Op::Veil(a) => self.cv.veil([4, 5, 8], *a),
+                Op::Card { rect, fill, alpha, radius } => self.cv.fill_rect_a(*rect, *fill, *alpha, *radius),
+                Op::Stroke { rect, color, width, radius } => {
+                    if *width <= 1 {
+                        self.cv.stroke_rect(*rect, *color, *radius)
+                    } else {
+                        self.cv.stroke_rect2(*rect, *color, *width, *radius)
+                    }
+                }
+                Op::Text { s, pos, color, font: fs, anchor } => {
+                    text(self.cv, s, *pos, *color, font(*fs), anchor);
+                }
+                Op::Circle { c, r, color } => self.cv.circle(*c, *r, *color),
+                Op::Ellipse { rect, color } => self.cv.ellipse(
+                    (rect.x as f32 + rect.w as f32 / 2.0, rect.y as f32 + rect.h as f32 / 2.0),
+                    rect.w as f32 / 2.0,
+                    rect.h as f32 / 2.0,
+                    *color,
+                    255,
+                ),
+                Op::Line { a, b, w, color } => self.cv.line(*a, *b, *w, *color, 255),
+                Op::Stars { c, n, size } => draw_stars(self.cv, *c, *n, *size),
+                Op::Button { rect, label, id, style, enabled } => {
+                    let over = *enabled && rect.contains(mouse);
+                    let base = match style {
+                        1 => [40, 110, 150],
+                        2 => [130, 44, 44],
+                        _ => [44, 50, 64],
+                    };
+                    let mut fill = if over { base.map(|c: u8| c.saturating_add(22)) } else { base };
+                    if !enabled {
+                        fill = [32, 36, 46];
+                    }
+                    self.cv.fill_rect(*rect, fill, 8);
+                    if over {
+                        self.cv.stroke_rect(*rect, [120, 132, 156], 8);
+                    }
+                    text(self.cv, label, rect.center(), if *enabled { INK } else { DIM }, &f.bold, "center");
+                    if *enabled {
+                        hits.push((*rect, id.clone()));
+                    }
+                }
+            }
         }
         hits
     }
@@ -1064,6 +1198,27 @@ fn wrap_lines(text: &str, font: &Font, width: i32) -> Vec<String> {
 /// Python's `{:g}` for the small numbers the screens print (0.5, 1, 2, 3).
 fn py_g(v: f32) -> String {
     if v.fract() == 0.0 { format!("{}", v as i64) } else { format!("{v}") }
+}
+
+/// Replay recorded drawing steps on a canvas (the challenge panels, and their screenshot tests); returns the enabled buttons.
+pub fn draw_ops(cv: &mut Canvas, fonts: &HudFonts, ops: &[Op], mouse: (i32, i32)) -> Vec<(Rect, String)> {
+    let lay = crate::layout::compute_layout(cv.w, cv.h, true, 3, 1.0);
+    Hud { cv, lay, f: fonts }.ops(ops, mouse)
+}
+
+/// `challenges.draw_stars`: three stars centred on `c`, the first `n` lit.
+pub fn draw_stars(cv: &mut Canvas, c: (f32, f32), n: usize, size: i32) {
+    for i in 0..3 {
+        let cx = c.0 + (i as f32 - 1.0) * size as f32 * 2.4;
+        let pts: Vec<(f32, f32)> = (0..10)
+            .map(|k| {
+                let r = if k % 2 == 0 { size as f32 } else { size as f32 * 0.45 };
+                let a = -std::f32::consts::FRAC_PI_2 + k as f32 * std::f32::consts::PI / 5.0;
+                (cx + r * a.cos(), c.1 + r * a.sin())
+            })
+            .collect();
+        cv.aa_poly(&pts, if i < n { AMBER } else { [60, 64, 76] });
+    }
 }
 
 fn title_case(s: &str) -> String {

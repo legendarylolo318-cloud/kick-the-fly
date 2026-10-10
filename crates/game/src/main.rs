@@ -29,6 +29,7 @@ struct Args {
     fullscreen: bool,
     selftest: bool,
     train_screen: bool,
+    challenge: Option<String>,
     bugreport: bool,
     out: Option<PathBuf>,
     crash_screen: Option<Vec<PathBuf>>,
@@ -47,6 +48,7 @@ const USAGE: &str = "usage: kick_the_fly [--pack FILE | --synthetic N] [--seed S
   --tool NAME [--fire S] [--hold S]  select a tool and press the left button at S seconds for HOLD seconds\n\
   --shot FILE [N]  save a screenshot after N frames (default 90) and exit\n\
   --selftest [--out FILE.json]  check this install (brain pack, simulator, GPU, audio, folders, disk, memory, a 10 s run); exit 0 all pass, 1 any FAIL, 3 warnings\n\
+  --challenge KEY  start a challenge at launch (tmaze sneak sweet reverse_surgery predict), for screenshots\n\
   --train-screen   open the training screen (T) at start, for screenshots\n\
   --bugreport [--out DIR]  print what a bug report would contain (nothing is sent) and write DIR/bugreport.md";
 
@@ -60,6 +62,7 @@ fn parse(args: impl Iterator<Item = String>) -> Result<Args, String> {
     let mut fullscreen = false;
     let (mut selftest, mut bugreport, mut out, mut crash_screen) = (false, false, None, None);
     let mut train_screen = false;
+    let mut challenge = None;
     while let Some(a) = args.next() {
         if a == "--crash-screen" {
             crash_screen = Some(args.by_ref().map(PathBuf::from).collect());
@@ -81,6 +84,7 @@ fn parse(args: impl Iterator<Item = String>) -> Result<Args, String> {
             "--fullscreen" => fullscreen = true,
             "--selftest" => selftest = true,
             "--train-screen" => train_screen = true,
+            "--challenge" => challenge = Some(value("a challenge: tmaze sneak sweet reverse_surgery predict")?),
             "--bugreport" => bugreport = true,
             "--out" => out = Some(PathBuf::from(value("a file or folder")?)),
             "--menu" => menu = Some(value("a screen, e.g. pause or settings:Audio")?),
@@ -133,6 +137,7 @@ fn parse(args: impl Iterator<Item = String>) -> Result<Args, String> {
         fullscreen,
         selftest,
         train_screen,
+        challenge,
         bugreport,
         out,
         crash_screen,
@@ -252,6 +257,9 @@ fn main() -> ExitCode {
         st.rain = args.rain;
         st.storm = args.storm;
         st.day_night_s = args.day;
+    }
+    if let Some(c) = args.challenge.clone() {
+        app.world_mut().resource_mut::<kick_the_fly::challenges::Challenges>().request = Some(c);
     }
     if args.train_screen {
         app.world_mut().resource_mut::<kick_the_fly::memory_play::Learned>().train_open = true;

@@ -17,6 +17,7 @@ pub mod arena;
 pub mod audio;
 pub mod brainview;
 pub mod capture;
+pub mod challenges;
 pub mod config;
 pub mod contraption;
 pub mod controls;
@@ -151,6 +152,7 @@ impl Plugin for GamePlugin {
             .add_plugins((
                 crash::CrashPlugin,
                 memory_play::MemoryPlayPlugin,
+                challenges::ChallengesPlugin,
                 actions::ActionsPlugin,
                 tutorial_play::TutorialPlugin,
                 first_run::FirstRunPlugin,
