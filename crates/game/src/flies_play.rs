@@ -30,6 +30,16 @@ pub struct Flies {
     manual_until: f32,
 }
 
+impl Flies {
+    /// A fresh slot id for a new fly.
+    pub fn alloc(&mut self) -> u32 {
+        self.next_slot = self.next_slot.max(self.focus + 1);
+        let s = self.next_slot;
+        self.next_slot += 1;
+        s
+    }
+}
+
 /// Where the n-th extra fly appears (GAME RULE: near the first fly's spot, spread so they do not start on top of each other).
 fn spawn_point(slot: u32) -> Vec3 {
     let x = ((slot * 37) % 11) as f32 * 0.25 - 1.25;

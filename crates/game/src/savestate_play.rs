@@ -14,7 +14,7 @@ use serde_json::{Value, json};
 
 use crate::app::{LatestSnapshot, SimEvents, SimLink};
 use crate::config::{Settings, SwitchArena};
-use crate::fly::ResetFly;
+use crate::fly::{Fly, FlyPart, FlyPose, Part, ResetFly, Slot};
 use crate::hud_canvas::HudStats;
 use crate::menu_ui::{MenuFlash, UserConfig};
 use crate::sim_thread::{Command, SimEvent};
@@ -28,6 +28,8 @@ pub struct SaveLoad {
     pub load: Option<PathBuf>,
     pub entries: Vec<Value>,
     pub scanned_at: f32,
+    /// `KTF_SAVELOAD_CHECK`: whether the scripted save and load have happened.
+    dbg: (bool, bool),
 }
 
 fn saves_dir() -> PathBuf {
@@ -59,6 +61,14 @@ fn pack_info(snap: &LatestSnapshot) -> Option<PackInfo> {
     Some(PackInfo { n_neurons: s.neurons, synapses: s.info.as_deref()?.synapses, brain: "adult".into(), mode: "3d".into() })
 }
 
+/// What a save needs of the bodies: where each fly is, its health and whether it is dead.
+#[derive(bevy::ecs::system::SystemParam)]
+struct Bodies<'w, 's> {
+    flies: Query<'w, 's, (&'static Fly, &'static Slot)>,
+    parts: Query<'w, 's, &'static Transform, With<FlyPart>>,
+    virt: Res<'w, Time<Virtual>>,
+}
+
 #[allow(clippy::too_many_arguments)]
 fn save_and_load(
     mut sl: ResMut<SaveLoad>,
@@ -76,10 +86,26 @@ fn save_and_load(
     mut reset: MessageWriter<ResetFly>,
     mut flash: MessageWriter<MenuFlash>,
     screen: Res<crate::menu_ui::MenuScreen>,
+    bodies: Bodies,
 ) {
+    // KTF_SAVELOAD_CHECK=1: save at 8 s, load that save at 14 s (a scripted check of the save/load path for several flies)
+    if std::env::var_os("KTF_SAVELOAD_CHECK").is_some() {
+        let t = real.elapsed_secs();
+        if t > 8.0 && !sl.dbg.0 {
+            sl.dbg.0 = true;
+            sl.saving = true;
+            link.0.send(Command::ExportAll);
+        }
+        if t > 14.0 && !sl.dbg.1 {
+            sl.dbg.1 = true;
+            let mut files: Vec<_> = std::fs::read_dir(saves_dir()).into_iter().flatten().flatten().map(|e| e.path()).collect();
+            files.sort();
+            sl.load = files.pop();
+        }
+    }
     // --- save: ask the sim thread, then write when the state arrives
     for ev in &events.0 {
-        let SimEvent::State(bs) = ev else { continue };
+        let SimEvent::StateAll(all) = ev else { continue };
         if !std::mem::take(&mut sl.saving) {
             continue;
         }
@@ -89,17 +115,42 @@ fn save_and_load(
         meta["platform"] = "Linux".into();
         meta["seed"] = cfg.0.get_i64("brain.seed").into();
         meta["tool"] = tools.selected.into();
+        meta["focus"] = 0.into();
         meta["kills"] = stats.kills.into();
         meta["immortal"] = settings.immortal.into();
         meta["pain_level"] = snap.0.as_deref().map_or(0, |s| s.pain_level).into();
         meta["sim_speed"] = cfg.0.get_f32("brain.sim_speed").into();
         meta["individuality"] = cfg.0.get_str("brain.individuality").into();
-        meta["flies"] = json!([{"seed": cfg.0.get_i64("brain.seed"), "primary": true, "brain": {"steps": bs.steps}, "fly": {}, "slot": {}, "fly_class": "RustFly"}]);
-        let mut file = SaveFile { meta, arrays: Default::default() };
-        file.put_sim_state(0, &bs.sim);
-        file.arrays.insert("f0_b_fast".into(), f64_array(&bs.fast));
-        file.arrays.insert("f0_b_base".into(), f64_array(&bs.base));
-        file.meta["flies"][0]["brain"]["steps"] = bs.steps.into();
+        if let Some(s) = snap.0.as_deref() {
+            meta["surgery_modes"] = json!(s.surgery_modes);
+            meta["type_ops"] = Value::Object(s.surgery_types.iter().map(|(t, m)| (t.clone(), json!(m))).collect());
+        }
+        let now = bodies.virt.elapsed_secs();
+        let mut file = SaveFile { meta: meta.clone(), arrays: Default::default() };
+        let mut flies = Vec::new();
+        for (i, (slot, seed, bs)) in all.iter().enumerate() {
+            let body = bodies.flies.iter().find(|(_, s)| s.0 == *slot).map(|(f, _)| f);
+            let p: Vec<f64> = body
+                .map(|f| {
+                    [Part::Head, Part::Thorax, Part::Abdomen]
+                        .iter()
+                        .flat_map(|part| bodies.parts.get(f.parts[part.index()]).map(|t| t.translation).unwrap_or(Vec3::ZERO).to_array())
+                        .map(f64::from)
+                        .collect()
+                })
+                .unwrap_or_else(|| vec![0.0; 9]);
+            file.arrays.insert(format!("f{i}_fly_p"), Array { shape: vec![3, 3], data: Data::F64(p) });
+            file.put_sim_state(i, &bs.sim);
+            file.arrays.insert(format!("f{i}_b_fast"), f64_array(&bs.fast));
+            file.arrays.insert(format!("f{i}_b_base"), f64_array(&bs.base));
+            let fly = body
+                .map_or(json!({}), |f| json!({"health": f.health, "yaw": f.yaw, "dead_at": f.dead_at.map(|t| json!({"rel": t - now}))}));
+            flies.push(
+                json!({"seed": seed, "primary": i == 0, "brain": {"steps": bs.steps}, "fly": fly, "slot": {}, "fly_class": "RustFly"}),
+            );
+        }
+        file.meta["flies"] = Value::Array(flies);
+        let _ = meta;
         let dir = saves_dir();
         let _ = std::fs::create_dir_all(&dir);
         let stem = format!("save-{}", utc_stamp(true));
@@ -126,7 +177,6 @@ fn save_and_load(
                 return Err(format!("can't load this save: {why}"));
             }
             let file = SaveFile::read(&path).map_err(|e| e.to_string())?;
-            let sim = file.sim_state(0).map_err(|e| e.to_string())?;
             let groups = |name: &str| -> Vec<f32> {
                 match file.arrays.get(name).map(|a| &a.data) {
                     Some(Data::F64(v)) => v.iter().map(|&x| x as f32).collect(),
@@ -134,13 +184,55 @@ fn save_and_load(
                     _ => vec![],
                 }
             };
-            let steps = meta["flies"][0]["brain"]["steps"].as_u64().unwrap_or(0);
-            link.0.send(Command::ImportState(Box::new(BrainState { sim, fast: groups("f0_b_fast"), base: groups("f0_b_base"), steps })));
+            let state = |i: usize| -> Result<BrainState, String> {
+                let sim = file.sim_state(i).map_err(|e| e.to_string())?;
+                let steps = meta["flies"][i]["brain"]["steps"].as_u64().unwrap_or(0);
+                Ok(BrainState { sim, fast: groups(&format!("f{i}_b_fast")), base: groups(&format!("f{i}_b_base")), steps })
+            };
+            let n = file.flies().clamp(1, crate::flies_play::MAX_FLIES);
+            link.0.send(Command::ImportState(Box::new(state(0)?)));
+            let mut poses = Vec::new();
+            for i in 0..n {
+                let fm = &meta["flies"][i]["fly"];
+                // positions: head, thorax, abdomen are the first three rows of `p` (the Python body has 17 particles; this one has 3)
+                let thorax = match file.arrays.get(&format!("f{i}_fly_p")).map(|a| (&a.shape, &a.data)) {
+                    Some((shape, Data::F64(v))) if shape.len() == 2 && shape[1] == 3 && v.len() >= 6 => {
+                        Vec3::new(v[3] as f32, v[4] as f32, v[5] as f32)
+                    }
+                    _ => Vec3::new(0.0, crate::world::STAND3 + 0.05, -0.8),
+                };
+                poses.push(FlyPose {
+                    thorax: thorax + Vec3::Y * 0.02,
+                    yaw: fm["yaw"].as_f64().map_or(std::f32::consts::FRAC_PI_2, |y| y as f32),
+                    health: fm["health"].as_f64().map_or(crate::fly::MAX_HEALTH, |h| h as f32),
+                    dead: !fm["dead_at"].is_null() && fm.get("dead_at").is_some(),
+                    seed: meta["flies"][i]["seed"].as_u64().unwrap_or(1000 + i as u64),
+                    state: if i > 0 { Some(Box::new(state(i)?)) } else { None },
+                });
+            }
+            // surgery as it was
+            link.0.send(Command::SurgeryClear);
+            if let Some(modes) = meta["surgery_modes"].as_array() {
+                for (index, m) in modes.iter().enumerate() {
+                    let mode = m.as_i64().unwrap_or(0) as i8;
+                    if mode != 0 {
+                        link.0.send(Command::SurgeryEntry { index, mode });
+                    }
+                }
+            }
+            if let Some(ops) = meta["type_ops"].as_object() {
+                for (ty, m) in ops {
+                    let mode = m.as_i64().unwrap_or(0) as i8;
+                    if mode != 0 {
+                        link.0.send(Command::SurgeryType { ty: ty.clone(), mode });
+                    }
+                }
+            }
             // the room
             let name = meta["arena"].as_str().unwrap_or("room");
             let arena_i = ARENAS.iter().position(|a| *a == name).unwrap_or(0);
             switch.write(SwitchArena(arena_i));
-            reset.write(ResetFly::default());
+            reset.write(ResetFly { restore: poses, ..Default::default() });
             if let Some(t) = meta["tool"].as_u64().filter(|&t| (t as usize) < TOOLS.len()) {
                 tools.selected = t as usize;
                 lo.0.show(TOOLS[t as usize].0);
@@ -194,7 +286,7 @@ fn save_and_load(
 /// `save_state` and `load_state:<file>` come in as menu actions.
 pub fn request_save(sl: &mut SaveLoad, link: &SimLink) {
     sl.saving = true;
-    link.0.send(Command::ExportState);
+    link.0.send(Command::ExportAll);
 }
 
 pub fn request_load(sl: &mut SaveLoad, file: &str) {

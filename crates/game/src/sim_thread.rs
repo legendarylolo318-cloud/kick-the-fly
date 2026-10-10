@@ -149,6 +149,13 @@ pub enum Command {
     ExportState,
     /// Put a saved brain state back (a loaded save).
     ImportState(Box<fly_sim::brain::BrainState>),
+    /// Every fly's brain state, the focused fly first: the answer comes as [`SimEvent::StateAll`] (a save of several flies).
+    ExportAll,
+    /// Put a saved brain state into this fly's brain (it must exist: `SpawnFly` first).
+    ImportFly {
+        slot: u32,
+        state: Box<fly_sim::brain::BrainState>,
+    },
     /// Add a fly: a second (third...) brain with its own individuality (`sigma`) and noise, stepped with the first. `slot` is the id the
     /// render side gave its body; slot 0 is the first fly.
     SpawnFly {
@@ -185,6 +192,8 @@ pub struct Shared {
 pub enum SimEvent {
     /// A type was discovered (`fly_sim::neurodex::Tracker`).
     Discovered(fly_sim::neurodex::Found),
+    /// The answer to [`Command::ExportAll`]: `(slot, seed, state)`, the focused fly first.
+    StateAll(Vec<(u32, u64, Box<fly_sim::brain::BrainState>)>),
     /// The answer to [`Command::ExportState`].
     State(Box<fly_sim::brain::BrainState>),
     /// The T-maze made a choice (`right` = the door that does not zap).
@@ -343,7 +352,7 @@ fn run(
     let dt = Duration::from_secs_f64(params.dt_ms / 1000.0);
     let info = Arc::new(brain_info(&labels, &weights));
     let (spawn_weights, spawn_labels) = (weights.clone(), labels.clone());
-    let mut multi = Multi { extras: Vec::new(), focus: 0 };
+    let mut multi = Multi { extras: Vec::new(), focus: 0, seeds: vec![(0, cfg.seed)] };
     let mut brain = Brain::new(LifSim::new(weights, params, cfg.seed), labels);
     let mut mem = MemState::new(cfg.memory_dir.clone());
     if mem.dir.is_some() && brain.enable_memory() {
@@ -376,9 +385,33 @@ fn run(
                         b.warmup(cfg.warmup);
                         b.steps = brain.steps; // one clock: a focus change must not make the step counter jump
                         multi.extras.push((slot, b));
+                        multi.seeds.push((slot, seed));
                     }
                 }
-                Ok(Command::RemoveFly(slot)) => multi.extras.retain(|e| e.0 != slot),
+                Ok(Command::RemoveFly(slot)) => {
+                    multi.extras.retain(|e| e.0 != slot);
+                    multi.seeds.retain(|s| s.0 != slot || s.0 == multi.focus);
+                }
+                Ok(Command::ExportState) => {
+                    let _ = events.send(SimEvent::State(Box::new(brain.export_state(multi.seed_of(multi.focus, cfg.seed)))));
+                }
+                Ok(Command::ExportAll) => {
+                    let mut all = vec![(
+                        multi.focus,
+                        multi.seed_of(multi.focus, cfg.seed),
+                        Box::new(brain.export_state(multi.seed_of(multi.focus, cfg.seed))),
+                    )];
+                    for (slot, b) in &multi.extras {
+                        let seed = multi.seed_of(*slot, cfg.seed);
+                        all.push((*slot, seed, Box::new(b.export_state(seed))));
+                    }
+                    let _ = events.send(SimEvent::StateAll(all));
+                }
+                Ok(Command::ImportFly { slot, state }) => {
+                    if let Some(b) = multi.brain_of(&mut brain, slot) {
+                        b.import_state(&state);
+                    }
+                }
                 Ok(Command::FocusFly(slot)) => {
                     if slot != multi.focus
                         && let Some(i) = multi.extras.iter().position(|e| e.0 == slot)
@@ -406,7 +439,7 @@ fn run(
                         b.revive();
                     }
                 }
-                Ok(cmd) => driving |= apply(&mut brain, &mut state, &mut dex, &mut mem, cfg.seed, &events, cmd),
+                Ok(cmd) => driving |= apply(&mut brain, &mut state, &mut dex, &mut mem, &events, cmd),
                 Err(TryRecvError::Empty) => break,
             }
         }
@@ -472,9 +505,15 @@ fn run(
 struct Multi {
     extras: Vec<(u32, Brain)>,
     focus: u32,
+    /// The seed each fly's simulator was made with (a save needs it; the sim does not remember it).
+    seeds: Vec<(u32, u64)>,
 }
 
 impl Multi {
+    fn seed_of(&self, slot: u32, default: u64) -> u64 {
+        self.seeds.iter().find(|s| s.0 == slot).map_or(default, |s| s.1)
+    }
+
     fn brain_of<'a>(&'a mut self, primary: &'a mut Brain, slot: u32) -> Option<&'a mut Brain> {
         if slot == self.focus {
             return Some(primary);
@@ -495,7 +534,6 @@ fn apply(
     state: &mut LoopState,
     dex: &mut DexState,
     mem: &mut MemState,
-    seed: u64,
     events: &Sender<SimEvent>,
     cmd: Command,
 ) -> bool {
@@ -673,10 +711,7 @@ fn apply(
             mem.save(brain);
             false
         }
-        Command::ExportState => {
-            let _ = events.send(SimEvent::State(Box::new(brain.export_state(seed))));
-            false
-        }
+        Command::ExportState | Command::ExportAll | Command::ImportFly { .. } => false,
         Command::ImportState(st) => {
             brain.import_state(&st);
             false

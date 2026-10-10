@@ -633,7 +633,7 @@ fn start_level(
         link.0.send(Command::DriveSpec { spec: PALETTE[t].1.into(), amp: 0.0 });
     }
     let yaw = if level.facing >= 0 { 0.0 } else { std::f32::consts::PI };
-    reset.write(ResetFly { place: Some((level.start_x, yaw)) });
+    reset.write(ResetFly { place: Some((level.start_x, yaw)), ..Default::default() });
     tools.puppet = true;
     tools.laser_target = 0;
     let mut tracker = Tracker::new(&level.goal);

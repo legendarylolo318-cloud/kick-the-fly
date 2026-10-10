@@ -316,7 +316,10 @@ a real bump between two flies pokes body and legs on both brains (`_fly_collisio
 every environment poke inside the per-fly loops (`environment.rs`: wind, light, heat, taste, rain, fruit...) go to that fly's brain; the HUD, the brain
 panel and single-brain features (surgery, memory, challenges, autopsy) follow the focused fly (the learning state moves with the focus). Checked in the
 game (`KTF_FLIES=3` spawns three after start): HUD `flies 4/16 · #2`, four bodies reacting on their own brains, sim still 200 steps/s.
-Looming (`senses.rs`) and smells are per fly too. **Not done:** pokes that are not per-fly yet go to the focused brain (the contraption's wind, the memory scent), the
-arcade/tool wheel/puppeteer assume one fly, fly-vs-fly personality cards are not shown on the bodies, saves keep one fly's state (loading a save puts
-back one fly), and the cap is not adapted to the machine (each extra brain costs about 0.3 ms per step here, so ~16 flies still ran real time on
+Looming (`senses.rs`) and smells are per fly too. **Saves hold every fly now:** `Command::ExportAll` -> per fly `f{i}_b_*` brain arrays, `f{i}_fly_p` (head, thorax, abdomen), health, yaw, dead;
+loading puts each brain back (`ImportFly`) and each body where it was (`ResetFly::restore`), restores the surgery modes and cell-type switches, the arena,
+the tool, kills and the pain level; checked in the game (`KTF_SAVELOAD_CHECK=1 KTF_FLIES=2`: 3 flies saved, `flies 3/16` after the load). A Python 3D
+save loads its brains exactly and its bodies by their first three particles, health and yaw; timers, things in flight and the other 14 particles are
+not restored. **Not done:** pokes that are not per-fly yet go to the focused brain (the contraption's wind, the memory scent), the
+arcade/tool wheel/puppeteer assume one fly, fly-vs-fly personality cards are not shown on the bodies, and the cap is not adapted to the machine (each extra brain costs about 0.3 ms per step here, so ~16 flies still ran real time on
 paper but this was only measured at 4).

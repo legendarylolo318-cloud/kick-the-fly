@@ -894,10 +894,24 @@ fn debug_dump(time: Res<Time<Virtual>>, flies: Query<&Fly>, parts: Query<(&FlyPa
 }
 
 /// Put a fresh fly in place of the current one (R, a new arena).
-#[derive(Message, Debug, Clone, Copy, Default)]
+#[derive(Message, Debug, Clone, Default)]
 pub struct ResetFly {
     /// `(x metres, yaw)`: put the new fly here (the puppeteer's levels); None: the usual spot.
     pub place: Option<(f32, f32)>,
+    /// A loaded save's flies, the first one taking the focused brain: bodies where they were, with their health, and the other brains put back.
+    pub restore: Vec<FlyPose>,
+}
+
+/// One fly of a loaded save.
+#[derive(Debug, Clone)]
+pub struct FlyPose {
+    pub thorax: Vec3,
+    pub yaw: f32,
+    pub health: f32,
+    pub dead: bool,
+    pub seed: u64,
+    /// The brain state of a fly that is not the focused one (the focused fly's is imported by `ImportState`).
+    pub state: Option<Box<fly_sim::brain::BrainState>>,
 }
 
 fn reset_fly(
@@ -905,12 +919,14 @@ fn reset_fly(
     mut msgs: MessageReader<ResetFly>,
     flies: Query<(Entity, &Fly, &Slot, Option<&crate::fly_visuals::FlyVisuals>)>,
     link: Res<SimLink>,
-    flies_res: Res<crate::flies_play::Flies>,
+    mut flies_res: ResMut<crate::flies_play::Flies>,
+    cfg: Res<crate::menu_ui::UserConfig>,
+    virt: Res<Time<Virtual>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut seed: Local<u64>,
 ) {
-    let Some(req) = msgs.read().last().copied() else {
+    let Some(req) = msgs.read().last().cloned() else {
         return;
     };
     for (e, f, slot, vis) in &flies {
@@ -935,6 +951,30 @@ fn reset_fly(
     }
     link.0.send(Command::Revive);
     *seed += 1;
+    if !req.restore.is_empty() {
+        let now = virt.elapsed_secs();
+        let sigma = fly_sim::cards::sigma_of(cfg.0.get_str("brain.individuality"), None);
+        for (i, pose) in req.restore.iter().enumerate() {
+            let slot = if i == 0 { flies_res.focus } else { flies_res.alloc() };
+            let e = spawn_fly(&mut commands, &mut meshes, &mut materials, pose.thorax, pose.yaw, pose.seed, slot);
+            if i > 0 {
+                link.0.send(Command::SpawnFly { slot, seed: pose.seed, sigma });
+                if let Some(st) = &pose.state {
+                    link.0.send(Command::ImportFly { slot, state: st.clone() });
+                }
+            }
+            let (health, dead) = (pose.health, pose.dead);
+            commands.queue(move |world: &mut World| {
+                if let Some(mut f) = world.get_mut::<Fly>(e) {
+                    f.health = health;
+                    if dead {
+                        f.dead_at = Some(now);
+                    }
+                }
+            });
+        }
+        return;
+    }
     let (x, yaw) = req.place.unwrap_or((0.0, std::f32::consts::FRAC_PI_2));
     spawn_fly(&mut commands, &mut meshes, &mut materials, Vec3::new(x, STAND3 + 0.05, -0.8), yaw, 1000 + *seed, flies_res.focus);
 }
