@@ -71,3 +71,18 @@ fn papers_equal_python() {
         }
     }
 }
+
+/// The Buridan paper runs the rig (individuality `subtle` cannot equal Python spike for spike; the rig itself is checked in `rigs_real`).
+#[test]
+fn buridan_paper_runs_the_rig() {
+    let Some(path) = pack::find_default() else { return };
+    let pk = pack::Pack::load(&path).unwrap();
+    let (w, l) = (Arc::new(pk.weights), Arc::new(pk.labels));
+    let res = mp::run_paper("colomb_2012", &[0, 1], Some((&w, &l)), 2, |_, _, _| true, "2026-01-01 00:00:00").unwrap();
+    assert_eq!(res["source"], "live");
+    let q = &res["questions"][0];
+    assert_eq!(q["test"], "rig:buridan");
+    assert_eq!(q["pairs"].as_array().unwrap().len(), 2);
+    assert!(q["verdict"]["measured"]["deviation_stripes_deg"].as_f64().unwrap() < 90.0);
+    assert!(mp::render(&res, &Default::default()).contains("deviation_stripes_deg"));
+}

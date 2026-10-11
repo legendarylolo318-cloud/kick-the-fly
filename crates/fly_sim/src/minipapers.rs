@@ -12,6 +12,7 @@ use serde_json::{Value, json};
 use crate::csr::Weights;
 use crate::pack::Labels;
 use crate::sensitivity::fmt_gp;
+use crate::validation::np_sum;
 
 pub const QUICK_SEEDS: [u64; 4] = [0, 1, 2, 3];
 pub const FULL_SEEDS: [u64; 10] = [1000, 1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009];
@@ -115,9 +116,6 @@ pub fn read_label(p: &Paper) -> &'static str {
 
 /// `available`: whether the paper can run live here, and if not why not.
 pub fn available(p: &Paper, adult_pack: bool) -> (bool, String) {
-    if p.questions.first().is_some_and(|q| q.test.starts_with("rig:")) {
-        return (false, "the rig assays (Lab > Rigs) are not part of this build yet".into());
-    }
     if p.brain == "larva" {
         return (
             false,
@@ -241,6 +239,31 @@ pub fn run_paper(
             got.insert(q.test.clone(), json!({"measured": rec, "passed": rec["passed"], "per_seed": [], "id": q.test}));
         }
         full = true; // the recorded numbers are the held-out run's
+    } else if let (Some((w, l)), Some(rig)) = (shared, p.questions[0].test.strip_prefix("rig:")) {
+        // the rig paper: the rig's per-fly measurements and its pre-registered criteria (`rigassay.run_flies` + `analyze`)
+        let c = crate::rigs::Ctx { weights: w, labels: l, cancel: None };
+        let flies = crate::rigs::run_flies(&c, rig, seeds, crate::rigs::DEFAULT_MODE, workers.max(1), progress)?;
+        let an = crate::rigs::analyze(rig, &flies)?;
+        let col = |k: &str, f: &str| -> f64 {
+            let v: Vec<f64> = flies.iter().map(|x| x[k][f].as_f64().unwrap_or(f64::NAN)).collect();
+            np_sum(&v) / v.len().max(1) as f64
+        };
+        let effects_met = an["criteria"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .all(|c| c["mean_effect"].as_f64().unwrap_or(f64::NAN) >= c["min_effect"].as_f64().unwrap_or(f64::INFINITY));
+        let per_seed: Vec<Value> = flies
+            .iter()
+            .map(|f| json!({"seed": f["seed"], "drive": f["stripes"]["deviation_deg"], "control": f["none"]["deviation_deg"]}))
+            .collect();
+        got.insert(
+            p.questions[0].test.clone(),
+            json!({"rig": rig, "flies": flies, "analysis": an,
+                   "measured": {"deviation_stripes_deg": col("stripes", "deviation_deg"), "deviation_none_deg": col("none", "deviation_deg"),
+                                "transits_stripes": col("stripes", "transits"), "transits_none": col("none", "transits"), "n": seeds.len()},
+                   "passed": an["all_passed"], "effects_met": effects_met, "per_seed": per_seed}),
+        );
     } else if let Some((w, l)) = shared {
         let include: Vec<&str> = p.questions.iter().map(|q| q.test.as_str()).collect();
         let res = crate::validation::run(w, l, seeds, Some(&include), workers.max(1), progress)?;
@@ -255,7 +278,20 @@ pub fn run_paper(
         .iter()
         .map(|q| {
             let t = got.get(&q.test).cloned().unwrap_or(Value::Null);
-            let v = verdict(&q.test, &t, full);
+            let v = if q.test.starts_with("rig:") {
+                let n = t["measured"]["n"].as_i64().unwrap_or(0);
+                if full {
+                    json!({"reproduced": t["passed"].as_bool().unwrap_or(false),
+                           "basis": "the rig's pre-registered criteria B1 and B2 (minimum effects and one-sided Wilcoxon p < 0.01, n = 10)",
+                           "measured": t["measured"], "n": n})
+                } else {
+                    json!({"reproduced": t["effects_met"].as_bool().unwrap_or(false), "measured": t["measured"], "n": n,
+                           "basis": format!("the rig's minimum effects (B1 10 degrees, B2 3 transits) only: n = {n} is too few flies for p < 0.01 (the smallest one-sided Wilcoxon p at n = {n} is {})",
+                                            fmt_gp(1.0 / 2f64.powi(n as i32), 3))})
+                }
+            } else {
+                verdict(&q.test, &t, full)
+            };
             let reproduced = v["reproduced"].as_bool().unwrap_or(false);
             json!({"test": q.test, "prompt": q.prompt, "expected": q.expected, "verdict": v,
                    "pairs": if t.get("per_seed").is_some() { ratio_pairs(&t) } else { Vec::new() },
