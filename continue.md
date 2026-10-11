@@ -57,7 +57,7 @@ the Python `labclamp.py` and `labdiff.py` forget `import numpy as np` (their les
 4. (DONE: `lab_export`, `lab_protocols`, recorder, runner, bundles; the CLI entry points are with `--headless`) recorder (CSV/npz + metadata; NWB unavailable like Python's `nwbexport.available()`), YAML protocol runner (`protocol.py`, 883 lines;
    needs a YAML reader for the 42 shipped files), bundles (`bundle.py`).
 5. Five assay kinds missing from `assay_jobs` (orchard, thermo_escape, predator_escape, hum_demo, sleep_deprivation as a labjobs kind), larva validation tests,
-   `--headless`/`--validate`, pet mode, photo mode, `live_inputs`, neuron search.
+   (DONE: `--headless` CLI in `crates/game/src/headless.rs`) pet mode, photo mode, `live_inputs`, neuron search.
 6. Multi-fly leftovers (contraption wind / memory scent pokes go to the focused brain; personality card not on bodies).
 7. Finish: README, tick PORTING.md only for verified boxes, clean `cargo build/test/clippy`, commit.
 

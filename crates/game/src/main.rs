@@ -54,6 +54,7 @@ const USAGE: &str = "usage: kick_the_fly [--pack FILE | --synthetic N] [--seed S
   --selftest [--out FILE.json]  check this install (brain pack, simulator, GPU, audio, folders, disk, memory, a 10 s run); exit 0 all pass, 1 any FAIL, 3 warnings\n\
   --challenge KEY  start a challenge at launch (tmaze sneak sweet reverse_surgery predict), for screenshots\n\
   --train-screen   open the training screen (T) at start, for screenshots\n\
+  --headless --validate|--protocol F|--rerun-bundle Z|--rig N|--rig-assay N|--minipaper ID|--activation-screen|--knockout-screen  no window; see headless.rs\n\
   --bugreport [--out DIR]  print what a bug report would contain (nothing is sent) and write DIR/bugreport.md";
 
 fn parse(args: impl Iterator<Item = String>) -> Result<Args, String> {
@@ -188,6 +189,12 @@ fn attach_console_for_cli() {
 fn main() -> ExitCode {
     #[cfg(windows)]
     attach_console_for_cli();
+    {
+        let argv: Vec<String> = std::env::args().collect();
+        if kick_the_fly::headless::wanted(&argv) {
+            return ExitCode::from(kick_the_fly::headless::main(&argv) as u8);
+        }
+    }
     let args = match parse(std::env::args()) {
         Ok(a) => a,
         Err(msg) => {
