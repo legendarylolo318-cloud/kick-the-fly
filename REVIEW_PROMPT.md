@@ -103,10 +103,32 @@ Then write one table into PORTING.md ("Settings audit": key | where read | effec
    and the Linux AppImage plus release notes written for casual players (summarize the engine switch and performance gains). If CI fails, fix and
    re-run; never merge on failure.
 
+8b. Store page (README, pictures, GitHub topics): the GitHub page must describe the Rust game, not the Python one. Do this together with step 8, after the
+   bugs are fixed (the pictures must show the fixed game: viewmodel, fruit-fly model, zoom), and only publish with my go:
+   - README.md: rewrite the top part (title block, "Download", "Build from source") for the Rust build: no Python 3.11+ / pygame / moderngl /
+     Numba / PyTorch instructions as the way to run it; the download rows point at the Rust `KickTheFly.exe` and AppImage; keep the Python game only
+     as "the original Python version lives on the `python-legacy` branch / tag `python-3.1.1`". Remove claims that are not true of the Rust build
+     (backends, `--2d`, Python API, NWB export) or mark them as not available. Keep it readable for casual players. `RUST_BUILD_INSTRUCTIONS.md`,
+     `BUGS.md`, `REVIEW_PROMPT.md` and `continue.md` stay in the repo root only if I say so; otherwise move them under `docs/dev/`.
+   - Pictures: regenerate every image README.md references from the RUST game: docs/arcade.png autopsy.png brain.png duel.png field.png killcam.png
+     lab.png minipaper.png neurodex.png orchard.png rig.png room3d.png spider.png swat3d.png validation.png whatsnew.png, and docs/demo.gif.
+     Use the screenshot harness (one launch per picture, 1280x720 or 1920x1080, same size for all): `kick_the_fly --fullscreen --shot FILE
+     --shot-frames 200 [--arena NAME] [--cam x,y,z,tx,ty,tz] [--tool NAME --fire S --hold S] [--menu SCREEN] [--challenge KEY] [--kill-at S]
+     [KTF_BIG_BRAIN=1]`, with `KICK_THE_FLY_HOME=<empty temp dir>` for a clean config. Use the real brain pack. Look at each result ONCE and
+     keep or retake it; do not iterate more than twice per picture. The GIF: there is no GIF recorder in the Rust build, so take 40-60 `--shot`
+     frames of one scripted scene (swat + torch in the open field, as in the old demo) and assemble them with ffmpeg or Pillow
+     (`ffmpeg -framerate 15 -i f%03d.png -vf "scale=640:-1:flags=lanczos,split[a][b];[a]palettegen[p];[b][p]paletteuse" demo.gif`); keep it under
+     ~8 MB. Replace the files in `docs/` (same names, so README links keep working) and keep the old ones in git history only.
+   - GitHub topics and description (at release time, with my go; needs `gh auth`): the repo currently has python, pygame, moderngl and opengl topics.
+       gh repo edit legendarylolo318-cloud/kick-the-fly --remove-topic python --remove-topic pygame --remove-topic moderngl --remove-topic opengl \
+         --add-topic rust --add-topic bevy --add-topic wgpu --add-topic vulkan --add-topic rust-lang --add-topic gamedev
+     Keep the neuroscience topics (connectome, drosophila, fruit-fly, ...). Update the repo description if it mentions Python. Do not touch topics
+     before the Rust game is on `main`.
+
 Rules: wait on output files for long builds and tests (never poll with pgrep; a full `cargo test --workspace --release` takes about 40
 minutes); run the game only with `--fullscreen`; commit on `rust-3.1.2`, one commit per fix, messages ending
 `Co-Authored-By: Claude Opus <noreply@anthropic.com>`; tick PORTING.md only for what you verified; update `continue.md` as you go.
 
-End with a report: what was fixed (STEP 0 first), GUI parity differences found and fixed, the perf numbers before/after, what you could not
+End with a report: what was fixed (STEP 0 first), which pictures were regenerated, GUI parity differences found and fixed, the perf numbers before/after, what you could not
 test, a numbered findings list (severity, file:line, concrete failure scenario, fix) and any unchecked PORTING.md items.
 ````
