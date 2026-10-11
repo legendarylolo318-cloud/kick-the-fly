@@ -1388,3 +1388,47 @@ fn lab_protocols_page() {
         compare(name, &cv.to_rgb_over(BG), 0.02);
     }
 }
+
+#[test]
+fn live_inputs_page() {
+    struct H(serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            if key == "lab.live_state" { self.0.clone() } else { serde_json::Value::Null }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    let bins: Vec<f64> = (0..24).map(|i| (0.04 + 0.6 * (1.0 - (i as f64 - 7.0).abs() / 4.0).max(0.0)).min(1.0)).collect();
+    let base = serde_json::json!({
+        "mic_on": false, "mic_error": "", "mic_ok": true, "mic_why": "an input device exists (test)", "peak_hz": 0.0, "bins": vec![0.0; 24],
+        "drive_a": 0.0, "drive_b": 0.0, "max_current": 0.5, "stream_on": false, "stream_error": "", "channel": "mychannel", "chat": null,
+        "lab_locked": false, "net_ok": true, "net_why": "", "lab_lock_text": ""
+    });
+    let on = serde_json::json!({
+        "mic_on": true, "mic_error": "", "mic_ok": true, "mic_why": "", "peak_hz": 83.0, "bins": bins, "drive_a": 0.12, "drive_b": 0.4,
+        "max_current": 0.5, "stream_on": true, "stream_error": "", "channel": "mychannel",
+        "chat": {"state": "live", "desc": "irc.chat.twitch.tv:6697 #mychannel (read-only, anonymous)", "commands": 12},
+        "lab_locked": false, "net_ok": true, "net_why": "", "lab_lock_text": ""
+    });
+    for (name, st) in [("page_live_inputs.png", base), ("page_live_inputs_on.png", on)] {
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        m.show("live_inputs");
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(st.clone()));
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(st));
+        if let Ok(dir) = std::env::var("KTF_DUMP") {
+            let rgb = cv.to_rgb_over(BG);
+            let file = std::fs::File::create(format!("{dir}/rust_{name}")).unwrap();
+            let mut enc = png::Encoder::new(std::io::BufWriter::new(file), 1280, 720);
+            enc.set_color(png::ColorType::Rgb);
+            enc.set_depth(png::BitDepth::Eight);
+            enc.write_header().unwrap().write_image_data(&rgb).unwrap();
+        }
+        compare(name, &cv.to_rgb_over(BG), 0.02);
+    }
+}

@@ -39,6 +39,8 @@ struct Shared {
     reading: Mutex<Reading>,
     status: Mutex<MicStatus>,
     stop: AtomicBool,
+    /// The sensitivity, as `f32` bits (the settings slider changes it while the stream runs).
+    sens: std::sync::atomic::AtomicU32,
 }
 
 pub struct MicHandle {
@@ -111,7 +113,10 @@ fn open(shared: &Arc<Shared>, sensitivity: f32) -> Result<(cpal::Stream, String,
         let analyzer = Arc::new(Mutex::new(Analyzer::new(rate as f32, sensitivity)));
         let sh = shared.clone();
         let mut feed = move |mono: &[f32]| {
-            let r = lock(&analyzer).push(mono);
+            let mut a = lock(&analyzer);
+            a.sensitivity = f32::from_bits(sh.sens.load(Ordering::Relaxed)).clamp(crate::mic_analysis::SENSITIVITY.0, crate::mic_analysis::SENSITIVITY.1);
+            let r = a.push(mono);
+            drop(a);
             *lock(&sh.reading) = r;
         };
         let err = |e: cpal::Error| eprintln!("microphone stream error: {e}");
@@ -176,6 +181,7 @@ impl MicHandle {
             reading: Mutex::new(Reading::default()),
             status: Mutex::new(MicStatus::Starting),
             stop: AtomicBool::new(false),
+            sens: std::sync::atomic::AtomicU32::new(sensitivity.to_bits()),
         });
         let sh = shared.clone();
         let (tx, _rx): (Sender<()>, _) = mpsc::channel();
@@ -208,6 +214,10 @@ impl MicHandle {
     pub fn latest(&self) -> Reading {
         *lock(&self.shared.reading)
     }
+
+    pub fn set_sensitivity(&self, s: f32) {
+        self.shared.sens.store(s.to_bits(), Ordering::Relaxed);
+    }
 }
 
 impl Drop for MicHandle {
@@ -233,23 +243,39 @@ impl Mic {
     }
 }
 
-/// F6 turns the microphone on and off.
-fn toggle(keys: Res<ButtonInput<KeyCode>>, mut mic: ResMut<Mic>, link: Res<SimLink>, mut notes: ResMut<Notes>, time: Res<Time<Real>>) {
-    if !keys.just_pressed(KeyCode::F6) {
+/// Switch the microphone on or off (F6 and the Mic and streamer page). Off every launch; nothing is recorded.
+pub fn set_mic(mic: &mut Mic, on: bool, sensitivity: f32, link: &SimLink, notes: &mut Notes, now: f32) {
+    if on == mic.handle.is_some() {
         return;
     }
-    let now = time.elapsed_secs();
-    if mic.handle.is_some() {
+    if !on {
         mic.handle = None;
         mic.sent = (0.0, 0.0);
         mic.reported = false;
+        mic.last = Reading::default();
         link.0.send(Command::DriveSpec { spec: "prefix:JO-A".into(), amp: 0.0 });
         link.0.send(Command::DriveSpec { spec: "prefix:JO-B".into(), amp: 0.0 });
         notes.push(now, "MIC      off", Tag::GameRule);
     } else {
-        mic.handle = Some(MicHandle::start(1.0));
+        mic.handle = Some(MicHandle::start(sensitivity));
         notes.push(now, "MIC      opening the microphone (opt-in; nothing is recorded)", Tag::GameRule);
     }
+}
+
+/// F6 turns the microphone on and off.
+fn toggle(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut mic: ResMut<Mic>,
+    link: Res<SimLink>,
+    mut notes: ResMut<Notes>,
+    time: Res<Time<Real>>,
+    cfg: Res<crate::menu_ui::UserConfig>,
+) {
+    if !keys.just_pressed(KeyCode::F6) {
+        return;
+    }
+    let on = mic.handle.is_none();
+    set_mic(&mut mic, on, cfg.0.get_f32("brain.mic_sensitivity"), &link, &mut notes, time.elapsed_secs());
 }
 
 /// Report how opening went, and put the latest reading on JO-A / JO-B (only when it changes enough to matter).

@@ -509,4 +509,26 @@ if __name__ == "__main__":
 
     R.render("lab_assays", "Graphics", out / "page_lab_assays_orchard.png", prep=ext2_prep("orchard"))
     R.render("lab_assays", "Graphics", out / "page_lab_assays_predator.png", prep=ext2_prep("predator_escape"))
+    from kickthefly.core import mic as micmod
+    from kickthefly.game import live_inputs as li
+
+    micmod.availability = lambda: (True, "an input device exists (test)")
+    _bins = tuple(min(1.0, 0.04 + 0.6 * max(0.0, 1 - abs(i - 7) / 4)) for i in range(24))
+
+    def live_prep(mic_on=False, stream_on=False):
+        def prep(m):
+            prep_for("lab_params")(m)
+            m.pages["live_inputs"] = li.page
+            live = SimpleNamespace(mic_on=mic_on, mic_error="", stream_on=stream_on, stream_error="", channel="mychannel",
+                                   chat=SimpleNamespace(state="live", describe=lambda: "irc.chat.twitch.tv:6697 #mychannel (read-only, anonymous)",
+                                                         commands_read=12) if stream_on else None,
+                                   reading=micmod.Reading(peak_hz=83.0, drive_a=0.12, drive_b=0.4, bins=_bins) if mic_on else micmod.Reading(),
+                                   jo_firing=(3.0, 11.0, 7, 40) if mic_on else (0.0, 0.0, 0, 0),
+                                   mic=SimpleNamespace(set_sensitivity=lambda v: None),
+                                   lab_locked=lambda: False, set_mic=lambda v: None, set_stream=lambda v, c=None: None)
+            m.host.live = live
+        return prep
+
+    R.render("live_inputs", "Graphics", out / "page_live_inputs.png", prep=live_prep())
+    R.render("live_inputs", "Graphics", out / "page_live_inputs_on.png", prep=live_prep(True, True))
     print("wrote", out)

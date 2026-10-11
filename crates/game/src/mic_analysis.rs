@@ -145,6 +145,8 @@ pub struct Reading {
     /// Current onto JO-A / JO-B (0 to `MAX_CURRENT`).
     pub drive_a: f32,
     pub drive_b: f32,
+    /// 24 log-spaced spectrum levels over `PEAK_RANGE`, 0..1, for the hum test's graph.
+    pub bins: [f32; 24],
     pub t: f32,
 }
 
@@ -255,8 +257,22 @@ impl Analyzer {
                 peak = (i as f32 + off) * bin_hz;
             }
         }
+        // 24 log-spaced bins over PEAK_RANGE: the loudest bin in each, over 0.2, clipped (`np.geomspace` edges, [lo, hi))
+        let mut bins = [0.0f32; 24];
+        let (g0, g1) = (PEAK_RANGE.0.ln(), PEAK_RANGE.1.ln());
+        let edge = |i: usize| (g0 + (g1 - g0) * i as f32 / 24.0).exp();
+        for (i, b) in bins.iter_mut().enumerate() {
+            let (lo, hi) = (edge(i), if i == 23 { PEAK_RANGE.1 } else { edge(i + 1) });
+            let m = (0..WINDOW / 2).filter(|&k| {
+                let f = k as f32 * bin_hz;
+                f >= lo && (f < hi || (i == 23 && f <= hi))
+            });
+            let mx = m.map(|k| spec[k]).fold(None::<f32>, |a, v| Some(a.map_or(v, |x| x.max(v))));
+            *b = mx.map_or(0.0, |v| (v / 0.2).clamp(0.0, 1.0));
+        }
         self.t += n / self.rate;
         self.reading = Reading {
+            bins,
             peak_hz: peak,
             rms,
             rms_a,

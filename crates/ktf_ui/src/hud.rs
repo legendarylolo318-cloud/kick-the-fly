@@ -124,6 +124,8 @@ pub struct HudState {
     pub memory: Vec<(String, f32, f32)>,
     /// Pet mode's card (`_draw_pet_widget`), under the memory card.
     pub pet: Option<PetView>,
+    /// The red microphone / Twitch pills and the vote tally (`LiveInputs.draw`).
+    pub live: Option<LiveView>,
     /// Photo mode's viewfinder (`_draw_photo_viewfinder`), while it is on and the HUD is not hidden.
     pub photo: Option<PhotoView>,
     /// The hotbar page's tools, in slot order.
@@ -163,6 +165,24 @@ pub struct HudState {
     pub mouse: (i32, i32),
     /// The challenge panel (`Challenge.draw`), as drawing operations, and where its buttons sit afterwards.
     pub challenge: Vec<Op>,
+}
+
+/// What `LiveInputs.draw` shows: the pills, and while streaming the vote tally.
+#[derive(Debug, Clone, Default)]
+pub struct LiveView {
+    pub pills: Vec<String>,
+    pub tally: Option<TallyView>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct TallyView {
+    pub title: String,
+    /// Seconds left of the open round or the cooldown.
+    pub remaining: Option<f32>,
+    /// ("tool SWATTER", votes), at most five.
+    pub rows: Vec<(String, u32)>,
+    pub empty: String,
+    pub history: Vec<String>,
 }
 
 /// What the photo-mode viewfinder shows.
@@ -593,6 +613,9 @@ impl Hud<'_> {
         }
         if let Some(p) = &st.photo {
             self.viewfinder(p, st.tags_on);
+        }
+        if let Some(l) = &st.live {
+            self.live_inputs(l);
         }
         if !st.challenge.is_empty() {
             hits.challenge = self.ops(&st.challenge, st.mouse);
@@ -1119,6 +1142,60 @@ impl Hud<'_> {
         text(self.cv, "real synapses · T: train", (x + 12, y + h - 16), DIM, &f.small, "topleft");
         if let Some(p) = &st.pet {
             self.pet_card(p, y + h + 8);
+        }
+    }
+
+    /// `LiveInputs.draw`: red pills under the REC badge (never left of the status card), then the tally at the right.
+    fn live_inputs(&mut self, l: &LiveView) {
+        let f = self.f;
+        let play_w = self.lay.play_w;
+        let (pill_top, pill_min_x, pad) = (90, 256, 36);
+        let max_w = play_w - 14 - pill_min_x;
+        let mut y = pill_top;
+        for pill in &l.pills {
+            let mut t = pill.clone();
+            while f.small.size(&t) + pad > max_w && t.chars().count() > 12 {
+                let cut: String = t.chars().take(t.chars().count() - 4).collect();
+                t = format!("{}...", cut.trim_end());
+            }
+            let w = f.small.size(&t) + pad;
+            let h = f.small.linesize + 10;
+            let x = (play_w / 2 - w / 2).max(pill_min_x);
+            let r = Rect::new(x, y, w, h);
+            self.cv.fill_rect(r, [120, 20, 24], h / 2);
+            self.cv.stroke_rect2(r, [235, 70, 70], 2, h / 2);
+            self.cv.circle((r.x + 15, r.centery()), (h / 5).max(4), [255, 90, 90]);
+            text(self.cv, &t, (r.x + 27, r.y + 5), [255, 235, 235], &f.small, "topleft");
+            y = r.bottom() + 6;
+        }
+        let Some(t) = &l.tally else { return };
+        let lh = f.small.linesize + 4;
+        let w = 300.max((f.small.size("tool SWATTER  9999") as f32 * 1.5) as i32);
+        let x = play_w - w - 12;
+        let top = y + 2;
+        let h = 44 + lh * t.rows.len().max(1) as i32 + (lh - 2) * t.history.len().min(2) as i32;
+        let r = Rect::new(x, top, w, h);
+        card(self.cv, r, ([10, 12, 18], 215), 10);
+        self.cv.stroke_rect(r, [150, 130, 255], 10);
+        text(self.cv, &t.title, (x + 10, top + 8), [225, 220, 255], &f.small, "topleft");
+        if let Some(s) = t.remaining {
+            text(self.cv, &format!("{s:.0} s"), (x + w - 10, top + 8), [255, 220, 140], &f.small, "topright");
+        }
+        let mut yy = top + 8 + lh + 4;
+        let most = t.rows.iter().map(|r| r.1).max().unwrap_or(1).max(1);
+        for (label, n) in &t.rows {
+            self.cv.fill_rect(Rect::new(x + 10, yy + 2, ((w - 20) as f32 * *n as f32 / most as f32) as i32, lh - 6), [60, 52, 110], 4);
+            text(self.cv, label, (x + 14, yy), [240, 240, 255], &f.small, "topleft");
+            text(self.cv, &n.to_string(), (x + w - 14, yy), [255, 255, 255], &f.small, "topright");
+            yy += lh;
+        }
+        if t.rows.is_empty() {
+            text(self.cv, &t.empty, (x + 14, yy), [170, 170, 190], &f.small, "topleft");
+            yy += lh;
+        }
+        for line in t.history.iter().take(2) {
+            text(self.cv, &format!("last: {line}"), (x + 10, yy), [170, 200, 170], &f.small, "topleft");
+            yy += lh - 2;
         }
     }
 

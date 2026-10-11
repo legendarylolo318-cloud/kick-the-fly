@@ -23,5 +23,6 @@ pub mod pyrandom;
 pub mod recorder;
 pub mod savestate;
 pub mod shapes;
+pub mod streamer;
 pub mod sharecode;
 pub mod stores;

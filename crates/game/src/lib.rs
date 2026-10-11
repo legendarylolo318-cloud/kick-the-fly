@@ -42,7 +42,9 @@ pub mod kitchen;
 pub mod lab_extra;
 pub mod headless;
 pub mod lab_play;
+pub mod live_play;
 pub mod pet_play;
+pub mod twitch;
 pub mod photo_play;
 pub mod labtools;
 pub mod lesion;
@@ -201,6 +203,7 @@ impl Plugin for GamePlugin {
             ))
             .add_plugins((
                 arcade_hub::ArcadeHubPlugin,
+                live_play::LivePlugin,
                 flies_play::FliesPlugin,
                 share_play::SharePlugin,
                 lab_play::LabPlugin,

@@ -1229,6 +1229,14 @@ impl Menu {
         self.slider_raw(cv, rect, value, (s.lo, s.hi, s.step), &s.fmt, &s.key, enabled, tip);
     }
 
+    /// A slider for a setting that is not on the Settings screen's tabs (the Mic and streamer page): drag and typing store it in the config.
+    pub fn setting_slider(&mut self, cv: &mut Canvas, rect: Rect, cfg: &Config, key: &str, enabled: bool, tip: &str) {
+        if let Some(s) = ktf_data::config::setting(key) {
+            let v = cfg.get(key).as_f64().unwrap_or(s.lo);
+            self.slider(cv, rect, v, s, enabled, tip);
+        }
+    }
+
     /// A slider that is not a setting: the page gets `custom("slide:<id>", Some(value))` on every change (`ui/menu.py:Menu.slider` with a
     /// `change` callback). `fmt` is a Python format ("{:.0f} s duels"; a `%` shows and types as a percentage).
     #[allow(clippy::too_many_arguments)]

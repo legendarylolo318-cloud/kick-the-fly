@@ -184,6 +184,9 @@ pub struct LabTools {
     clamp: Option<Value>,
     diff: Option<Value>,
     laser: Value,
+    /// Mic and streamer page: its state (set by `live_play`) and the `lab.live_*` commands waiting for it.
+    pub live_state: Value,
+    pub live_cmds: Vec<(String, Value)>,
     psych: Option<Value>,
     autopsy_done: BTreeMap<String, Value>,
     autopsy_fails: Option<Value>,
@@ -253,6 +256,8 @@ impl Default for LabTools {
             clamp: None,
             diff: None,
             laser: Value::Null,
+            live_state: Value::Null,
+            live_cmds: Vec::new(),
             psych: None,
             autopsy_done: BTreeMap::new(),
             autopsy_fails: None,
@@ -537,6 +542,7 @@ impl LabTools {
                 }
             }),
             "lab_laser" => json!({"lab.laser_state": self.laser}),
+            "live_inputs" => json!({"lab.live_state": self.live_state}),
             "lab_activation" | "lab_knockout" => {
                 let kind = if screen == "lab_activation" { "activation" } else { "knockout" };
                 let label = if kind == "activation" { "Activation screen" } else { "Knockout screen" };
@@ -1169,6 +1175,7 @@ fn tick(
     for (cmd, a) in todo {
         let busy = tools.job.is_some();
         match cmd.as_str() {
+            c if c.starts_with("lab.live_") => tools.live_cmds.push((cmd.clone(), a.clone())),
             "lab.day4_cancel" => {
                 if let Some(j) = &tools.job {
                     j.cancel.store(true, Ordering::Relaxed);

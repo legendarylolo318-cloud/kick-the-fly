@@ -14,6 +14,7 @@ pub mod diff;
 pub mod export;
 pub mod lab;
 pub mod laser;
+pub mod live;
 pub mod load_state;
 pub mod loadout;
 pub mod minipapers;
@@ -65,6 +66,7 @@ pub fn install_with(menu: &mut Menu, dex: neurodex::SharedDex) {
     menu.register_page("lab_genetics", Box::<toolkit::LabGenetics>::default());
     menu.register_page("lab_thermo", Box::<toolkit::LabThermo>::default());
     menu.register_page("lab_pharm", Box::<toolkit::LabPharm>::default());
+    menu.register_page("live_inputs", Box::<live::LiveInputs>::default());
     menu.register_page("lab_minipapers", Box::<minipapers::LabMinipapers>::default());
     menu.register_page("lab_activation", Box::new(screens::LabScreen::activation()));
     menu.register_page("lab_knockout", Box::new(screens::LabScreen::knockout()));

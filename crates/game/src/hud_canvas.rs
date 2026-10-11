@@ -271,6 +271,8 @@ struct HudIn<'w, 's> {
     which: Res<'w, crate::flies_play::Flies>,
     pet: Res<'w, crate::pet_play::PetRes>,
     photo: Res<'w, crate::photo_play::Photo>,
+    live: Res<'w, crate::live_play::Live>,
+    mic: Res<'w, crate::mic::Mic>,
 }
 
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
@@ -318,6 +320,8 @@ fn draw(
         which,
         pet,
         photo,
+        live,
+        mic,
     } = i;
     let l = lay.0;
     let crisp = (l.scale.fract() == 0.0) && l.scale >= 1.0;
@@ -510,6 +514,7 @@ fn draw(
                 as f32,
             welcome: (rnow < 12.0 && !p.welcome_message.is_empty()).then(|| p.welcome_message.clone()),
         }),
+        live: live.hud(mic.handle.is_some(), rnow as f32),
         photo: photo.active.then(|| ktf_ui::hud::PhotoView {
             fov: photo.fov_deg,
             focus: photo.focus,

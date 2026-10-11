@@ -3816,10 +3816,12 @@ dependencies = [
  "ktf_ui",
  "md-5",
  "png",
+ "rustls",
  "serde",
  "serde_json",
  "sha2",
  "ureq",
+ "webpki-roots",
  "wgpu",
  "windows-sys 0.61.2",
 ]
