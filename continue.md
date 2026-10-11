@@ -52,7 +52,7 @@ the Python `labclamp.py` and `labdiff.py` forget `import numpy as np` (their les
 ## Next, in order
 1. (done) `lab_diff` page.
 2. Remaining Lab pages: (`lab_laser`, `lab_psych`, `lab_classroom` done)
-   `lab_minipapers` (`minipapers.py` 487 + `ui/minipaper_ui.py`; also registers six paper lectures in the classroom), `lab_activation` / `lab_knockout` (`screens.py`, `labscreen.py`).
+   (`lab_minipapers` done, Buridan paper waits for `lab_rigs`) `lab_activation` / `lab_knockout` (`screens.py`, `labscreen.py`).
 3. Toolkit (`lab_genetics`, `lab_thermo`, `lab_pharm`, `lab_patch`, `lab_imaging` done; patch lacks NWB export + inspector shortcut, imaging lacks TIFF/NWB + keep frames) (`imaging.py` 533, `livelab.ImagingLive`); `lab_rigs` (`labrigs.py`, `rigassay.py`).
 4. `lab_export` + `lab_protocols`: recorder (CSV/npz + metadata; NWB unavailable like Python's `nwbexport.available()`), YAML protocol runner (`protocol.py`, 883 lines;
    needs a YAML reader for the 42 shipped files), bundles (`bundle.py`).

@@ -1159,3 +1159,53 @@ fn lab_imaging_page() {
         compare(name, &cv.to_rgb_over(BG), 0.02);
     }
 }
+
+#[test]
+fn lab_minipapers_page() {
+    use std::collections::BTreeMap;
+    struct H(serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            if key == "lab.minipapers_state" { self.0.clone() } else { serde_json::Value::Null }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    let root = env!("CARGO_MANIFEST_DIR");
+    let gold: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(format!("{root}/../../tests/golden/minipapers.json")).unwrap()).unwrap();
+    let ans = |pairs: &[(&str, &str)]| -> BTreeMap<String, String> { pairs.iter().map(|(a, b)| (a.to_string(), b.to_string())).collect() };
+    let hampel = ans(&[("antenna_grooming_circuit", "up"), ("adn_grooming_motor", "small")]);
+    #[allow(clippy::type_complexity)]
+    let cases: Vec<(&str, Option<&str>, usize, BTreeMap<String, String>, Option<&str>)> = vec![
+        ("page_lab_minipapers_list.png", None, 0, ans(&[]), None),
+        ("page_lab_minipapers_read.png", Some("von_reyn_2014"), 0, ans(&[]), None),
+        ("page_lab_minipapers_hyp.png", Some("hampel_2015"), 1, ans(&[("antenna_grooming_circuit", "up")]), None),
+        ("page_lab_minipapers_run.png", Some("von_reyn_2014"), 2, ans(&[("looming_escape", "up")]), Some("von_reyn_2014")),
+        ("page_lab_minipapers_plot.png", Some("hampel_2015"), 3, hampel.clone(), Some("hampel_2015")),
+        ("page_lab_minipapers_cmp.png", Some("hampel_2015"), 4, hampel, Some("hampel_2015")),
+        (
+            "page_lab_minipapers_cmp_larva.png",
+            Some("ohyama_2015"),
+            4,
+            ans(&[("larva_noci_to_goro_rolling", "up"), ("larva_chordotonal_to_basin", "same")]),
+            Some("ohyama_2015"),
+        ),
+    ];
+    for (name, paper, step, answers, result) in cases {
+        let mut results = serde_json::Map::new();
+        if let Some(r) = result {
+            results.insert(r.to_string(), gold[r]["result"].clone());
+        }
+        let st = serde_json::json!({"results": results, "job": null, "error": "", "adult": true});
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        m.page_mut::<ktf_ui::pages::minipapers::LabMinipapers>("lab_minipapers").unwrap().set_view(paper, step, answers, false);
+        m.show("lab_minipapers");
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(st));
+        compare(name, &cv.to_rgb_over(BG), 0.02);
+    }
+}

@@ -209,6 +209,8 @@ pub struct LabTools {
     psych_msg: String,
     patch: PatchPage,
     imaging: ImagingPage,
+    /// Lab > Mini-papers: the results by paper.
+    papers: BTreeMap<String, Value>,
     base_seed: i64,
 }
 
@@ -259,6 +261,7 @@ impl Default for LabTools {
             psych_msg: String::new(),
             patch: PatchPage::default(),
             imaging: ImagingPage::default(),
+            papers: BTreeMap::new(),
             base_seed: 1000,
         }
     }
@@ -450,6 +453,11 @@ impl LabTools {
                 "Connectome diff" => self.diff = Some(v),
                 "Psych sweep" => self.psych = Some(v),
                 "Patch I-F curve" => self.patch.curve = Some(v),
+                l if l.starts_with("Mini-paper ") => {
+                    if let Some(pid) = v["paper"].as_str() {
+                        self.papers.insert(pid.to_string(), v.clone());
+                    }
+                }
                 "Pharm dose-response" => self.pharm_dr = Some(v),
                 "Inhibition report" => self.pharm_report = Some(v),
                 "Failure autopsy" => {
@@ -484,6 +492,12 @@ impl LabTools {
                 }
             }),
             "lab_laser" => json!({"lab.laser_state": self.laser}),
+            "lab_minipapers" => {
+                let job = self.job.as_ref().filter(|j| j.label.starts_with("Mini-paper ")).map(BgJob::json);
+                json!({"lab.minipapers_state": {
+                    "results": self.papers, "job": job, "error": self.error, "adult": self.pack.0.is_some(),
+                }})
+            }
             "lab_imaging" => {
                 let i = &self.imaging;
                 let v = crate::sim_thread::IMAGING_VIEW.lock().unwrap_or_else(PoisonError::into_inner).clone();
@@ -1291,6 +1305,49 @@ fn tick(
             }
             "lab.thermo_assay" => {
                 tools.thermo_note.clear();
+            }
+            "lab.mp_run" if !busy => {
+                let pid = a["paper"].as_str().unwrap_or("").to_string();
+                let seeds: Vec<u64> = if a["full"].as_bool().unwrap_or(false) {
+                    fly_sim::minipapers::FULL_SEEDS.to_vec()
+                } else {
+                    fly_sim::minipapers::QUICK_SEEDS.to_vec()
+                };
+                let shared = link.0.shared.lock().unwrap_or_else(PoisonError::into_inner).clone();
+                tools.error.clear();
+                match fly_sim::minipapers::paper(&pid) {
+                    None => tools.error = format!("unknown mini-paper {pid:?}"),
+                    Some(p) => {
+                        let (ok, why) = fly_sim::minipapers::available(p, shared.is_some());
+                        let created = crate::savestate_play::utc_stamp_pub();
+                        if ok {
+                            let sh = shared.expect("available means the brain is loaded");
+                            let workers = thread::available_parallelism().map_or(1, |n| n.get()).clamp(1, 3);
+                            tools.job = Some(BgJob::start(&format!("Mini-paper {pid}"), move |upd, cancel| {
+                                fly_sim::minipapers::run_paper(
+                                    &pid,
+                                    &seeds,
+                                    Some((&sh.weights, &sh.labels)),
+                                    workers,
+                                    |d, n, label| {
+                                        upd(d as f64 / n.max(1) as f64, if label.is_empty() { "running" } else { label });
+                                        !cancel.load(Ordering::Relaxed)
+                                    },
+                                    &created,
+                                )
+                            }));
+                        } else {
+                            // recorded numbers: instant, no brain
+                            match fly_sim::minipapers::run_paper(&pid, &fly_sim::minipapers::FULL_SEEDS, None, 1, |_, _, _| true, &created)
+                            {
+                                Ok(v) => {
+                                    tools.papers.insert(pid, v);
+                                }
+                                Err(e) => tools.error = if e.is_empty() { why } else { e },
+                            }
+                        }
+                    }
+                }
             }
             "lab.imaging_set" => {
                 let i = &mut tools.imaging;

@@ -1,0 +1,114 @@
+{
+ "result": {
+  "kind": "minipaper",
+  "paper": "ohyama_2015",
+  "title": "Larval rolling escape (Ohyama et al. 2015)",
+  "citation": "Ohyama T, Schneider-Mizell CM, Fetter RD, Aleman JV, Franconville R, Rivera-Alba M, Mensh BD, Branson KM, Simpson JH, Truman JW, Cardona A, Zlatic M (2015) A multilevel multimodal circuit enhances action selection in Drosophila. Nature 520:633-639",
+  "doi": "10.1038/nature14297",
+  "read": "abstract only (Europe PMC); the full text is behind a paywall and was not read",
+  "seeds": [
+   0,
+   1,
+   2,
+   3
+  ],
+  "full": true,
+  "source": "recorded",
+  "unavailable": "the larva brain pack is not built (python -m kickthefly.sim.connectome.larva_loader build downloads Data S1 once; docs/larva.md); the recorded validation numbers are shown instead",
+  "seconds": 0.0,
+  "questions": [
+   {
+    "test": "larva_noci_to_goro_rolling",
+    "prompt": "You drive the 12 nociceptive ascending neurons of the larva brain for 2 s. What do the `_telegoro-1` neurons (2, the rolling command pair in the annotations) do, compared with driving 12 random other sensory neurons?",
+    "expected": "up",
+    "verdict": {
+     "reproduced": false,
+     "basis": "validation's criteria on the held-out seeds (n = 10, p < 0.01)",
+     "measured": {
+      "drive_ratio_mean": 0.66,
+      "drive_ratio_sd": 0.01,
+      "control_ratio_mean": 0.65,
+      "control_ratio_sd": 0.01,
+      "p_value": 0.001,
+      "n": 10,
+      "passed": false
+     },
+     "n": 10
+    },
+    "pairs": [],
+    "note": "No excitation: the readout drops, for the drive and the control alike (x0.66 versus x0.65). Data S1 has no transmitter identities, so the pack makes local neurons and MBONs inhibitory and everything else excitatory, a guess; the network then idles at about 60 Hz and any extra sensory drive lowers these readouts whichever neurons are driven. Nothing was tuned (docs/validation.md, docs/larva.md)."
+   },
+   {
+    "test": "larva_chordotonal_to_basin",
+    "prompt": "You drive the 12 chordotonal ascending neurons for 2 s. What do the second-order noci / mechano PNs do, compared with 12 random other sensory neurons?",
+    "expected": "up",
+    "verdict": {
+     "reproduced": false,
+     "basis": "validation's criteria on the held-out seeds (n = 10, p < 0.01)",
+     "measured": {
+      "drive_ratio_mean": 0.68,
+      "drive_ratio_sd": 0.01,
+      "control_ratio_mean": 0.64,
+      "control_ratio_sd": 0.01,
+      "p_value": 0.001,
+      "n": 10,
+      "passed": false
+     },
+     "n": 10
+    },
+    "pairs": [],
+    "note": "No excitation, for the same reason: the readout drops for drive and control alike (x0.68 versus x0.64)."
+   }
+  ],
+  "created": "2026-10-10 18:29:48"
+ },
+ "comparison": [
+  {
+   "test": "larva_noci_to_goro_rolling",
+   "question": "You drive the 12 nociceptive ascending neurons of the larva brain for 2 s. What do the `_telegoro-1` neurons (2, the rolling command pair in the annotations) do, compared with driving 12 random other sensory neurons?",
+   "your_hypothesis": null,
+   "paper_direction": "they fire clearly more (at least 1.5x calm)",
+   "model_reproduces_paper": false,
+   "you_matched_the_paper": null,
+   "you_matched_the_model": null,
+   "basis": "validation's criteria on the held-out seeds (n = 10, p < 0.01)",
+   "note": "No excitation: the readout drops, for the drive and the control alike (x0.66 versus x0.65). Data S1 has no transmitter identities, so the pack makes local neurons and MBONs inhibitory and everything else excitatory, a guess; the network then idles at about 60 Hz and any extra sensory drive lowers these readouts whichever neurons are driven. Nothing was tuned (docs/validation.md, docs/larva.md).",
+   "measured": {
+    "drive_ratio_mean": 0.66,
+    "drive_ratio_sd": 0.01,
+    "control_ratio_mean": 0.65,
+    "control_ratio_sd": 0.01,
+    "p_value": 0.001,
+    "n": 10,
+    "passed": false
+   }
+  },
+  {
+   "test": "larva_chordotonal_to_basin",
+   "question": "You drive the 12 chordotonal ascending neurons for 2 s. What do the second-order noci / mechano PNs do, compared with 12 random other sensory neurons?",
+   "your_hypothesis": null,
+   "paper_direction": "they fire clearly more (at least 1.5x calm)",
+   "model_reproduces_paper": false,
+   "you_matched_the_paper": null,
+   "you_matched_the_model": null,
+   "basis": "validation's criteria on the held-out seeds (n = 10, p < 0.01)",
+   "note": "No excitation, for the same reason: the readout drops for drive and control alike (x0.68 versus x0.64).",
+   "measured": {
+    "drive_ratio_mean": 0.68,
+    "drive_ratio_sd": 0.01,
+    "control_ratio_mean": 0.64,
+    "control_ratio_sd": 0.01,
+    "p_value": 0.001,
+    "n": 10,
+    "passed": false
+   }
+  }
+ ],
+ "hypotheses": {
+  "looming_escape": "up",
+  "mb_conditioning": "none",
+  "sugar_feeding": "up",
+  "antenna_grooming_circuit": "up",
+  "adn_grooming_motor": "small"
+ }
+}

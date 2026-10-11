@@ -1,0 +1,96 @@
+{
+ "result": {
+  "kind": "minipaper",
+  "paper": "shiu_2024",
+  "title": "Sugar taste reaches the feeding motor neuron (Shiu et al. 2024)",
+  "citation": "Shiu PK, Sterne GR, Spiller N, Franconville R, Sandoval A, Zhou J, Simha N, Kang CH, Yu S, Kim JS, Dorkenwald S, Matsliah A, Schlegel P, Yu SC, McKellar CE, Sterling A, Costa M, Eichler K, Bates AS, Eckstein N, Funke J, Jefferis GSXE, Murthy M, Bidaye SS, Hampel S, Seeds AM, Scott K (2024) A Drosophila computational brain model reveals sensorimotor processing. Nature 634:210-219",
+  "doi": "10.1038/s41586-024-07763-9",
+  "read": "abstract (Europe PMC), and the open-access full text (PMC11446845) searched for its MN9 and bitter results in the 3.0 release review; not read line by line",
+  "seeds": [
+   0,
+   1,
+   2,
+   3
+  ],
+  "full": false,
+  "source": "live",
+  "unavailable": "",
+  "seconds": 0.0,
+  "questions": [
+   {
+    "test": "sugar_feeding",
+    "prompt": "You drive 30 sugar-pathway taste neurons for 2 s. What happens to MN9 (the proboscis motor neuron), compared with driving 30 bitter-pathway taste neurons?",
+    "expected": "up",
+    "verdict": {
+     "reproduced": true,
+     "basis": "effect size and direction only: n = 4 is too few flies for the validation's p < 0.01 (the smallest one-sided Wilcoxon p at n = 4 is 0.0625)",
+     "measured": {
+      "drive_ratio_mean": 2.647980190099755,
+      "drive_ratio_sd": 0.08856178478649188,
+      "control_ratio_mean": 1.2348543666478449,
+      "control_ratio_sd": 0.12271395017136756,
+      "readout_base_hz": 5.625,
+      "readout_driven_hz": 14.875,
+      "p_value": 0.0625,
+      "n": 4
+     },
+     "n": 4
+    },
+    "pairs": [
+     {
+      "seed": 0,
+      "drive": 2.714285714285714,
+      "control": 1.3809523809523807
+     },
+     {
+      "seed": 1,
+      "drive": 2.727272727272727,
+      "control": 1.1363636363636365
+     },
+     {
+      "seed": 2,
+      "drive": 2.5416666666666665,
+      "control": 1.2916666666666667
+     },
+     {
+      "seed": 3,
+      "drive": 2.608695652173913,
+      "control": 1.1304347826086956
+     }
+    ],
+    "note": "The sugar-pathway neurons reach the proboscis motor neuron and the bitter-pathway neurons mostly don't, as the paper's model leads you to expect."
+   }
+  ],
+  "created": "2026-10-10 18:29:18"
+ },
+ "comparison": [
+  {
+   "test": "sugar_feeding",
+   "question": "You drive 30 sugar-pathway taste neurons for 2 s. What happens to MN9 (the proboscis motor neuron), compared with driving 30 bitter-pathway taste neurons?",
+   "your_hypothesis": "MN9 fires clearly more for sugar (at least 1.5x calm, and more than for bitter)",
+   "paper_direction": "MN9 fires clearly more for sugar (at least 1.5x calm, and more than for bitter)",
+   "model_reproduces_paper": true,
+   "you_matched_the_paper": true,
+   "you_matched_the_model": true,
+   "basis": "effect size and direction only: n = 4 is too few flies for the validation's p < 0.01 (the smallest one-sided Wilcoxon p at n = 4 is 0.0625)",
+   "note": "The sugar-pathway neurons reach the proboscis motor neuron and the bitter-pathway neurons mostly don't, as the paper's model leads you to expect.",
+   "measured": {
+    "drive_ratio_mean": 2.647980190099755,
+    "drive_ratio_sd": 0.08856178478649188,
+    "control_ratio_mean": 1.2348543666478449,
+    "control_ratio_sd": 0.12271395017136756,
+    "readout_base_hz": 5.625,
+    "readout_driven_hz": 14.875,
+    "p_value": 0.0625,
+    "n": 4
+   }
+  }
+ ],
+ "hypotheses": {
+  "looming_escape": "up",
+  "mb_conditioning": "none",
+  "sugar_feeding": "up",
+  "antenna_grooming_circuit": "up",
+  "adn_grooming_motor": "small"
+ }
+}

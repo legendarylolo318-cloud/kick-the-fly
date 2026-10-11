@@ -47,7 +47,7 @@ fn pad_left(s: &str, w: usize) -> String {
 }
 
 /// `_tags`: coloured chips, returns the x after the last one.
-fn tags(m: &Menu, cv: &mut Canvas, mut x: i32, y: i32, names: &[&str]) -> i32 {
+pub fn tags(m: &Menu, cv: &mut Canvas, mut x: i32, y: i32, names: &[&str]) -> i32 {
     let f = m.fonts();
     for n in names {
         let col = match *n {

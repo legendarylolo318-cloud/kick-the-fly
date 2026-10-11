@@ -15,6 +15,7 @@ pub mod lab;
 pub mod laser;
 pub mod load_state;
 pub mod loadout;
+pub mod minipapers;
 pub mod neurodex;
 pub mod psych;
 pub mod shapes_ask;
@@ -60,6 +61,7 @@ pub fn install_with(menu: &mut Menu, dex: neurodex::SharedDex) {
     menu.register_page("lab_genetics", Box::<toolkit::LabGenetics>::default());
     menu.register_page("lab_thermo", Box::<toolkit::LabThermo>::default());
     menu.register_page("lab_pharm", Box::<toolkit::LabPharm>::default());
+    menu.register_page("lab_minipapers", Box::<minipapers::LabMinipapers>::default());
     menu.register_page("lab_patch", Box::<toolkit::LabPatch>::default());
     menu.register_page("lab_imaging", Box::<toolkit::LabImaging>::default());
     menu.register_page("whatsnew", Box::new(whatsnew::WhatsNew));

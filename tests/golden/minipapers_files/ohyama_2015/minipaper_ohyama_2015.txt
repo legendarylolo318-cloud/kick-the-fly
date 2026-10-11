@@ -1,0 +1,24 @@
+MINI-PAPER: Larval rolling escape (Ohyama et al. 2015)
+  Ohyama T, Schneider-Mizell CM, Fetter RD, Aleman JV, Franconville R, Rivera-Alba M, Mensh BD, Branson KM, Simpson JH, Truman JW, Cardona A, Zlatic M (2015) A multilevel multimodal circuit enhances action selection in Drosophila. Nature 520:633-639
+  doi:10.1038/nature14297   read: abstract only (Europe PMC); the full text is behind a paywall and was not read
+
+  The paper reports: Combining mechanosensory and nociceptive cues synergistically enhances the selection of the fastest mode of escape locomotion in Drosophila larvae. From an electron microscopy volume the authors reconstructed the multisensory circuit behind the synergy, found a multilevel multimodal convergence architecture, and identified functionally connected nodes that trigger the fastest locomotor mode and others that facilitate it.
+  Numbers the paper states: none stated in the abstract
+
+  Your result: RECORDED validation numbers (not run now): the larva brain pack is not built (python -m kickthefly.sim.connectome.larva_loader build downloads Data S1 once; docs/larva.md); the recorded validation numbers are shown instead
+
+  Q (larva_noci_to_goro_rolling): You drive the 12 nociceptive ascending neurons of the larva brain for 2 s. What do the `_telegoro-1` neurons (2, the rolling command pair in the annotations) do, compared with driving 12 random other sensory neurons?
+    the direction the paper's finding points to: they fire clearly more (at least 1.5x calm)
+    your hypothesis: not given
+    the model DOES NOT REPRODUCE that (validation's criteria on the held-out seeds (n = 10, p < 0.01))
+    numbers: drive_ratio_mean 0.66, drive_ratio_sd 0.01, control_ratio_mean 0.65, control_ratio_sd 0.01, p_value 0.001, n 10
+    No excitation: the readout drops, for the drive and the control alike (x0.66 versus x0.65). Data S1 has no transmitter identities, so the pack makes local neurons and MBONs inhibitory and everything else excitatory, a guess; the network then idles at about 60 Hz and any extra sensory drive lowers these readouts whichever neurons are driven. Nothing was tuned (docs/validation.md, docs/larva.md).
+
+  Q (larva_chordotonal_to_basin): You drive the 12 chordotonal ascending neurons for 2 s. What do the second-order noci / mechano PNs do, compared with 12 random other sensory neurons?
+    the direction the paper's finding points to: they fire clearly more (at least 1.5x calm)
+    your hypothesis: not given
+    the model DOES NOT REPRODUCE that (validation's criteria on the held-out seeds (n = 10, p < 0.01))
+    numbers: drive_ratio_mean 0.68, drive_ratio_sd 0.01, control_ratio_mean 0.64, control_ratio_sd 0.01, p_value 0.001, n 10
+    No excitation, for the same reason: the readout drops for drive and control alike (x0.68 versus x0.64).
+
+  What this model cannot check: The dataset used here (Winding et al. 2023, Data S1) does not contain the class IV md sensory neurons, the Basin interneurons or Goro itself (they are in the nerve cord). The tests drive the annotated nociceptive and chordotonal ascending neurons and read the annotated second-order PNs and the `_telegoro-1` DN-VNC pair, which is not verified as Goro. The synergy of two modalities is not tested.

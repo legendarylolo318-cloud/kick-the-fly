@@ -1,0 +1,96 @@
+{
+ "result": {
+  "kind": "minipaper",
+  "paper": "von_reyn_2014",
+  "title": "Looming drives the giant fiber (von Reyn et al. 2014)",
+  "citation": "von Reyn CR, Breads P, Peek MY, Zheng GZ, Williamson WR, Yee AL, Leonardo A, Card GM (2014) A spike-timing mechanism for action selection. Nature Neuroscience 17:962-970",
+  "doi": "10.1038/nn.3741",
+  "read": "abstract only (Europe PMC); the full text is behind a paywall and was not read",
+  "seeds": [
+   0,
+   1,
+   2,
+   3
+  ],
+  "full": false,
+  "source": "live",
+  "unavailable": "",
+  "seconds": 0.0,
+  "questions": [
+   {
+    "test": "looming_escape",
+    "prompt": "You drive all 311 looming detectors (LPLC2 and LC4) for 2 s. What does the giant fiber DNp01 do, compared with driving 311 random other visual projection neurons?",
+    "expected": "up",
+    "verdict": {
+     "reproduced": true,
+     "basis": "effect size and direction only: n = 4 is too few flies for the validation's p < 0.01 (the smallest one-sided Wilcoxon p at n = 4 is 0.0625)",
+     "measured": {
+      "drive_ratio_mean": 11.740698287220027,
+      "drive_ratio_sd": 0.8606964836836202,
+      "control_ratio_mean": 0.7624129493694711,
+      "control_ratio_sd": 0.1168617411705263,
+      "readout_base_hz": 5.6875,
+      "readout_driven_hz": 66.5,
+      "p_value": 0.0625,
+      "n": 4
+     },
+     "n": 4
+    },
+    "pairs": [
+     {
+      "seed": 0,
+      "drive": 12.090909090909092,
+      "control": 0.8181818181818182
+     },
+     {
+      "seed": 1,
+      "drive": 12.666666666666666,
+      "control": 0.7619047619047619
+     },
+     {
+      "seed": 2,
+      "drive": 11.565217391304348,
+      "control": 0.8695652173913043
+     },
+     {
+      "seed": 3,
+      "drive": 10.64,
+      "control": 0.6
+     }
+    ],
+    "note": "The wiring from the looming detectors to the giant fiber is strong enough to drive it: the premise of the paper's escape model holds in this connectome."
+   }
+  ],
+  "created": "2026-10-10 18:21:50"
+ },
+ "comparison": [
+  {
+   "test": "looming_escape",
+   "question": "You drive all 311 looming detectors (LPLC2 and LC4) for 2 s. What does the giant fiber DNp01 do, compared with driving 311 random other visual projection neurons?",
+   "your_hypothesis": "fires much more (at least 1.5x its calm rate)",
+   "paper_direction": "fires much more (at least 1.5x its calm rate)",
+   "model_reproduces_paper": true,
+   "you_matched_the_paper": true,
+   "you_matched_the_model": true,
+   "basis": "effect size and direction only: n = 4 is too few flies for the validation's p < 0.01 (the smallest one-sided Wilcoxon p at n = 4 is 0.0625)",
+   "note": "The wiring from the looming detectors to the giant fiber is strong enough to drive it: the premise of the paper's escape model holds in this connectome.",
+   "measured": {
+    "drive_ratio_mean": 11.740698287220027,
+    "drive_ratio_sd": 0.8606964836836202,
+    "control_ratio_mean": 0.7624129493694711,
+    "control_ratio_sd": 0.1168617411705263,
+    "readout_base_hz": 5.6875,
+    "readout_driven_hz": 66.5,
+    "p_value": 0.0625,
+    "n": 4
+   }
+  }
+ ],
+ "hypotheses": {
+  "looming_escape": "up",
+  "mb_conditioning": "none",
+  "sugar_feeding": "up",
+  "antenna_grooming_circuit": "up",
+  "adn_grooming_motor": "small"
+ }
+}

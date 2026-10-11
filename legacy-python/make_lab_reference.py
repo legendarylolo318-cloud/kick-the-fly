@@ -395,4 +395,35 @@ if __name__ == "__main__":
         _fx[_k] = dict(names=list(_s.roi_names), t=[float(x) for x in _s.t], dff=_np.array(_s.dff)[:, :7].tolist(),
                        true_dff=_np.array(_s.true_dff)[:, :7].tolist())
     (out / "lab_imaging_fixture.json").write_text(json.dumps(_fx))
+    from kickthefly.ui import minipaper_ui as mpu
+    import kickthefly.lab.minipapers as _mp
+
+    mp_gold = json.loads((gd / "minipapers.json").read_text())
+    _mp_ans = {"looming_escape": "up", "mb_conditioning": "none", "sugar_feeding": "up", "antenna_grooming_circuit": "up", "adn_grooming_motor": "small"}
+
+    def mp_prep(pid=None, step=0, answers=None, result=None, full=False):
+        def prep(m):
+            prep_for("lab_minipapers")(m)
+            s = mpu.st(m)
+            s.paper, s.full = pid, full
+            if pid:
+                s.sess.set_lecture(f"paper_{pid}")
+                s.sess.goto_step(step)
+                s.answers[pid] = dict(answers or {})
+                s.committed[pid] = dict(answers or {})
+                if result:
+                    s.results[pid] = result
+        return prep
+
+    R.render("lab_minipapers", "Graphics", out / "page_lab_minipapers_list.png", prep=mp_prep())
+    R.render("lab_minipapers", "Graphics", out / "page_lab_minipapers_read.png", prep=mp_prep("von_reyn_2014", 0))
+    R.render("lab_minipapers", "Graphics", out / "page_lab_minipapers_hyp.png", prep=mp_prep("hampel_2015", 1, {"antenna_grooming_circuit": "up"}))
+    R.render("lab_minipapers", "Graphics", out / "page_lab_minipapers_run.png",
+             prep=mp_prep("von_reyn_2014", 2, {"looming_escape": "up"}, mp_gold["von_reyn_2014"]["result"]))
+    R.render("lab_minipapers", "Graphics", out / "page_lab_minipapers_plot.png",
+             prep=mp_prep("hampel_2015", 3, {k: _mp_ans[k] for k in ("antenna_grooming_circuit", "adn_grooming_motor")}, mp_gold["hampel_2015"]["result"]))
+    R.render("lab_minipapers", "Graphics", out / "page_lab_minipapers_cmp.png",
+             prep=mp_prep("hampel_2015", 4, {k: _mp_ans[k] for k in ("antenna_grooming_circuit", "adn_grooming_motor")}, mp_gold["hampel_2015"]["result"]))
+    R.render("lab_minipapers", "Graphics", out / "page_lab_minipapers_cmp_larva.png",
+             prep=mp_prep("ohyama_2015", 4, {"larva_noci_to_goro_rolling": "up", "larva_chordotonal_to_basin": "same"}, mp_gold["ohyama_2015"]["result"]))
     print("wrote", out)
