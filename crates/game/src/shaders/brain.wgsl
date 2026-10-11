@@ -9,6 +9,9 @@ struct Params {
     gain: f32,
     // x, y: rotation about the vertical axis (cos, sin); z, w: scale and vertical shift of the cloud
     rot: vec4<f32>,
+    // imaging mode: the palette's four stops, and x = 1 to colour by them (brightness through the palette) instead of by population
+    lut: array<vec4<f32>, 4>,
+    mode: vec4<f32>,
 }
 
 @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> params: Params;
@@ -64,6 +67,13 @@ fn vertex(in: VertexIn) -> VertexOut {
     out.clip = view.clip_from_view * (vpos + vec4<f32>(in.corner_id.xy * size, 0.0, 0.0));
     out.uv = in.corner_id.xy;
     let glow = params.base_glow + params.gain * a * a;
+    if params.mode.x > 0.5 {
+        let x = clamp(a, 0.0, 1.0) * 3.0;
+        let i = min(u32(floor(x)), 2u);
+        let c = mix(params.lut[i].rgb, params.lut[i + 1u].rgb, x - f32(i));
+        out.color = vec4<f32>(c, glow);
+        return out;
+    }
     out.color = vec4<f32>(mix(palette(i32(s.w)), vec3<f32>(1.0), clamp(a, 0.0, 1.0) * 0.6), glow);
     return out;
 }

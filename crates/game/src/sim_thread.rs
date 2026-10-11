@@ -148,6 +148,100 @@ pub struct PatchView {
 
 pub static PATCH_VIEW: std::sync::Mutex<Option<PatchView>> = std::sync::Mutex::new(None);
 
+/// Lab > Imaging: how the live session is set up (`livelab.ImagingLive`).
+#[derive(Debug, Clone)]
+pub struct ImagingCfg {
+    pub indicator: String,
+    pub fps: f64,
+    pub f0_photons: f64,
+    pub shot_noise: bool,
+    /// `"regions"` or neuron specs separated by `;`.
+    pub roi_mode: String,
+    pub gain: f32,
+    pub baseline_tau_s: f64,
+    /// Reduced flashing: the display is smoothed over frames (`access.reduced_flashing`).
+    pub reduced: bool,
+}
+
+/// What the imaging page shows of the live session (the first seven ROIs' traces are all it draws).
+#[derive(Debug, Clone, Default)]
+pub struct ImagingView {
+    pub on: bool,
+    pub error: String,
+    pub indicator: String,
+    pub names: Vec<String>,
+    pub t: Vec<f64>,
+    pub dff: Vec<Vec<f64>>,
+    pub true_dff: Vec<Vec<f64>>,
+    pub frames: usize,
+    pub exported: String,
+}
+
+pub static IMAGING_VIEW: std::sync::Mutex<ImagingView> = std::sync::Mutex::new(ImagingView {
+    on: false,
+    error: String::new(),
+    indicator: String::new(),
+    names: Vec::new(),
+    t: Vec::new(),
+    dff: Vec::new(),
+    true_dff: Vec::new(),
+    frames: 0,
+    exported: String::new(),
+});
+
+/// The live imaging session on the focused fly.
+struct ImagingRun {
+    cfg: ImagingCfg,
+    session: fly_sim::imaging::Session,
+    smooth: Option<Vec<f32>>,
+    focus: u32,
+}
+
+impl ImagingRun {
+    fn start(cfg: ImagingCfg, brain: &Brain, focus: u32, seed: u64) -> Result<Self, String> {
+        let rois = if cfg.roi_mode == "regions" {
+            fly_sim::imaging::rois_by_region(&brain.labels().region)?
+        } else {
+            let specs: Vec<String> = cfg.roi_mode.split(';').map(str::trim).filter(|s| !s.is_empty()).map(String::from).collect();
+            fly_sim::imaging::rois_from_specs(&specs, false, &|sp| brain.rows_of(sp).map_err(|e| e.to_string()), &|sp| {
+                brain.rows_of(sp).is_ok_and(|r| !r.is_empty()) && !sp.contains(':')
+            })?
+        };
+        let p = fly_sim::imaging::Params {
+            indicator: cfg.indicator.clone(),
+            fps: cfg.fps,
+            f0_photons: cfg.f0_photons,
+            shot_noise: cfg.shot_noise,
+            seed,
+            max_frames: Some(600),
+            baseline_tau_s: cfg.baseline_tau_s,
+            ..Default::default()
+        };
+        let mut session = fly_sim::imaging::Session::new(brain.n(), &rois, &p)?;
+        let raster: Vec<&[u32]> = brain.sim.activity.raster().collect();
+        session.feed(&raster, brain.sim.activity.steps);
+        Ok(Self { cfg, session, smooth: None, focus })
+    }
+
+    /// The numbers the page draws (called about ten times a second).
+    fn view(&self, exported: &str) -> ImagingView {
+        let s = &self.session;
+        let k = s.roi_names.len().min(7);
+        let cut = |rows: &[Vec<f64>]| -> Vec<Vec<f64>> { rows.iter().map(|r| r[..k].to_vec()).collect() };
+        ImagingView {
+            on: true,
+            error: String::new(),
+            indicator: s.ind.name.to_string(),
+            names: s.roi_names.clone(),
+            t: s.t.clone(),
+            dff: cut(&s.dff),
+            true_dff: cut(&s.true_dff),
+            frames: s.t.len(),
+            exported: exported.to_string(),
+        }
+    }
+}
+
 /// The electrode on the focused fly (`patchclamp.LiveElectrode`): one sample per brain step, a window and an optional protocol.
 struct Electrode {
     row: u32,
@@ -305,6 +399,10 @@ pub enum Command {
     PatchLive(bool),
     PatchHold(f32),
     PatchRun(Vec<f32>),
+    /// Lab > Imaging: start (or restart) the session on the focused fly, or `None` to stop it.
+    Imaging(Option<Box<ImagingCfg>>),
+    /// Write the session's ROI traces as CSV into this folder.
+    ImagingExport(std::path::PathBuf),
     /// Classroom: a sensory poke of these rows (`br.sense[("classroom", spec)] = rows; br.poke(...)`).
     PokeRows {
         rows: Vec<u32>,
@@ -568,6 +666,8 @@ fn run(
     let mut electrode: Option<Electrode> = None;
     let mut patch_view = PatchView::default();
     let mut patch_hold = 0.0f32;
+    let mut imaging: Option<ImagingRun> = None;
+    let mut imaging_note = String::new();
     let mut brain = Brain::new(LifSim::new(weights, params, cfg.seed), labels);
     let mut mem = MemState::new(cfg.memory_dir.clone());
     if mem.dir.is_some() && brain.enable_memory() {
@@ -793,6 +893,40 @@ fn run(
                         b.revive();
                     }
                 }
+                Ok(Command::Imaging(cfg)) => {
+                    imaging = None;
+                    mem.imaging_dff.clear();
+                    mem.imaging_label.clear();
+                    match cfg {
+                        None => *IMAGING_VIEW.lock().unwrap_or_else(PoisonError::into_inner) = ImagingView::default(),
+                        Some(cfg) => {
+                            let seed = multi.seed_of(multi.focus, cfg.seed_default());
+                            match ImagingRun::start(*cfg, &brain, multi.focus, seed) {
+                                Ok(run) => {
+                                    *IMAGING_VIEW.lock().unwrap_or_else(PoisonError::into_inner) = run.view("");
+                                    imaging = Some(run);
+                                }
+                                Err(e) => {
+                                    *IMAGING_VIEW.lock().unwrap_or_else(PoisonError::into_inner) =
+                                        ImagingView { error: e, ..Default::default() };
+                                }
+                            }
+                        }
+                    }
+                }
+                Ok(Command::ImagingExport(dir)) => {
+                    imaging_note = match imaging.as_ref().map(|r| r.session.result()) {
+                        Some(Ok(res)) => match fly_sim::imaging::export_csv(&res, &dir.join("imaging_roi.csv")) {
+                            Ok(()) => format!("saved to {}", dir.file_name().and_then(|f| f.to_str()).unwrap_or("")),
+                            Err(e) => format!("export failed: {e}"),
+                        },
+                        Some(Err(e)) => format!("export failed: {e}"),
+                        None => "nothing recorded yet".into(),
+                    };
+                    if let Some(r) = imaging.as_ref() {
+                        *IMAGING_VIEW.lock().unwrap_or_else(PoisonError::into_inner) = r.view(&imaging_note);
+                    }
+                }
                 Ok(cmd) => driving |= apply(&mut brain, &mut state, &mut dex, &mut mem, &events, cmd),
                 Err(TryRecvError::Empty) => break,
             }
@@ -811,7 +945,11 @@ fn run(
                 if let Some(e) = electrode.as_mut() {
                     e.push(&mut brain, &mut patch_view);
                 }
+                if let Some(r) = imaging.as_mut() {
+                    r.session.push(brain.sim.spikes());
+                }
             }
+            refresh_imaging(&mut imaging, &mut mem, &multi, &brain, &imaging_note);
             if let Some(e) = electrode.as_ref() {
                 patch_view.window = e.window();
                 *PATCH_VIEW.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = Some(patch_view.clone());
@@ -851,6 +989,9 @@ fn run(
                 *PATCH_VIEW.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = Some(patch_view.clone());
             }
         }
+        if let Some(r) = imaging.as_mut() {
+            r.session.push(brain.sim.spikes());
+        }
         dex_check(&brain, &mut dex, &events);
         mem.after_step(&mut brain, &events);
         if let Some(mask) = mem.steth_mask.as_ref() {
@@ -865,6 +1006,7 @@ fn run(
             rate_steps = brain.steps;
         }
         if brain.steps.is_multiple_of(cfg.publish_every) {
+            refresh_imaging(&mut imaging, &mut mem, &multi, &brain, &imaging_note);
             publish(&mailbox, &brain, &multi, &source, &state, steps_per_s, dropped, driving, &info, &mem);
         }
     }
@@ -878,6 +1020,13 @@ struct Multi {
     focus: u32,
     /// The seed each fly's simulator was made with (a save needs it; the sim does not remember it).
     seeds: Vec<(u32, u64)>,
+}
+
+impl ImagingCfg {
+    /// The seed a session uses when the focused fly's own is not known.
+    fn seed_default(&self) -> u64 {
+        0
+    }
 }
 
 impl Multi {
@@ -981,7 +1130,13 @@ fn apply(
         }
         Command::SetMirror(_) | Command::SetWiring { .. } => false,
         Command::ThermoConfig { .. } | Command::ThermoArena { .. } => false,
-        Command::PatchPick { .. } | Command::PatchRow(_) | Command::PatchLive(_) | Command::PatchHold(_) | Command::PatchRun(_) => false,
+        Command::PatchPick { .. }
+        | Command::PatchRow(_)
+        | Command::PatchLive(_)
+        | Command::PatchHold(_)
+        | Command::PatchRun(_)
+        | Command::Imaging(_)
+        | Command::ImagingExport(_) => false,
         Command::PokeRows { rows, strength } => {
             brain.groups.add_sense("classroom", rows);
             brain.poke("classroom", None, strength);
@@ -1207,8 +1362,37 @@ fn publish(
         s.memory.clone_from(&mem.view);
         s.challenge.clone_from(&mem.chal_view);
         s.challenge_speed = mem.chal_speed;
+        s.dff.clone_from(&mem.imaging_dff);
+        s.imaging.clone_from(&mem.imaging_label);
         s.published_at = Some(Instant::now());
     });
+}
+
+/// Before a snapshot: the displayed dF/F of every neuron goes to the brain view, the traces to the page. A different focused fly (a new
+/// brain) restarts the session, as `ImagingLive.feed` does.
+fn refresh_imaging(imaging: &mut Option<ImagingRun>, mem: &mut MemState, multi: &Multi, brain: &Brain, note: &str) {
+    let Some(run) = imaging.as_mut() else { return };
+    if run.focus != multi.focus {
+        let cfg = run.cfg.clone();
+        let seed = multi.seed_of(multi.focus, 0);
+        match ImagingRun::start(cfg, brain, multi.focus, seed) {
+            Ok(r) => *run = r,
+            Err(e) => {
+                *imaging = None;
+                mem.imaging_dff.clear();
+                *IMAGING_VIEW.lock().unwrap_or_else(PoisonError::into_inner) =
+                    ImagingView { error: format!("imaging stopped: {e}"), ..Default::default() };
+                return;
+            }
+        }
+    }
+    let full = run.session.view_full(run.cfg.gain, if run.cfg.reduced { run.smooth.as_deref() } else { None });
+    mem.imaging_dff.clone_from(&full);
+    run.smooth = Some(full);
+    mem.imaging_label = run.session.ind.name.split(" (").next().unwrap_or("").to_string();
+    if brain.steps.is_multiple_of(20) {
+        *IMAGING_VIEW.lock().unwrap_or_else(PoisonError::into_inner) = run.view(note);
+    }
 }
 
 /// The fly's memory on the sim thread: its file, the training in progress, the autosave clock and the view the game reads.
@@ -1230,6 +1414,9 @@ struct MemState {
     autopsy_done: bool,
     /// Which neurons the stethoscope listens to.
     steth_mask: Option<Vec<bool>>,
+    /// Lab > Imaging: the dF/F the brain view shows (empty when imaging is off) and the indicator's short name.
+    imaging_dff: Vec<f32>,
+    imaging_label: String,
 }
 
 fn unix_now() -> f64 {
@@ -1254,6 +1441,8 @@ impl MemState {
             chal_speed: 1.0,
             autopsy_done: false,
             steth_mask: None,
+            imaging_dff: Vec::new(),
+            imaging_label: String::new(),
         }
     }
 

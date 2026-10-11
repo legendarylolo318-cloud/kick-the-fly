@@ -1316,15 +1316,9 @@ impl Page for LabPatch {
                     ctx.host.command("lab.patch_set", json!({"type": t}));
                 }
             }
-            "text:pc_idx" => {
-                ctx.host.command("lab.patch_set", json!({"index": val.map_or(0, |v| v.max(0.0) as i64)})).as_null().into_unit()
-            }
-            "text:pc_dur" => {
-                ctx.host.command("lab.patch_set", json!({"dur": val.map_or(500, |v| v.clamp(10.0, 20000.0) as i64)})).as_null().into_unit()
-            }
-            "text:pc_rep" => {
-                ctx.host.command("lab.patch_set", json!({"repeats": val.map_or(1, |v| v.clamp(1.0, 100.0) as i64)})).as_null().into_unit()
-            }
+            "text:pc_idx" => drop(ctx.host.command("lab.patch_set", json!({"index": val.map_or(0, |v| v.max(0.0) as i64)}))),
+            "text:pc_dur" => drop(ctx.host.command("lab.patch_set", json!({"dur": val.map_or(500, |v| v.clamp(10.0, 20000.0) as i64)}))),
+            "text:pc_rep" => drop(ctx.host.command("lab.patch_set", json!({"repeats": val.map_or(1, |v| v.clamp(1.0, 100.0) as i64)}))),
             "slide:pc_hold" => {
                 if let Some(v) = val {
                     ctx.host.command("lab.patch_set", json!({"hold": v}));
@@ -1342,10 +1336,276 @@ impl Page for LabPatch {
     }
 }
 
-trait IntoUnit {
-    fn into_unit(self);
+// ==== Calcium imaging ===============================================================================================================
+/// Host: query `lab.imaging_state` = `{on, indicator, indicators: [{key, name}], fps, f0, noise, roi_mode, keep, error, reduced, source,
+/// verified, msg, nwb, view: {names, t, dff, true_dff, frames}}`; commands `lab.imaging_set {on|indicator|fps|f0|noise|roi_mode|keep}`,
+/// `lab.imaging_export {kind}`.
+#[derive(Default)]
+pub struct LabImaging;
+
+/// `np.nanpercentile(x, q)` (linear interpolation).
+fn percentile(mut v: Vec<f64>, q: f64) -> f64 {
+    v.retain(|x| !x.is_nan());
+    if v.is_empty() {
+        return f64::NAN;
+    }
+    v.sort_by(f64::total_cmp);
+    let pos = q / 100.0 * (v.len() - 1) as f64;
+    let (lo, hi) = (pos.floor() as usize, pos.ceil() as usize);
+    v[lo] + (v[hi] - v[lo]) * (pos - lo as f64)
 }
 
-impl IntoUnit for Option<()> {
-    fn into_unit(self) {}
+impl Page for LabImaging {
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn draw(&mut self, m: &mut Menu, cv: &mut Canvas, rect: Rect, ctx: &mut Ctx) {
+        let f = m.fonts();
+        let q = ctx.host.query("lab.imaging_state");
+        let y0 = title(
+            m,
+            cv,
+            rect,
+            "SIMULATED CALCIUM IMAGING",
+            "The brain view colored by GCaMP dF/F: spikes convolved with an indicator kernel, plus photon shot noise.",
+            &[
+                ("MODEL", "a forward model on the simulation's spikes, not a measurement"),
+                ("LITERATURE", "kernel speeds: see the indicator notes below"),
+                ("CONNECTOME", "which neurons spike"),
+            ],
+        );
+        let x = rect.x + 24;
+        let rh = 28.max(f.small.linesize + 10);
+        let lw = ["Imaging mode", "Indicator", "Frame rate", "ROIs"].iter().map(|t| f.text.size(t)).max().unwrap_or(0) + 20;
+        let right = rect.right() - 24;
+        let mut cur = (x + lw, y0);
+        let place = |w: i32, cur: &mut (i32, i32)| -> Rect {
+            if cur.0 + w > right && cur.0 > x + lw {
+                cur.0 = x + lw;
+                cur.1 += rh + 6;
+            }
+            let r = Rect::new(cur.0, cur.1, w, rh);
+            cur.0 += w + 14;
+            r
+        };
+        let row = |m: &mut Menu, cv: &mut Canvas, label: &str, cur: &mut (i32, i32)| {
+            let y = if cur.0 == x + lw { cur.1 } else { cur.1 + rh + 8 };
+            *cur = (x + lw, y);
+            m.text(cv, label, (x, y + rh / 2), TEXT, &f.text, Anchor::MidLeft);
+        };
+        let on = q["on"].as_bool().unwrap_or(false);
+        row(m, cv, "Imaging mode", &mut cur);
+        let r = place(100, &mut cur);
+        m.toggle(
+            cv,
+            r,
+            on,
+            Act::Custom(format!("on:{}", u8::from(!on))),
+            "im_on",
+            true,
+            "The brain view shows dF/F instead of firing. Press B for the big view.",
+        );
+        if let Some(e) = q["error"].as_str().filter(|e| !e.is_empty()) {
+            let r = place(100.max(right - cur.0), &mut cur);
+            m.wrapped(cv, e, (r.x, r.y + 4), r.w, BAD, &f.small, 2);
+        }
+        row(m, cv, "Indicator", &mut cur);
+        let inds = q["indicators"].as_array().cloned().unwrap_or_default();
+        let labels: Vec<String> =
+            inds.iter().map(|i| i["name"].as_str().unwrap_or("").split(" (").next().unwrap_or("").to_string()).collect();
+        let cur_key = q["indicator"].as_str().unwrap_or("gcamp6s");
+        let sel = inds.iter().position(|i| i["key"].as_str() == Some(cur_key)).unwrap_or(0);
+        let wl = labels.iter().map(|t| f.small.size(t)).max().unwrap_or(0);
+        let r = place((right - (x + lw)).min(420.max(labels.len() as i32 * (wl + 24))), &mut cur);
+        let acts: Vec<Act> = inds.iter().map(|i| Act::Custom(format!("ind:{}", i["key"].as_str().unwrap_or("")))).collect();
+        m.segmented(cv, r, &labels, sel, &acts, "im_ind", true, "");
+        row(m, cv, "Frame rate", &mut cur);
+        let r = place(200, &mut cur);
+        m.page_slider(
+            cv,
+            r,
+            num(&q["fps"]),
+            (5.0, 40.0, 5.0),
+            "{:.0f} Hz",
+            "im_fps",
+            true,
+            Some("Applies when imaging mode is (re)started. The 5 ms simulation step limits it to 200 Hz."),
+        );
+        let r = place(f.small.size("photons/cell/frame") + 8 + 170, &mut cur);
+        m.text(cv, "photons/cell/frame", (r.x, r.centery()), TEXT, &f.small, Anchor::MidLeft);
+        m.page_slider(
+            cv,
+            Rect::new(r.right() - 170, r.y, 170, rh),
+            num(&q["f0"]),
+            (10.0, 1000.0, 10.0),
+            "{:.0f}",
+            "im_f0",
+            true,
+            Some("MODEL parameter: fewer photons, more shot noise."),
+        );
+        let r = place(f.small.size("shot noise") + 8 + 100, &mut cur);
+        m.text(cv, "shot noise", (r.x, r.centery()), TEXT, &f.small, Anchor::MidLeft);
+        let noise = q["noise"].as_bool().unwrap_or(true);
+        m.toggle(
+            cv,
+            Rect::new(r.right() - 100, r.y, 100, rh),
+            noise,
+            Act::Custom(format!("noise:{}", u8::from(!noise))),
+            "im_noise",
+            true,
+            "",
+        );
+        row(m, cv, "ROIs", &mut cur);
+        let spec = q["roi_mode"].as_str().unwrap_or("regions");
+        let r = place(230.max(2 * f.small.size("Brain regions") + 48), &mut cur);
+        m.segmented(
+            cv,
+            r,
+            &["Brain regions".into(), "Custom".into()],
+            usize::from(spec != "regions"),
+            &[Act::Custom("roi:0".into()), Act::Custom("roi:1".into())],
+            "im_roi",
+            true,
+            "",
+        );
+        if spec != "regions" {
+            let r = place(360, &mut cur);
+            m.text_field(
+                cv,
+                r,
+                spec,
+                "im_spec",
+                Some("Neuron specs separated by ;  for example  type:DNp01;prefix:KC;line:SS00727 . One ROI each."),
+                60,
+                false,
+            );
+        }
+        let r = place(f.small.size("keep frames") + 8 + 100, &mut cur);
+        m.text(cv, "keep frames", (r.x, r.centery()), TEXT, &f.small, Anchor::MidLeft);
+        let keep = q["keep"].as_bool().unwrap_or(false);
+        m.toggle(
+            cv,
+            Rect::new(r.right() - 100, r.y, 100, rh),
+            keep,
+            Act::Custom(format!("keep:{}", u8::from(!keep))),
+            "im_keep",
+            true,
+            "Keep the rendered frames (last ~15 s) so they can be exported as TIFF or NWB ImageSeries.",
+        );
+        let mut y = cur.1 + rh + 12;
+        let ind_text =
+            format!("{}: {}. {}", sel_name(&inds, sel), q["source"].as_str().unwrap_or(""), q["verified"].as_str().unwrap_or(""));
+        let model_text = "MODEL: each spike adds the same kernel; every neuron in an ROI is equally bright; F0 is a running mean (30 s), so a steady \
+rate reads as 0 and only changes show; no bleaching, motion, scattering or neuropil. dF/F per spike (0.2) and the \
+photon budget are game parameters.";
+        let lh = f.small.linesize;
+        let notes_h = (Menu::fit_lines(&f.small, &ind_text, rect.w - 200, 6).0.len()
+            + Menu::fit_lines(&f.small, model_text, rect.w - 200, 4).0.len()) as i32
+            * lh
+            + 8;
+        let pl = Rect::new(x, y, rect.w - 48, 60.max(190.min(rect.bottom() - 70 - notes_h - 46 - y)));
+        let view = &q["view"];
+        let t: Vec<f64> = view["t"].as_array().into_iter().flatten().map(num).collect();
+        let names: Vec<String> = view["names"].as_array().into_iter().flatten().map(|v| v.as_str().unwrap_or("").to_string()).collect();
+        if on && t.len() > 2 {
+            let reduced = q["reduced"].as_bool().unwrap_or(false);
+            let data = if reduced { &view["true_dff"] } else { &view["dff"] };
+            let rows: Vec<Vec<f64>> =
+                data.as_array().into_iter().flatten().map(|r| r.as_array().into_iter().flatten().map(num).collect()).collect();
+            let last = *t.last().unwrap_or(&0.0);
+            let tt: Vec<f64> = t.iter().map(|v| v - last).collect();
+            let cols: [Color; 7] =
+                [[255, 170, 60], [90, 200, 255], [120, 230, 120], [240, 110, 200], [250, 220, 90], [170, 140, 255], [255, 255, 255]];
+            let k = rows.first().map_or(0, Vec::len).min(7);
+            #[allow(clippy::type_complexity)]
+            let series: Vec<(Vec<(f64, f64)>, Color, i32)> =
+                (0..k).map(|j| (tt.iter().copied().zip(rows.iter().map(|r| r[j])).collect(), cols[j % 7], 2)).collect();
+            let all: Vec<f64> = rows.iter().flat_map(|r| r[..k].iter().copied()).collect();
+            let top = 0.5f64.max(percentile(all, 99.0) * 1.1);
+            plot(m, cv, pl, &series, (tt[0], 0.0), (-0.1, top), "seconds", "dF/F (fraction)", &[], &[]);
+            let mut lx = pl.x + 150;
+            for (j, n) in names.iter().take(k).enumerate() {
+                let short: String = n.chars().take(16).collect();
+                m.text(cv, &short, (lx, pl.y + 4), cols[j % 7], &f.small, Anchor::TopLeft);
+                lx += 120;
+            }
+        } else {
+            cv.fill_rect(pl, [12, 14, 20], 8);
+            m.text(cv, "turn Imaging mode on to see the ROI traces", pl.center(), LABEL, &f.small, Anchor::Center);
+        }
+        y = pl.bottom() + 8;
+        let nwb = q["nwb"].as_str().filter(|s| !s.is_empty());
+        let have = on && t.len() > 1;
+        let items = [
+            RowButton {
+                label: "Export CSV".into(),
+                click: Act::Custom("csv".into()),
+                id: "im_csv".into(),
+                style: Style::Normal,
+                enabled: have,
+                tip: None,
+                w: 130,
+            },
+            RowButton {
+                label: "Export NWB".into(),
+                click: Act::Custom("nwb".into()),
+                id: "im_nwb".into(),
+                style: Style::Normal,
+                enabled: have && nwb.is_none(),
+                tip: Some(nwb.unwrap_or("RoiResponseSeries (dF/F and photons) and an ImageSeries.").to_string()),
+                w: 130,
+            },
+            RowButton {
+                label: "Export TIFF".into(),
+                click: Act::Custom("tiff".into()),
+                id: "im_tiff".into(),
+                style: Style::Normal,
+                enabled: q["frames"].as_bool().unwrap_or(false),
+                tip: Some("A multi-page TIFF of the rendered view. Turn on 'keep frames' first.".into()),
+                w: 130,
+            },
+        ];
+        let (xe, _) = m.button_row(cv, x, y, 30, &items, 10, None);
+        if let Some(msg) = q["msg"].as_str().filter(|s| !s.is_empty()) {
+            m.text(cv, msg, (xe + 10, y + 15), AMBER, &f.small, Anchor::MidLeft);
+        }
+        y += 38;
+        y = m.wrapped(cv, &ind_text, (x, y), rect.w - 200, LABEL, &f.small, 6) + 8;
+        m.wrapped(cv, model_text, (x, y), rect.w - 200, LABEL, &f.small, 4);
+        back(m, cv, rect, "imaging");
+    }
+
+    fn custom(&mut self, _m: &mut Menu, name: &str, text: Option<&str>, ctx: &mut Ctx) {
+        let val = text.and_then(|t| t.parse::<f64>().ok());
+        let set = |ctx: &mut Ctx, v: Value| drop(ctx.host.command("lab.imaging_set", v));
+        match name {
+            "csv" | "nwb" | "tiff" => drop(ctx.host.command("lab.imaging_export", json!({"kind": name}))),
+            "slide:im_fps" => {
+                if let Some(v) = val {
+                    set(ctx, json!({"fps": v}));
+                }
+            }
+            "slide:im_f0" => {
+                if let Some(v) = val {
+                    set(ctx, json!({"f0": v}));
+                }
+            }
+            "text:im_spec" => {
+                let t = text.unwrap_or("").trim();
+                set(ctx, json!({"roi_mode": if t.is_empty() { "regions" } else { t }}));
+            }
+            n if n.starts_with("on:") => set(ctx, json!({"on": &n[3..] == "1"})),
+            n if n.starts_with("ind:") => set(ctx, json!({"indicator": &n[4..]})),
+            n if n.starts_with("noise:") => set(ctx, json!({"noise": &n[6..] == "1"})),
+            n if n.starts_with("keep:") => set(ctx, json!({"keep": &n[5..] == "1"})),
+            n if n.starts_with("roi:") => set(ctx, json!({"roi_mode": if &n[4..] == "0" { "regions" } else { "type:DNp01" }})),
+            _ => {}
+        }
+    }
+}
+
+fn sel_name(inds: &[Value], sel: usize) -> String {
+    inds.get(sel).and_then(|i| i["name"].as_str()).unwrap_or("").to_string()
 }

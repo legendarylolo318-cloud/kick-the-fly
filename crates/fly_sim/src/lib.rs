@@ -25,6 +25,7 @@ pub mod duel;
 pub mod failure_autopsy;
 pub mod genetics;
 pub mod groups;
+pub mod imaging;
 pub mod inspect;
 pub mod laser;
 pub mod lesions;

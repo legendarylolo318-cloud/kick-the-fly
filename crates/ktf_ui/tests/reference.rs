@@ -1111,3 +1111,51 @@ fn lab_patch_page() {
         compare(name, &cv.to_rgb_over(BG), 0.02);
     }
 }
+
+#[test]
+fn lab_imaging_page() {
+    struct H(serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            if key == "lab.imaging_state" { self.0.clone() } else { serde_json::Value::Null }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    let root = env!("CARGO_MANIFEST_DIR");
+    let fx: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(format!("{root}/../../tests/ui_reference/lab_imaging_fixture.json")).unwrap()).unwrap();
+    let inds = serde_json::json!([
+        {"key": "gcamp6s", "name": "GCaMP6s (slow, sensitive)"},
+        {"key": "gcamp6f", "name": "GCaMP6f (fast)"},
+        {"key": "jgcamp8m", "name": "jGCaMP8m (fast, sensitive)"}]);
+    let chen = "Chen et al. 2013, Nature 499:295 (doi:10.1038/nature12354), Supplementary Table 3";
+    let st = |on: bool, ind: &str, roi: &str, noise: bool, source: &str, verified: &str, view: serde_json::Value, msg: &str| {
+        serde_json::json!({"on": on, "indicator": ind, "indicators": inds, "fps": 20.0, "f0": 100.0, "noise": noise, "roi_mode": roi,
+                           "keep": false, "reduced": false, "error": "", "frames": false, "source": source, "verified": verified,
+                           "msg": msg, "nwb": "needs pynwb", "view": view})
+    };
+    let v6s = "Verified in the paper's Supplementary Table 3 (mouse V1 in vivo, cell-attached, 1 action potential): rise time to peak 179 +- 23 ms, half-decay 550 +- 52 ms; this game uses the means. (The main text gives a 100-150 ms rise time for resolving single spikes.) Mouse cortex, not fly neurons.";
+    let v6f = "Verified in the paper's Supplementary Table 3 (mouse V1 in vivo, cell-attached, 1 action potential): rise time to peak 45 +- 4 ms, half-decay 142 +- 11 ms; this game uses the means. (The main text gives a 50-75 ms rise time for resolving single spikes.) Mouse cortex, not fly neurons.";
+    let v8 = "Both numbers are stated in the paper's text (a figure legend). They describe a fly's response to a visual stimulus, not a single-spike impulse response, and a two-exponential kernel cannot have a 58 ms half-rise and a 137 ms half-decay at once, so this game uses 58 ms as the kernel's time to peak (a simplification). The same paper reports much faster kinetics in cultured neurons (half-rise 2 ms).";
+    let z = "Zhang et al. 2023, Nature 615:884 (doi:10.1038/s41586-023-05828-9), Drosophila in-vivo visual responses: half-rise 58 +- 6 ms, half-decay 137 +- 21 ms";
+    let empty = serde_json::json!({"names": [], "t": [], "dff": [], "true_dff": [], "frames": 0});
+    let mk = |k: &str| serde_json::json!({"names": fx[k]["names"], "t": fx[k]["t"], "dff": fx[k]["dff"], "true_dff": fx[k]["true_dff"], "frames": 1});
+    for (name, state) in [
+        ("page_lab_imaging_off.png", st(false, "gcamp6s", "regions", true, chen, v6s, empty, "")),
+        ("page_lab_imaging_on.png", st(true, "gcamp6f", "regions", true, chen, v6f, mk("on"), "")),
+        (
+            "page_lab_imaging_custom.png",
+            st(true, "jgcamp8m", "type:DNp01;prefix:KC", false, z, v8, mk("custom"), "saved to 20260101-120000-imaging"),
+        ),
+    ] {
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        m.show("lab_imaging");
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(state));
+        compare(name, &cv.to_rgb_over(BG), 0.02);
+    }
+}

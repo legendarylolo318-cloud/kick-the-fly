@@ -316,7 +316,7 @@ mod tests {
     #[test]
     fn card_matches_pygame() {
         let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
-        let g: serde_json::Value = serde_json::from_slice(&std::fs::read(root.join("tests/golden/autopsy.json")).unwrap()).unwrap();
+        let g: serde_json::Value = serde_json::from_slice(&std::fs::read(root.join("tests/golden/brain_autopsy.json")).unwrap()).unwrap();
         let pops = fly_sim::groups::population_names();
         let rows: Vec<Row> = g["rows"]
             .as_array()

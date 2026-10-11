@@ -169,6 +169,47 @@ const NOR_INV_R: f64 = 0.273_661_237_329_758_3;
 const NOR_R_F: f32 = 3.654_152_9;
 const NOR_INV_R_F: f32 = 0.273_661_23;
 
+/// NumPy's `random_loggam`.
+fn random_loggam(x: f64) -> f64 {
+    #[allow(clippy::excessive_precision)]
+    const A: [f64; 10] = [
+        8.333333333333333e-02,
+        -2.777777777777778e-03,
+        7.936507936507937e-04,
+        -5.952380952380952e-04,
+        8.417508417508418e-04,
+        -1.917526917526918e-03,
+        6.410256410256410e-03,
+        -2.955065359477124e-02,
+        1.796443723688306e-01,
+        -1.39243221690590e+00,
+    ];
+    if x == 1.0 || x == 2.0 || x < 0.0 {
+        return 0.0;
+    }
+    let mut x0 = x;
+    let mut n = 0i64;
+    if x <= 7.0 {
+        n = (7.0 - x) as i64;
+        x0 = x + n as f64;
+    }
+    let x2 = (1.0 / x0) * (1.0 / x0);
+    let lg2pi = 1.837_877_066_409_345_3;
+    let mut gl0 = A[9];
+    for k in (0..=8).rev() {
+        gl0 *= x2;
+        gl0 += A[k];
+    }
+    let mut gl = gl0 / x0 + 0.5 * lg2pi + (x0 - 0.5) * x0.ln() - x0;
+    if x <= 7.0 {
+        for _ in 1..=n {
+            gl -= (x0 - 1.0).ln();
+            x0 -= 1.0;
+        }
+    }
+    gl
+}
+
 // --- Generator -----------------------------------------------------------------------------------------------------------------
 /// `np.random.Generator(PCG64(seed))`, the parts the simulator uses.
 #[derive(Debug, Clone)]
@@ -197,6 +238,47 @@ impl Generator {
     /// `rng.uniform(low, high)`.
     pub fn uniform(&mut self, low: f64, high: f64) -> f64 {
         low + (high - low) * self.bits.next_f64()
+    }
+
+    /// `rng.poisson(lam)` for one rate (`random_poisson`: the multiplication method below 10, PTRS from there).
+    pub fn poisson(&mut self, lam: f64) -> i64 {
+        if lam >= 10.0 {
+            let slam = lam.sqrt();
+            let loglam = lam.ln();
+            let b = 0.931 + 2.53 * slam;
+            let a = -0.059 + 0.02483 * b;
+            let invalpha = 1.1239 + 1.1328 / (b - 3.4);
+            let vr = 0.9277 - 3.6224 / (b - 2.0);
+            loop {
+                let u = self.random() - 0.5;
+                let v = self.random();
+                let us = 0.5 - u.abs();
+                let k = ((2.0 * a / us + b) * u + lam + 0.43).floor() as i64;
+                if us >= 0.07 && v <= vr {
+                    return k;
+                }
+                if k < 0 || (us < 0.013 && v > us) {
+                    continue;
+                }
+                if v.ln() + invalpha.ln() - (a / (us * us) + b).ln() <= -lam + k as f64 * loglam - random_loggam(k as f64 + 1.0) {
+                    return k;
+                }
+            }
+        } else if lam == 0.0 {
+            0
+        } else {
+            let enlam = (-lam).exp();
+            let mut x = 0i64;
+            let mut prod = 1.0f64;
+            loop {
+                prod *= self.random();
+                if prod > enlam {
+                    x += 1;
+                } else {
+                    return x;
+                }
+            }
+        }
     }
 
     /// `bit_generator.random_raw()`.

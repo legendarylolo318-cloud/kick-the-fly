@@ -105,6 +105,59 @@ impl PatchPage {
     }
 }
 
+/// Lab > Imaging: what the page chose (`livelab.ImagingLive`'s settings; the session itself runs on the sim thread).
+struct ImagingPage {
+    init: bool,
+    on: bool,
+    indicator: String,
+    fps: f64,
+    f0: f64,
+    noise: bool,
+    roi_mode: String,
+    keep: bool,
+    tau: f64,
+    reduced: bool,
+    msg: String,
+}
+
+impl Default for ImagingPage {
+    fn default() -> Self {
+        Self {
+            init: false,
+            on: false,
+            indicator: "gcamp6s".into(),
+            fps: 20.0,
+            f0: 100.0,
+            noise: true,
+            roi_mode: "regions".into(),
+            keep: false,
+            tau: 30.0,
+            reduced: false,
+            msg: String::new(),
+        }
+    }
+}
+
+impl ImagingPage {
+    fn cfg(&self) -> Box<crate::sim_thread::ImagingCfg> {
+        Box::new(crate::sim_thread::ImagingCfg {
+            indicator: self.indicator.clone(),
+            fps: self.fps,
+            f0_photons: self.f0,
+            shot_noise: self.noise,
+            roi_mode: self.roi_mode.clone(),
+            gain: 1.0,
+            baseline_tau_s: self.tau,
+            reduced: self.reduced,
+        })
+    }
+
+    /// (Re)start the session with the page's settings, or stop it.
+    fn send(&self, link: &crate::app::SimLink) {
+        link.0.send(crate::sim_thread::Command::Imaging(self.on.then(|| self.cfg())));
+    }
+}
+
 /// The queue the pages' commands land in, and the state they read.
 #[derive(Resource)]
 pub struct LabTools {
@@ -155,6 +208,7 @@ pub struct LabTools {
     class_groups: Option<std::collections::HashMap<&'static str, Vec<u32>>>,
     psych_msg: String,
     patch: PatchPage,
+    imaging: ImagingPage,
     base_seed: i64,
 }
 
@@ -204,6 +258,7 @@ impl Default for LabTools {
             class_groups: None,
             psych_msg: String::new(),
             patch: PatchPage::default(),
+            imaging: ImagingPage::default(),
             base_seed: 1000,
         }
     }
@@ -429,6 +484,20 @@ impl LabTools {
                 }
             }),
             "lab_laser" => json!({"lab.laser_state": self.laser}),
+            "lab_imaging" => {
+                let i = &self.imaging;
+                let v = crate::sim_thread::IMAGING_VIEW.lock().unwrap_or_else(PoisonError::into_inner).clone();
+                let ind = fly_sim::imaging::indicator(&i.indicator).unwrap_or(&fly_sim::imaging::INDICATORS[0]);
+                json!({"lab.imaging_state": {
+                    "on": i.on && v.on, "indicator": i.indicator, "fps": i.fps, "f0": i.f0, "noise": i.noise, "roi_mode": i.roi_mode,
+                    "keep": i.keep, "reduced": i.reduced, "error": v.error, "frames": false,
+                    "indicators": fly_sim::imaging::INDICATORS.iter().map(|d| json!({"key": d.key, "name": d.name})).collect::<Vec<_>>(),
+                    "source": ind.source, "verified": ind.verified,
+                    "msg": if i.msg.is_empty() { v.exported.clone() } else { i.msg.clone() },
+                    "nwb": "NWB export is not built into this version (it needs an HDF5 writer); the CSV holds the same data",
+                    "view": {"names": v.names, "t": v.t, "dff": v.dff, "true_dff": v.true_dff, "frames": v.frames},
+                }})
+            }
             "lab_patch" => {
                 let p = &self.patch;
                 let v = PatchPage::view();
@@ -840,6 +909,19 @@ fn tick(
             }
         }
     }
+    if !tools.imaging.init {
+        tools.imaging.init = true;
+        tools.imaging.indicator = cfg.0.get_str("brain.imaging_indicator").to_string();
+        tools.imaging.fps = cfg.0.get_i64("brain.imaging_fps") as f64;
+        tools.imaging.tau = cfg.0.get_i64("brain.imaging_f0_tau_s") as f64;
+    }
+    let reduced = cfg.0.get_bool("access.reduced_flashing");
+    if reduced != tools.imaging.reduced {
+        tools.imaging.reduced = reduced;
+        if tools.imaging.on {
+            tools.imaging.send(&link);
+        }
+    }
     if screen.0 == "lab_pharm" {
         let key = (tools.pharm.0.clone(), (tools.pharm.1 * 1000.0).round() as i64, tools.pharm.2, (tools.pharm.3 * 1000.0).round() as i64);
         if tools.pharm_aff.as_ref().map(|a| &a.0) != Some(&key) {
@@ -1209,6 +1291,45 @@ fn tick(
             }
             "lab.thermo_assay" => {
                 tools.thermo_note.clear();
+            }
+            "lab.imaging_set" => {
+                let i = &mut tools.imaging;
+                let mut restart = false;
+                i.msg.clear();
+                if let Some(v) = a["indicator"].as_str().filter(|v| fly_sim::imaging::indicator(v).is_ok()) {
+                    i.indicator = v.to_string();
+                    restart = i.on;
+                }
+                if let Some(v) = a["fps"].as_f64() {
+                    i.fps = v;
+                }
+                if let Some(v) = a["f0"].as_f64() {
+                    i.f0 = v;
+                }
+                if let Some(v) = a["noise"].as_bool() {
+                    i.noise = v;
+                }
+                if let Some(v) = a["roi_mode"].as_str() {
+                    i.roi_mode = v.to_string();
+                }
+                if let Some(v) = a["keep"].as_bool() {
+                    i.keep = v;
+                }
+                if let Some(v) = a["on"].as_bool() {
+                    i.on = v;
+                    restart = true;
+                }
+                if restart {
+                    tools.imaging.send(&link);
+                }
+            }
+            "lab.imaging_export" => {
+                let folder = exports_dir().join(format!("{}-imaging", crate::savestate_play::utc_stamp_compact()));
+                match a["kind"].as_str() {
+                    Some("csv") => drop(link.0.send(crate::sim_thread::Command::ImagingExport(folder))),
+                    Some("nwb") => tools.imaging.msg = "export failed: NWB export is not available in this version".into(),
+                    _ => tools.imaging.msg = "export failed: TIFF export is not available in this version".into(),
+                }
             }
             "lab.patch_set" => {
                 let p = &mut tools.patch;

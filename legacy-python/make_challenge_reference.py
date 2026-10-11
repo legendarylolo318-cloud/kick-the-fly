@@ -144,9 +144,9 @@ if __name__ == "__main__":
     surf.fill(BG)
     k.Game._draw_surgery(stub, surf)
     pygame.image.save(surf, str(out / "challenge_surgery.png"))
-    # the brain autopsy card (Game._draw_autopsy) from tests/golden/autopsy.json
+    # the brain autopsy card (Game._draw_autopsy) from tests/golden/brain_autopsy.json
     import json
-    gold = json.loads((ROOT.parent / "tests" / "golden" / "autopsy.json").read_text())
+    gold = json.loads((ROOT.parent / "tests" / "golden" / "brain_autopsy.json").read_text())
     pretty = {"head": "touch: head", "body": "touch: body", "legs": "touch: legs", "wing": "touch: wings", "heat": "heat sensors",
               "cold": "cold sensors", "smell": "smell ORNs", "taste": "taste neurons", "reward": "PAM reward DANs",
               "jump": "DNs: jump group", "run": "DNs: run group", "fly": "DNs: DNg02 flight"}

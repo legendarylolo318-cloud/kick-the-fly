@@ -356,4 +356,43 @@ if __name__ == "__main__":
         rec=dict(v=f32(p_rec.v), spikes=[bool(x) for x in p_rec.spikes], current=f32(p_rec.current)),
         curve={k: v for k, v in p_curve.items() if k not in ("recording", "sweeps")},
         win=dict(v=f32(p_win.v), spikes=[bool(x) for x in p_win.spikes], current=f32(p_win.current)))))
+    from kickthefly.lab import imaging as im_mod, livelab as ll_mod
+
+    def imaging_prep(on=False, indicator="gcamp6s", roi_mode="regions", noise=True, error="", msg=""):
+        def prep(m):
+            prep_for("lab_imaging")(m)
+            il = ll_mod.ImagingLive()
+            il.indicator, il.shot_noise, il.roi_mode, il.error = indicator, noise, roi_mode, error
+            if on:
+                rng = _np.random.default_rng(11)
+                rois = {"antennal lobe": _np.arange(0, 400), "mushroom body": _np.arange(400, 900), "optic lobe": _np.arange(900, 1600),
+                        "central complex": _np.arange(1600, 1800)}
+                s = im_mod.ImagingSession(2000, rois, indicator, 20.0, shot_noise=noise, seed=2, max_frames=600)
+                for step in range(1200):
+                    boost = 4.0 if 400 <= step < 700 else 1.0
+                    p = _np.r_[_np.full(900, 0.01 * boost), _np.full(1100, 0.004)]
+                    s.push(_np.flatnonzero(rng.random(2000) < p))
+                il.session, il.on = s, True
+            m.host.imaging_live = il
+            labtoolkit._st(m).i_msg = msg
+        return prep
+
+    R.render("lab_imaging", "Graphics", out / "page_lab_imaging_off.png", prep=imaging_prep())
+    R.render("lab_imaging", "Graphics", out / "page_lab_imaging_on.png", prep=imaging_prep(True, "gcamp6f"))
+    R.render("lab_imaging", "Graphics", out / "page_lab_imaging_custom.png",
+             prep=imaging_prep(True, "jgcamp8m", "type:DNp01;prefix:KC", False, "", "saved to 20260101-120000-imaging"))
+    _rng = _np.random.default_rng(11)
+    _rois = {"antennal lobe": _np.arange(0, 400), "mushroom body": _np.arange(400, 900), "optic lobe": _np.arange(900, 1600),
+             "central complex": _np.arange(1600, 1800)}
+    _fx = {}
+    for _k, (_ind, _noise) in {"on": ("gcamp6f", True), "custom": ("jgcamp8m", False)}.items():
+        _rng = _np.random.default_rng(11)
+        _s = im_mod.ImagingSession(2000, _rois, _ind, 20.0, shot_noise=_noise, seed=2, max_frames=600)
+        for _step in range(1200):
+            _b = 4.0 if 400 <= _step < 700 else 1.0
+            _p = _np.r_[_np.full(900, 0.01 * _b), _np.full(1100, 0.004)]
+            _s.push(_np.flatnonzero(_rng.random(2000) < _p))
+        _fx[_k] = dict(names=list(_s.roi_names), t=[float(x) for x in _s.t], dff=_np.array(_s.dff)[:, :7].tolist(),
+                       true_dff=_np.array(_s.true_dff)[:, :7].tolist())
+    (out / "lab_imaging_fixture.json").write_text(json.dumps(_fx))
     print("wrote", out)

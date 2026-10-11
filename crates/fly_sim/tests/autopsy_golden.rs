@@ -1,4 +1,4 @@
-//! `Game._autopsy` against Rust's on the scripted run of `tests/golden/make_autopsy.py` (calm, a touch drive, calm, death, flat-line).
+//! `Game._autopsy` against Rust's on the scripted run of `tests/golden/make_brain_autopsy.py` (calm, a touch drive, calm, death, flat-line).
 
 use std::sync::Arc;
 
@@ -11,7 +11,7 @@ use fly_sim::pack::{self, Pack};
 fn autopsy_matches_python() {
     let Some(path) = pack::find_default() else { return };
     let g: serde_json::Value =
-        serde_json::from_slice(&std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/golden/autopsy.json")).unwrap()).unwrap();
+        serde_json::from_slice(&std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/golden/brain_autopsy.json")).unwrap()).unwrap();
     let pk = Pack::load(path).unwrap();
     let mut b = Brain::new(LifSim::new(Arc::new(pk.weights), LifParams::default(), 3), Arc::new(pk.labels));
     b.warmup(600);

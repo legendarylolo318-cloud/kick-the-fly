@@ -140,6 +140,9 @@ pub struct Snapshot {
     pub surgery_types: Vec<(String, i8)>,
     /// Brain speed factor the running challenge wants (the T-maze runs the brain at x3 while training and testing).
     pub challenge_speed: f32,
+    /// Lab > Imaging: the displayed dF/F of every neuron (empty when imaging is off) and the indicator's short name.
+    pub dff: Vec<f32>,
+    pub imaging: String,
     /// When the sim thread made this snapshot, to measure how stale the render side's view is.
     pub published_at: Option<Instant>,
 }

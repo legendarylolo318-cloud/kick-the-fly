@@ -174,7 +174,15 @@ fn build_cloud(
     let soma = buffers.add(ShaderBuffer::new(&bytes, RenderAssetUsages::RENDER_WORLD));
     let activity = buffers.add(ShaderBuffer::new(&vec![0u8; n * 4], RenderAssetUsages::default()));
     let material = materials.add(BrainMaterial {
-        params: BrainParams { count: n as u32, size: 0.0030, base_glow: 0.012, gain: 0.7, rot: Vec4::new(1.0, 0.0, 1.0, 0.0) },
+        params: BrainParams {
+            count: n as u32,
+            size: 0.0030,
+            base_glow: 0.012,
+            gain: 0.7,
+            rot: Vec4::new(1.0, 0.0, 1.0, 0.0),
+            lut: [Vec4::ZERO; 4],
+            mode: Vec4::ZERO,
+        },
         soma,
         activity: activity.clone(),
     });
@@ -198,6 +206,7 @@ fn update_activity(
     mut buffers: ResMut<Assets<ShaderBuffer>>,
     mut materials: ResMut<Assets<BrainMaterial>>,
     time: Res<Time>,
+    cfg: Res<crate::menu_ui::UserConfig>,
 ) {
     let (Some(cloud), Some(s)) = (cloud, snap.0.as_deref()) else { return };
     if s.rates.len() != view.activity.len() {
@@ -205,7 +214,13 @@ fn update_activity(
     }
     let decay = (-time.delta_secs() * 9.0).exp();
     let v = &mut *view;
-    if let Some(replay) = v.replay.take() {
+    // Imaging mode (Lab > Imaging): the brightness is the simulated dF/F (full at 2.2, `ImagingSession.view_rates`), no spike flashes
+    let imaging = s.dff.len() == v.activity.len() && v.replay.is_none();
+    if imaging {
+        for (a, &d) in v.activity.iter_mut().zip(&s.dff) {
+            *a = (d / 2.2).clamp(0.0, 1.0);
+        }
+    } else if let Some(replay) = v.replay.take() {
         // the kill cam: the recorded rates, no spike flashes, the risers pulsing
         if replay.len() == v.activity.len() {
             for (a, &r) in v.activity.iter_mut().zip(&replay) {
@@ -240,6 +255,14 @@ fn update_activity(
         let (sn, c) = v.yaw.sin_cos();
         m.params.rot = Vec4::new(c, sn, v.zoom, 0.0);
         m.params.size = 0.0030 * if v.big { 1.3 } else { 1.0 };
+        m.params.mode.x = if imaging { 1.0 } else { 0.0 };
+        if imaging {
+            let pal = cfg.0.get_str("access.palette").to_string();
+            let stops = fly_sim::imaging::LUTS.iter().find(|l| l.0 == pal).unwrap_or(&fly_sim::imaging::LUTS[0]).1;
+            for (k, st) in stops.iter().enumerate() {
+                m.params.lut[k] = Vec4::new(f32::from(st[0]) / 255.0, f32::from(st[1]) / 255.0, f32::from(st[2]) / 255.0, 1.0);
+            }
+        }
     }
 }
 
