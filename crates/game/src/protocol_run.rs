@@ -4,6 +4,8 @@
 //! Not done: the NWB file and the TIFF stack (no HDF5/TIFF writers), `--record-replay`. The weather and the predator's loom use this
 //! port's own generators, so those two blocks are statistically, not spike for spike, the Python run.
 
+#![allow(clippy::collapsible_if)]
+
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -272,7 +274,7 @@ pub fn run_seed(
             })
             .collect();
         let mut an = crate::mic_analysis::Analyzer::new(rate, a["sensitivity"].as_f64().unwrap_or(1.0) as f32);
-        let readings: Vec<_> = wave.chunks_exact(256).map(|c| an.push(c)).collect();
+        let readings: Vec<_> = wave.as_chunks::<256>().0.iter().map(|c| an.push(c)).collect();
         let t = &br.labels().types;
         let a_rows: Vec<u32> = (0..t.len() as u32).filter(|&i| t[i as usize].starts_with("JO-A")).collect();
         let b_rows: Vec<u32> = (0..t.len() as u32).filter(|&i| t[i as usize].starts_with("JO-B")).collect();
@@ -730,4 +732,147 @@ fn export_result(res: &Value, folder: &Path, p: &Value) -> std::io::Result<()> {
         json!({"assay": res["kind"], "seeds": res["seeds"], "surgery": res.get("surgery"), "assay_options": res.get("options"), "assay_params": p.get("params")}),
     );
     std::fs::write(folder.join("metadata.json"), serde_json::to_string_pretty(&meta).unwrap_or_default())
+}
+
+// --- rerunning a bundle (`bundle.rerun`) -------------------------------------------------------------------------------------------
+const STAT_SLACK_REL: f64 = 0.10;
+const STAT_SINGLE_REL: f64 = 0.25;
+const STAT_SINGLE_ABS_HZ: f64 = 0.5;
+const BIT_EXACT_BACKENDS: [&str; 5] = ["cpu", "numpy", "numba", "torch-cpu", "rust-cpu"];
+
+fn ci_ok(orig: &Value, new_mean: f64) -> (bool, String) {
+    let m = orig["mean"].as_f64().unwrap_or(f64::NAN);
+    let (lo, hi) = (orig["lo"].as_f64(), orig["hi"].as_f64());
+    let tol = match (lo, hi) {
+        (Some(l), Some(h)) => (h - l) / 2.0 + STAT_SLACK_REL * m.abs(),
+        _ => STAT_SINGLE_REL * m.abs() + STAT_SINGLE_ABS_HZ,
+    };
+    ((new_mean - m).abs() <= tol, format!("{m:.3} -> {new_mean:.3} (allowed +-{tol:.3})"))
+}
+
+fn walk_means<'a>(a: &'a Value, b: &Value, path: &str, out: &mut Vec<(String, &'a Value, f64)>) {
+    if a.is_object() && a.get("mean").is_some() && a.get("n").is_some() {
+        if let Some(x) = b["mean"].as_f64() {
+            out.push((path.to_string(), a, x));
+        }
+    } else if let (Some(x), Some(y)) = (a.as_object(), b.as_object()) {
+        for (k, v) in x {
+            if let Some(w) = y.get(k) {
+                walk_means(v, w, &format!("{path}/{k}"), out);
+            }
+        }
+    } else if let (Some(x), Some(y)) = (a.as_array(), b.as_array()) {
+        if x.len() == y.len() {
+            for (i, (p, q)) in x.iter().zip(y).enumerate() {
+                walk_means(p, q, &format!("{path}[{i}]"), out);
+            }
+        }
+    }
+}
+
+/// `bundle.rerun`: rerun a bundle's protocol into `out` and judge whether the results match. Returns the report.
+pub fn rerun_bundle(
+    env: &Env,
+    bundle: &Path,
+    out: &Path,
+    workers: usize,
+    progress: impl FnMut(usize, usize, &str) -> bool,
+    created: &str,
+) -> Result<Value, String> {
+    let mut b = ktf_data::bundle::Bundle::open(bundle).map_err(|e| e.to_string())?;
+    let problems = b.verify();
+    if !problems.is_empty() {
+        return Err(format!("the bundle is damaged: {}", problems.iter().take(3).cloned().collect::<Vec<_>>().join("; ")));
+    }
+    let meta = b.meta.clone();
+    if !meta["rerunnable"].as_bool().unwrap_or(false) {
+        return Err(format!("this bundle can't be rerun: {}", meta["not_rerunnable_reason"].as_str().unwrap_or("no reason given")));
+    }
+    let mine = ktf_data::bundle::pack_sha256().ok_or("no brain pack is built here, so the experiment can't be rerun")?;
+    let theirs = meta["brain_pack_sha256"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .ok_or("the bundle doesn't record which brain pack it used, so it can't be matched to this one")?;
+    if theirs != mine {
+        return Err(format!(
+            "made with a different brain pack (SHA-256 {}... vs this one {}...)",
+            &theirs[..12.min(theirs.len())],
+            &mine[..12]
+        ));
+    }
+    let yaml = String::from_utf8(b.read("protocol.yaml").map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
+    let mut p = ktf_data::protocol::load_text(&yaml, "the bundle's protocol")
+        .map_err(|e| format!("the bundle's protocol isn't valid here: {e}"))?;
+    if !b.names().iter().any(|n| n == "results/summary.json") {
+        return Err("the bundle has no results/summary.json, so there is nothing to compare a rerun with".into());
+    }
+    let orig_summary: Value =
+        serde_json::from_slice(&b.read("results/summary.json").map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(out).map_err(|e| e.to_string())?;
+    if p.get("assay").is_none() {
+        p["nwb"] = json!(false);
+    }
+    let folder = run(env, &p, &out.join("rerun"), workers, progress, created)?;
+    let new_summary: Value = serde_json::from_str(&std::fs::read_to_string(folder.join("summary.json")).map_err(|e| e.to_string())?)
+        .map_err(|e| e.to_string())?;
+    let orig_backend = meta["backend"].as_str().unwrap_or("").to_string();
+    let exact = BIT_EXACT_BACKENDS.contains(&orig_backend.as_str());
+    let mut details: Vec<Value> = Vec::new();
+    let ok = if exact {
+        let mut ok = true;
+        if p.get("assay").is_some() {
+            for key in ["treated", "control", "comparison"] {
+                let same = orig_summary.get(key) == new_summary.get(key);
+                details.push(json!({"what": format!("assay {key}"), "identical": same}));
+                ok &= same;
+            }
+        } else {
+            let new = ktf_data::bundle::run_manifest(&folder);
+            for (key, rec) in meta["flies"].as_object().into_iter().flatten() {
+                let want = rec["spike_sha256"].as_str().unwrap_or("");
+                let got = new.get(key).and_then(|f| f["spike_sha256"].as_str()).unwrap_or("");
+                let same = !got.is_empty() && got == want;
+                details.push(json!({"what": format!("{key} spikes"), "recorded": &want[..16.min(want.len())], "rerun": &got[..16.min(got.len())], "identical": same}));
+                ok &= same;
+            }
+        }
+        ok
+    } else {
+        let mut pairs: Vec<(String, &Value, f64)> = Vec::new();
+        if p.get("assay").is_some() {
+            walk_means(&orig_summary["treated"], &new_summary["treated"], "treated", &mut pairs);
+            walk_means(&orig_summary["control"], &new_summary["control"], "control", &mut pairs);
+        } else {
+            for (tag, groups) in orig_summary["mean_rate_hz"].as_object().into_iter().flatten() {
+                for (g, c) in groups.as_object().into_iter().flatten() {
+                    let nm = new_summary["mean_rate_hz"][tag][g]["mean"].as_f64().unwrap_or(f64::NAN);
+                    pairs.push((format!("{tag}/{g}"), c, nm));
+                }
+            }
+        }
+        let mut ok = !pairs.is_empty();
+        if pairs.is_empty() {
+            details.push(json!({"what": "nothing to compare", "ok": false}));
+        }
+        for (path, o, nm) in &pairs {
+            let (good, txt) = if nm.is_nan() { (false, "missing in the rerun".to_string()) } else { ci_ok(o, *nm) };
+            details.push(json!({"what": path, "ok": good, "detail": txt}));
+            ok &= good;
+        }
+        ok
+    };
+    let mode = if exact { "bit-exact" } else { "statistical" };
+    let verdict = if ok {
+        if exact { "MATCH (bit-exact)" } else { "MATCH (statistically consistent)" }
+    } else if exact {
+        "MISMATCH (spikes differ on backends that must be bit-identical)"
+    } else {
+        "DIFFERS (outside the pre-declared statistical tolerance)"
+    };
+    let report = json!({"bundle": bundle.display().to_string(), "protocol": p["name"], "app_version_bundle": meta["app_version"],
+        "app_version_now": env!("CARGO_PKG_VERSION"), "recorded_backend": orig_backend, "rerun_backend": "rust-cpu",
+        "recorded_dtype": meta["dtype"], "rerun_dtype": "float32", "mode": mode, "results_folder": folder.display().to_string(),
+        "details": details, "match": ok, "verdict": verdict});
+    std::fs::write(out.join("rerun_report.json"), serde_json::to_string_pretty(&report).unwrap_or_default()).map_err(|e| e.to_string())?;
+    Ok(report)
 }

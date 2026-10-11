@@ -288,10 +288,8 @@ fn check_thermo_escape(opts: &Value, where_: &str) -> Result<(), ProtocolError> 
     if opts.get("target").is_some_and(|t| !t.is_string()) {
         return err(format!("{where_}: thermo_escape target must be a neuron spec"));
     }
-    if let Some(e) = opts.get("effector_name").map_or(Some("trpa1"), Value::as_str) {
-        if let Err(m) = fly_sim::thermogenetics::effector(e) {
-            return err(format!("{where_}: thermo_escape: {m}"));
-        }
+    if let Some(Err(m)) = opts.get("effector_name").map_or(Some("trpa1"), Value::as_str).map(fly_sim::thermogenetics::effector) {
+        return err(format!("{where_}: thermo_escape: {m}"));
     }
     Ok(())
 }
@@ -354,10 +352,9 @@ fn check_predator_escape(opts: &Value, where_: &str) -> Result<(), ProtocolError
             return err(format!("{where_}: predator_escape kinds must be a list of {}", PREDATORS.join(", ")));
         }
     }
-    if let Some(t) = opts.get("trials") {
-        if !t.as_i64().is_some_and(|n| (1..=20).contains(&n)) || t.is_boolean() {
-            return err(format!("{where_}: predator_escape trials must be a whole number from 1 to 20"));
-        }
+    if let Some(t) = opts.get("trials").filter(|t| !t.as_i64().is_some_and(|n| (1..=20).contains(&n)) || t.is_boolean()) {
+        let _ = t;
+        return err(format!("{where_}: predator_escape trials must be a whole number from 1 to 20"));
     }
     Ok(())
 }
@@ -433,10 +430,8 @@ fn check_thermo_spec(spec: &Value, where_: &str) -> Result<Value, ProtocolError>
         return err(format!("{where_}: temperatures must be within {}-{} C", g(lo), g(hi)));
     }
     out.insert("temperature_c".into(), t);
-    if let Some(k) = spec.get("kinetics") {
-        if !matches!(k.as_str(), Some("real" | "steady")) {
-            return err(format!("{where_}: kinetics must be real or steady"));
-        }
+    if spec.get("kinetics").is_some_and(|k| !matches!(k.as_str(), Some("real" | "steady"))) {
+        return err(format!("{where_}: kinetics must be real or steady"));
     }
     if let Some(ts) = spec.get("time_scale") {
         match ts.as_f64() {
@@ -800,4 +795,50 @@ pub fn check(data: &Value, where_: &str) -> Result<Value, ProtocolError> {
 
 fn ktf_params() -> Vec<&'static str> {
     crate::labparams::params().iter().map(|p| p.name.as_str()).collect()
+}
+
+/// The protocol files that ship with the game: `(file name, YAML text)`, sorted by name.
+pub fn bundled() -> &'static [(String, String)] {
+    static B: std::sync::OnceLock<Vec<(String, String)>> = std::sync::OnceLock::new();
+    B.get_or_init(|| {
+        let v: Value = serde_json::from_str(include_str!("../data/protocols.json")).expect("protocols.json");
+        let mut out: Vec<(String, String)> =
+            v.as_object().into_iter().flatten().map(|(k, t)| (k.clone(), t.as_str().unwrap_or("").to_string())).collect();
+        out.sort();
+        out
+    })
+}
+
+/// `check` on YAML text.
+pub fn load_text(text: &str, where_: &str) -> Result<Value, ProtocolError> {
+    let data: Value = serde_yaml_ng::from_str(text).map_err(|e| ProtocolError(format!("{where_}: not valid YAML ({e})")))?;
+    check(&data, where_)
+}
+
+/// `protocol_summary`: one line describing a checked protocol and whether Lab > Protocols can run it.
+pub fn summary(p: &Value) -> (String, bool) {
+    let flies = format!("{} fly(s)", p["seeds"].as_array().map_or(0, Vec::len));
+    if p.get("classroom").is_some_and(|c| c.as_bool().unwrap_or(!c.is_null())) {
+        return (format!("classroom lecture, {} steps (Lab > Classroom)", p["steps"].as_array().map_or(0, Vec::len)), false);
+    }
+    if let Some(r) = p.get("rig") {
+        let mode = r["mode"].as_str().map(|m| format!(", {m}")).unwrap_or_default();
+        return (format!("behavior rig {}{mode}, {flies}", r["name"].as_str().unwrap_or("")), true);
+    }
+    if let Some(pa) = p.get("patch") {
+        return (format!("patch clamp of {}, {flies}", pa["neuron"].as_str().unwrap_or("?")), true);
+    }
+    let surgery = p.get("surgery").and_then(Value::as_object).is_some_and(|o| !o.is_empty());
+    if let Some(a) = p["assay"].as_str() {
+        return (format!("assay {a}, {flies}{}", if surgery { ", with surgery + control" } else { "" }), true);
+    }
+    (
+        format!(
+            "{} stimuli, {} recordings, {flies}{}",
+            p["stimuli"].as_array().map_or(0, Vec::len),
+            p["recordings"].as_array().map_or(0, Vec::len),
+            if surgery { ", with surgery + control" } else { "" }
+        ),
+        true,
+    )
 }

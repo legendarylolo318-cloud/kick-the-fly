@@ -216,6 +216,9 @@ pub struct LabTools {
     inspected_type: Option<String>,
     /// The folder of the last protocol run (what Bundle packs first).
     last_protocol_folder: Option<String>,
+    /// Lab > Protocols: the checked list (name, description, error, runnable), built once, and the last run's error.
+    proto_list: Option<Vec<Value>>,
+    proto_error: String,
     /// The game's side of a recording's metadata, refreshed while the page is open.
     rec_meta: Value,
     /// Lab > Behavior rigs: the latest run per rig, and a counter that tells the page a new one arrived.
@@ -279,6 +282,8 @@ impl Default for LabTools {
             bundle_msg: (String::new(), None),
             inspected_type: None,
             last_protocol_folder: None,
+            proto_list: None,
+            proto_error: String::new(),
             rec_meta: Value::Null,
             rigs: BTreeMap::new(),
             rig_runs: 0,
@@ -475,6 +480,12 @@ impl LabTools {
                 "Connectome diff" => self.diff = Some(v),
                 "Psych sweep" => self.psych = Some(v),
                 "Patch I-F curve" => self.patch.curve = Some(v),
+                l if l.starts_with("Protocol ") => {
+                    if let Some(f) = v["folder"].as_str() {
+                        self.last_protocol_folder = Some(f.to_string());
+                        self.bundle_msg = (String::new(), None);
+                    }
+                }
                 l if l.starts_with("Rig ") => {
                     if let Some(rig) = v["rig"].as_str() {
                         self.rig_runs += 1;
@@ -552,6 +563,19 @@ impl LabTools {
             r if r == "lab_rigs" || r.starts_with("lab_rig_") => {
                 let job = self.job.as_ref().filter(|j| j.label.starts_with("Rig ")).map(BgJob::json);
                 json!({"lab.rigs_state": {"results": self.rigs, "job": job, "error": self.error}})
+            }
+            "lab_protocols" => {
+                let job = self.job.as_ref().filter(|j| j.label.starts_with("Protocol ")).map(|j| {
+                    let v = j.json();
+                    let note = v["note"].as_str().unwrap_or("");
+                    let (d, t) = note.split_once('/').unwrap_or(("0", "1"));
+                    json!({"name": j.label.trim_start_matches("Protocol "), "done": d.parse::<u64>().unwrap_or(0), "total": t.parse::<u64>().unwrap_or(1)})
+                });
+                json!({"lab.protocols_state": {
+                    "files": self.proto_list, "job": job, "folder": self.last_protocol_folder, "error": self.proto_error,
+                    "user_dir": ktf_data::paths::get().data_dir.join("protocols").display().to_string(),
+                    "bundle": {"msg": self.bundle_msg.0, "path": self.bundle_msg.1},
+                }})
             }
             "lab_export" => {
                 let st = crate::sim_thread::REC_STATUS.lock().unwrap_or_else(PoisonError::into_inner).clone();
@@ -991,6 +1015,36 @@ fn tick(
                 e.0 = Some(r);
             }
         }
+    }
+    if screen.0 == "lab_protocols" && tools.proto_list.is_none() {
+        let mut list = Vec::new();
+        let mut seen = std::collections::HashSet::new();
+        let user = ktf_data::paths::get().data_dir.join("protocols");
+        let mut files: Vec<(String, String)> = Vec::new();
+        if let Ok(rd) = std::fs::read_dir(&user) {
+            let mut v: Vec<_> =
+                rd.flatten().map(|e| e.path()).filter(|p| p.extension().is_some_and(|e| e == "yaml" || e == "yml")).collect();
+            v.sort();
+            for p in v {
+                if let Ok(t) = std::fs::read_to_string(&p) {
+                    files.push((p.file_name().unwrap_or_default().to_string_lossy().to_string(), t));
+                }
+            }
+        }
+        files.extend(ktf_data::protocol::bundled().iter().cloned());
+        for (name, text) in files {
+            if !seen.insert(name.clone()) {
+                continue;
+            }
+            match ktf_data::protocol::load_text(&text, &name) {
+                Ok(p) => {
+                    let (desc, runnable) = ktf_data::protocol::summary(&p);
+                    list.push(json!({"name": name, "desc": desc, "error": false, "runnable": runnable}));
+                }
+                Err(e) => list.push(json!({"name": name, "desc": format!("ProtocolError: {e}"), "error": true, "runnable": false})),
+            }
+        }
+        tools.proto_list = Some(list);
     }
     if screen.0 == "lab_export" {
         tools.inspected_type = inspector.info.as_ref().map(|i| i.ty.clone());

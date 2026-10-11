@@ -1342,3 +1342,40 @@ fn lab_export_page() {
         compare(name, &cv.to_rgb_over(BG), 0.02);
     }
 }
+
+#[test]
+fn lab_protocols_page() {
+    struct H(serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            if key == "lab.protocols_state" { self.0.clone() } else { serde_json::Value::Null }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    let files: Vec<serde_json::Value> = ktf_data::protocol::bundled()
+        .iter()
+        .map(|(name, text)| match ktf_data::protocol::load_text(text, name) {
+            Ok(p) => {
+                let (desc, runnable) = ktf_data::protocol::summary(&p);
+                serde_json::json!({"name": name, "desc": desc, "error": false, "runnable": runnable})
+            }
+            Err(e) => serde_json::json!({"name": name, "desc": format!("ProtocolError: {e}"), "error": true, "runnable": false}),
+        })
+        .collect();
+    for (name, scroll) in [("page_lab_protocols.png", 0), ("page_lab_protocols_scrolled.png", 600)] {
+        let st = serde_json::json!({"files": files, "job": null, "folder": null, "error": "", "user_dir": "/home/logan/.local/share/kickthefly/protocols",
+                                    "bundle": {"msg": "", "path": null}});
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        m.show("lab_protocols");
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(st.clone()));
+        m.set_scroll("lab_protocols", scroll);
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(st));
+        compare(name, &cv.to_rgb_over(BG), 0.02);
+    }
+}

@@ -54,7 +54,7 @@ the Python `labclamp.py` and `labdiff.py` forget `import numpy as np` (their les
 2. Remaining Lab pages: (`lab_laser`, `lab_psych`, `lab_classroom` done)
    (`lab_minipapers` done) (`lab_activation` / `lab_knockout` done).
 3. Toolkit (`lab_genetics`, `lab_thermo`, `lab_pharm`, `lab_patch`, `lab_imaging` done; patch lacks NWB export + inspector shortcut, imaging lacks TIFF/NWB + keep frames) (`imaging.py` 533, `livelab.ImagingLive`); `lab_rigs` done.
-4. `lab_export` + `lab_protocols`: recorder (CSV/npz + metadata; NWB unavailable like Python's `nwbexport.available()`), YAML protocol runner (`protocol.py`, 883 lines;
+4. (DONE: `lab_export`, `lab_protocols`, recorder, runner, bundles; the CLI entry points are with `--headless`) recorder (CSV/npz + metadata; NWB unavailable like Python's `nwbexport.available()`), YAML protocol runner (`protocol.py`, 883 lines;
    needs a YAML reader for the 42 shipped files), bundles (`bundle.py`).
 5. Five assay kinds missing from `assay_jobs` (orchard, thermo_escape, predator_escape, hum_demo, sleep_deprivation as a labjobs kind), larva validation tests,
    `--headless`/`--validate`, pet mode, photo mode, `live_inputs`, neuron search.

@@ -486,4 +486,6 @@ if __name__ == "__main__":
                               ("Bundled the last live recording (a record: it can't be rerun, and says why).", "/home/user/exports/bundles/x.zip")))
     from kickthefly.lab import nwbexport
     (out / "lab_export_fixture.json").write_text(json.dumps(dict(nwb=nwbexport.available())))
+    R.render("lab_protocols", "Graphics", out / "page_lab_protocols.png", prep=prep_for("lab_protocols"))
+    R.render("lab_protocols", "Graphics", out / "page_lab_protocols_scrolled.png", prep=prep_for("lab_protocols", None, 600))
     print("wrote", out)

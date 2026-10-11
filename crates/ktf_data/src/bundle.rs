@@ -292,3 +292,96 @@ impl Bundle {
         problems
     }
 }
+
+/// `_run_manifest`: per-fly facts a run wrote (spike hashes, backend, precision) from its metadata files.
+pub fn run_manifest(run_folder: &Path) -> serde_json::Map<String, Value> {
+    let mut files: Vec<PathBuf> = std::fs::read_dir(run_folder)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| {
+            let n = p.file_name().unwrap_or_default().to_string_lossy();
+            n.ends_with("-metadata.json") && n.contains("-seed")
+        })
+        .collect();
+    files.sort();
+    let mut flies = serde_json::Map::new();
+    for f in files {
+        let Some(m) = std::fs::read_to_string(&f).ok().and_then(|t| serde_json::from_str::<Value>(&t).ok()) else { continue };
+        let name = f.file_name().unwrap_or_default().to_string_lossy().to_string();
+        let key = name.trim_end_matches("-metadata.json").to_string();
+        let mut o = serde_json::Map::new();
+        for k in [
+            "seed",
+            "sim_backend",
+            "sim_dtype",
+            "spike_sha256",
+            "n_neurons",
+            "synapses",
+            "lab_params_modified",
+            "surgery",
+            "condition",
+            "lif_params",
+        ] {
+            o.insert(k.into(), m.get(k).cloned().unwrap_or(Value::Null));
+        }
+        flies.insert(key, Value::Object(o));
+    }
+    flies
+}
+
+/// `create`: bundle a protocol run (the folder `protocol_run::run` made).
+pub fn create(run_folder: &Path, out_zip: &Path, extra: &Value, app_version: &str, created: &str) -> Result<PathBuf, BundleError> {
+    let read = |n: &str| -> Result<Value, BundleError> {
+        let t = std::fs::read_to_string(run_folder.join(n)).map_err(|_| {
+            BundleError(format!("{} is not a protocol run folder (no protocol.json and summary.json)", run_folder.display()))
+        })?;
+        serde_json::from_str(&t).map_err(be)
+    };
+    let p = read("protocol.json")?;
+    let _summary = read("summary.json")?;
+    let flies = run_manifest(run_folder);
+    let backends: std::collections::BTreeSet<String> = flies.values().filter_map(|f| f["sim_backend"].as_str().map(String::from)).collect();
+    let dtypes: std::collections::BTreeSet<String> = flies.values().filter_map(|f| f["sim_dtype"].as_str().map(String::from)).collect();
+    let is_assay = p.get("assay").is_some();
+    let (backend, dtype, rerunnable, why): (String, String, bool, Option<&str>) = if is_assay {
+        ("rust-cpu".into(), "float32".into(), true, None)
+    } else {
+        if backends.len() > 1 || dtypes.len() > 1 {
+            return Err(BundleError(format!("the run mixed backends {backends:?} / precisions {dtypes:?}; it can't be bundled")));
+        }
+        let ok = !flies.is_empty() && flies.values().all(|f| f["spike_sha256"].as_str().is_some_and(|s| !s.is_empty()));
+        (
+            backends.iter().next().cloned().unwrap_or_else(|| "rust-cpu".into()),
+            dtypes.iter().next().cloned().unwrap_or_else(|| "float32".into()),
+            ok,
+            if ok { None } else { Some("the run predates spike fingerprints (made by a version before 3.0)") },
+        )
+    };
+    let mut ex = json!({
+        "protocol_name": p["name"], "seeds": p["seeds"], "backend": backend, "dtype": dtype,
+        "parameters": p.get("params").cloned().unwrap_or(json!({})), "surgery": p.get("surgery").cloned().unwrap_or(json!({})),
+        "arena": "headless", "rerunnable": rerunnable, "not_rerunnable_reason": why, "flies": flies,
+    });
+    if let (Some(o), Some(e)) = (ex.as_object_mut(), extra.as_object()) {
+        for (k, v) in e {
+            o.insert(k.clone(), v.clone());
+        }
+    }
+    let meta = base_meta(if is_assay { "assay" } else { "protocol" }, app_version, created, &ex);
+    let mut blobs: Vec<(String, Vec<u8>)> = vec![("protocol.yaml".into(), serde_yaml_ng::to_string(&p).map_err(be)?.into_bytes())];
+    blobs.push(("results/summary.json".into(), std::fs::read(run_folder.join("summary.json")).map_err(be)?));
+    let mut names: Vec<PathBuf> = std::fs::read_dir(run_folder).map_err(be)?.flatten().map(|e| e.path()).filter(|p| p.is_file()).collect();
+    names.sort();
+    for f in names {
+        let n = f.file_name().unwrap_or_default().to_string_lossy().to_string();
+        if n == "protocol.json" || n == "summary.json" {
+            continue;
+        }
+        let dest =
+            if matches!(n.as_str(), "result.json" | "per_fly.csv" | "metadata.json") { format!("results/{n}") } else { format!("raw/{n}") };
+        blobs.push((dest, std::fs::read(&f).map_err(be)?));
+    }
+    write(out_zip, &meta, blobs, true)
+}

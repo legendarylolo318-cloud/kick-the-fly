@@ -18,6 +18,7 @@ pub mod load_state;
 pub mod loadout;
 pub mod minipapers;
 pub mod neurodex;
+pub mod protocols;
 pub mod psych;
 pub mod rigs;
 pub mod screens;
@@ -73,6 +74,7 @@ pub fn install_with(menu: &mut Menu, dex: neurodex::SharedDex) {
         menu.register_page(name, Box::new(page));
     }
     menu.register_page("lab_export", Box::<export::LabExport>::default());
+    menu.register_page("lab_protocols", Box::<protocols::LabProtocols>::default());
     menu.register_page("lab_patch", Box::<toolkit::LabPatch>::default());
     menu.register_page("lab_imaging", Box::<toolkit::LabImaging>::default());
     menu.register_page("whatsnew", Box::new(whatsnew::WhatsNew));
