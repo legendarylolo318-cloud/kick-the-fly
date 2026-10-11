@@ -64,7 +64,7 @@ pub fn indicator(name: &str) -> Result<&'static Indicator, String> {
         "6s" | "gcamp6s" => "gcamp6s",
         "6f" | "gcamp6f" => "gcamp6f",
         "8m" | "gcamp8m" | "jgcamp8m" => "jgcamp8m",
-        _ => return Err(format!("unknown indicator {name:?}; use one of GCaMP6s, GCaMP6f, GCaMP8m")),
+        _ => return Err(format!("unknown indicator '{name}'; use one of GCaMP6s, GCaMP6f, GCaMP8m")),
     };
     Ok(INDICATORS.iter().find(|i| i.key == key).expect("known key"))
 }

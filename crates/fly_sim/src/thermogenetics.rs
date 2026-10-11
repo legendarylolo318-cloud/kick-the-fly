@@ -73,7 +73,7 @@ pub fn effector(name: &str) -> Result<&'static Effector, String> {
     let key = match name.trim().to_lowercase().as_str() {
         "trpa1" | "dtrpa1" => "trpa1",
         "shibire" | "shibire-ts" | "shi" | "shits" | "shi-ts" | "shibire_ts" => "shibire",
-        _ => return Err(format!("unknown effector {name:?}; use one of [\"shibire\", \"trpa1\"]")),
+        _ => return Err(format!("unknown effector '{name}'; use one of ['shibire', 'trpa1']")),
     };
     Ok(EFFECTORS.iter().find(|e| e.key == key).expect("both keys exist"))
 }

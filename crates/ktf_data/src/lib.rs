@@ -17,6 +17,7 @@ pub mod loadout;
 pub mod neurodex_facts;
 pub mod notd;
 pub mod paths;
+pub mod protocol;
 pub mod pyrandom;
 pub mod recorder;
 pub mod savestate;

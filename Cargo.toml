@@ -24,6 +24,7 @@ zip = { version = "=8.6.0", default-features = false, features = ["deflate"] }
 sha2 = "=0.11.0"
 serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = { version = "=1.0.151", features = ["float_roundtrip"] }
+serde_yaml_ng = "=0.10.0"
 toml = { version = "=1.1.8", default-features = false, features = ["parse", "serde", "std"] }
 directories = "=6.0.0"
 flate2 = { version = "=1.1.10", default-features = false, features = ["rust_backend"] }
