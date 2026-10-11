@@ -28,7 +28,33 @@ STEP 0: BUGS I FOUND BY HAND (reproduce first, fix, add a test where one is poss
      `crates/game/src/flies_play.rs:follow_nearest` exists but has no visible effect. Find out why (early returns: `arcade.open`,
      `manual_until`, `snap.challenge`, `memory.train`; whether `Command::FocusFly` changes the brain in the snapshot; whether `Flies.focus` and the
      sim thread's focus can disagree) and fix it.
-  c) Any further items I add to BUGS.md: same way.
+  c) The held tool and its swing animation (swatter etc.) are not visible: Python `Game3D.draw_viewmodel` (kick3d.py:3211) was probably never ported.
+  d) The fly looks like a generic fly, not a fruit fly: match the Python 3D fly model (proportions, red eyes, wings, abdomen stripes, legs).
+  e) The FPS counter setting (`graphics.show_fps`) does nothing: it is never read in Rust. Same for `graphics.fps_cap`, `graphics.vsync`.
+  f) `graphics.ui_scale` does nothing visible (only reaches `compute_layout`); check HUD and menu scale like Python.
+  g) Every other item in BUGS.md and any I add later: same way.
+
+BUG-HUNT MODE AND TOKEN BUDGET (read this, it matters): hunt actively, but be economical. Work bottom-up from cheap evidence to expensive:
+  - Prefer `grep`, reading the two implementations side by side and small unit tests over launching the game. Do NOT take screenshots unless
+    a question truly cannot be settled from code (a layout/colour question with no pixel reference); then take one, at 1280x720, of that one
+    screen, and look at it once. Never screenshot to "see if it works" in general.
+  - Do not run the full 40-minute `cargo test --workspace --release` more than twice (once at the start for a baseline, once at the end). While
+    iterating run only the affected crate/test: `cargo test --release -p <crate> <test_name>`.
+  - Use `cargo check`/`cargo clippy -p <crate>` for fast feedback; a release build of the game crate takes 10+ minutes, so batch several fixes per build.
+  - Do not read whole large files (labtools.rs, sim_thread.rs, PORTING.md are huge): grep for the symbol and read the 40 lines around it.
+  - For every simple task use the simplest tool; do not spawn sub-agents for something one grep answers. Write findings into BUGS.md as you go.
+
+SETTINGS AUDIT (mechanical first, then targeted): there are 75 settings in `crates/ktf_data/data/schema.json`. BUGS.md lists the ones the Rust code never
+references (34). For each setting decide, from code only: is it (1) read by the game and acts live, (2) read but only at startup, (3) stored but has no
+effect. For every Python setting with an effect, find where Python reads it (`grep -rn "<key>" legacy-python/kickthefly`) and wire the same effect in
+Rust, or document in PORTING.md why not (e.g. no GL backend selection in Rust). Regenerate the unreferenced list after your fixes with:
+  python3 - <<'PY'
+  import json,glob
+  s=json.load(open('crates/ktf_data/data/schema.json')); ks=[x['key'] for x in s["settings"]]
+  src=''.join(open(f).read() for f in glob.glob('crates/*/src/**/*.rs',recursive=True) if not f.endswith('ktf_data/src/config.rs'))
+  print([k for k in ks if k not in src])
+  PY
+Then write one table into PORTING.md ("Settings audit": key | where read | effect | verified how). A settings page screenshot is NOT needed for this.
 
 1. Feature + GUI parity (highest priority):
    - Go through PORTING.md item by item and verify each feature against legacy-python by reading both implementations and, where you can, running
