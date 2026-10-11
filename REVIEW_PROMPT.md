@@ -2,7 +2,7 @@
 
 ````text
 Project: Kick the Fly. A full port from Python/pygame to Rust + Bevy 0.19. You are in a clone of
-https://github.com/legendarylolo318-cloud/kick-the-fly on branch `rust-3.1.1` (the same work as `bevy-port`, plus the instruction files).
+https://github.com/legendarylolo318-cloud/kick-the-fly on branch `rust-3.1.2` (the same work as `bevy-port`, plus the instruction files).
 `PORTING.md` is the parity checklist (including section 16, "GUI parity"). `legacy-python/` is the old version and the reference
 (it is also frozen on the branch `python-legacy` and the tag `python-3.1.1`: never delete or rewrite those). Your job is thorough verification,
 bug fixing and, only when I say so, release. Do not add new features.
@@ -98,13 +98,13 @@ Then write one table into PORTING.md ("Settings audit": key | where read | effec
 
 8. Release: ONLY after I confirm in chat. Do NOT merge to `main`, push to `main`, tag a release or publish anything on your own: `main` and
    `python-legacy` must keep the Python 3.1.1 code until I say otherwise. When every check passes on Linux and Windows AND every PORTING.md item
-   (features and GUI parity) is checked or has a documented reason, tell me and wait. If I then say go: open a PR from `rust-3.1.1` to `main`
+   (features and GUI parity) is checked or has a documented reason, tell me and wait. If I then say go: open a PR from `rust-3.1.2` to `main`
    (do not delete `python-legacy`), run CI, bump the version in `Cargo.toml` (it says `4.0.0-dev`), and publish a release with the Windows .exe
    and the Linux AppImage plus release notes written for casual players (summarize the engine switch and performance gains). If CI fails, fix and
    re-run; never merge on failure.
 
 Rules: wait on output files for long builds and tests (never poll with pgrep; a full `cargo test --workspace --release` takes about 40
-minutes); run the game only with `--fullscreen`; commit on `rust-3.1.1`, one commit per fix, messages ending
+minutes); run the game only with `--fullscreen`; commit on `rust-3.1.2`, one commit per fix, messages ending
 `Co-Authored-By: Claude Opus <noreply@anthropic.com>`; tick PORTING.md only for what you verified; update `continue.md` as you go.
 
 End with a report: what was fixed (STEP 0 first), GUI parity differences found and fixed, the perf numbers before/after, what you could not
