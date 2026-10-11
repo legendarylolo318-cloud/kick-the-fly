@@ -88,6 +88,7 @@ fn update(
         return;
     }
     let real = cfg.0.get_bool("brain.pet_real_stakes");
+    let mode = cfg.0.get_str("brain.individuality").to_string();
     let (reward, punish) = snap
         .0
         .as_deref()
@@ -130,7 +131,7 @@ fn update(
             p.save(now);
         }
         if relabel {
-            label = Some(card_label(p));
+            label = Some(card_label(p, &mode));
         }
     }
     if drive > 0.05 && snap.0.as_deref().is_some_and(|s| s.info.is_some()) {
@@ -144,9 +145,17 @@ fn update(
     }
 }
 
+/// `cards.label(card)` for a fly: its measured personality card from the cache ("<title> (measured)"), else "card not measured".
+pub fn measured_label(seed: u64, mode: &str) -> String {
+    let key = fly_sim::cards::card_key(seed, mode, None, &fly_sim::cards::LIF_DEFAULTS, &crate::arcade_hub::pack_sha());
+    match fly_sim::cards::lookup(&crate::arcade_hub::cache_path(), &key) {
+        Some(c) => format!("{} (measured)", c.title),
+        None => "card not measured".into(),
+    }
+}
+
 /// `cards.label(pet_card(pet, slot))`: the measured card of the original fly (cache), or the one the pet file kept for the same key.
-fn card_label(p: &mut Pet) -> String {
-    let mode = "subtle";
+fn card_label(p: &mut Pet, mode: &str) -> String {
     let key = fly_sim::cards::card_key(p.seed.max(0) as u64, mode, None, &fly_sim::cards::LIF_DEFAULTS, &crate::arcade_hub::pack_sha());
     if let Some(c) = fly_sim::cards::lookup(&crate::arcade_hub::cache_path(), &key) {
         return format!("{} (measured)", c.title);

@@ -99,7 +99,10 @@ fn spawn_and_cycle(
         link.0.send(Command::FocusFly(next));
         flies.focus = next;
         flies.manual_until = now + 5.0;
-        notes.push(now, format!("FOCUS    fly #{}/{}", (i + 1) % slots.len() + 1, slots.len()), Tag::GameRule);
+        // `[card label]`: the focused fly's measured personality card, or "card not measured" (Settings > Fly arcade measures them)
+        let seed = if next == 0 { cfg.0.get_i64("brain.seed").max(0) as u64 } else { 1000 + u64::from(next) };
+        let label = crate::pet_play::measured_label(seed, cfg.0.get_str("brain.individuality"));
+        notes.push(now, format!("FOCUS    fly #{}/{} [{label}]", (i + 1) % slots.len() + 1, slots.len()), Tag::GameRule);
     }
 }
 

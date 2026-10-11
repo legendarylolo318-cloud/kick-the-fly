@@ -321,8 +321,8 @@ Looming (`senses.rs`) and smells are per fly too. **Saves hold every fly now:** 
 loading puts each brain back (`ImportFly`) and each body where it was (`ResetFly::restore`), restores the surgery modes and cell-type switches, the arena,
 the tool, kills and the pain level; checked in the game (`KTF_SAVELOAD_CHECK=1 KTF_FLIES=2`: 3 flies saved, `flies 3/16` after the load). A Python 3D
 save loads its brains exactly and its bodies by their first three particles, health and yaw; timers, things in flight and the other 14 particles are
-not restored. **Not done:** pokes that are not per-fly yet go to the focused brain (the contraption's wind, the memory scent), the
-arcade/tool wheel/puppeteer assume one fly, fly-vs-fly personality cards are not shown on the bodies, and the cap is not adapted to the machine (each extra brain costs about 0.3 ms per step here, so ~16 flies still ran real time on
+not restored. **Since:** the contraption's wind reaches every live fly's own brain, and the FOCUS note carries the fly's measured personality card label like Python's. **Not done:** the memory scent (the tool in hand near a head) is still observed by the focused brain only, the
+arcade/tool wheel/puppeteer assume one fly, the personality card is not drawn on the bodies, the cap stays 16 (Python's CPU value; Numba raised it to the CPU count, the larva to 64) and is not adapted to the machine (each extra brain costs about 0.3 ms per step here, so ~16 flies still ran real time on
 paper but this was only measured at 4).
 
 ### The 2D game (`--2d`): decision

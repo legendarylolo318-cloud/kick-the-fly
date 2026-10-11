@@ -200,6 +200,7 @@ fn run(
     dominoes: Query<&Transform, (With<MachinePart>, Without<Marble>, Without<ButtonPlate>)>,
     button: Query<&Transform, With<ButtonPlate>>,
     mut flies: Query<(Entity, &mut Fly)>,
+    slots: Query<&crate::fly::Slot>,
     parts: Query<&Transform, (With<FlyPart>, Without<MachinePart>)>,
     mut fly_vel: Query<(&FlyPart, &mut LinearVelocity), Without<MachinePart>>,
     link: Res<SimLink>,
@@ -281,8 +282,16 @@ fn run(
             }
         }
     }
-    if now < c.wind_until && fly_at.is_some() {
-        link.0.send(Command::Poke { region: "wind".into(), side: None, strength: 0.8 });
+    if now < c.wind_until {
+        // the gust reaches every fly's Johnston's organ, each on its own brain
+        for (e, f) in &flies {
+            if f.dead() {
+                continue;
+            }
+            if let Ok(slot) = slots.get(e) {
+                link.0.send(Command::PokeFly { slot: slot.0, region: "wind".into(), side: None, strength: 0.8 });
+            }
+        }
     }
 }
 

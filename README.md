@@ -23,8 +23,16 @@ Each release lists `SHA256SUMS`. The 3D game needs OpenGL 3.3; without it the ga
 
 ## Build from source (Rust + Bevy)
 
-The game is being ported from Python/pygame to Rust and [Bevy](https://bevyengine.org/) on the `bevy-port` branch; the Python game is kept
-unchanged in `legacy-python/` for reference. [PORTING.md](PORTING.md) is the parity checklist.
+This branch (`bevy-port`) is the game ported from Python/pygame to Rust and [Bevy](https://bevyengine.org/) 0.19. The Python game is kept
+unchanged in `legacy-python/` as the reference every ported part is checked against: [PORTING.md](PORTING.md) is the parity checklist (what is
+ported, how it was verified, what is not and why). The sections below this one describe the game as a whole; where the Rust build differs, PORTING.md says so.
+
+**What is here.** The 3D game (ten arenas, tools, multiple flies, learning, surgery, inspector, autopsy, kill cam, challenges, the fly arcade, Pet mode,
+photo mode, microphone and Streamer mode), the whole Lab (validation, assays, rigs, mini-papers, screens, genetic toolkit, patch clamp, imaging,
+protocols, export and bundles), save states and share codes that read the Python game's files, and a headless command line. The simulation is the same
+model: the Rust LIF simulator equals NumPy's spike for spike on the real pack (individuality "off"). **Not ported**: the 2D game (`--2d` is accepted and
+ignored), NWB and TIFF export, GIF/video/time-lapse capture, the Numba/PyTorch/OpenGL backends (the Rust build is one CPU backend with rayon), and a few
+command-line analyses listed in PORTING.md.
 
 **Toolchain.** Rust 1.95 or newer (the repo pins it in `Cargo.toml`), through `rustup`:
 
@@ -44,18 +52,39 @@ sudo pacman -S vulkan-icd-loader vulkan-intel       # Intel
 
 `vulkaninfo --summary` (package `vulkan-tools`) should list your GPU. Audio uses ALSA, PulseAudio or PipeWire; the microphone needs one of them.
 
-**Run and test.**
+**The brain pack.** The connectome is `data/kick_brain.npz` (found from the working directory upward, next to the program, or at `$KICK_THE_FLY_PACK`;
+`--pack FILE` overrides). Without it a synthetic random network runs. `cargo build --release --features bundle-pack` compiles the pack into the program.
+
+**Build, run, test.**
 
 ```bash
-cargo run --release -p kick_the_fly          # the game (needs data/kick_brain.npz, else a synthetic network runs)
-cargo run -p kick_the_fly --features dev     # fast rebuilds: Bevy linked dynamically (never for release)
-cargo test --workspace                       # unit tests, the simulator golden tests, the Python-file compatibility tests
-cargo fmt --check && cargo clippy --workspace --all-targets -- -D warnings
+cargo run --release -p kick_the_fly -- --fullscreen   # the game (--fullscreen: tiling compositors open half-size windows otherwise)
+cargo run -p kick_the_fly --features dev              # fast rebuilds: Bevy linked dynamically (never for release)
+cargo test --workspace --release                      # unit tests and the Python goldens (the long ones take 10-20 minutes)
+cargo fmt --check && cargo clippy --workspace --all-targets --release
 ```
 
-The first build compiles Bevy (about five minutes); a release build with fat LTO takes ten or more. `H` in the game lists the keys. Settings, saves
-and share codes from the Python game are read as they are (`config.toml`, `.ktfshare`, `KTF1-…` codes; see `crates/ktf_data` and
-`tests/python_files/`); they live in the same folders.
+The first build compiles Bevy (about five minutes); a release build with fat LTO takes ten or more. `H` in the game lists the keys; Esc opens the menu
+(Play, Lab, Pet modes under *Mode*). Settings, saves and share codes from the Python game are read as they are (`config.toml`, `.ktfsave`, `.ktfshare`,
+`KTF1-…` codes, `pet.ktfsave`; see `crates/ktf_data` and `tests/python_files/`) and live in the same folders; `KICK_THE_FLY_HOME=<dir>` puts everything under one folder.
+
+**Command line.**
+
+| Flag | What it does |
+|---|---|
+| `--pack FILE`, `--synthetic N`, `--seed S` | which brain, and the noise seed |
+| `--arena NAME`, `--flies N`, `--rain F --storm --day S` | start in an arena (room fan flypaper pool lamp escaperoom field orchard thermo kitchen), with N flies, with weather |
+| `--smoke SECONDS` | no window: run the brain thread and report steps per second (exit 2 if it cannot keep real time) |
+| `--selftest [--out FILE.json]`, `--bugreport [--out DIR]` | check this install; print and write what a bug report would contain (nothing is sent) |
+| `--shot FILE [--shot-frames N]`, `--cam x,y,z,tx,ty,tz`, `--menu SCREEN`, `--tool NAME`, `--photo DOF,FOCUS` | screenshot harness |
+| `--headless --validate [--seeds 1000-1009 --workers N --out FILE --strict]` | the 21 validation tests, no window |
+| `--headless --protocol FILE [--out DIR --bundle ZIP]`, `--headless --rerun-bundle ZIP --out DIR` | run a protocol (a path or a bundled name such as `co2_orn_to_pn`) and bundle it; rerun a bundle and judge whether it matches (exit 0 / 1 / 2) |
+| `--headless --rig NAME`, `--rig-assay NAME`, `--minipaper ID` (or `list`) | a behavior rig, its pre-registered assay, a mini-paper |
+| `--headless --activation-screen`, `--knockout-screen [BEHAVIORS]` | the resumable whole-brain screens (`--types`, `--min-neurons`, `--max-types`, `--top`, `--screen-controls`, `--restart`) |
+
+**Layout.** `crates/fly_sim` (the simulator and every engine: pure Rust, no Bevy), `crates/ktf_data` (config, stores, saves, recorder, bundles, protocols,
+pet, streamer rules), `crates/ktf_ui` (the software-drawn menu pages and HUD), `crates/game` (the Bevy app: render thread, simulation thread, one plugin per
+feature). Golden data from the Python code is in `tests/golden/` (each `make_*.py` writes one), page references in `tests/ui_reference/`.
 
 ## New in 3.0
 
