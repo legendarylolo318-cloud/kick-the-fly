@@ -6,6 +6,10 @@ port of a Python/pygame game (the Python original is untouched in `legacy-python
 checklist), `continue.md`, `RUST_BUILD_INSTRUCTIONS.md`, `README.md` and `BUGS.md` first. Do NOT trust my notes in them or in commit messages:
 check the code and re-run things. `BUGS.md` holds problems found by hand while playing: reproduce and fix those first.
 
+Bugs the user already found by hand (reproduce and fix these FIRST, with a test where one is possible; details and leads are in `BUGS.md`):
+- the big brain view (B) can no longer be zoomed in and out (it could before);
+- with several flies the brain/panel no longer switches by itself to the fly nearest to the player.
+
 Scope: everything after commit 1d69ce2 (`git log --oneline 1d69ce2..HEAD`, `git diff 1d69ce2..HEAD --stat`). In order, that stretch added:
 1. the headless CLI: `crates/game/src/headless.rs` (`--headless --validate/--protocol/--rerun-bundle/--rig/--rig-assay/--minipaper/--activation-screen/--knockout-screen`) vs `legacy-python/kickthefly/lab/headless.py`
 2. pet mode: `crates/ktf_data/src/pet.rs`, `crates/game/src/pet_play.rs` vs `core/pet.py` and the pet code in `game/kick_the_fly.py`
