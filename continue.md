@@ -56,12 +56,12 @@ pictures folder, shutter sound), Mic and streamer page (`ktf_data::streamer` gol
 `ktf_ui::pages::live`, matched 0.6-0.7 %), neuron search + path tracer (`fly_sim::neurosearch` golden `make_neurosearch.py`, `inspector_play.rs`).
 The pygame references need `/tmp/pgvenv` recreated: `python3 -m venv V; V/bin/pip install numpy scipy pygame-ce pyyaml pillow` (pygame-ce, NOT pygame: no font module on 3.14).
 
-## Next, in order (only 7 is left)
+## Next, in order (1-7 of the brief are done; only the extras remain)
 5. (DONE, 49740a8) Multi-fly leftovers: contraption wind goes to every live fly; the FOCUS note shows the measured card label. Still open (written in PORTING.md):
    the memory scent is observed by the focused brain only, the card is not drawn on the bodies, the cap is a fixed 16.
 6. (DONE, 49740a8) README: the Rust build section (what is here / not ported, pack, build and test commands, flags table, layout).
-7. **Final full verification**: `cargo build --release`, `cargo test --workspace --release` (long goldens: 10-20 min; wait with an output-file loop, never pgrep),
-   `cargo clippy --workspace --all-targets --release` clean, `cargo fmt --all`; tick PORTING.md only for verified boxes; commit.
+7. (DONE) Final verification at commit after 2fa2c80: `cargo fmt --all`, `cargo clippy --workspace --all-targets --release` clean, `cargo test --workspace --release`
+   60 test binaries, 286 tests, 0 failed (goldens with the real pack included).
 
 ## Extras worth doing if there is time (not in the 1-7 brief)
 - `--headless --validate --seeds 1000-1009 --strict` end to end once (about 25 min): the 2-seed run only proves the plumbing (p cannot reach 0.01 at n = 2).
