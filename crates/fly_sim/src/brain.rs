@@ -352,6 +352,16 @@ impl Brain {
         self.groups.poke(region, side, strength, recruit, step);
     }
 
+    /// Keep (or stop keeping) the stimuli given from now on, for a Lab recording's event log.
+    pub fn log_stimuli(&mut self, on: bool) {
+        self.groups.stimulus_log = on.then(Vec::new);
+    }
+
+    /// The stimuli given since the last call `(step, region, detail, strength)`.
+    pub fn take_stimuli(&mut self) -> Vec<(u64, String, String, f64)> {
+        self.groups.stimulus_log.as_mut().map(std::mem::take).unwrap_or_default()
+    }
+
     /// `Brain.level`.
     pub fn level(&self, name: &str) -> f32 {
         self.groups.level(name)

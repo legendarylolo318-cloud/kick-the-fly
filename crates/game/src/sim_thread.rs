@@ -163,6 +163,126 @@ pub struct ImagingCfg {
     pub reduced: bool,
 }
 
+/// Lab > Record and export: what the page shows of a running recording and of the last one.
+#[derive(Debug, Clone, Default)]
+pub struct RecStatus {
+    pub active: bool,
+    pub seconds: f64,
+    pub elapsed: f64,
+    pub neurons: usize,
+    pub saving: bool,
+    pub message: String,
+    pub last_export: String,
+}
+
+pub static REC_STATUS: std::sync::Mutex<RecStatus> = std::sync::Mutex::new(RecStatus {
+    active: false,
+    seconds: 0.0,
+    elapsed: 0.0,
+    neurons: 0,
+    saving: false,
+    message: String::new(),
+    last_export: String::new(),
+});
+
+/// The recording in progress on the focused fly.
+struct ActiveRec {
+    rec: ktf_data::recorder::Recorder,
+    until: u64,
+    seconds: f64,
+    meta: serde_json::Value,
+    slot: u32,
+}
+
+/// `resolve_group`: an assay group, `touch`, `reaction_dns`, or a neuron spec / sensory group.
+fn resolve_record_group(brain: &Brain, g: &std::collections::HashMap<&'static str, Vec<u32>>, spec: &str) -> Result<Vec<u32>, String> {
+    if let Some(r) = g.get(spec) {
+        return Ok(r.clone());
+    }
+    match spec {
+        "touch" => Ok(fly_sim::groups::TOUCH.iter().flat_map(|n| brain.groups.sense(n, None).to_vec()).collect()),
+        "reaction_dns" => Ok(["jump", "run", "kick", "walk", "back", "turn_l", "turn_r", "fly", "escape", "fire"]
+            .iter()
+            .flat_map(|n| brain.groups.det_members(n))
+            .collect()),
+        "whole brain" => Ok((0..brain.n() as u32).collect()),
+        other => brain.rows_of(other).map_err(|e| e.to_string()),
+    }
+}
+
+/// After a brain step: the spikes and the stimuli go to the recording; it ends by itself after its duration or when another fly comes
+/// to the front.
+fn rec_after_step(slot: &mut Option<ActiveRec>, brain: &mut Brain, focus: u32, labels: &Arc<Labels>) {
+    let Some(r) = slot.as_mut() else { return };
+    r.rec.push(brain.steps.saturating_sub(1), brain.sim.spikes());
+    for (step, label, detail, v) in brain.take_stimuli() {
+        r.rec.log_event(step, "stimulus", &label, &detail, v);
+    }
+    let done = brain.steps >= r.until || r.slot != focus;
+    if let Ok(mut st) = REC_STATUS.lock() {
+        st.elapsed = r.rec.seconds();
+    }
+    if done {
+        finish_recording(slot, brain, labels);
+    }
+}
+
+fn finish_recording(slot: &mut Option<ActiveRec>, brain: &mut Brain, labels: &Arc<Labels>) {
+    let Some(r) = slot.take() else { return };
+    brain.log_stimuli(false);
+    let labels = labels.clone();
+    if let Ok(mut st) = REC_STATUS.lock() {
+        st.active = false;
+        st.saving = true;
+    }
+    std::thread::Builder::new()
+        .name("rec-save".into())
+        .spawn(move || {
+            let stamp = crate::savestate_play::utc_stamp_compact();
+            let stem = ktf_data::paths::get().data_dir.join("exports").join(format!("{stamp}-recording")).join("recording");
+            let mut r = r;
+            r.rec.active = false;
+            let meta = ktf_data::recorder::base_metadata(
+                env!("CARGO_PKG_VERSION"),
+                &crate::savestate_play::utc_stamp_pub().replace(' ', "T"),
+                pack_info(),
+                {
+                    let mut m = r.meta.clone();
+                    m["recorded_live"] = serde_json::json!(true);
+                    m["requested_seconds"] = serde_json::json!(r.seconds);
+                    m
+                },
+            );
+            let msg = match r.rec.save(&stem, &labels, meta) {
+                Ok(_) => format!(
+                    "recording saved to {} in exports",
+                    stem.parent().and_then(|p| p.file_name()).and_then(|f| f.to_str()).unwrap_or("")
+                ),
+                Err(e) => format!("recording failed: {e}"),
+            };
+            if let Ok(mut st) = REC_STATUS.lock() {
+                st.saving = false;
+                st.message = msg;
+                st.last_export = stem.parent().map(|p| p.display().to_string()).unwrap_or_default();
+            }
+        })
+        .ok();
+}
+
+/// `recorder.pack_info`: the brain pack's file, checksum and size (hashed once).
+fn pack_info() -> serde_json::Value {
+    static C: std::sync::OnceLock<serde_json::Value> = std::sync::OnceLock::new();
+    C.get_or_init(|| match fly_sim::pack::find_default() {
+        Some(p) => {
+            let sha = std::fs::read(&p).map(|b| fly_sim::util::sha256_hex(&b)).unwrap_or_default();
+            serde_json::json!({"file": p.file_name().and_then(|f| f.to_str()).unwrap_or(""), "sha256": sha,
+                               "size_bytes": std::fs::metadata(&p).map(|m| m.len()).unwrap_or(0)})
+        }
+        None => serde_json::json!({}),
+    })
+    .clone()
+}
+
 /// What the imaging page shows of the live session (the first seven ROIs' traces are all it draws).
 #[derive(Debug, Clone, Default)]
 pub struct ImagingView {
@@ -403,6 +523,32 @@ pub enum Command {
     Imaging(Option<Box<ImagingCfg>>),
     /// Write the session's ROI traces as CSV into this folder.
     ImagingExport(std::path::PathBuf),
+    /// Lab > Record and export: record these neurons of the focused fly for `seconds`. `specs` are `(label, spec)`; `meta` is the game's
+    /// side of the metadata JSON.
+    StartRecording {
+        specs: Vec<(String, String)>,
+        seconds: f64,
+        meta: serde_json::Value,
+    },
+    /// Stop the recording now and save it.
+    StopRecording,
+    /// A note, tool use or hit the game logged (kept in a running recording's events).
+    LogEvent {
+        kind: String,
+        label: String,
+        detail: String,
+        value: f64,
+    },
+    /// Where the focused fly is, sampled by the game (kept in a running recording's kinematics).
+    LogKinematics {
+        x: f64,
+        y: f64,
+        z: f64,
+        speed: f64,
+        health: f64,
+        action: String,
+        arena: String,
+    },
     /// Classroom: a sensory poke of these rows (`br.sense[("classroom", spec)] = rows; br.poke(...)`).
     PokeRows {
         rows: Vec<u32>,
@@ -667,6 +813,7 @@ fn run(
     let mut patch_view = PatchView::default();
     let mut patch_hold = 0.0f32;
     let mut imaging: Option<ImagingRun> = None;
+    let mut recording: Option<ActiveRec> = None;
     let mut imaging_note = String::new();
     let mut brain = Brain::new(LifSim::new(weights, params, cfg.seed), labels);
     let mut mem = MemState::new(cfg.memory_dir.clone());
@@ -914,6 +1061,52 @@ fn run(
                         }
                     }
                 }
+                Ok(Command::StartRecording { specs, seconds, meta }) => {
+                    let g = fly_sim::validation::groups(&labels_for_mirror, &original_weights);
+                    let mut named = Vec::new();
+                    let mut err = None;
+                    for (label, spec) in &specs {
+                        match resolve_record_group(&brain, &g, spec) {
+                            Ok(rows) => named.push((label.clone(), rows)),
+                            Err(e) => {
+                                err = Some(e);
+                                break;
+                            }
+                        }
+                    }
+                    if let Ok(mut st) = REC_STATUS.lock() {
+                        match err {
+                            Some(e) => st.message = e,
+                            None => {
+                                let rec = ktf_data::recorder::Recorder::new(brain.n(), named, brain.steps);
+                                st.active = true;
+                                st.seconds = seconds;
+                                st.elapsed = 0.0;
+                                st.neurons = rec.rows.len();
+                                st.message.clear();
+                                brain.log_stimuli(true);
+                                recording = Some(ActiveRec {
+                                    rec,
+                                    until: brain.steps + (seconds / 0.005) as u64,
+                                    seconds,
+                                    meta,
+                                    slot: multi.focus,
+                                });
+                            }
+                        }
+                    }
+                }
+                Ok(Command::StopRecording) => finish_recording(&mut recording, &mut brain, &labels_for_mirror),
+                Ok(Command::LogEvent { kind, label, detail, value }) => {
+                    if let Some(r) = recording.as_mut() {
+                        r.rec.log_event(brain.steps, &kind, &label, &detail, value);
+                    }
+                }
+                Ok(Command::LogKinematics { x, y, z, speed, health, action, arena }) => {
+                    if let Some(r) = recording.as_mut() {
+                        r.rec.log_kinematics(brain.steps, x, y, z, speed, health, &action, &arena);
+                    }
+                }
                 Ok(Command::ImagingExport(dir)) => {
                     imaging_note = match imaging.as_ref().map(|r| r.session.result()) {
                         Some(Ok(res)) => match fly_sim::imaging::export_csv(&res, &dir.join("imaging_roi.csv")) {
@@ -939,6 +1132,7 @@ fn run(
         if state.pending_steps > 0 {
             for _ in 0..state.pending_steps {
                 brain.step();
+                rec_after_step(&mut recording, &mut brain, multi.focus, &labels_for_mirror);
                 for (_, b) in &mut multi.extras {
                     b.step();
                 }
@@ -975,6 +1169,7 @@ fn run(
             continue;
         }
         brain.step();
+        rec_after_step(&mut recording, &mut brain, multi.focus, &labels_for_mirror);
         for (_, b) in &mut multi.extras {
             b.step();
         }
@@ -1136,6 +1331,10 @@ fn apply(
         | Command::PatchHold(_)
         | Command::PatchRun(_)
         | Command::Imaging(_)
+        | Command::StartRecording { .. }
+        | Command::StopRecording
+        | Command::LogEvent { .. }
+        | Command::LogKinematics { .. }
         | Command::ImagingExport(_) => false,
         Command::PokeRows { rows, strength } => {
             brain.groups.add_sense("classroom", rows);

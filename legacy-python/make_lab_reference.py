@@ -470,4 +470,20 @@ if __name__ == "__main__":
     R.render("lab_rig_buridan", "Graphics", out / "page_lab_rig_buridan.png", prep=rig_prep("buridan", 12.0))
     R.render("lab_rig_fourfield", "Graphics", out / "page_lab_rig_fourfield.png", prep=rig_prep("fourfield", 12.0))
     R.render("lab_rig_buridan", "Graphics", out / "page_lab_rig_empty.png", prep=rig_prep("buridan", 0.0, False))
+    def export_prep(last=None, insp=None, bundle=None):
+        def prep(m):
+            prep_for("lab_export")(m)
+            m.host.recording = None
+            m.host.inspect = insp
+            m.host.last_export = last
+            if bundle:
+                lab._state(m).bundle_msg = bundle
+        return prep
+
+    R.render("lab_export", "Graphics", out / "page_lab_export.png", prep=export_prep())
+    R.render("lab_export", "Graphics", out / "page_lab_export_last.png",
+             prep=export_prep("/home/user/.local/share/kickthefly/exports/20260101-120000-recording", dict(type="DNp01", i=3),
+                              ("Bundled the last live recording (a record: it can't be rerun, and says why).", "/home/user/exports/bundles/x.zip")))
+    from kickthefly.lab import nwbexport
+    (out / "lab_export_fixture.json").write_text(json.dumps(dict(nwb=nwbexport.available())))
     print("wrote", out)

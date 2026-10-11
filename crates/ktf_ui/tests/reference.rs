@@ -1302,3 +1302,43 @@ fn lab_rig_pages() {
         compare(name, &cv.to_rgb_over(BG), 0.02);
     }
 }
+
+#[test]
+fn lab_export_page() {
+    struct H(serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            if key == "lab.export_state" { self.0.clone() } else { serde_json::Value::Null }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    let root = env!("CARGO_MANIFEST_DIR");
+    let fx: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(format!("{root}/../../tests/ui_reference/lab_export_fixture.json")).unwrap()).unwrap();
+    let mut options: Vec<serde_json::Value> =
+        ktf_data::recorder::RECORD_GROUPS.iter().map(|(l, s)| serde_json::json!({"label": l, "spec": s})).collect();
+    for (name, last, insp, bundle) in [
+        ("page_lab_export.png", "", false, serde_json::json!({"msg": "", "path": null})),
+        (
+            "page_lab_export_last.png",
+            "/home/user/.local/share/kickthefly/exports/20260101-120000-recording",
+            true,
+            serde_json::json!({"msg": "Bundled the last live recording (a record: it can't be rerun, and says why).", "path": "/home/user/exports/bundles/x.zip"}),
+        ),
+    ] {
+        if insp {
+            options.push(serde_json::json!({"label": "Inspected type DNp01", "spec": "type:DNp01"}));
+        }
+        let st = serde_json::json!({"options": options, "recording": null, "message": "", "last_export": last,
+                                    "exports_dir": "/home/logan/.local/share/kickthefly/exports", "nwb": fx["nwb"], "bundle": bundle});
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        m.show("lab_export");
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(st));
+        compare(name, &cv.to_rgb_over(BG), 0.02);
+    }
+}

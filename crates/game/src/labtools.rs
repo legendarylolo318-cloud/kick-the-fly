@@ -211,6 +211,13 @@ pub struct LabTools {
     imaging: ImagingPage,
     /// Lab > Mini-papers: the results by paper.
     papers: BTreeMap<String, Value>,
+    /// Lab > Record and export: the bundle message and path, and the inspected neuron type (for the extra group).
+    bundle_msg: (String, Option<String>),
+    inspected_type: Option<String>,
+    /// The folder of the last protocol run (what Bundle packs first).
+    last_protocol_folder: Option<String>,
+    /// The game's side of a recording's metadata, refreshed while the page is open.
+    rec_meta: Value,
     /// Lab > Behavior rigs: the latest run per rig, and a counter that tells the page a new one arrived.
     rigs: BTreeMap<String, Value>,
     rig_runs: u64,
@@ -269,6 +276,10 @@ impl Default for LabTools {
             patch: PatchPage::default(),
             imaging: ImagingPage::default(),
             papers: BTreeMap::new(),
+            bundle_msg: (String::new(), None),
+            inspected_type: None,
+            last_protocol_folder: None,
+            rec_meta: Value::Null,
             rigs: BTreeMap::new(),
             rig_runs: 0,
             screens: BTreeMap::new(),
@@ -541,6 +552,21 @@ impl LabTools {
             r if r == "lab_rigs" || r.starts_with("lab_rig_") => {
                 let job = self.job.as_ref().filter(|j| j.label.starts_with("Rig ")).map(BgJob::json);
                 json!({"lab.rigs_state": {"results": self.rigs, "job": job, "error": self.error}})
+            }
+            "lab_export" => {
+                let st = crate::sim_thread::REC_STATUS.lock().unwrap_or_else(PoisonError::into_inner).clone();
+                let mut options: Vec<Value> =
+                    ktf_data::recorder::RECORD_GROUPS.iter().map(|(l, s)| json!({"label": l, "spec": s})).collect();
+                if let Some(t) = &self.inspected_type {
+                    options.push(json!({"label": format!("Inspected type {t}"), "spec": format!("type:{t}")}));
+                }
+                json!({"lab.export_state": {
+                    "options": options,
+                    "recording": if st.active || st.saving { json!({"seconds": st.seconds, "elapsed": st.elapsed, "neurons": st.neurons, "saving": st.saving}) } else { Value::Null },
+                    "message": st.message, "last_export": st.last_export, "exports_dir": exports_dir().display().to_string(),
+                    "nwb": "NWB export is not built into this version (it needs an HDF5 writer); the CSV and npz hold the same data",
+                    "bundle": {"msg": self.bundle_msg.0, "path": self.bundle_msg.1},
+                }})
             }
             "lab_minipapers" => {
                 let job = self.job.as_ref().filter(|j| j.label.starts_with("Mini-paper ")).map(BgJob::json);
@@ -934,6 +960,8 @@ fn tick(
     cfg: Res<crate::menu_ui::UserConfig>,
     runs: Res<crate::lab_play::LabRuns>,
     mut brain_view: ResMut<crate::brainview::BrainView>,
+    inspector: Res<crate::inspector_play::Inspector>,
+    arena: Res<crate::config::Arena>,
 ) {
     tools.base_seed = cfg.0.get_i64("brain.seed");
     tools.pack = pack.clone();
@@ -963,6 +991,33 @@ fn tick(
                 e.0 = Some(r);
             }
         }
+    }
+    if screen.0 == "lab_export" {
+        tools.inspected_type = inspector.info.as_ref().map(|i| i.ty.clone());
+        let th = crate::reactions::thresholds();
+        let surgery: serde_json::Map<String, Value> = snap
+            .0
+            .as_deref()
+            .map(|s| {
+                fly_sim::surgery::ENTRIES
+                    .iter()
+                    .zip(&s.surgery_modes)
+                    .filter(|(_, m)| **m != 0)
+                    .map(|(e, m)| (e.0.to_string(), json!(m)))
+                    .collect()
+            })
+            .unwrap_or_default();
+        let by_type: serde_json::Map<String, Value> =
+            snap.0.as_deref().map(|s| s.surgery_types.iter().map(|(t, m)| (t.clone(), json!(m))).collect()).unwrap_or_default();
+        let modified: serde_json::Map<String, Value> = lab.values.iter().map(|(k, v)| (k.clone(), json!(v))).collect();
+        tools.rec_meta = json!({
+            "seed": tools.base_seed, "n_neurons": snap.0.as_deref().map_or(0, |s| s.neurons),
+            "brain_pack": Value::Null,
+            "reaction_thresholds": {"groom": th.groom, "jump": th.jump, "run": th.run, "kick": th.kick, "walk": th.walk, "back": th.back,
+                                    "turn": th.turn, "fly": th.fly, "escape": th.escape, "fire": th.fire},
+            "mode": "3d", "arena": crate::world::ARENAS[arena.0 % crate::world::ARENAS.len()],
+            "lab_params": modified.clone(), "lab_params_modified": modified, "surgery": surgery, "surgery_by_type": by_type,
+        });
     }
     if screen.0 != "lab_patch" && tools.patch.live {
         tools.patch.live = false;
@@ -1437,6 +1492,66 @@ fn tick(
                     }
                 }
             }
+            "lab.rec_start" => {
+                let specs: Vec<(String, String)> = a["groups"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|g| Some((g["label"].as_str()?.to_string(), g["spec"].as_str()?.to_string())))
+                    .collect();
+                let seconds = a["seconds"].as_f64().unwrap_or(10.0).clamp(1.0, 60.0);
+                if specs.is_empty() {
+                    flash.write(crate::menu_ui::MenuFlash("choose at least one group to record".into(), false));
+                } else {
+                    link.0.send(crate::sim_thread::Command::StartRecording { specs, seconds, meta: tools.rec_meta.clone() });
+                    tools.close_menu.store(true, Ordering::Relaxed);
+                }
+            }
+            "lab.bundle" => {
+                let out_dir = exports_dir().join("bundles");
+                let stamp = crate::savestate_play::utc_stamp_compact();
+                let last = crate::sim_thread::REC_STATUS.lock().map(|s| s.last_export.clone()).unwrap_or_default();
+                tools.bundle_msg = if let Some(folder) =
+                    tools.last_protocol_folder.clone().filter(|f| std::path::Path::new(f).join("protocol.json").exists())
+                {
+                    let _ = folder;
+                    (String::new(), None)
+                } else if !last.is_empty() && std::path::Path::new(&last).is_dir() {
+                    let dir = std::path::PathBuf::from(&last);
+                    let mut files: Vec<std::path::PathBuf> =
+                        std::fs::read_dir(&dir).into_iter().flatten().flatten().map(|e| e.path()).filter(|p| p.is_file()).collect();
+                    files.sort();
+                    let meta: Value = files
+                        .iter()
+                        .find(|f| f.to_string_lossy().ends_with("-metadata.json"))
+                        .and_then(|f| std::fs::read_to_string(f).ok())
+                        .and_then(|t| serde_json::from_str(&t).ok())
+                        .unwrap_or(Value::Null);
+                    let extra = json!({"seeds": [meta["seed"].clone()], "arena": meta["arena"], "parameters": meta["lab_params_modified"],
+                                       "surgery": meta["surgery"], "surgery_by_type": meta["surgery_by_type"], "backend": "rust-cpu",
+                                       "dtype": "float32", "protocol_name": "live-recording"});
+                    let name = dir.file_name().and_then(|f| f.to_str()).unwrap_or("recording").to_string();
+                    match ktf_data::bundle::create_live(
+                        &files,
+                        &extra,
+                        &out_dir.join(format!("{stamp}-{name}.zip")),
+                        &json!({}),
+                        env!("CARGO_PKG_VERSION"),
+                        &crate::savestate_play::utc_stamp_pub().replace(' ', "T"),
+                    ) {
+                        Ok(z) => (
+                            "Bundled the last live recording (a record: it can't be rerun, and says why).".into(),
+                            Some(z.display().to_string()),
+                        ),
+                        Err(e) => (format!("Couldn't make the bundle: {e}"), None),
+                    }
+                } else {
+                    ("Nothing to bundle yet: run a protocol or make a recording first.".into(), None)
+                };
+            }
+            "lab.rec_stop" => {
+                link.0.send(crate::sim_thread::Command::StopRecording);
+            }
             "lab.screen_stop" => {
                 if let Some(j) = &tools.job {
                     j.cancel.store(true, Ordering::Relaxed);
@@ -1862,6 +1977,48 @@ pub struct LabToolsPlugin;
 
 impl Plugin for LabToolsPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<LabTools>().add_systems(Update, tick);
+        app.init_resource::<LabTools>().add_systems(Update, (tick, record_context));
     }
+}
+
+/// While a Lab recording runs: the game's notes become "note" events and the focused fly's position, speed, health and action become the
+/// kinematics (`Game.record_event`, `sample_kinematics`).
+fn record_context(
+    link: Res<crate::app::SimLink>,
+    mut notes: ResMut<crate::feedback::Notes>,
+    flies: Res<crate::flies_play::Flies>,
+    bodies: Query<(&crate::fly::Fly, &crate::fly::Slot)>,
+    transforms: Query<&Transform>,
+    arena: Res<crate::config::Arena>,
+    time: Res<Time>,
+    mut last: Local<Option<Vec3>>,
+) {
+    let active = crate::sim_thread::REC_STATUS.lock().is_ok_and(|s| s.active);
+    if !active {
+        notes.fresh.clear();
+        *last = None;
+        return;
+    }
+    for text in notes.fresh.drain(..) {
+        let label = text.split_whitespace().next().unwrap_or("note").to_string();
+        link.0.send(crate::sim_thread::Command::LogEvent { kind: "note".into(), label, detail: text.trim().to_string(), value: 0.0 });
+    }
+    let Some((fly, _)) = bodies.iter().find(|(_, s)| s.0 == flies.focus) else { return };
+    let pts: Vec<Vec3> = fly.parts.iter().filter_map(|e| transforms.get(*e).ok().map(|t| t.translation)).collect();
+    if pts.is_empty() {
+        return;
+    }
+    let pos = pts.iter().copied().sum::<Vec3>() / pts.len() as f32;
+    let dt = time.delta_secs().max(1e-4);
+    let speed = last.map_or(0.0, |p| (pos - p).length() / dt);
+    *last = Some(pos);
+    link.0.send(crate::sim_thread::Command::LogKinematics {
+        x: f64::from(pos.x),
+        y: f64::from(pos.z),
+        z: f64::from(pos.y),
+        speed: f64::from(speed),
+        health: f64::from(fly.health),
+        action: fly.action.to_string(),
+        arena: crate::world::ARENAS[arena.0 % crate::world::ARENAS.len()].to_string(),
+    });
 }

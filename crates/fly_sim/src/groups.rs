@@ -148,6 +148,8 @@ pub struct Groups {
     extra: Vec<(usize, Vec<bool>)>,
     /// Ring of the fast rates, one row of `names.len()` per 20 ms (`Brain.hist`).
     hist: Vec<f32>,
+    /// While a Lab recording runs: every stimulus with the brain step it was given at `(step, region, detail, strength)`.
+    pub stimulus_log: Option<Vec<(u64, String, String, f64)>>,
     /// Samples written so far (`Brain.hist_n`).
     pub hist_n: usize,
 }
@@ -337,6 +339,7 @@ impl Groups {
             counts: vec![0; g],
             extra: Vec::new(),
             hist: Vec::new(),
+            stimulus_log: None,
             hist_n: 0,
         };
         // the fermentation glomeruli (DM1/DM2/DP1m) as a readout of their own: the kitchen's vinegar trap reads them
@@ -416,6 +419,13 @@ impl Groups {
                 }
             }
             None => self.pending.push(Pending { region: region.to_string(), side, rows, steps }),
+        }
+        if let Some(log) = &mut self.stimulus_log {
+            let (label, detail) = match region.split_once(':') {
+                Some((a, b)) => (a.to_string(), b.to_string()),
+                None => (region.to_string(), side.map_or("both".to_string(), |c| c.to_string())),
+            };
+            log.push((step, label, detail, s));
         }
         if TOUCH.contains(&region) && self.spill > 0.0 {
             self.poke("body_extra", None, s * self.spill, None, step);

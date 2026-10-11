@@ -48,11 +48,17 @@ impl Tag {
 #[derive(Resource, Default)]
 pub struct Notes {
     pub lines: VecDeque<(f32, String, Tag)>,
+    /// Texts pushed since a Lab recording last drained them (`Game.note` logs a "note" event into a running recording).
+    pub fresh: Vec<String>,
 }
 
 impl Notes {
     pub fn push(&mut self, now: f32, text: impl Into<String>, tag: Tag) {
-        self.lines.push_back((now, text.into(), tag));
+        let text = text.into();
+        if self.fresh.len() < 256 {
+            self.fresh.push(text.clone());
+        }
+        self.lines.push_back((now, text, tag));
         while self.lines.len() > 8 {
             self.lines.pop_front();
         }

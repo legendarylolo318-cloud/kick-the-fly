@@ -11,6 +11,7 @@ pub mod critical;
 pub mod day4;
 pub mod diag;
 pub mod diff;
+pub mod export;
 pub mod lab;
 pub mod laser;
 pub mod load_state;
@@ -71,6 +72,7 @@ pub fn install_with(menu: &mut Menu, dex: neurodex::SharedDex) {
     for (name, page) in scenes {
         menu.register_page(name, Box::new(page));
     }
+    menu.register_page("lab_export", Box::<export::LabExport>::default());
     menu.register_page("lab_patch", Box::<toolkit::LabPatch>::default());
     menu.register_page("lab_imaging", Box::<toolkit::LabImaging>::default());
     menu.register_page("whatsnew", Box::new(whatsnew::WhatsNew));
