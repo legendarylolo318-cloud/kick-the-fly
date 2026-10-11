@@ -118,9 +118,29 @@ pub fn walk_speed(br: &Brain) -> f64 {
     crate::race::speed_of(crate::race::walk_level(br.hz64("walk")), crate::race::T_WALK)
 }
 
-fn advance(br: &mut Brain) {
+/// What watches a rig run: every brain step's spikes and, every `TRACE_EVERY` ticks, the body (`Recorder.log_kinematics`).
+pub trait RigObserver {
+    /// Called once with the brain and the assay groups before the run (`rec_groups`).
+    fn begin(&mut self, _br: &mut Brain, _g: &Groups) {}
+    /// The stimuli the brain was given (`(step, region, detail, strength)`) when it asked for them with `Brain::log_stimuli`.
+    fn stimuli(&mut self, _events: Vec<(u64, String, String, f64)>) {}
+    fn step(&mut self, _step: u64, _spikes: &[u32]) {}
+    fn kinematics(&mut self, _step: u64, _x: f64, _y: f64, _speed: f64, _action: &str, _arena: &str) {}
+}
+
+/// Watches nothing.
+pub struct NoObserver;
+impl RigObserver for NoObserver {}
+
+fn advance(br: &mut Brain, obs: &mut dyn RigObserver) {
     for _ in 0..TICK_STEPS {
-        br.step();
+        let step = br.steps;
+        let sp = br.step();
+        obs.step(step, sp);
+    }
+    let ev = br.take_stimuli();
+    if !ev.is_empty() {
+        obs.stimuli(ev);
     }
 }
 
@@ -195,6 +215,7 @@ pub fn run_tethered(
     closed: bool,
     gain: f64,
     cancel: Option<&std::sync::atomic::AtomicBool>,
+    obs: &mut dyn RigObserver,
 ) -> Result<Run, String> {
     let mut st = Steerer::default();
     let dt = TICK_STEPS as f64 * 0.005;
@@ -208,12 +229,22 @@ pub fn run_tethered(
             }
             let slip = om - if closed { gain * yaw } else { 0.0 };
             drive_slip(br, g, slip);
-            advance(br);
+            advance(br, obs);
             yaw = st.update(br);
             psi = wrap(psi + yaw * dt);
             t += dt;
             let (r, l) = hz_pair(br);
             rows.push([t, om, slip, st.s, yaw, psi, 0.0, 0.0, 0.0, r, l, i as f64]);
+            if rows.len() % TRACE_EVERY == 0 {
+                obs.kinematics(
+                    br.steps,
+                    0.0,
+                    0.0,
+                    yaw,
+                    &format!("{} loop, panorama {om:+.2} rad/s", if closed { "closed" } else { "open" }),
+                    "tethered",
+                );
+            }
         }
     }
     release(br, g);
@@ -231,7 +262,13 @@ pub struct BallOptions<'a> {
 }
 
 /// `run_ball`: a spherical treadmill with a VR world driven by the ball. aux = the bar's relative bearing in the bar scene.
-pub fn run_ball(br: &mut Brain, g: &Groups, o: &BallOptions, cancel: Option<&std::sync::atomic::AtomicBool>) -> Result<Run, String> {
+pub fn run_ball(
+    br: &mut Brain,
+    g: &Groups,
+    o: &BallOptions,
+    cancel: Option<&std::sync::atomic::AtomicBool>,
+    obs: &mut dyn RigObserver,
+) -> Result<Run, String> {
     let mut st = Steerer::default();
     let dt = TICK_STEPS as f64 * 0.005;
     let ticks = ticks_for(o.seconds, dt);
@@ -252,7 +289,7 @@ pub fn run_ball(br: &mut Brain, g: &Groups, o: &BallOptions, cancel: Option<&std
                 track_object(br, beta, BALL_BAR_DISTANCE, 7.5);
             }
         }
-        advance(br);
+        advance(br, obs);
         yaw = st.update(br);
         let v = walk_speed(br);
         if o.closed {
@@ -265,6 +302,16 @@ pub fn run_ball(br: &mut Brain, g: &Groups, o: &BallOptions, cancel: Option<&std
         t += dt;
         let (r, l) = hz_pair(br);
         rows.push([t, om, slip, st.s, yaw, psi, x, y, v, r, l, beta]);
+        if (rows.len() - 1) % TRACE_EVERY == 0 {
+            obs.kinematics(
+                br.steps,
+                x,
+                y,
+                v,
+                &format!("{} {}", if o.bar_scene { "bar" } else { "panorama" }, if o.closed { "closed loop" } else { "open loop" }),
+                "ball",
+            );
+        }
     }
     release(br, g);
     Ok(Run::new(rows, dt, json!({"rig": "ball"})))
@@ -304,6 +351,7 @@ pub fn run_buridan(
     stripes: bool,
     start_heading: f64,
     cancel: Option<&std::sync::atomic::AtomicBool>,
+    obs: &mut dyn RigObserver,
 ) -> Result<Run, String> {
     let mut st = Steerer::default();
     let dt = TICK_STEPS as f64 * 0.005;
@@ -327,7 +375,7 @@ pub fn run_buridan(
             let (_, d) = best.expect("two stripes");
             track_object(br, wrap(d[0].atan2(d[1]) - psi), hypot(d[0], d[1]), 7.5);
         }
-        advance(br);
+        advance(br, obs);
         let yaw = st.update(br);
         let v = walk_speed(br);
         psi = wrap(psi + yaw * dt);
@@ -339,6 +387,9 @@ pub fn run_buridan(
         t += dt;
         let (r, l) = hz_pair(br);
         rows.push([t, 0.0, 0.0, st.s, yaw, psi, pos[0], pos[1], v, r, l, edges as f64]);
+        if (rows.len() - 1) % TRACE_EVERY == 0 {
+            obs.kinematics(br.steps, pos[0], pos[1], v, if stripes { "stripes" } else { "no stripes" }, "buridan");
+        }
     }
     Ok(Run::new(
         rows,
@@ -369,6 +420,7 @@ pub fn run_fourfield(
     deliver: bool,
     start_heading: f64,
     cancel: Option<&std::sync::atomic::AtomicBool>,
+    obs: &mut dyn RigObserver,
 ) -> Result<Run, String> {
     let mut st = Steerer::default();
     let dt = TICK_STEPS as f64 * 0.005;
@@ -384,7 +436,7 @@ pub fn run_fourfield(
         if deliver && ODOR_QUADRANTS.contains(&q) {
             br.poke64(&region, None, SCENT_POKE);
         }
-        advance(br);
+        advance(br, obs);
         let yaw = st.update(br);
         let v = walk_speed(br);
         psi = wrap(psi + yaw * dt);
@@ -400,6 +452,16 @@ pub fn run_fourfield(
         t += dt;
         let (r, l) = hz_pair(br);
         rows.push([t, 0.0, 0.0, st.s, yaw, psi, pos[0], pos[1], v, r, l, q as f64]);
+        if (rows.len() - 1) % TRACE_EVERY == 0 {
+            obs.kinematics(
+                br.steps,
+                pos[0],
+                pos[1],
+                v,
+                &format!("quadrant {q}{}", if deliver && ODOR_QUADRANTS.contains(&q) { " odor" } else { " air" }),
+                "fourfield",
+            );
+        }
     }
     Ok(Run::new(
         rows,
@@ -536,7 +598,7 @@ pub fn tethered_fly(c: &Ctx, seed: u64, mode: &str) -> Result<Value, String> {
     let g = validation::groups(c.labels, c.weights);
     let (mut ds, mut dr, mut dl) = (Vec::new(), Vec::new(), Vec::new());
     for om in TETHER_OMEGAS {
-        let r = run_tethered(&mut br, &g, &[(TETHER_PRE_S, 0.0), (TETHER_STIM_S, om)], false, 1.0, c.cancel)?;
+        let r = run_tethered(&mut br, &g, &[(TETHER_PRE_S, 0.0), (TETHER_STIM_S, om)], false, 1.0, c.cancel, &mut NoObserver)?;
         let pre = win_mean(&r, 0.5, TETHER_PRE_S, "steer_hz");
         let stim = win_mean(&r, TETHER_PRE_S + SETTLE_S, TETHER_PRE_S + TETHER_STIM_S, "steer_hz");
         ds.push((om, stim - pre));
@@ -545,7 +607,7 @@ pub fn tethered_fly(c: &Ctx, seed: u64, mode: &str) -> Result<Value, String> {
     }
     let (mut comp, mut slip) = (Vec::new(), Vec::new());
     for om in TETHER_CLOSED_OMEGAS {
-        let r = run_tethered(&mut br, &g, &[(TETHER_PRE_S, 0.0), (TETHER_CLOSED_S, om)], true, 1.0, c.cancel)?;
+        let r = run_tethered(&mut br, &g, &[(TETHER_PRE_S, 0.0), (TETHER_CLOSED_S, om)], true, 1.0, c.cancel, &mut NoObserver)?;
         let end = TETHER_PRE_S + TETHER_CLOSED_S;
         let yaw_pre = win_mean(&r, 0.5, TETHER_PRE_S, "yaw_rate");
         let yaw_end = win_mean(&r, end - LAST_S, end, "yaw_rate");
@@ -575,7 +637,7 @@ pub fn ball_fly(c: &Ctx, seed: u64, mode: &str) -> Result<Value, String> {
             bar_offset: 90.0f64.to_radians(),
             bar_visible: true,
         };
-        let r = run_ball(&mut br, &g, &o, c.cancel)?;
+        let r = run_ball(&mut br, &g, &o, c.cancel, &mut NoObserver)?;
         let end = TETHER_PRE_S + BALL_DRIFT_S;
         comp.push((om, (win_mean(&r, end - LAST_S, end, "yaw_rate") - win_mean(&r, 0.5, TETHER_PRE_S, "yaw_rate")) / om));
         fwd.push(win_mean(&r, 0.5, end, "speed"));
@@ -592,7 +654,7 @@ pub fn ball_fly(c: &Ctx, seed: u64, mode: &str) -> Result<Value, String> {
                 bar_offset: off.to_radians(),
                 bar_visible: visible,
             };
-            let r = run_ball(&mut br, &g, &o, c.cancel)?;
+            let r = run_ball(&mut br, &g, &o, c.cancel, &mut NoObserver)?;
             let beta = win_abs_mean(&r, BALL_BAR_S - LAST_S, BALL_BAR_S, "aux").to_degrees();
             if visible {
                 vis.push(beta)
@@ -615,7 +677,7 @@ pub fn buridan_fly(c: &Ctx, seed: u64, mode: &str, seconds: f64) -> Result<Value
     let mut out = serde_json::Map::new();
     for (k, on) in [("stripes", true), ("none", false)] {
         let mut br = new_brain(c.weights, c.labels, seed, mode);
-        let r = run_buridan(&mut br, seconds, on, start_heading(seed), c.cancel)?;
+        let r = run_buridan(&mut br, seconds, on, start_heading(seed), c.cancel, &mut NoObserver)?;
         let f = &r.full;
         let path: Vec<f64> = f.windows(2).map(|w| hypot(w[1][6] - w[0][6], w[1][7] - w[0][7])).collect();
         out.insert(
@@ -636,7 +698,7 @@ pub fn fourfield_fly(c: &Ctx, seed: u64, mode: &str, seconds: f64) -> Result<Val
     let mut o = json!({"seed": seed, "individuality": mode});
     for (k, dl) in [("odor", true), ("sham", false)] {
         let mut br = new_brain(c.weights, c.labels, seed, mode);
-        let r = run_fourfield(&mut br, seconds, ODOR, dl, start_heading(seed), c.cancel)?;
+        let r = run_fourfield(&mut br, seconds, ODOR, dl, start_heading(seed), c.cancel, &mut NoObserver)?;
         o[k] = preference_index(&r.full, r.dt, 10.0);
     }
     Ok(o)
@@ -681,6 +743,18 @@ pub fn tethered_schedule(omega: f64, seconds: f64) -> Vec<(f64, f64)> {
 
 /// `scene_run` without the recorder: one fly in one rig. `opt` overrides the defaults (mode, seconds, omega, gain, scene, bar_deg).
 pub fn scene_run(c: &Ctx, rig: &str, seed: u64, individuality: &str, opt: &Value) -> Result<Value, String> {
+    scene_run_observed(c, rig, seed, individuality, opt, &mut NoObserver)
+}
+
+/// [`scene_run`] with an observer of the brain steps and the body (the Lab recording of `scene_run(folder=...)`).
+pub fn scene_run_observed(
+    c: &Ctx,
+    rig: &str,
+    seed: u64,
+    individuality: &str,
+    opt: &Value,
+    obs: &mut dyn RigObserver,
+) -> Result<Value, String> {
     if !RIGS.contains(&rig) {
         return Err(format!("unknown rig {rig:?} (choose from {})", RIGS.join(", ")));
     }
@@ -705,11 +779,19 @@ pub fn scene_run(c: &Ctx, rig: &str, seed: u64, individuality: &str, opt: &Value
     }
     let mut br = new_brain(c.weights, c.labels, seed, individuality);
     let g = validation::groups(c.labels, c.weights);
+    obs.begin(&mut br, &g);
     let f64p = |k: &str| p[k].as_f64().unwrap_or(0.0);
     let (run, summ) = match rig {
         "tethered" => {
-            let r =
-                run_tethered(&mut br, &g, &tethered_schedule(f64p("omega"), f64p("seconds")), mode == "closed", f64p("gain"), c.cancel)?;
+            let r = run_tethered(
+                &mut br,
+                &g,
+                &tethered_schedule(f64p("omega"), f64p("seconds")),
+                mode == "closed",
+                f64p("gain"),
+                c.cancel,
+                obs,
+            )?;
             let sh = r.col("steer_hz");
             let om = r.col("omega_ext");
             let sel = |f: &dyn Fn(f64) -> bool| -> f64 {
@@ -732,7 +814,7 @@ pub fn scene_run(c: &Ctx, rig: &str, seed: u64, individuality: &str, opt: &Value
                 bar_offset: f64p("bar_deg").to_radians(),
                 bar_visible: true,
             };
-            let r = run_ball(&mut br, &g, &o, c.cancel)?;
+            let r = run_ball(&mut br, &g, &o, c.cancel, obs)?;
             let last = f64p("seconds") - LAST_S;
             let yaw: Vec<f64> = r.col("yaw_rate").iter().map(|x| x.abs()).collect();
             let end = r.full.last().copied().unwrap_or([0.0; 12]);
@@ -743,14 +825,14 @@ pub fn scene_run(c: &Ctx, rig: &str, seed: u64, individuality: &str, opt: &Value
             (r, summ)
         }
         "buridan" => {
-            let r = run_buridan(&mut br, f64p("seconds"), mode == "stripes", start_heading(seed), c.cancel)?;
+            let r = run_buridan(&mut br, f64p("seconds"), mode == "stripes", start_heading(seed), c.cancel, obs)?;
             let f = &r.full;
             let summ = json!({"stripe_deviation_deg": fnum(stripe_deviation(f, 10.0, 1e-4)), "transits": transits(f, 10.0, 0.8),
                               "edge_contacts": f.last().map_or(0, |l| l[11] as i64), "mean_speed": mean(&r.col("speed"))});
             (r, summ)
         }
         _ => {
-            let r = run_fourfield(&mut br, f64p("seconds"), ODOR, mode == "odor", start_heading(seed), c.cancel)?;
+            let r = run_fourfield(&mut br, f64p("seconds"), ODOR, mode == "odor", start_heading(seed), c.cancel, obs)?;
             let summ = preference_index(&r.full, r.dt, 10.0);
             (r, summ)
         }

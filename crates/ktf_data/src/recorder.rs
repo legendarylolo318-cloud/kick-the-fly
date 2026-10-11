@@ -131,6 +131,11 @@ impl Recorder {
         }
     }
 
+    /// `arrays`: the spikes' relative steps and neuron indices (into `rows`).
+    pub fn arrays(&self) -> (Vec<i32>, Vec<i32>) {
+        (self.steps.clone(), self.idx.clone())
+    }
+
     pub fn seconds(&self) -> f64 {
         (self.end_step - self.start_step) as f64 * 0.005
     }

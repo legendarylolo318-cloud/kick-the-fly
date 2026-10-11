@@ -54,6 +54,7 @@ pub mod predator_play;
 pub mod predators;
 pub mod profiler;
 pub mod props;
+pub mod protocol_run;
 pub mod puppeteer;
 pub mod race;
 pub mod reactions;

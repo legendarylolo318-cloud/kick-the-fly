@@ -440,6 +440,18 @@ impl Groups {
         }
     }
 
+    /// `simcore.rows_of` for a group name: a detail group, a population or `whole brain` (a sense group is found by `sense`).
+    pub fn group_rows(&self, name: &str) -> Option<Vec<u32>> {
+        let c = *self.col.get(name)?;
+        if c < self.n_det {
+            return Some(self.det_members(name));
+        }
+        if name == "whole brain" {
+            return Some((0..self.n as u32).collect());
+        }
+        Some((0..self.n as u32).filter(|&i| self.pop_id[i as usize] == (c - self.n_det) as i32).collect())
+    }
+
     /// A group that can be poked (`sense[(region, None)]`) without being a readout (the assay groups `sweet` and `bitter`).
     pub fn add_sense(&mut self, region: &str, rows: Vec<u32>) {
         self.sense.insert((region.to_string(), None), rows);

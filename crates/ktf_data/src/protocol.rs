@@ -28,9 +28,34 @@ fn err<T>(s: String) -> Result<T, ProtocolError> {
 
 pub const MAX_FLIES: i64 = 10_000;
 const TOP_KEYS: [&str; 28] = [
-    "name", "description", "title", "classroom", "steps", "seed", "seeds", "flies", "warmup_s", "duration_s", "params", "surgery", "control",
-    "stimuli", "recordings", "assay", "assay_options", "workers", "nwb", "thermogenetics", "drug", "imaging", "patch", "weather", "audio",
-    "predator", "rig", "screen",
+    "name",
+    "description",
+    "title",
+    "classroom",
+    "steps",
+    "seed",
+    "seeds",
+    "flies",
+    "warmup_s",
+    "duration_s",
+    "params",
+    "surgery",
+    "control",
+    "stimuli",
+    "recordings",
+    "assay",
+    "assay_options",
+    "workers",
+    "nwb",
+    "thermogenetics",
+    "drug",
+    "imaging",
+    "patch",
+    "weather",
+    "audio",
+    "predator",
+    "rig",
+    "screen",
 ];
 const STIM_KEYS: [&str; 8] = ["at_s", "for_s", "target", "strength", "recruit", "mode", "amp", "side"];
 const ASSAYS: [&str; 8] = ["tmaze", "looming", "sugar", "orchard", "thermo_escape", "predator_escape", "hum_demo", "sleep_deprivation"];
@@ -105,9 +130,13 @@ pub fn load(path: &Path) -> Result<Value, ProtocolError> {
 
 fn check_screen(p: &mut Value, where_: &str) -> Result<(), ProtocolError> {
     let sc = p["screen"].clone();
-    let bad_shape = !sc.is_object() || !unknown(&sc, &SCREEN_KEYS).is_empty() || !matches!(sc["kind"].as_str(), Some("activation" | "knockout"));
+    let bad_shape =
+        !sc.is_object() || !unknown(&sc, &SCREEN_KEYS).is_empty() || !matches!(sc["kind"].as_str(), Some("activation" | "knockout"));
     if bad_shape {
-        return err(format!("{where_}: screen needs {{kind: activation | knockout, ...}} with only {}", py_list(&SCREEN_KEYS.iter().map(|s| (*s).to_string()).collect::<Vec<_>>().tap_sort())));
+        return err(format!(
+            "{where_}: screen needs {{kind: activation | knockout, ...}} with only {}",
+            py_list(&SCREEN_KEYS.iter().map(|s| (*s).to_string()).collect::<Vec<_>>().tap_sort())
+        ));
     }
     let mut out = sc.as_object().cloned().unwrap_or_default();
     for (key, lo, hi) in [
@@ -201,12 +230,16 @@ fn check_day3(p: &mut Value, where_: &str) -> Result<(), ProtocolError> {
     if let Some(w) = p.get("weather").cloned() {
         let allowed = ["rain", "gust_hz", "storm", "wind_speed", "wind_dir"];
         if !w.is_object() || !unknown(&w, &allowed).is_empty() {
-            return err(format!("{where_}: weather has unknown keys; allowed: {}", py_list(&allowed.iter().map(|s| (*s).to_string()).collect::<Vec<_>>().tap_sort())));
+            return err(format!(
+                "{where_}: weather has unknown keys; allowed: {}",
+                py_list(&allowed.iter().map(|s| (*s).to_string()).collect::<Vec<_>>().tap_sort())
+            ));
         }
         if w.get("storm").is_some_and(|s| !s.is_boolean()) {
             return err(format!("{where_}: weather.storm must be true or false"));
         }
-        let n = |k: &str, d: f64, lo: f64, hi: f64| num(&w.get(k).cloned().unwrap_or(json!(d)), lo, hi, &format!("weather.{k}"), where_, false);
+        let n =
+            |k: &str, d: f64, lo: f64, hi: f64| num(&w.get(k).cloned().unwrap_or(json!(d)), lo, hi, &format!("weather.{k}"), where_, false);
         p["weather"] = json!({"rain": n("rain", 0.0, 0.0, 1.0)?, "gust_hz": n("gust_hz", 0.0, 0.0, 0.5)?,
                               "storm": w.get("storm").and_then(Value::as_bool).unwrap_or(false),
                               "wind_speed": n("wind_speed", 0.0, 0.0, 20.0)?, "wind_dir": n("wind_dir", 180.0, 0.0, 360.0)?});
@@ -219,7 +252,9 @@ fn check_day3(p: &mut Value, where_: &str) -> Result<(), ProtocolError> {
                 py_list(&allowed.iter().map(|s| (*s).to_string()).collect::<Vec<_>>().tap_sort())
             ));
         }
-        let n = |k: &str, d: Value, lo: f64, hi: f64, none: bool| num(&a.get(k).cloned().unwrap_or(d), lo, hi, &format!("audio.{k}"), where_, none);
+        let n = |k: &str, d: Value, lo: f64, hi: f64, none: bool| {
+            num(&a.get(k).cloned().unwrap_or(d), lo, hi, &format!("audio.{k}"), where_, none)
+        };
         p["audio"] = json!({"hz": n("hz", json!(200.0), 10.0, 2000.0, false)?, "ipi_ms": n("ipi_ms", Value::Null, 10.0, 500.0, true)?,
                             "amp": n("amp", json!(0.1), 0.0, 1.0, false)?, "at_s": n("at_s", json!(0.0), 0.0, 3600.0, false)?,
                             "seconds": n("seconds", json!(1.0), 0.05, 600.0, false)?,
@@ -312,7 +347,9 @@ fn check_predator_escape(opts: &Value, where_: &str) -> Result<(), ProtocolError
         return err(format!("{where_}: predator_escape options are kinds and trials, not {}", py_list(&bad)));
     }
     if let Some(k) = opts.get("kinds") {
-        let ok = k.as_array().is_some_and(|a| (1..=PREDATORS.len()).contains(&a.len()) && a.iter().all(|x| x.as_str().is_some_and(|s| PREDATORS.contains(&s))));
+        let ok = k.as_array().is_some_and(|a| {
+            (1..=PREDATORS.len()).contains(&a.len()) && a.iter().all(|x| x.as_str().is_some_and(|s| PREDATORS.contains(&s)))
+        });
         if !ok {
             return err(format!("{where_}: predator_escape kinds must be a list of {}", PREDATORS.join(", ")));
         }
@@ -348,7 +385,10 @@ fn check_thermo_spec(spec: &Value, where_: &str) -> Result<Value, ProtocolError>
     }
     let mut out = spec.as_object().cloned().unwrap_or_default();
     for (i, e) in ex.iter().enumerate() {
-        let shape_ok = e.is_object() && unknown(e, &["effector", "target", "strength"]).is_empty() && e.get("effector").is_some() && e.get("target").is_some();
+        let shape_ok = e.is_object()
+            && unknown(e, &["effector", "target", "strength"]).is_empty()
+            && e.get("effector").is_some()
+            && e.get("target").is_some();
         if !shape_ok {
             return err(format!("{where_}: expression {} needs effector and target (and optionally strength)", i + 1));
         }
@@ -412,31 +452,100 @@ fn check_day2(p: &mut Value, where_: &str) -> Result<(), ProtocolError> {
     use fly_sim::patchclamp as pc;
     let has = |p: &Value, k: &str| p.get(k).is_some();
     if has(p, "screen") {
-        let ignored: Vec<String> = ["assay", "classroom", "thermogenetics", "drug", "imaging", "stimuli", "recordings", "surgery", "control", "warmup_s",
-            "duration_s", "patch", "params", "nwb", "assay_options", "rig"].iter().chain(DAY3_KEYS.iter()).filter(|k| has(p, k)).map(|k| (*k).to_string()).collect();
+        let ignored: Vec<String> = [
+            "assay",
+            "classroom",
+            "thermogenetics",
+            "drug",
+            "imaging",
+            "stimuli",
+            "recordings",
+            "surgery",
+            "control",
+            "warmup_s",
+            "duration_s",
+            "patch",
+            "params",
+            "nwb",
+            "assay_options",
+            "rig",
+        ]
+        .iter()
+        .chain(DAY3_KEYS.iter())
+        .filter(|k| has(p, k))
+        .map(|k| (*k).to_string())
+        .collect();
         if !ignored.is_empty() {
-            return err(format!("{where_}: a screen protocol stands alone; it can't use {} (a screen sets its own timeline and builds its flies with the default parameters)", ignored.join(", ")));
+            return err(format!(
+                "{where_}: a screen protocol stands alone; it can't use {} (a screen sets its own timeline and builds its flies with the default parameters)",
+                ignored.join(", ")
+            ));
         }
         return check_screen(p, where_);
     }
     if has(p, "rig") {
-        let ignored: Vec<String> = ["assay", "classroom", "thermogenetics", "drug", "imaging", "stimuli", "recordings", "surgery", "control", "warmup_s",
-            "duration_s", "patch", "params", "nwb", "assay_options"].iter().chain(DAY3_KEYS.iter()).filter(|k| has(p, k)).map(|k| (*k).to_string()).collect();
+        let ignored: Vec<String> = [
+            "assay",
+            "classroom",
+            "thermogenetics",
+            "drug",
+            "imaging",
+            "stimuli",
+            "recordings",
+            "surgery",
+            "control",
+            "warmup_s",
+            "duration_s",
+            "patch",
+            "params",
+            "nwb",
+            "assay_options",
+        ]
+        .iter()
+        .chain(DAY3_KEYS.iter())
+        .filter(|k| has(p, k))
+        .map(|k| (*k).to_string())
+        .collect();
         if !ignored.is_empty() {
-            return err(format!("{where_}: a rig protocol stands alone; it can't use {} (the rig sets its own timeline and builds its flies with the default parameters)", ignored.join(", ")));
+            return err(format!(
+                "{where_}: a rig protocol stands alone; it can't use {} (the rig sets its own timeline and builds its flies with the default parameters)",
+                ignored.join(", ")
+            ));
         }
         return check_rig(p, where_);
     }
     if has(p, "patch") {
-        let ignored: Vec<String> = ["assay", "classroom", "thermogenetics", "drug", "imaging", "stimuli", "recordings", "surgery", "control", "warmup_s",
-            "duration_s"].iter().chain(DAY3_KEYS.iter()).filter(|k| has(p, k)).map(|k| (*k).to_string()).collect();
+        let ignored: Vec<String> = [
+            "assay",
+            "classroom",
+            "thermogenetics",
+            "drug",
+            "imaging",
+            "stimuli",
+            "recordings",
+            "surgery",
+            "control",
+            "warmup_s",
+            "duration_s",
+        ]
+        .iter()
+        .chain(DAY3_KEYS.iter())
+        .filter(|k| has(p, k))
+        .map(|k| (*k).to_string())
+        .collect();
         if !ignored.is_empty() {
-            return err(format!("{where_}: a patch protocol stands alone; it can't use {} (its own warm-up is patch.warmup_s)", ignored.join(", ")));
+            return err(format!(
+                "{where_}: a patch protocol stands alone; it can't use {} (its own warm-up is patch.warmup_s)",
+                ignored.join(", ")
+            ));
         }
         let pa = p["patch"].clone();
         let keys = ["neuron", "index", "mode", "amplitudes", "duration_ms", "repeats", "warmup_s"];
         if !pa.is_object() || !unknown(&pa, &keys).is_empty() || pa.get("neuron").is_none() {
-            return err(format!("{where_}: patch needs {{neuron, ...}} with only {}", py_list(&keys.iter().map(|s| (*s).to_string()).collect::<Vec<_>>().tap_sort())));
+            return err(format!(
+                "{where_}: patch needs {{neuron, ...}} with only {}",
+                py_list(&keys.iter().map(|s| (*s).to_string()).collect::<Vec<_>>().tap_sort())
+            ));
         }
         if !pa["neuron"].as_str().is_some_and(|s| !s.trim().is_empty()) {
             return err(format!("{where_}: patch.neuron must be a neuron spec such as type:DNp01"));
@@ -494,7 +603,8 @@ fn check_day2(p: &mut Value, where_: &str) -> Result<(), ProtocolError> {
         p["thermogenetics"] = check_thermo_spec(&t, where_)?;
     }
     if let Some(d) = p.get("drug").cloned() {
-        let shape_ok = d.is_object() && unknown(&d, &["doses", "include_low_confidence", "cut"]).is_empty()
+        let shape_ok = d.is_object()
+            && unknown(&d, &["doses", "include_low_confidence", "cut"]).is_empty()
             && d["doses"].as_object().is_some_and(|o| !o.is_empty());
         if !shape_ok {
             return err(format!("{where_}: drug needs doses: {{name: 0-1}} (and optionally include_low_confidence, cut)"));
@@ -503,16 +613,25 @@ fn check_day2(p: &mut Value, where_: &str) -> Result<(), ProtocolError> {
             return err(format!("{where_}: drug.include_low_confidence must be true or false"));
         }
         let cut = d.get("cut").and_then(Value::as_f64).unwrap_or(fly_sim::pharmacology::DEFAULT_CUT);
-        let doses: Vec<(String, f64)> = d["doses"].as_object().into_iter().flatten().map(|(k, v)| (k.clone(), v.as_f64().unwrap_or(f64::NAN))).collect();
+        let doses: Vec<(String, f64)> =
+            d["doses"].as_object().into_iter().flatten().map(|(k, v)| (k.clone(), v.as_f64().unwrap_or(f64::NAN))).collect();
         let refs: Vec<(&str, f64)> = doses.iter().map(|(k, v)| (k.as_str(), *v)).collect();
-        if let Err(m) = fly_sim::pharmacology::wiring_for(&refs, d.get("include_low_confidence").and_then(Value::as_bool).unwrap_or(true), cut, &Default::default()) {
+        if let Err(m) = fly_sim::pharmacology::wiring_for(
+            &refs,
+            d.get("include_low_confidence").and_then(Value::as_bool).unwrap_or(true),
+            cut,
+            &Default::default(),
+        ) {
             return err(format!("{where_}: drug: {m}"));
         }
     }
     if let Some(im) = p.get("imaging").cloned() {
         let keys = ["indicator", "fps", "rois", "tiff", "shot_noise", "f0_photons", "dff_per_spike", "f0_tau_s"];
         if !im.is_object() || !unknown(&im, &keys).is_empty() {
-            return err(format!("{where_}: imaging has unknown keys; allowed: {}", py_list(&keys.iter().map(|s| (*s).to_string()).collect::<Vec<_>>().tap_sort())));
+            return err(format!(
+                "{where_}: imaging has unknown keys; allowed: {}",
+                py_list(&keys.iter().map(|s| (*s).to_string()).collect::<Vec<_>>().tap_sort())
+            ));
         }
         let wrap = |m: String| ProtocolError(format!("{where_}: imaging: {m}"));
         let ind = im.get("indicator").map_or(Some("gcamp6s"), Value::as_str).unwrap_or("None");
@@ -560,7 +679,11 @@ pub fn check(data: &Value, where_: &str) -> Result<Value, ProtocolError> {
     }
     let mut p = data.clone();
     if p.get("name").is_none() {
-        let stem = if where_ == "protocol" { "protocol".to_string() } else { Path::new(where_).file_stem().map_or(String::new(), |s| s.to_string_lossy().to_string()) };
+        let stem = if where_ == "protocol" {
+            "protocol".to_string()
+        } else {
+            Path::new(where_).file_stem().map_or(String::new(), |s| s.to_string_lossy().to_string())
+        };
         p["name"] = json!(stem);
     }
     let has = |p: &Value, k: &str| p.get(k).is_some();
@@ -599,7 +722,14 @@ pub fn check(data: &Value, where_: &str) -> Result<Value, ProtocolError> {
     }
     let names: Vec<&str> = ktf_params();
     let bad: Vec<String> = {
-        let mut b: Vec<String> = p.get("params").and_then(Value::as_object).into_iter().flat_map(|o| o.keys()).filter(|k| !names.contains(&k.as_str())).cloned().collect();
+        let mut b: Vec<String> = p
+            .get("params")
+            .and_then(Value::as_object)
+            .into_iter()
+            .flat_map(|o| o.keys())
+            .filter(|k| !names.contains(&k.as_str()))
+            .cloned()
+            .collect();
         b.sort();
         b
     };
@@ -616,7 +746,10 @@ pub fn check(data: &Value, where_: &str) -> Result<Value, ProtocolError> {
     if has(&p, "assay") {
         let a = p["assay"].as_str().unwrap_or("");
         if !ASSAYS.contains(&a) {
-            return err(format!("{where_}: assay must be one of {}", py_list(&ASSAYS.iter().map(|s| (*s).to_string()).collect::<Vec<_>>())));
+            return err(format!(
+                "{where_}: assay must be one of {}",
+                py_list(&ASSAYS.iter().map(|s| (*s).to_string()).collect::<Vec<_>>())
+            ));
         }
         check_day2(&mut p, where_)?;
         return Ok(p);
