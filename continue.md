@@ -56,13 +56,10 @@ pictures folder, shutter sound), Mic and streamer page (`ktf_data::streamer` gol
 `ktf_ui::pages::live`, matched 0.6-0.7 %), neuron search + path tracer (`fly_sim::neurosearch` golden `make_neurosearch.py`, `inspector_play.rs`).
 The pygame references need `/tmp/pgvenv` recreated: `python3 -m venv V; V/bin/pip install numpy scipy pygame-ce pyyaml pillow` (pygame-ce, NOT pygame: no font module on 3.14).
 
-## Next, in order (the user ran out of tokens; resume here)
-5. **Multi-fly leftovers** (PORTING.md "multi-fly" lines, around the `flies_play.rs` notes): contraption wind and the memory scent pokes go to the focused brain only;
-   the personality card is not shown on the bodies (fly-vs-fly cards); the fly cap is not adapted to the machine; arcade/tool wheel/puppeteer assume one fly.
-   Check each against `legacy-python/kickthefly/game/kick_the_fly.py` (`FlySlot`, `_scents`, `pet_card`) and fix what is cheap; write the rest down.
-6. **README** (`README.md` is still the Python one or a stub: check): what the Rust build is, how to build (`cargo build --release`, `--features bundle-pack`), run flags
-   (`--fullscreen`, `--headless ...`, `--selftest`, `--bugreport`, `--shot`), the data folders, the pack (`data/kick_brain.npz`), what is not ported (PORTING.md summary),
-   licenses/credits (FreeSans, neuPrint shapes credit).
+## Next, in order (only 7 is left)
+5. (DONE, 49740a8) Multi-fly leftovers: contraption wind goes to every live fly; the FOCUS note shows the measured card label. Still open (written in PORTING.md):
+   the memory scent is observed by the focused brain only, the card is not drawn on the bodies, the cap is a fixed 16.
+6. (DONE, 49740a8) README: the Rust build section (what is here / not ported, pack, build and test commands, flags table, layout).
 7. **Final full verification**: `cargo build --release`, `cargo test --workspace --release` (long goldens: 10-20 min; wait with an output-file loop, never pgrep),
    `cargo clippy --workspace --all-targets --release` clean, `cargo fmt --all`; tick PORTING.md only for verified boxes; commit.
 
