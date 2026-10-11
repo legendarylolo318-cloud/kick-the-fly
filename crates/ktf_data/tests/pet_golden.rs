@@ -8,7 +8,9 @@ fn close(a: f64, b: f64) -> bool {
 
 #[test]
 fn pet_life_equals_python() {
-    let g: Value = serde_json::from_str(&std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/golden/pet.json")).unwrap()).unwrap();
+    let g: Value =
+        serde_json::from_str(&std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/golden/pet.json")).unwrap())
+            .unwrap();
     let dir = std::env::temp_dir().join(format!("ktf-pet-golden-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     let mut now = 1_700_000_000.0;
@@ -22,11 +24,8 @@ fn pet_life_equals_python() {
         assert_eq!(p.is_sleeping, s["sleeping"].as_bool().unwrap(), "{tag}");
         assert_eq!(p.is_dead, s["dead"].as_bool().unwrap(), "{tag}");
         assert_eq!(p.welcome_message, s["welcome"].as_str().unwrap(), "{tag}");
-        let ev: Vec<String> = p
-            .timeline
-            .iter()
-            .map(|e| format!("{}:{}", e["event_type"].as_str().unwrap(), e["description"].as_str().unwrap()))
-            .collect();
+        let ev: Vec<String> =
+            p.timeline.iter().map(|e| format!("{}:{}", e["event_type"].as_str().unwrap(), e["description"].as_str().unwrap())).collect();
         let want: Vec<String> = s["events"].as_array().unwrap().iter().map(|v| v.as_str().unwrap().to_string()).collect();
         assert_eq!(ev, want, "{tag}");
     };

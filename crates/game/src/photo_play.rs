@@ -95,11 +95,7 @@ fn nearest_fly_dist(eye: Vec3, fwd: Vec3, flies: &Query<&Fly>, parts: &Query<&Tr
             best = best.min(d);
         }
     }
-    if best < 100.0 {
-        (best * 100.0).round() / 100.0
-    } else {
-        any.map_or(1.8, |d| (d * 100.0).round() / 100.0)
-    }
+    if best < 100.0 { (best * 100.0).round() / 100.0 } else { any.map_or(1.8, |d| (d * 100.0).round() / 100.0) }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -212,7 +208,8 @@ fn fly_camera(
     let dt = time.delta_secs().min(0.05);
     if look.captured && !look.wheel && !menu.0 {
         photo.yaw += motion.delta.x * settings.mouse_sensitivity;
-        photo.pitch = (photo.pitch - motion.delta.y * settings.mouse_sensitivity * if settings.invert_y { -1.0 } else { 1.0 }).clamp(-1.55, 1.55);
+        photo.pitch =
+            (photo.pitch - motion.delta.y * settings.mouse_sensitivity * if settings.invert_y { -1.0 } else { 1.0 }).clamp(-1.55, 1.55);
     }
     let (_, f) = free_view(&photo);
     let r = Vec3::new(-photo.yaw.sin(), 0.0, photo.yaw.cos()).normalize_or_zero();
@@ -345,14 +342,8 @@ pub struct PhotoPlugin;
 
 impl Plugin for PhotoPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Photo>().add_systems(PreUpdate, swallow_keys.after(crate::actions::collect)).add_systems(
-            Update,
-            (
-                keys,
-                fly_camera,
-                apply_camera.after(crate::player::update_camera),
-                capture.after(keys),
-            ),
-        );
+        app.init_resource::<Photo>()
+            .add_systems(PreUpdate, swallow_keys.after(crate::actions::collect))
+            .add_systems(Update, (keys, fly_camera, apply_camera.after(crate::player::update_camera), capture.after(keys)));
     }
 }

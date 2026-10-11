@@ -10,8 +10,10 @@ fn search_and_paths_equal_python() {
         return;
     };
     let pack = Pack::load(path).unwrap();
-    let g: Value =
-        serde_json::from_str(&std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/golden/neurosearch.json")).unwrap()).unwrap();
+    let g: Value = serde_json::from_str(
+        &std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/golden/neurosearch.json")).unwrap(),
+    )
+    .unwrap();
     for q in g["queries"].as_array().unwrap() {
         let text = q[0].as_str().unwrap();
         let want: Vec<u32> = q[1].as_array().unwrap().iter().map(|v| v.as_u64().unwrap() as u32).collect();
@@ -28,7 +30,12 @@ fn search_and_paths_equal_python() {
         for (g, w) in got.iter().zip(want) {
             let nodes: Vec<u32> = w["nodes"].as_array().unwrap().iter().map(|v| v.as_u64().unwrap() as u32).collect();
             assert_eq!(g.nodes, nodes, "{s} -> {d}");
-            assert!((g.strength - w["strength"].as_f64().unwrap()).abs() <= 1e-12 * g.strength.max(1e-30), "{s} -> {d}: {} vs {}", g.strength, w["strength"]);
+            assert!(
+                (g.strength - w["strength"].as_f64().unwrap()).abs() <= 1e-12 * g.strength.max(1e-30),
+                "{s} -> {d}: {} vs {}",
+                g.strength,
+                w["strength"]
+            );
             assert_eq!(i64::from(g.sign), w["sign"].as_i64().unwrap());
             found += 1;
         }

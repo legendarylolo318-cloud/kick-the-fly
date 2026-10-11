@@ -37,7 +37,13 @@ impl Page for LiveInputs {
             &[("GAME RULE", "every rule here is a game rule"), ("CONNECTOME", "mic: the JO-A/B neurons it drives")],
         );
         let x = rect.x + 24;
-        let lw = ["Microphone", "Sensitivity", "Streamer mode", "Viewers may vote", "Vote window"].iter().map(|t| f.text.size(t)).max().unwrap_or(120).max(134) + 16;
+        let lw = ["Microphone", "Sensitivity", "Streamer mode", "Viewers may vote", "Vote window"]
+            .iter()
+            .map(|t| f.text.size(t))
+            .max()
+            .unwrap_or(120)
+            .max(134)
+            + 16;
         let c = x + lw;
         // --- microphone
         m.text(cv, "MICROPHONE  ->  JOHNSTON'S ORGAN (JO-A and JO-B)", (x, y), INK, &f.text, Anchor::TopLeft);
@@ -76,16 +82,41 @@ impl Page for LiveInputs {
         cv.fill_rect(box_, [12, 14, 20], 8);
         let peak = num(&q["peak_hz"]);
         m.text(cv, "Hum test", (box_.x + 12, box_.y + 8), LABEL, &f.small, Anchor::TopLeft);
-        m.text(cv, &if peak > 0.0 { format!("{peak:.0} Hz") } else { "- Hz".into() }, (box_.x + 12, box_.y + 30), INK, &f.head, Anchor::TopLeft);
+        m.text(
+            cv,
+            &if peak > 0.0 { format!("{peak:.0} Hz") } else { "- Hz".into() },
+            (box_.x + 12, box_.y + 30),
+            INK,
+            &f.head,
+            Anchor::TopLeft,
+        );
         let bins: Vec<f64> = q["bins"].as_array().map_or_else(|| vec![0.0; 24], |a| a.iter().map(num).collect());
         let bw = (box_.w - 380) as f64 / 24.0;
         for (i, v) in bins.iter().enumerate() {
             let h = (8.0 + 70.0 * v) as i32;
-            cv.fill_rect(Rect::new(box_.x + 190 + (i as f64 * bw) as i32, box_.bottom() - 10 - h, (bw - 2.0).max(2.0) as i32, h), ACCENT, 0);
+            cv.fill_rect(
+                Rect::new(box_.x + 190 + (i as f64 * bw) as i32, box_.bottom() - 10 - h, (bw - 2.0).max(2.0) as i32, h),
+                ACCENT,
+                0,
+            );
         }
         let maxc = num(&q["max_current"]).max(1e-6);
-        m.text(cv, &format!("JO-A drive {:4.0}%", num(&q["drive_a"]) / maxc * 100.0), (box_.right() - 180, box_.y + 12), TEXT, &f.small, Anchor::MidTop);
-        m.text(cv, &format!("JO-B drive {:4.0}%", num(&q["drive_b"]) / maxc * 100.0), (box_.right() - 180, box_.y + 36), TEXT, &f.small, Anchor::MidTop);
+        m.text(
+            cv,
+            &format!("JO-A drive {:4.0}%", num(&q["drive_a"]) / maxc * 100.0),
+            (box_.right() - 180, box_.y + 12),
+            TEXT,
+            &f.small,
+            Anchor::MidTop,
+        );
+        m.text(
+            cv,
+            &format!("JO-B drive {:4.0}%", num(&q["drive_b"]) / maxc * 100.0),
+            (box_.right() - 180, box_.y + 36),
+            TEXT,
+            &f.small,
+            Anchor::MidTop,
+        );
         m.wrapped(
             cv,
             "B prefers below ~100 Hz, A higher (LITERATURE); the split is a game rule",

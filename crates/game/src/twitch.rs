@@ -288,7 +288,9 @@ fn run(
                 Line::Numeric(code, _) if code == "464" || code == "465" => {
                     return Err("Twitch refused the anonymous login (it may no longer allow it)".into());
                 }
-                Line::Notice(t) if t.to_lowercase().contains("authentication failed") || t.to_lowercase().contains("improperly formatted") => {
+                Line::Notice(t)
+                    if t.to_lowercase().contains("authentication failed") || t.to_lowercase().contains("improperly formatted") =>
+                {
                     return Err("Twitch refused the anonymous login (it may no longer allow it)".into());
                 }
                 Line::Msg { user, channel: ch, text }
@@ -349,14 +351,16 @@ mod tests {
             t.clear();
             r.read_line(&mut t).unwrap();
             got.push(t.trim().to_string()); // PONG
-            w.write_all(b":a!a@a PRIVMSG #chan :!tool swatter\r\n:b!b@b PRIVMSG #chan :hello\r\n:c!c@c PRIVMSG #other :!tool bomb\r\n").unwrap();
+            w.write_all(b":a!a@a PRIVMSG #chan :!tool swatter\r\n:b!b@b PRIVMSG #chan :hello\r\n:c!c@c PRIVMSG #other :!tool bomb\r\n")
+                .unwrap();
             t.clear();
             // the QUIT arrives once the client stops
             let _ = r.read_line(&mut t);
             got.push(t.trim().to_string());
             got
         });
-        let mut chat = TwitchChat::with_factory("chan".into(), "127.0.0.1".into(), port, TwitchChat::plain_factory("127.0.0.1".into(), port));
+        let mut chat =
+            TwitchChat::with_factory("chan".into(), "127.0.0.1".into(), port, TwitchChat::plain_factory("127.0.0.1".into(), port));
         chat.start(42);
         wait(&chat, "live");
         let t0 = Instant::now();
@@ -385,7 +389,8 @@ mod tests {
             s.write_all(b":tmi NOTICE * :Login authentication failed\r\n").unwrap();
             std::thread::sleep(Duration::from_millis(500));
         });
-        let mut chat = TwitchChat::with_factory("chan".into(), "127.0.0.1".into(), port, TwitchChat::plain_factory("127.0.0.1".into(), port));
+        let mut chat =
+            TwitchChat::with_factory("chan".into(), "127.0.0.1".into(), port, TwitchChat::plain_factory("127.0.0.1".into(), port));
         chat.start(1);
         wait(&chat, "error");
         assert!(matches!(chat.state(), ChatState::Error(m) if m.contains("refused the anonymous login")));

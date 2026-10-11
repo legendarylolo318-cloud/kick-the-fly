@@ -5,7 +5,8 @@ use serde_json::Value;
 #[test]
 fn votes_equal_python() {
     let g: Value =
-        serde_json::from_str(&std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/golden/streamer.json")).unwrap()).unwrap();
+        serde_json::from_str(&std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/golden/streamer.json")).unwrap())
+            .unwrap();
     let mut b = VoteBoard::new([1; 16]);
     b.set_rules(Rules { window_s: 10.0, cooldown_s: 15.0, min_votes: 2, allow: vec!["tool".into(), "arena".into()] });
     let opt = |v: &[(&str, &str)]| v.iter().map(|(a, b)| (a.to_string(), b.to_string())).collect::<Vec<_>>();
@@ -21,7 +22,14 @@ fn votes_equal_python() {
             .as_array()
             .unwrap()
             .iter()
-            .map(|x| (x[0].as_str().unwrap().into(), x[1].as_str().unwrap().into(), x[2].as_str().unwrap().into(), x[3].as_u64().unwrap() as usize))
+            .map(|x| {
+                (
+                    x[0].as_str().unwrap().into(),
+                    x[1].as_str().unwrap().into(),
+                    x[2].as_str().unwrap().into(),
+                    x[3].as_u64().unwrap() as usize,
+                )
+            })
             .collect();
         assert_eq!(b.tally(), tally, "tally after {t}");
         assert_eq!(b.state.name(), r[5].as_str().unwrap(), "state after {t}");
@@ -35,8 +43,16 @@ fn votes_equal_python() {
     let t = &ticks[0];
     let res = b.tick(t[0].as_f64().unwrap());
     let want = &t[1];
-    assert_eq!(res.map(|o| (o.command, o.slug, o.label, o.votes as u64, o.total as u64)),
-        want.as_array().map(|a| (a[0].as_str().unwrap().into(), a[1].as_str().unwrap().into(), a[2].as_str().unwrap().into(), a[3].as_u64().unwrap(), a[4].as_u64().unwrap())));
+    assert_eq!(
+        res.map(|o| (o.command, o.slug, o.label, o.votes as u64, o.total as u64)),
+        want.as_array().map(|a| (
+            a[0].as_str().unwrap().into(),
+            a[1].as_str().unwrap().into(),
+            a[2].as_str().unwrap().into(),
+            a[3].as_u64().unwrap(),
+            a[4].as_u64().unwrap()
+        ))
+    );
     assert_eq!(b.state.name(), t[2].as_str().unwrap());
     for r in &rows[11..] {
         let why = b.submit(r[0].as_str().unwrap(), r[1].as_str().unwrap(), r[2].as_f64().unwrap());

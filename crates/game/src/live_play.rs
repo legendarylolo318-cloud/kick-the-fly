@@ -128,10 +128,7 @@ fn lab_locked(cfg: &UserConfig) -> bool {
 /// The names a viewer can pick: only what the game offers now.
 fn options(loadout: &crate::tools::ActiveLoadout) -> std::collections::HashMap<String, Vec<(String, String)>> {
     let mut o = std::collections::HashMap::new();
-    o.insert(
-        "tool".to_string(),
-        loadout.0.tools.iter().map(|t| (streamer::slug(t), t.to_uppercase())).collect::<Vec<_>>(),
-    );
+    o.insert("tool".to_string(), loadout.0.tools.iter().map(|t| (streamer::slug(t), t.to_uppercase())).collect::<Vec<_>>());
     o.insert("arena".to_string(), crate::world::ARENAS.iter().map(|a| (a.to_string(), a.to_string())).collect());
     o.insert(
         "surgery".to_string(),
@@ -209,7 +206,10 @@ fn tick(
                         live.board.reset();
                         notes.push(
                             now,
-                            format!("STREAM   reading #{ch} on {} (read-only, anonymous): viewers vote with !tool, !arena, !surgery", streamer::HOST),
+                            format!(
+                                "STREAM   reading #{ch} on {} (read-only, anonymous): viewers vote with !tool, !arena, !surgery",
+                                streamer::HOST
+                            ),
                             Tag::GameRule,
                         );
                     }
@@ -307,7 +307,14 @@ fn tick(
 }
 
 /// The page's state (`lab.live_state`) and the pills for the HUD.
-fn publish(live: Res<Live>, mic: Res<Mic>, cfg: Res<UserConfig>, time: Res<Time<Real>>, mut tools: ResMut<LabTools>, screen: Res<MenuScreen>) {
+fn publish(
+    live: Res<Live>,
+    mic: Res<Mic>,
+    cfg: Res<UserConfig>,
+    time: Res<Time<Real>>,
+    mut tools: ResMut<LabTools>,
+    screen: Res<MenuScreen>,
+) {
     if screen.0 != "live_inputs" {
         return;
     }
@@ -316,9 +323,11 @@ fn publish(live: Res<Live>, mic: Res<Mic>, cfg: Res<UserConfig>, time: Res<Time<
         Ok(()) => (true, String::new()),
         Err(e) => (false, e),
     };
-    let chat = live.chat.as_ref().filter(|_| live.stream_on).map(|c| {
-        json!({"state": c.state().name(), "desc": c.describe(), "commands": c.commands_read()})
-    });
+    let chat = live
+        .chat
+        .as_ref()
+        .filter(|_| live.stream_on)
+        .map(|c| json!({"state": c.state().name(), "desc": c.describe(), "commands": c.commands_read()}));
     let _ = time;
     tools.live_state = json!({
         "mic_on": mic.handle.is_some(),

@@ -114,7 +114,8 @@ fn open(shared: &Arc<Shared>, sensitivity: f32) -> Result<(cpal::Stream, String,
         let sh = shared.clone();
         let mut feed = move |mono: &[f32]| {
             let mut a = lock(&analyzer);
-            a.sensitivity = f32::from_bits(sh.sens.load(Ordering::Relaxed)).clamp(crate::mic_analysis::SENSITIVITY.0, crate::mic_analysis::SENSITIVITY.1);
+            a.sensitivity = f32::from_bits(sh.sens.load(Ordering::Relaxed))
+                .clamp(crate::mic_analysis::SENSITIVITY.0, crate::mic_analysis::SENSITIVITY.1);
             let r = a.push(mono);
             drop(a);
             *lock(&sh.reading) = r;

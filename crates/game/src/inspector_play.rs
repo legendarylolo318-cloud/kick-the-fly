@@ -174,26 +174,26 @@ fn update(
                     // the card swallows the click
                 }
                 None => {
-                let mut best: Option<(f32, usize)> = None;
-                for (i, p) in info.layout.iter().enumerate() {
-                    if !p[0].is_finite() {
-                        continue;
-                    }
-                    let Some((fx, fy)) = project(&view, *p, aspect) else { continue };
-                    let d = Vec2::new(fx * lw - p1.x, fy * lh - p1.y).length();
-                    if d <= 8.0 {
-                        let score = s.rates.get(i).copied().unwrap_or(0.0) / 0.025 * 0.5 - d;
-                        if best.is_none_or(|b| score > b.0) {
-                            best = Some((score, i));
+                    let mut best: Option<(f32, usize)> = None;
+                    for (i, p) in info.layout.iter().enumerate() {
+                        if !p[0].is_finite() {
+                            continue;
+                        }
+                        let Some((fx, fy)) = project(&view, *p, aspect) else { continue };
+                        let d = Vec2::new(fx * lw - p1.x, fy * lh - p1.y).length();
+                        if d <= 8.0 {
+                            let score = s.rates.get(i).copied().unwrap_or(0.0) / 0.025 * 0.5 - d;
+                            if best.is_none_or(|b| score > b.0) {
+                                best = Some((score, i));
+                            }
                         }
                     }
-                }
-                match best {
-                    Some((_, i)) => {
-                        link.0.send(Command::Inspect(i as u32));
+                    match best {
+                        Some((_, i)) => {
+                            link.0.send(Command::Inspect(i as u32));
+                        }
+                        None => ins.info = None,
                     }
-                    None => ins.info = None,
-                }
                 }
             }
         }
@@ -341,7 +341,14 @@ fn update(
 const PATH_COLORS: [[u8; 3]; 5] = [[120, 255, 170], [110, 200, 255], [255, 210, 110], [230, 140, 255], [255, 140, 140]];
 
 /// `Game._draw_search`: the box at the top left of the big view and, while it has the keyboard, the results with their firing rates.
-fn draw_search(ops: &mut Vec<Op>, hits: &mut Vec<(Rect, Hit)>, ins: &Inspector, s: &crate::snapshot::Snapshot, info: &crate::snapshot::BrainInfo, _now: f32) {
+fn draw_search(
+    ops: &mut Vec<Op>,
+    hits: &mut Vec<(Rect, Hit)>,
+    ins: &Inspector,
+    s: &crate::snapshot::Snapshot,
+    info: &crate::snapshot::BrainInfo,
+    _now: f32,
+) {
     let box_ = Rect::new(8, 58 + 8, 250, 24);
     ops.push(Op::Card { rect: box_, fill: [18, 24, 36], alpha: 255, radius: 5 });
     ops.push(Op::Stroke { rect: box_, color: if ins.typing { [86, 214, 255] } else { [60, 68, 84] }, width: 1, radius: 5 });
@@ -365,7 +372,13 @@ fn draw_search(ops: &mut Vec<Op>, hits: &mut Vec<(Rect, Hit)>, ins: &Inspector, 
         let line: String = format!("{ty}  {inst}{bid}").chars().take(48).collect();
         ops.push(Op::Text { s: line, pos: (r.x + 6, r.y + 2), color: TEXT, font: FontSel::Small, anchor: "topleft" });
         let hz = s.rates.get(i as usize).copied().unwrap_or(0.0) / 0.005;
-        ops.push(Op::Text { s: format!("{hz:4.0} Hz"), pos: (r.right() - 6, r.y + 2), color: [140, 220, 180], font: FontSel::Small, anchor: "topright" });
+        ops.push(Op::Text {
+            s: format!("{hz:4.0} Hz"),
+            pos: (r.right() - 6, r.y + 2),
+            color: [140, 220, 180],
+            font: FontSel::Small,
+            anchor: "topright",
+        });
         hits.push((r, Hit::Result(i)));
     }
 }
@@ -437,9 +450,21 @@ fn draw_paths(
         match rank {
             Some(r) => {
                 ops.push(Op::Circle { c: (bx.x + 12, bx.y + 14 + n as i32 * 18), r: 4, color: PATH_COLORS[r % 5] });
-                ops.push(Op::Text { s: t.clone(), pos: (bx.x + 22, bx.y + 6 + n as i32 * 18), color: TEXT, font: FontSel::Small, anchor: "topleft" });
+                ops.push(Op::Text {
+                    s: t.clone(),
+                    pos: (bx.x + 22, bx.y + 6 + n as i32 * 18),
+                    color: TEXT,
+                    font: FontSel::Small,
+                    anchor: "topleft",
+                });
             }
-            None => ops.push(Op::Text { s: t.clone(), pos: (bx.x + 8, bx.y + 6 + n as i32 * 18), color: INK, font: FontSel::Small, anchor: "topleft" }),
+            None => ops.push(Op::Text {
+                s: t.clone(),
+                pos: (bx.x + 8, bx.y + 6 + n as i32 * 18),
+                color: INK,
+                font: FontSel::Small,
+                anchor: "topleft",
+            }),
         }
     }
     let clear = Rect::new(bx.right() - 60, bx.y + 4, 54, 18);

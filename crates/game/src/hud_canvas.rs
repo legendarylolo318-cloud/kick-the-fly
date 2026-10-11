@@ -510,8 +510,8 @@ fn draw(
             hunger: p.hunger as f32,
             sleep: p.sleep_pressure as f32,
             mood: p.mood_word().into(),
-            age_days: ((std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0.0, |d| d.as_secs_f64()) - p.born_time) / 86400.0)
-                as f32,
+            age_days: ((std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0.0, |d| d.as_secs_f64()) - p.born_time)
+                / 86400.0) as f32,
             welcome: (rnow < 12.0 && !p.welcome_message.is_empty()).then(|| p.welcome_message.clone()),
         }),
         live: live.hud(mic.handle.is_some(), rnow as f32),

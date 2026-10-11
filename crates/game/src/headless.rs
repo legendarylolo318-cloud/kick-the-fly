@@ -238,7 +238,13 @@ fn run_validate(c: &Cli, w: &Arc<fly_sim::csr::Weights>, l: &Arc<fly_sim::pack::
     Ok(0)
 }
 
-fn run_protocol(c: &Cli, w: &Arc<fly_sim::csr::Weights>, l: &Arc<fly_sim::pack::Labels>, file: &str, p: Option<Value>) -> Result<i32, String> {
+fn run_protocol(
+    c: &Cli,
+    w: &Arc<fly_sim::csr::Weights>,
+    l: &Arc<fly_sim::pack::Labels>,
+    file: &str,
+    p: Option<Value>,
+) -> Result<i32, String> {
     let (name, p) = match p {
         Some(p) => (file.to_string(), p),
         None => match find_protocol(file) {
@@ -276,15 +282,11 @@ fn run_protocol(c: &Cli, w: &Arc<fly_sim::csr::Weights>, l: &Arc<fly_sim::pack::
     let out = c.out.clone().unwrap_or_else(exports_dir);
     let mut prog = print_progress(t0);
     let folder = crate::protocol_run::run(&env, &p, &out, workers(c), |d, n, _| prog(d, n, ""), &created())?;
-    let summary: Value =
-        serde_json::from_str(&std::fs::read_to_string(folder.join("summary.json")).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
+    let summary: Value = serde_json::from_str(&std::fs::read_to_string(folder.join("summary.json")).map_err(|e| e.to_string())?)
+        .map_err(|e| e.to_string())?;
     for (tag, groups) in summary["mean_rate_hz"].as_object().into_iter().flatten() {
         for (g, cell) in groups.as_object().into_iter().flatten() {
-            println!(
-                "  {tag:8} {g:20} {:8.2} Hz  (n={})",
-                cell["mean"].as_f64().unwrap_or(f64::NAN),
-                cell["n"].as_i64().unwrap_or(0)
-            );
+            println!("  {tag:8} {g:20} {:8.2} Hz  (n={})", cell["mean"].as_f64().unwrap_or(f64::NAN), cell["n"].as_i64().unwrap_or(0));
         }
     }
     if let Some(t) = summary["text"].as_str().filter(|t| !t.is_empty()) {
@@ -350,7 +352,14 @@ fn rerun_report_text(rep: &Value) -> String {
     let s = |k: &str| rep[k].as_str().unwrap_or("").to_string();
     let mut lines = vec![
         format!("Rerun of {} ({})", s("bundle"), s("protocol")),
-        format!("  recorded on {} {}, rerun on {} {} ({})", s("recorded_backend"), s("recorded_dtype"), s("rerun_backend"), s("rerun_dtype"), s("mode")),
+        format!(
+            "  recorded on {} {}, rerun on {} {} ({})",
+            s("recorded_backend"),
+            s("recorded_dtype"),
+            s("rerun_backend"),
+            s("rerun_dtype"),
+            s("mode")
+        ),
     ];
     for d in rep["details"].as_array().into_iter().flatten() {
         let ok = d["identical"].as_bool().or_else(|| d["ok"].as_bool()).unwrap_or(false);
@@ -412,11 +421,8 @@ fn run_rig(c: &Cli, w: &Arc<fly_sim::csr::Weights>, l: &Arc<fly_sim::pack::Label
     let mut rig = sc.as_object().cloned().unwrap_or_default();
     rig.insert("name".into(), json!(name));
     rig.insert("individuality".into(), json!(mode));
-    let p = ktf_data::protocol::check(
-        &json!({"name": format!("rig-{name}"), "seeds": [seeds[0]], "rig": Value::Object(rig)}),
-        "--rig",
-    )
-    .map_err(|e| e.to_string())?;
+    let p = ktf_data::protocol::check(&json!({"name": format!("rig-{name}"), "seeds": [seeds[0]], "rig": Value::Object(rig)}), "--rig")
+        .map_err(|e| e.to_string())?;
     let sub = Cli { out: Some(folder.clone()), workers: Some(1), bundle: None, ..Cli::default() };
     run_protocol(&sub, w, l, &format!("rig-{name}"), Some(p))
 }
@@ -429,7 +435,13 @@ fn run_minipaper(c: &Cli, w: &Arc<fly_sim::csr::Weights>, l: &Arc<fly_sim::pack:
     let pid = c.minipaper.clone().unwrap_or_default();
     if pid == "list" {
         for p in minipapers::papers() {
-            println!("{:18} {:28} {} ({})", p.id, p.short, p.citation.split('(').next().unwrap_or("").trim(), p.read.split(" (").next().unwrap_or(""));
+            println!(
+                "{:18} {:28} {} ({})",
+                p.id,
+                p.short,
+                p.citation.split('(').next().unwrap_or("").trim(),
+                p.read.split(" (").next().unwrap_or("")
+            );
         }
         return Ok(0);
     }
