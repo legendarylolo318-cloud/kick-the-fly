@@ -49,17 +49,32 @@ netsci (3 min), sleepdep, sensitivity, robustness, critical, clamp, diff. Page r
 the Python `labclamp.py` and `labdiff.py` forget `import numpy as np` (their lesion options crash there; ours run); commit with
 `git -c user.name=Logan -c user.email=legendarylolo318@gmail.com commit`.
 
-## Next, in order
-1. (done) `lab_diff` page.
-2. Remaining Lab pages: (`lab_laser`, `lab_psych`, `lab_classroom` done)
-   (`lab_minipapers` done) (`lab_activation` / `lab_knockout` done).
-3. Toolkit (`lab_genetics`, `lab_thermo`, `lab_pharm`, `lab_patch`, `lab_imaging` done; patch lacks NWB export + inspector shortcut, imaging lacks TIFF/NWB + keep frames) (`imaging.py` 533, `livelab.ImagingLive`); `lab_rigs` done.
-4. (DONE: `lab_export`, `lab_protocols`, recorder, runner, bundles; the CLI entry points are with `--headless`) recorder (CSV/npz + metadata; NWB unavailable like Python's `nwbexport.available()`), YAML protocol runner (`protocol.py`, 883 lines;
-   needs a YAML reader for the 42 shipped files), bundles (`bundle.py`).
-5. Five assay kinds missing from `assay_jobs` (orchard, thermo_escape, predator_escape, hum_demo, sleep_deprivation as a labjobs kind), larva validation tests,
-   (DONE: `--headless` CLI in `crates/game/src/headless.rs`) pet mode, photo mode, `live_inputs`, neuron search.
-6. Multi-fly leftovers (contraption wind / memory scent pokes go to the focused brain; personality card not on bodies).
-7. Finish: README, tick PORTING.md only for verified boxes, clean `cargo build/test/clippy`, commit.
+## Session 2026-10-11 status: items 1-4 of the last brief are DONE and committed
+Headless CLI (`crates/game/src/headless.rs`: `--headless --validate|--protocol|--rerun-bundle|--rig|--rig-assay|--minipaper|--activation-screen|--knockout-screen`),
+pet mode (`ktf_data::pet` + `game::pet_play`, golden `make_pet.py`), photo mode (`game::photo_play`: free camera, Bevy `DepthOfField`, viewfinder, clean capture into the
+pictures folder, shutter sound), Mic and streamer page (`ktf_data::streamer` golden `make_streamer.py`, `game::twitch` anonymous IRC over rustls, `game::live_play`, page
+`ktf_ui::pages::live`, matched 0.6-0.7 %), neuron search + path tracer (`fly_sim::neurosearch` golden `make_neurosearch.py`, `inspector_play.rs`).
+The pygame references need `/tmp/pgvenv` recreated: `python3 -m venv V; V/bin/pip install numpy scipy pygame-ce pyyaml pillow` (pygame-ce, NOT pygame: no font module on 3.14).
+
+## Next, in order (the user ran out of tokens; resume here)
+5. **Multi-fly leftovers** (PORTING.md "multi-fly" lines, around the `flies_play.rs` notes): contraption wind and the memory scent pokes go to the focused brain only;
+   the personality card is not shown on the bodies (fly-vs-fly cards); the fly cap is not adapted to the machine; arcade/tool wheel/puppeteer assume one fly.
+   Check each against `legacy-python/kickthefly/game/kick_the_fly.py` (`FlySlot`, `_scents`, `pet_card`) and fix what is cheap; write the rest down.
+6. **README** (`README.md` is still the Python one or a stub: check): what the Rust build is, how to build (`cargo build --release`, `--features bundle-pack`), run flags
+   (`--fullscreen`, `--headless ...`, `--selftest`, `--bugreport`, `--shot`), the data folders, the pack (`data/kick_brain.npz`), what is not ported (PORTING.md summary),
+   licenses/credits (FreeSans, neuPrint shapes credit).
+7. **Final full verification**: `cargo build --release`, `cargo test --workspace --release` (long goldens: 10-20 min; wait with an output-file loop, never pgrep),
+   `cargo clippy --workspace --all-targets --release` clean, `cargo fmt --all`; tick PORTING.md only for verified boxes; commit.
+
+## Extras worth doing if there is time (not in the 1-7 brief)
+- `--headless --validate --seeds 1000-1009 --strict` end to end once (about 25 min): the 2-seed run only proves the plumbing (p cannot reach 0.01 at n = 2).
+- `--replay` / `--record-replay` (`.ktfreplay`: `legacy-python/kickthefly/core/replay.py`), `--benchmark`, `--sensitivity`, `--threshold-sweep`, `--signflip-test`,
+  `--critical-path`, `--failure-autopsy`, `--tournament`, `--race`, `--netsci`, `--sleep-deprivation`, `--playthrough`, `--share-decode` on the command line
+  (the engines for sensitivity/robustness/critical/netsci/sleepdep/tournament/race exist in `fly_sim`; they only need a `headless.rs` arm each, see `lab/headless.py`).
+- Pet: `Esc > Mode` already cycles Play/Lab/Pet; the pet's HUD card is not pixel-compared; `pet.*` lab rates are live. Streamer: pause menu does not show the red pill;
+  the hum test's "N of 50 neurons firing" counts are not shown. Photo: no `graphics.photo_scale` supersampling (the picture is window sized).
+- Neuron search box overlaps the pain card at the top left (Python's big view covers the cards); `lab_diff`/`lab_clamp` Python files forget `import numpy` (ours run).
+- Big-view path tracing is drawn as HUD ops over the 3D cloud (not pixel-compared with pygame's flat picture).
 
 ## Known deviations (written in PORTING.md)
 FreeSans font (check redistribution), linear-light alpha LUT, glyph AA, 3D brain cloud and whole-window big view instead of the flat image, Neuron of the Day uses UTC,
