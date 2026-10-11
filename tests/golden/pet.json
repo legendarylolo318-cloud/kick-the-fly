@@ -1,0 +1,185 @@
+{
+ "steps": [
+  {
+   "tag": "new",
+   "hunger": 0.15,
+   "sleep": 0.1,
+   "mood": 0.7,
+   "sleeping": false,
+   "dead": false,
+   "welcome": "Welcome to Pet Mode! Meet your new adult.",
+   "events": [
+    "born:Adopted adult fly!"
+   ]
+  },
+  {
+   "tag": "away3h",
+   "hunger": 0.275,
+   "sleep": 0.2875,
+   "mood": 0.7,
+   "sleeping": false,
+   "dead": false,
+   "welcome": "Welcome back! You were away for 3.0 hours. Your fly is getting hungry.",
+   "events": [
+    "born:Adopted adult fly!"
+   ]
+  },
+  {
+   "tag": "fed",
+   "hunger": 0.07500000000000001,
+   "sleep": 0.2875,
+   "mood": 0.7857142857142857,
+   "sleeping": false,
+   "dead": false,
+   "welcome": "Welcome back! You were away for 3.0 hours. Your fly is getting hungry.",
+   "events": [
+    "born:Adopted adult fly!",
+    "meal:Fed on sugar"
+   ]
+  },
+  {
+   "tag": "away30m",
+   "hunger": 0.09583333333333334,
+   "sleep": 0.31875,
+   "mood": 0.7857142857142857,
+   "sleeping": false,
+   "dead": false,
+   "welcome": "Welcome back! You were away for 30 minutes.",
+   "events": [
+    "born:Adopted adult fly!",
+    "meal:Fed on sugar"
+   ]
+  },
+  {
+   "tag": "away10h",
+   "hunger": 0.5125,
+   "sleep": 0.05,
+   "mood": 0.7857142857142857,
+   "sleeping": false,
+   "dead": false,
+   "welcome": "Welcome back! You were away for 10.0 hours. Your fly is getting hungry.",
+   "events": [
+    "born:Adopted adult fly!",
+    "meal:Fed on sugar",
+    "sleep:Slept while away (10.0h)"
+   ]
+  },
+  {
+   "tag": "away3d_stakes",
+   "hunger": 1.0,
+   "sleep": 0.05,
+   "mood": 0.7857142857142857,
+   "sleeping": false,
+   "dead": false,
+   "welcome": "Welcome back! You were away for 3.0 days. Your fly missed you!",
+   "events": [
+    "born:Adopted adult fly!",
+    "meal:Fed on sugar",
+    "sleep:Slept while away (10.0h)",
+    "sleep:Slept while away (72.0h)"
+   ]
+  }
+ ],
+ "live": [
+  [
+   0.40000868055555555,
+   0.8800086805555556,
+   0.5083333333333333,
+   false
+  ],
+  [
+   0.4000347222222222,
+   0.8800347222222222,
+   0.5167876344086021,
+   true
+  ],
+  [
+   0.40007812499999995,
+   0.8799479166666667,
+   0.525323252688172,
+   true
+  ],
+  [
+   0.4001388888888888,
+   0.879826388888889,
+   0.5339055749022483,
+   true
+  ],
+  [
+   0.4002170138888888,
+   0.879670138888889,
+   0.5425044138041948,
+   true
+  ],
+  [
+   0.4003124999999999,
+   0.8794791666666668,
+   0.5510934788282708,
+   true
+  ],
+  [
+   0.4004253472222221,
+   0.8792534722222224,
+   0.5596499159979683,
+   true
+  ],
+  [
+   0.40055555555555544,
+   0.8789930555555557,
+   0.5681539066845563,
+   true
+  ],
+  [
+   0.4007031249999999,
+   0.8786979166666669,
+   0.5765883166134864,
+   true
+  ],
+  [
+   0.40086805555555544,
+   0.8783680555555557,
+   0.5849383879622992,
+   true
+  ],
+  [
+   0.4010503472222221,
+   0.8780034722222224,
+   0.5931914685641843,
+   true
+  ],
+  [
+   0.4012499999999999,
+   0.8776041666666669,
+   0.6013367731847555,
+   true
+  ]
+ ],
+ "live_rolls": [
+  0.9,
+  0.001,
+  0.2,
+  0.003,
+  0.7,
+  0.004,
+  0.9,
+  0.001,
+  0.2,
+  0.003,
+  0.7,
+  0.004
+ ],
+ "after": {
+  "mood": 0.35133677318475554,
+  "events": [
+   "born",
+   "sleep",
+   "injury",
+   "training"
+  ]
+ },
+ "mult": [
+  1.8024999999999998,
+  1.6018749999999997,
+  0.4388020833333334
+ ]
+}

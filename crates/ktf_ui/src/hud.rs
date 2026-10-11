@@ -122,6 +122,8 @@ pub struct HudState {
     pub reward_level: f32,
     /// (smell, fear, like)
     pub memory: Vec<(String, f32, f32)>,
+    /// Pet mode's card (`_draw_pet_widget`), under the memory card.
+    pub pet: Option<PetView>,
     /// The hotbar page's tools, in slot order.
     pub tools: Vec<ToolSlot>,
     /// The tool in hand: its name, and the line above the hotbar ("1  HAND: drag the fly and throw it").
@@ -159,6 +161,18 @@ pub struct HudState {
     pub mouse: (i32, i32),
     /// The challenge panel (`Challenge.draw`), as drawing operations, and where its buttons sit afterwards.
     pub challenge: Vec<Op>,
+}
+
+/// What the pet widget shows.
+#[derive(Debug, Clone, Default)]
+pub struct PetView {
+    pub label: String,
+    pub hunger: f32,
+    pub sleep: f32,
+    pub mood: String,
+    pub age_days: f32,
+    /// The "Welcome back" line, shown for a few seconds after launch.
+    pub welcome: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1087,6 +1101,33 @@ impl Hud<'_> {
             yy += 16;
         }
         text(self.cv, "real synapses · T: train", (x + 12, y + h - 16), DIM, &f.small, "topleft");
+        if let Some(p) = &st.pet {
+            self.pet_card(p, y + h + 8);
+        }
+    }
+
+    /// `Game._draw_pet_widget`.
+    fn pet_card(&mut self, p: &PetView, y: i32) {
+        let f = self.f;
+        // the welcome text is a few short sentences: one per line so it fits the card
+        let lines: Vec<String> = p
+            .welcome
+            .as_deref()
+            .map(|t| t.split_inclusive(['!', '.']).map(|l| l.trim().to_string()).filter(|l| !l.is_empty()).collect())
+            .unwrap_or_default();
+        let (x, w, h) = (10, 236, 88 + 16 * lines.len() as i32);
+        card(self.cv, Rect::new(x, y, w, h), ([10, 12, 18], 180), 10);
+        text(self.cv, &format!("PET: {}", p.label), (x + 12, y + 8), ACCENT, &f.small, "topleft");
+        let (bx, bw) = (x + 12, w - 24);
+        text(self.cv, &format!("hunger {}%", (p.hunger * 100.0) as i32), (bx, y + 26), TEXT, &f.small, "topleft");
+        bar(self.cv, bx + 80, y + 29, bw - 80, p.hunger, if p.hunger > 0.7 { [240, 120, 80] } else { [170, 176, 188] }, None);
+        text(self.cv, &format!("sleep {}%", (p.sleep * 100.0) as i32), (bx, y + 44), TEXT, &f.small, "topleft");
+        bar(self.cv, bx + 80, y + 47, bw - 80, p.sleep, if p.sleep > 0.7 { [120, 160, 240] } else { [170, 176, 188] }, None);
+        text(self.cv, &format!("mood: {}", p.mood), (bx, y + 64), LABEL, &f.small, "topleft");
+        text(self.cv, &format!("age {:.1}d", p.age_days), (bx + bw, y + 64), LABEL, &f.small, "topright");
+        for (i, l) in lines.iter().enumerate() {
+            text(self.cv, l, (bx, y + 84 + 16 * i as i32), DIM, &f.small, "topleft");
+        }
     }
 
     fn toolbar(&mut self, st: &HudState) {

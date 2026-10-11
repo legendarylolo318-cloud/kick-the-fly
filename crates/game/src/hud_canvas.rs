@@ -269,6 +269,7 @@ struct HudIn<'w, 's> {
     lost: Query<'w, 's, &'static crate::environment::Forage>,
     flies: Query<'w, 's, (&'static Fly, &'static crate::fly::Slot)>,
     which: Res<'w, crate::flies_play::Flies>,
+    pet: Res<'w, crate::pet_play::PetRes>,
 }
 
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
@@ -314,6 +315,7 @@ fn draw(
         lost,
         flies,
         which,
+        pet,
     } = i;
     let l = lay.0;
     let crisp = (l.scale.fract() == 0.0) && l.scale >= 1.0;
@@ -497,6 +499,15 @@ fn draw(
         reward: st.reward,
         reward_level,
         memory: snap.0.as_deref().and_then(|s| s.memory.as_deref()).map_or(vec![], |m| m.scores.clone()),
+        pet: pet.pet.as_ref().map(|p| ktf_ui::hud::PetView {
+            label: if pet.label.is_empty() { "card not measured".into() } else { pet.label.clone() },
+            hunger: p.hunger as f32,
+            sleep: p.sleep_pressure as f32,
+            mood: p.mood_word().into(),
+            age_days: ((std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0.0, |d| d.as_secs_f64()) - p.born_time) / 86400.0)
+                as f32,
+            welcome: (rnow < 12.0 && !p.welcome_message.is_empty()).then(|| p.welcome_message.clone()),
+        }),
         tools: slots,
         tool_name: sel.0.into(),
         tool_line: format!("{key_label}  {}: {hint}", sel.1),

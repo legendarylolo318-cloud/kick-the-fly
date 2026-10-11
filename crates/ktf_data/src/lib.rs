@@ -16,6 +16,7 @@ pub mod labparams;
 pub mod loadout;
 pub mod neurodex_facts;
 pub mod notd;
+pub mod pet;
 pub mod paths;
 pub mod protocol;
 pub mod pyrandom;

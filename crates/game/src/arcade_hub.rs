@@ -190,11 +190,11 @@ fn save_loadout(saved: &Value, name: &str, picks: &[(String, i64)]) -> Option<Va
     Some(Value::Array(list.into_iter().map(|(n, p)| json!([n, p.into_iter().map(|(t, m)| json!([t, m])).collect::<Vec<_>>()])).collect()))
 }
 
-fn cache_path() -> std::path::PathBuf {
+pub fn cache_path() -> std::path::PathBuf {
     crate::paths::data_dir().join("cache").join("personality_cards.json")
 }
 
-fn pack_sha() -> String {
+pub fn pack_sha() -> String {
     static SHA: std::sync::OnceLock<String> = std::sync::OnceLock::new();
     SHA.get_or_init(|| fly_sim::pack::find_default().and_then(|p| cards::pack_sha256(&p)).unwrap_or_default()).clone()
 }

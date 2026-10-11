@@ -976,6 +976,7 @@ fn treats(
     parts: Query<(&FlyPart, &Transform), Without<Treat>>,
     link: Res<SimLink>,
     mut scents: ResMut<Scents>,
+    mut pet: ResMut<crate::pet_play::PetRes>,
 ) {
     let now = virt.elapsed_secs();
     for (_, t, tf, _) in treats.iter() {
@@ -1034,8 +1035,14 @@ fn treats(
         }
         f.react.eating_until = now + 0.4;
         treat.left -= 1.0 / 240.0;
-        link.0.send(Command::Poke { region: "taste".into(), side: None, strength: 0.5 });
-        link.0.send(Command::Poke { region: "reward".into(), side: None, strength: if treat.kind == "alcohol" { 0.6 } else { 0.4 } });
+        // pet mode: hunger scales the sugar taste and the PAM reward drive (`core/pet.py` couplings)
+        let sugar = treat.kind != "alcohol";
+        let (tg, rg) = if sugar { (pet.sugar_gain(), pet.pam_gain()) } else { (1.0, 1.0) };
+        link.0.send(Command::Poke { region: "taste".into(), side: None, strength: 0.5 * tg });
+        link.0.send(Command::Poke { region: "reward".into(), side: None, strength: if sugar { 0.4 } else { 0.6 } * rg });
+        if sugar {
+            pet.feed_frame();
+        }
         if treat.kind == "alcohol" {
             f.inebriation = (f.inebriation + 0.008).min(1.0);
         } else {

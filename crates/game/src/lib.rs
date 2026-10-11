@@ -42,6 +42,7 @@ pub mod kitchen;
 pub mod lab_extra;
 pub mod headless;
 pub mod lab_play;
+pub mod pet_play;
 pub mod labtools;
 pub mod lesion;
 pub mod memory_play;
@@ -177,6 +178,7 @@ impl Plugin for GamePlugin {
                 tutorial_play::TutorialPlugin,
                 first_run::FirstRunPlugin,
                 savestate_play::SaveStatePlugin,
+                pet_play::PetPlugin,
             ))
             .add_plugins((
                 hud_canvas::HudCanvasPlugin,
