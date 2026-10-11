@@ -32,7 +32,9 @@ STEP 0: BUGS I FOUND BY HAND (reproduce first, fix, add a test where one is poss
   d) The fly looks like a generic fly, not a fruit fly: match the Python 3D fly model (proportions, red eyes, wings, abdomen stripes, legs).
   e) The FPS counter setting (`graphics.show_fps`) does nothing: it is never read in Rust. Same for `graphics.fps_cap`, `graphics.vsync`.
   f) `graphics.ui_scale` does nothing visible (only reaches `compute_layout`); check HUD and menu scale like Python.
-  g) Every other item in BUGS.md and any I add later: same way.
+  g) "Not running properly on the GPU" (symptom not specified: ask me; wrong adapter on hybrid laptops is the cheap first suspect) and "the fly does
+     not react when I put sugar down" (`tools.rs:treats`; Python also pokes the `sweet` group): details in BUGS.md items 7 and 8.
+  h) Every other item in BUGS.md and any I add later: same way.
 
 BUG-HUNT MODE AND TOKEN BUDGET (read this, it matters): hunt actively, but be economical. Work bottom-up from cheap evidence to expensive:
   - Prefer `grep`, reading the two implementations side by side and small unit tests over launching the game. Do NOT take screenshots unless

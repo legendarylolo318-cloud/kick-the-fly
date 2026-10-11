@@ -52,6 +52,22 @@ Fill this in as you play, then give it to Claude Opus together with `REVIEW_PROM
 - Lead: `graphics.ui_scale` is read only in `hud_canvas.rs:128` -> `ktf_ui::layout::compute_layout` (HUD layout). Check it takes effect live, that the
   menu pages scale too (Python scales both), and that `graphics.menu_size`, `access.larger_text`, `graphics.resolution_scale` do what Python did.
 
+## 7. "Not running properly on the GPU" (reported by the user, no details yet)
+- Unclear what exactly: wrong adapter (integrated instead of the dedicated GPU), low fps/stutter, rendering glitches, or crash. Ask the user for the
+  symptom if it cannot be told from the logs. Cheap evidence first: the adapter line in the startup log (`bevy_render` ... `AdapterInfo`), whether
+  `WgpuSettings.power_preference` is set to `HighPerformance` (grep found no `PowerPreference`/`WgpuSettings` in `crates/game/src`, so it is probably
+  the default, which on hybrid laptops can pick the integrated GPU), `KTF_PROFILER=1` frame times, and `--smoke 5` steps/s. Also check a clear error
+  (not a panic) when no adapter exists.
+
+## 8. The fly does not react when sugar is put down
+- Where: the SUGAR tool (hotbar 0 / sugar cube), any arena. Expected (Python `_sugar` in `game/kick_the_fly.py` ~5850 and the 3D equivalent): the nearest
+  fly walks to the cube, eats it (taste + PAM reward pokes, "YUM!" popups, `eating_until`), health +0.15; the sugar smell source draws it.
+- Lead: `crates/game/src/tools.rs:fn treats` (~970-1070). It picks the nearest `Treat`, walks only if `on_floor && now >= stun_until && landed`
+  where `landed = velocity < 0.2`, and eats only when within 0.2 m of the head in xz AND `on_floor`. Check: the cube spawns with a velocity that never
+  settles (physics jitter), `thx.y < STAND3 + 0.2` is never true, `now >= escape_until` is stuck, the fly is held by `f.wrapped/grabbed/frozen`, or
+  `Treat` entities are not found because of a query filter. Python also pokes the `sweet` sugar-taste group (`poke("sweet", None, t_gain, recruit=0.6)`),
+  which Rust does not (only `taste` + `reward`): that affects the brain's response, not the walking. Add a test with a spawned treat and a standing fly.
+
 ## Mechanical hint for the settings audit
 Setting keys of `crates/ktf_data/data/schema.json` whose name is never mentioned in `crates/game`, `crates/ktf_ui`, `crates/ktf_data` code (apart from the
 schema itself), as of commit 82a56ae. Some are false positives (read through a helper or `format!`: `brain.brain` via `cfg.larva()`, `stream.allow_*` via
