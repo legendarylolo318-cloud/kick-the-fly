@@ -211,6 +211,10 @@ pub struct LabTools {
     imaging: ImagingPage,
     /// Lab > Mini-papers: the results by paper.
     papers: BTreeMap<String, Value>,
+    /// Lab > Activation / Knockout screen: the finished result per kind (`activation`, `knockout`) and the last error.
+    screens: BTreeMap<String, (Option<Value>, bool, String)>,
+    /// A page asked for the menu to close (the screen's 'Inspect a neuron' button).
+    pub close_menu: Arc<AtomicBool>,
     base_seed: i64,
 }
 
@@ -262,6 +266,8 @@ impl Default for LabTools {
             patch: PatchPage::default(),
             imaging: ImagingPage::default(),
             papers: BTreeMap::new(),
+            screens: BTreeMap::new(),
+            close_menu: Arc::new(AtomicBool::new(false)),
             base_seed: 1000,
         }
     }
@@ -453,6 +459,10 @@ impl LabTools {
                 "Connectome diff" => self.diff = Some(v),
                 "Psych sweep" => self.psych = Some(v),
                 "Patch I-F curve" => self.patch.curve = Some(v),
+                "Activation screen" | "Knockout screen" => {
+                    let kind = if label == "Activation screen" { "activation" } else { "knockout" };
+                    self.screens.entry(kind.into()).or_default().0 = Some(v);
+                }
                 l if l.starts_with("Mini-paper ") => {
                     if let Some(pid) = v["paper"].as_str() {
                         self.papers.insert(pid.to_string(), v.clone());
@@ -492,6 +502,29 @@ impl LabTools {
                 }
             }),
             "lab_laser" => json!({"lab.laser_state": self.laser}),
+            "lab_activation" | "lab_knockout" => {
+                let kind = if screen == "lab_activation" { "activation" } else { "knockout" };
+                let label = if kind == "activation" { "Activation screen" } else { "Knockout screen" };
+                let e = self.screens.get(kind);
+                let job = self.job.as_ref().filter(|j| j.label == label).map(|j| {
+                    let v = j.json();
+                    let note = v["note"].as_str().unwrap_or("");
+                    let (lab, counts) = note.split_once('\u{1}').unwrap_or((note, "0/1"));
+                    let (d, t) = counts.split_once('/').unwrap_or(("0", "1"));
+                    json!({"done": d.parse::<u64>().unwrap_or(0), "total": t.parse::<u64>().unwrap_or(1), "label": lab, "elapsed": v["elapsed"]})
+                });
+                let ops: serde_json::Map<String, Value> = self.all_type_ops.iter().map(|(t, m)| (t.clone(), json!(m))).collect();
+                // the page sorts and filters itself; a whole-connectome run has 170,000 rows, so it is given the first 5,000
+                let res = e.and_then(|e| e.0.clone()).map(|mut r| {
+                    if let Some(rows) = r["rows"].as_array_mut() {
+                        rows.truncate(5000);
+                    }
+                    r
+                });
+                json!({format!("lab.screen_{kind}_state"): {
+                    "res": res, "job": job, "error": e.map_or(String::new(), |e| e.2.clone()), "type_ops": ops,
+                }})
+            }
             "lab_minipapers" => {
                 let job = self.job.as_ref().filter(|j| j.label.starts_with("Mini-paper ")).map(BgJob::json);
                 json!({"lab.minipapers_state": {
@@ -883,6 +916,7 @@ fn tick(
     lab: Res<crate::share_play::LabState>,
     cfg: Res<crate::menu_ui::UserConfig>,
     runs: Res<crate::lab_play::LabRuns>,
+    mut brain_view: ResMut<crate::brainview::BrainView>,
 ) {
     tools.base_seed = cfg.0.get_i64("brain.seed");
     tools.pack = pack.clone();
@@ -898,6 +932,20 @@ fn tick(
             "pulse_ms": l.pulse_duration * 1000.0, "current": l.current_value(),
             "has_tool": laser_idx.is_some(), "equipped": laser_idx == Some(tool_state.selected),
         });
+    }
+    if matches!(screen.0.as_str(), "lab_activation" | "lab_knockout") {
+        let kind = if screen.0 == "lab_activation" { "activation" } else { "knockout" };
+        tools.all_type_ops = snap.0.as_deref().map_or_else(Vec::new, |s| s.surgery_types.clone());
+        let e = tools.screens.entry(kind.into()).or_default();
+        if !e.1 {
+            e.1 = true;
+            // what an earlier session finished is there to browse
+            if let Some(r) =
+                fly_sim::screens::load(&exports_dir().join(format!("{kind}-screen"))).filter(|r| r["kind"].as_str() == Some(kind))
+            {
+                e.0 = Some(r);
+            }
+        }
     }
     if screen.0 != "lab_patch" && tools.patch.live {
         tools.patch.live = false;
@@ -1346,6 +1394,97 @@ fn tick(
                                 Err(e) => tools.error = if e.is_empty() { why } else { e },
                             }
                         }
+                    }
+                }
+            }
+            "lab.screen_stop" => {
+                if let Some(j) = &tools.job {
+                    j.cancel.store(true, Ordering::Relaxed);
+                }
+            }
+            "lab.screen_run" if !busy => {
+                let kind = a["kind"].as_str().unwrap_or("activation").to_string();
+                let n_seeds = a["seeds"].as_u64().unwrap_or(8).clamp(3, 8) as usize;
+                let size = a["size"].as_u64().unwrap_or(60) as usize;
+                let shared = link.0.shared.lock().unwrap_or_else(PoisonError::into_inner).clone();
+                match shared {
+                    None => tools.error = "The brain is still loading".into(),
+                    Some(sh) => {
+                        tools.error.clear();
+                        tools.screens.entry(kind.clone()).or_default().2.clear();
+                        let folder = exports_dir().join(format!("{kind}-screen"));
+                        let created = crate::savestate_play::utc_stamp_pub();
+                        let workers = thread::available_parallelism().map_or(1, |n| n.get()).clamp(1, 4);
+                        let seeds: Vec<u64> = fly_sim::screens::SCREEN_SEEDS[..n_seeds].to_vec();
+                        let label = if kind == "activation" { "Activation screen" } else { "Knockout screen" };
+                        tools.job = Some(BgJob::start(label, move |upd, cancel| {
+                            let mut progress = |d: usize, n: usize, l: &str| {
+                                upd(d as f64 / n.max(1) as f64, &format!("{l}\u{1}{d}/{n}"));
+                                !cancel.load(Ordering::Relaxed)
+                            };
+                            let r = if kind == "activation" {
+                                let o = fly_sim::screens::ActivityOptions { seeds, max_types: Some(size), workers, ..Default::default() };
+                                fly_sim::screens::run_activation(&sh.weights, &sh.labels, &folder, &o, &created, &mut progress)
+                            } else {
+                                let o = fly_sim::screens::KnockoutOptions { seeds, top: size, workers, ..Default::default() };
+                                fly_sim::screens::run_knockout(&sh.weights, &sh.labels, &folder, &o, &created, &mut progress)
+                            };
+                            r.map_err(|e| if e == "cancelled" { "cancelled".to_string() } else { e })
+                        }));
+                    }
+                }
+            }
+            "lab.screen_export" => {
+                let kind = a["kind"].as_str().unwrap_or("activation");
+                let src = exports_dir().join(format!("{kind}-screen"));
+                let dst = exports_dir().join(format!("{}-{kind}-screen", crate::savestate_play::utc_stamp_compact()));
+                let _ = std::fs::create_dir_all(&dst);
+                let mut n = 0;
+                for e in std::fs::read_dir(&src).into_iter().flatten().flatten() {
+                    let name = e.file_name().to_string_lossy().to_string();
+                    if name.starts_with(&format!("{kind}_screen")) && std::fs::copy(e.path(), dst.join(&name)).is_ok() {
+                        n += 1;
+                    }
+                }
+                flash.write(crate::menu_ui::MenuFlash(
+                    format!("saved to {} in exports", dst.file_name().and_then(|f| f.to_str()).unwrap_or("")),
+                    n > 0,
+                ));
+            }
+            "lab.screen_toggle" => {
+                let mode = a["mode"].as_i64().unwrap_or(1) as i8;
+                let types: Vec<String> = a["types"].as_array().into_iter().flatten().filter_map(|t| t.as_str().map(String::from)).collect();
+                let on = !types.is_empty() && types.iter().all(|t| tools.all_type_ops.iter().any(|(n, m)| n == t && *m == mode));
+                for t in &types {
+                    link.0.send(crate::sim_thread::Command::SurgeryType { ty: t.clone(), mode: if on { 0 } else { mode } });
+                }
+                flash.write(crate::menu_ui::MenuFlash(
+                    format!(
+                        "SURGERY  {}: {}",
+                        types.join("+").chars().take(40).collect::<String>(),
+                        if on {
+                            "normal"
+                        } else if mode > 0 {
+                            "on"
+                        } else {
+                            "off"
+                        }
+                    ),
+                    true,
+                ));
+            }
+            "lab.screen_inspect" => {
+                let ty = a["type"].as_str().unwrap_or("");
+                let shared = link.0.shared.lock().unwrap_or_else(PoisonError::into_inner).clone();
+                let row = shared.and_then(|sh| sh.labels.types.iter().position(|t| t == ty));
+                match row {
+                    Some(r) => {
+                        link.0.send(crate::sim_thread::Command::Inspect(r as u32));
+                        brain_view.big = true;
+                        tools.close_menu.store(true, Ordering::Relaxed);
+                    }
+                    None => {
+                        flash.write(crate::menu_ui::MenuFlash(format!("no {ty} neurons in this brain"), false));
                     }
                 }
             }

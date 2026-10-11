@@ -1,0 +1,13 @@
+behavior,candidate,is_batch,members,neurons,n_seeds,unperturbed_evoked_hz,lesion_evoked_hz,control_evoked_hz,drop_hz,drop_lo,drop_hi,drop_share,p,sign_share,drives_the_behavior,influence,q,rank
+looming_escape,LC4,False,1,126,2,60.25,27,59.75,32.75,20.044,45.456,0.54357,0.019433,1,True,0.41416,0.046639,1
+looming_escape,LPLC2,False,1,185,2,60.25,36.875,60.25,23.375,21.787,24.963,0.38797,0.0034044,1,True,0.32673,0.013617,2
+looming_escape,LC4+LPLC2,True,2,311,2,60.25,-0.125,60.125,60.25,44.367,76.133,1,0.013206,1,False,,0.039618,
+looming_escape,DNp70+PVLP122,True,2,8,2,60.25,61.5,60.125,-1.375,-6.1398,3.3898,-0.022822,0.1695,1,False,,0.339,
+sugar_feeding,dorsal_tpGRN,False,1,10,2,6.75,4.5,8.5,4,4,4,0.59259,0,1,True,3.3171e-06,0,1
+sugar_feeding,PhG1b+PhG1c,True,2,6,2,6.75,3.75,8.375,4.625,-22.376,31.626,0.68519,0.27419,1,False,,0.41128,
+sugar_feeding,GNG095+DNge062,True,2,4,2,6.75,3.875,7,3.125,-14.346,20.596,0.46296,0.26388,1,False,,0.41128,
+sugar_feeding,LB2c+PhG10,True,2,8,2,6.75,5.375,7.375,2,-17.059,21.059,0.2963,0.40967,1,False,,0.54622,
+sugar_feeding,GNG015+GNG130,True,2,4,2,6.75,6.125,7.375,1.25,-14.633,17.133,0.18519,0.5,0.5,False,,0.6,
+sugar_feeding,PhG13+PhG1a,True,2,4,2,6.75,8.125,7.875,-0.25,-0.25,-0.25,-0.037037,2.2617e-15,1,False,,1.357e-14,
+sugar_feeding,PhG5+claw_tpGRN,True,2,52,2,6.75,7.5,7.125,-0.375,-30.552,29.802,-0.055556,0.9003,0.5,False,,0.9003,
+sugar_feeding,PhG3+PhG4,True,2,6,2,6.75,7.75,6.5,-1.25,-20.309,17.809,-0.18519,0.55772,0.5,False,,0.60842,

@@ -1209,3 +1209,43 @@ fn lab_minipapers_page() {
         compare(name, &cv.to_rgb_over(BG), 0.02);
     }
 }
+
+#[test]
+fn lab_screen_pages() {
+    struct H(String, serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            if key == self.0 { self.1.clone() } else { serde_json::Value::Null }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    use ktf_ui::pages::screens::LabScreen;
+    let root = env!("CARGO_MANIFEST_DIR");
+    let text = std::fs::read_to_string(format!("{root}/../../tests/golden/screens.json")).unwrap().replace("NaN", "null");
+    let gold: serde_json::Value = serde_json::from_str(&text).unwrap();
+    let ko_sel = "looming_escape|LC4+LPLC2";
+    #[allow(clippy::type_complexity)]
+    let cases: Vec<(&str, &str, Option<&str>, Option<&str>, bool, serde_json::Value)> = vec![
+        ("page_lab_activation.png", "activation", None, None, true, serde_json::json!({})),
+        ("page_lab_activation_sel.png", "activation", Some("DNp09"), Some("type"), false, serde_json::json!({"DNp09": 1})),
+        ("page_lab_activation_empty.png", "activation", None, None, true, serde_json::json!({})),
+        ("page_lab_knockout.png", "knockout", None, None, true, serde_json::json!({})),
+        ("page_lab_knockout_sel.png", "knockout", Some(ko_sel), Some("drop_share"), true, serde_json::json!({})),
+    ];
+    for (name, kind, sel, sort, desc, ops) in cases {
+        let res =
+            if name.contains("empty") { serde_json::Value::Null } else { gold[if kind == "activation" { "act" } else { "ko" }].clone() };
+        let st = serde_json::json!({"res": res, "job": null, "error": "", "type_ops": ops});
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        let page = if kind == "activation" { "lab_activation" } else { "lab_knockout" };
+        m.page_mut::<LabScreen>(page).unwrap().set_view(sel, sort, desc, "");
+        m.show(page);
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(format!("lab.screen_{kind}_state"), st));
+        compare(name, &cv.to_rgb_over(BG), 0.02);
+    }
+}

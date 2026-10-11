@@ -1,0 +1,120 @@
+{
+ "looming_escape": [
+  {
+   "type": "LC4",
+   "neurons": 126,
+   "influence": 0.41416336700785905,
+   "drives_the_behavior": true
+  },
+  {
+   "type": "LPLC2",
+   "neurons": 185,
+   "influence": 0.32672679222014267,
+   "drives_the_behavior": true
+  },
+  {
+   "type": "DNp70",
+   "neurons": 2,
+   "influence": 0.08733966201543808,
+   "drives_the_behavior": false
+  },
+  {
+   "type": "PVLP122",
+   "neurons": 6,
+   "influence": 0.07988781481981277,
+   "drives_the_behavior": false
+  }
+ ],
+ "sugar_feeding": [
+  {
+   "type": "GNG095",
+   "neurons": 2,
+   "influence": 0.221575528383255,
+   "drives_the_behavior": false
+  },
+  {
+   "type": "DNge062",
+   "neurons": 2,
+   "influence": 0.17703064531087875,
+   "drives_the_behavior": false
+  },
+  {
+   "type": "GNG015",
+   "neurons": 2,
+   "influence": 0.16845432668924332,
+   "drives_the_behavior": false
+  },
+  {
+   "type": "GNG130",
+   "neurons": 2,
+   "influence": 0.15032752603292465,
+   "drives_the_behavior": false
+  },
+  {
+   "type": "LB2c",
+   "neurons": 6,
+   "influence": 0.0,
+   "drives_the_behavior": true
+  },
+  {
+   "type": "PhG10",
+   "neurons": 2,
+   "influence": 0.0,
+   "drives_the_behavior": true
+  },
+  {
+   "type": "PhG13",
+   "neurons": 2,
+   "influence": 0.0,
+   "drives_the_behavior": true
+  },
+  {
+   "type": "PhG1a",
+   "neurons": 2,
+   "influence": 0.0,
+   "drives_the_behavior": true
+  },
+  {
+   "type": "PhG1b",
+   "neurons": 2,
+   "influence": 0.0,
+   "drives_the_behavior": true
+  },
+  {
+   "type": "PhG1c",
+   "neurons": 4,
+   "influence": 2.35750387673761e-05,
+   "drives_the_behavior": true
+  },
+  {
+   "type": "PhG3",
+   "neurons": 2,
+   "influence": 0.0,
+   "drives_the_behavior": true
+  },
+  {
+   "type": "PhG4",
+   "neurons": 4,
+   "influence": 2.5321966859337408e-05,
+   "drives_the_behavior": true
+  },
+  {
+   "type": "PhG5",
+   "neurons": 2,
+   "influence": 0.0,
+   "drives_the_behavior": true
+  },
+  {
+   "type": "claw_tpGRN",
+   "neurons": 50,
+   "influence": 0.00023779909486165707,
+   "drives_the_behavior": true
+  },
+  {
+   "type": "dorsal_tpGRN",
+   "neurons": 10,
+   "influence": 3.3171367022077902e-06,
+   "drives_the_behavior": true
+  }
+ ]
+}

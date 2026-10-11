@@ -549,6 +549,9 @@ fn draw(
             .with_bench(if screen.0 == "lab_benchmark" { runs.bench_query() } else { Value::Null })
             .with_tools(lab_tools.state_for(&screen.0), lab_tools.queue.clone()),
     );
+    if lab_tools.close_menu.swap(false, std::sync::atomic::Ordering::Relaxed) {
+        menu.close();
+    }
     if let Some(mut img) = images.get_mut(&*image) {
         img.data = Some(canvas.px.clone());
     }

@@ -1,0 +1,43 @@
+{
+ "signature": {
+  "kind": "activation",
+  "version": 1,
+  "seeds": [
+   4000,
+   4001
+  ],
+  "controls": 2,
+  "amp": 0.5,
+  "steps": 400,
+  "pre": 400,
+  "readouts": [
+   "dnp01",
+   "dnp09",
+   "mdn",
+   "adn",
+   "mn9",
+   "mn_legs",
+   "pip10",
+   "ps1",
+   "dna_steer_r",
+   "dna_steer_l"
+  ],
+  "backend": "auto"
+ },
+ "created": "2026-10-10 18:46:37",
+ "tag": "MODEL PREDICTION",
+ "engines": [
+  [
+   "cpu",
+   "CPU (NumPy)"
+  ]
+ ],
+ "types": 6,
+ "outputs": [
+  "activation_screen.csv",
+  "activation_screen.parquet",
+  "activation_screen_responses.csv",
+  "activation_screen_responses.parquet"
+ ],
+ "parquet_note": null
+}

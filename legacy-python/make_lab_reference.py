@@ -426,4 +426,23 @@ if __name__ == "__main__":
              prep=mp_prep("hampel_2015", 4, {k: _mp_ans[k] for k in ("antenna_grooming_circuit", "adn_grooming_motor")}, mp_gold["hampel_2015"]["result"]))
     R.render("lab_minipapers", "Graphics", out / "page_lab_minipapers_cmp_larva.png",
              prep=mp_prep("ohyama_2015", 4, {"larva_noci_to_goro_rolling": "up", "larva_chordotonal_to_basin": "same"}, mp_gold["ohyama_2015"]["result"]))
+    from kickthefly.lab import labscreen as ls_mod
+    scr_gold = json.loads((gd / "screens.json").read_text().replace("NaN", "null"))
+
+    def scr_prep(kind, res, sel=None, sort=None, desc=True, search="", ops=None):
+        def prep(m):
+            prep_for("lab_activation" if kind == "activation" else "lab_knockout")(m)
+            st_ = ls_mod._st(m, kind)
+            st_.update(res=res, loaded=True, sel=sel, sort=sort, desc=desc, search=search)
+            m.host.type_ops = dict(ops or {})
+        return prep
+
+    R.render("lab_activation", "Graphics", out / "page_lab_activation.png", prep=scr_prep("activation", scr_gold["act"]))
+    R.render("lab_activation", "Graphics", out / "page_lab_activation_sel.png",
+             prep=scr_prep("activation", scr_gold["act"], "DNp09", "type", False, "", {"DNp09": 1}))
+    R.render("lab_activation", "Graphics", out / "page_lab_activation_empty.png", prep=scr_prep("activation", None))
+    _ko_rows = scr_gold["ko"]["rows"]
+    _ko_sel = next((f"{r['behavior']}|{r['candidate']}" for r in _ko_rows if r["is_batch"]), None)
+    R.render("lab_knockout", "Graphics", out / "page_lab_knockout.png", prep=scr_prep("knockout", scr_gold["ko"]))
+    R.render("lab_knockout", "Graphics", out / "page_lab_knockout_sel.png", prep=scr_prep("knockout", scr_gold["ko"], _ko_sel, "drop_share", True))
     print("wrote", out)
