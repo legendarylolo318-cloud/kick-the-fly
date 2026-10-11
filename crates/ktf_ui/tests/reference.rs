@@ -1020,8 +1020,17 @@ fn lab_assays_thermo_and_sleep_results() {
     let load = |n: &str| -> serde_json::Value {
         serde_json::from_slice(&std::fs::read(format!("{}/../../tests/ui_reference/{n}", env!("CARGO_MANIFEST_DIR"))).unwrap()).unwrap()
     };
-    let (fx, ext) = (load("lab_assays_fixture.json"), load("lab_assays_ext_fixture.json"));
-    for (name, kind) in [("page_lab_assays_thermo.png", "thermo_escape"), ("page_lab_assays_sleep.png", "sleep_deprivation")] {
+    let (fx, mut ext) = (load("lab_assays_fixture.json"), load("lab_assays_ext_fixture.json"));
+    let ext2 = load("lab_assays_ext2_fixture.json");
+    for k in ["orchard", "predator_escape"] {
+        ext[k] = ext2[k].clone();
+    }
+    for (name, kind) in [
+        ("page_lab_assays_thermo.png", "thermo_escape"),
+        ("page_lab_assays_sleep.png", "sleep_deprivation"),
+        ("page_lab_assays_orchard.png", "orchard"),
+        ("page_lab_assays_predator.png", "predator_escape"),
+    ] {
         let mut cfg = Config::new(None);
         let mut m = Menu::new("3.1.1");
         ktf_ui::pages::install(&mut m);

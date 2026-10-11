@@ -604,6 +604,110 @@ fn draw_assay_result(m: &mut Menu, cv: &mut Canvas, area: Rect, res: &serde_json
                 rows.push((label.into(), a, b));
             }
         }
+        "orchard" => {
+            let st = &t["settings"];
+            draw_chart(
+                m,
+                cv,
+                chart,
+                &["MN9".to_string(), "PAM".to_string()],
+                &[("feeding / travelling".into(), ACCENT, vec![t["mn9_ratio"].clone(), t["pam_ratio"].clone()])],
+                "",
+                "firing x travelling",
+                None,
+                false,
+            );
+            let one = |k: &str, fmt: &str, with_c: bool| (ci(&t[k], fmt), if with_c && has_c { ci(&c[k], fmt) } else { String::new() });
+            let (a, b) = one("mn9_ratio", "{:.2f}", true);
+            rows.push(("MN9 feeding / travelling".into(), format!("x{a}"), if has_c { format!("x{b}") } else { String::new() }));
+            let (a, b) = one("pam_ratio", "{:.2f}", true);
+            rows.push(("PAM feeding / travelling".into(), format!("x{a}"), if has_c { format!("x{b}") } else { String::new() }));
+            for (label, k, with_c) in
+                [("feeds", "feeds", true), ("fruit emptied", "fruit_emptied", true), ("fermented feeds", "fermented_feeds", false)]
+            {
+                let (a, b) = one(k, "{:.1f}", with_c);
+                rows.push((label.into(), a, b));
+            }
+            rows.push((
+                "settings (game rules)".into(),
+                format!(
+                    "{} feeds/fruit, regrow {} s, cap {}, {} s",
+                    st["feeds_per_fruit"],
+                    crate::menu::py_fmt("{:.0f}", st["regrow_s"].as_f64().unwrap_or(0.0)),
+                    st["cap"],
+                    crate::menu::py_fmt("{:.0f}", st["duration_s"].as_f64().unwrap_or(0.0))
+                ),
+                String::new(),
+            ));
+        }
+        "predator_escape" => {
+            let tr = rows_of(t);
+            let xs: Vec<String> = tr.iter().map(|r| r["predator"].as_str().unwrap_or("").to_string()).collect();
+            let cis: Vec<serde_json::Value> = tr
+                .iter()
+                .map(|r| serde_json::json!({"mean": r["escape_probability"], "lo": r["ci95"][0], "hi": r["ci95"][1], "n": 1}))
+                .collect();
+            draw_chart(
+                m,
+                cv,
+                chart,
+                &xs,
+                &[("escape probability (Wilson 95% CI)".into(), ACCENT, cis)],
+                "predator",
+                "escape probability",
+                Some(1.0),
+                false,
+            );
+            for r in &tr {
+                rows.push((
+                    r["predator"].as_str().unwrap_or("").to_string(),
+                    format!(
+                        "{}/{} escaped, 95% CI {:.2}-{:.2}",
+                        r["escapes"],
+                        r["trials"],
+                        r["ci95"][0].as_f64().unwrap_or(f64::NAN),
+                        r["ci95"][1].as_f64().unwrap_or(f64::NAN)
+                    ),
+                    format!("{}/{}", r["escapes"], r["trials"]),
+                ));
+            }
+            rows.push((
+                "MODEL PREDICTION".into(),
+                "the attack is a game rule; an escape = DNp01 above the game's escape rule before the capture".into(),
+                String::new(),
+            ));
+        }
+        "hum_demo" => {
+            let tr = rows_of(t);
+            let xs: Vec<String> = tr.iter().map(|r| r["condition"].as_str().unwrap_or("").to_string()).collect();
+            draw_chart(
+                m,
+                cv,
+                chart,
+                &xs,
+                &[("P1 firing x calm".into(), ACCENT, tr.iter().map(|r| r["p1"]["ratio"].clone()).collect())],
+                "sound",
+                "firing x calm",
+                None,
+                false,
+            );
+            for r in &tr {
+                rows.push((
+                    r["condition"].as_str().unwrap_or("").to_string(),
+                    format!("P1 x{}, ps1 x{}", ci(&r["p1"]["ratio"], "{:.2f}"), ci(&r["ps1"]["ratio"], "{:.2f}")),
+                    String::new(),
+                ));
+            }
+            if let Some(v) = t["verdict"].as_object() {
+                for h in ["H1", "H2", "H3"] {
+                    rows.push((
+                        format!("{h} {}", if v[h].as_bool().unwrap_or(false) { "PASS" } else { "FAIL" }),
+                        String::new(),
+                        String::new(),
+                    ));
+                }
+            }
+        }
         "looming" => {
             let tr = rows_of(t);
             let xs: Vec<String> = tr.iter().map(|r| crate::menu::py_g(r["speed"].as_f64().unwrap_or(0.0))).collect();

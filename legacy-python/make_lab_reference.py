@@ -488,4 +488,25 @@ if __name__ == "__main__":
     (out / "lab_export_fixture.json").write_text(json.dumps(dict(nwb=nwbexport.available())))
     R.render("lab_protocols", "Graphics", out / "page_lab_protocols.png", prep=prep_for("lab_protocols"))
     R.render("lab_protocols", "Graphics", out / "page_lab_protocols_scrolled.png", prep=prep_for("lab_protocols", None, 600))
+    from kickthefly.lab import labjobs as lj_mod, assays as as_mod, predators as pd_mod
+
+    _of = [as_mod.orchard_fly(s_, duration_s=20.0) for s_ in (1000, 1001)]
+    _pf = [pd_mod.escape_fly(s_, kinds=("frog", "mantis"), trials=1) for s_ in (1000, 1001)]
+    ext2 = {
+        "orchard": dict(kind="orchard", label="Orchard feeding", seeds=[1000, 1001], surgery=None, control=None, treated=lj_mod.summarize("orchard", _of)),
+        "predator_escape": dict(kind="predator_escape", label="Predator escape", seeds=[1000, 1001], surgery=None, control=None,
+                                treated=lj_mod.summarize("predator_escape", _pf)),
+    }
+    (out / "lab_assays_ext2_fixture.json").write_text(json.dumps(ext2, default=float))
+
+    def ext2_prep(kind):
+        def prep(m):
+            prep_for("lab_assays")(m)
+            st = lab._state(m)
+            st.kind, st.flies, st.surgery_i, st.stimulate = kind, 6, 0, False
+            st.job, st.result = None, ext2[kind]
+        return prep
+
+    R.render("lab_assays", "Graphics", out / "page_lab_assays_orchard.png", prep=ext2_prep("orchard"))
+    R.render("lab_assays", "Graphics", out / "page_lab_assays_predator.png", prep=ext2_prep("predator_escape"))
     print("wrote", out)

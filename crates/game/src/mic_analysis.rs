@@ -30,60 +30,94 @@ pub fn band_drive(rms: f32, sensitivity: f32) -> f32 {
     if r < GATE_RMS { 0.0 } else { MAX_CURRENT * (r / FULL_RMS).clamp(0.0, 1.0) }
 }
 
+/// One second-order section in transposed direct form II (float64, as `scipy.signal.sosfilt` runs it).
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Biquad {
-    b0: f32,
-    b1: f32,
-    b2: f32,
-    a1: f32,
-    a2: f32,
-    z1: f32,
-    z2: f32,
+    b: [f64; 3],
+    a1: f64,
+    a2: f64,
+    z1: f64,
+    z2: f64,
 }
 
 impl Biquad {
-    fn lowpass(fc: f32, fs: f32, q: f32) -> Self {
-        let w0 = 2.0 * PI * fc / fs;
-        let (c, alpha) = (w0.cos(), w0.sin() / (2.0 * q));
-        let a0 = 1.0 + alpha;
-        Self {
-            b0: (1.0 - c) / 2.0 / a0,
-            b1: (1.0 - c) / a0,
-            b2: (1.0 - c) / 2.0 / a0,
-            a1: -2.0 * c / a0,
-            a2: (1.0 - alpha) / a0,
-            z1: 0.0,
-            z2: 0.0,
-        }
-    }
-
-    fn highpass(fc: f32, fs: f32, q: f32) -> Self {
-        let w0 = 2.0 * PI * fc / fs;
-        let (c, alpha) = (w0.cos(), w0.sin() / (2.0 * q));
-        let a0 = 1.0 + alpha;
-        Self {
-            b0: (1.0 + c) / 2.0 / a0,
-            b1: -(1.0 + c) / a0,
-            b2: (1.0 + c) / 2.0 / a0,
-            a1: -2.0 * c / a0,
-            a2: (1.0 - alpha) / a0,
-            z1: 0.0,
-            z2: 0.0,
-        }
-    }
-
-    /// Transposed direct form II.
     #[inline]
-    pub fn process(&mut self, x: f32) -> f32 {
-        let y = self.b0 * x + self.z1;
-        self.z1 = self.b1 * x - self.a1 * y + self.z2;
-        self.z2 = self.b2 * x - self.a2 * y;
+    pub fn process(&mut self, x: f64) -> f64 {
+        let y = self.b[0] * x + self.z1;
+        self.z1 = self.b[1] * x - self.a1 * y + self.z2;
+        self.z2 = self.b[2] * x - self.a2 * y;
         y
     }
 }
 
-/// Q of the two sections of a 4th-order Butterworth filter.
-const BUTTER4_Q: [f32; 2] = [0.541_196_1, 1.306_563];
+#[derive(Clone, Copy)]
+struct C(f64, f64);
+
+impl C {
+    fn add(self, o: C) -> C {
+        C(self.0 + o.0, self.1 + o.1)
+    }
+    fn sub(self, o: C) -> C {
+        C(self.0 - o.0, self.1 - o.1)
+    }
+    fn mul(self, o: C) -> C {
+        C(self.0 * o.0 - self.1 * o.1, self.0 * o.1 + self.1 * o.0)
+    }
+    fn scale(self, k: f64) -> C {
+        C(self.0 * k, self.1 * k)
+    }
+    fn div(self, o: C) -> C {
+        let d = o.0 * o.0 + o.1 * o.1;
+        C((self.0 * o.0 + self.1 * o.1) / d, (self.1 * o.0 - self.0 * o.1) / d)
+    }
+    fn sqrt(self) -> C {
+        let r = self.0.hypot(self.1);
+        let re = ((r + self.0) / 2.0).sqrt();
+        let im = ((r - self.0) / 2.0).sqrt();
+        C(re, if self.1 < 0.0 { -im } else { im })
+    }
+}
+
+/// `scipy.signal.butter(4, [lo, hi] / nyquist, btype="band", output="sos")`: analog prototype, band-pass transform and bilinear transform,
+/// then the pole pairs as sections (the transfer function is the same whatever the pairing; only rounding differs).
+fn butter_bandpass_sos(lo: f64, hi: f64, fs: f64) -> Vec<Biquad> {
+    const N: usize = 4;
+    let nyq = fs / 2.0;
+    let wn = [lo / nyq, hi.min(nyq * 0.95) / nyq];
+    let warped = [4.0 * (std::f64::consts::PI * wn[0] / 2.0).tan(), 4.0 * (std::f64::consts::PI * wn[1] / 2.0).tan()];
+    let (bw, wo) = (warped[1] - warped[0], (warped[0] * warped[1]).sqrt());
+    let mut poles: Vec<C> = Vec::new();
+    for m in (-(N as i32) + 1..N as i32).step_by(2) {
+        let ang = std::f64::consts::PI * f64::from(m) / (2 * N) as f64;
+        let p = C(-ang.cos(), -ang.sin()).scale(bw / 2.0);
+        let r = p.mul(p).sub(C(wo * wo, 0.0)).sqrt();
+        poles.push(p.add(r));
+        poles.push(p.sub(r));
+    }
+    let k_bp = bw.powi(N as i32);
+    // bilinear with fs2 = 4: z = (4 + p) / (4 - p); the N zeros at s = 0 map to z = 1 and N more appear at z = -1
+    let four = C(4.0, 0.0);
+    let zp: Vec<C> = poles.iter().map(|&p| four.add(p).div(four.sub(p))).collect();
+    let mut den = C(1.0, 0.0);
+    for &p in &poles {
+        den = den.mul(four.sub(p));
+    }
+    let k_z = k_bp * four.div(den).0 * 4.0f64.powi(N as i32 - 1);
+    // one section per pole pair (positive imaginary part), the pairs nearest the unit circle last
+    let mut pairs: Vec<C> = zp.iter().copied().filter(|p| p.1 > 0.0).collect();
+    pairs.sort_by(|a, b| a.0.hypot(a.1).total_cmp(&b.0.hypot(b.1)));
+    pairs
+        .iter()
+        .enumerate()
+        .map(|(i, p)| Biquad {
+            b: if i == 0 { [k_z, 0.0, -k_z] } else { [1.0, 0.0, -1.0] },
+            a1: -2.0 * p.0,
+            a2: p.0 * p.0 + p.1 * p.1,
+            z1: 0.0,
+            z2: 0.0,
+        })
+        .collect()
+}
 
 #[derive(Debug, Clone)]
 struct Band {
@@ -92,19 +126,11 @@ struct Band {
 
 impl Band {
     fn new(lo: f32, hi: f32, fs: f32) -> Self {
-        let hi = hi.min(fs / 2.0 * 0.95);
-        let mut sections = Vec::new();
-        for q in BUTTER4_Q {
-            sections.push(Biquad::highpass(lo, fs, q));
-        }
-        for q in BUTTER4_Q {
-            sections.push(Biquad::lowpass(hi, fs, q));
-        }
-        Self { sections }
+        Self { sections: butter_bandpass_sos(f64::from(lo), f64::from(hi), f64::from(fs)) }
     }
 
-    fn process(&mut self, x: f32) -> f32 {
-        self.sections.iter_mut().fold(x, |v, s| s.process(v))
+    fn process(&mut self, x: f32) -> f64 {
+        self.sections.iter_mut().fold(f64::from(x), |v, s| s.process(v))
     }
 }
 
@@ -192,15 +218,19 @@ impl Analyzer {
         if samples.is_empty() {
             return self.reading;
         }
-        let (mut sa, mut sb, mut sx) = (0.0f32, 0.0f32, 0.0f32);
+        let (mut qa, mut qb, mut qx) = (Vec::with_capacity(samples.len()), Vec::with_capacity(samples.len()), 0.0f32);
         for &x in samples {
             let (ya, yb) = (self.a.process(x), self.b.process(x));
-            sa += ya * ya;
-            sb += yb * yb;
-            sx += x * x;
+            qa.push(ya * ya);
+            qb.push(yb * yb);
+            qx += x * x;
         }
         let n = samples.len() as f32;
-        let (rms_a, rms_b, rms) = ((sa / n).sqrt(), (sb / n).sqrt(), (sx / n).sqrt());
+        let nf = f64::from(n);
+        // `np.sqrt(np.mean(a * a))` in float64 (pairwise sums)
+        let rms_a = (fly_sim::validation::np_sum(&qa) / nf).sqrt() as f32;
+        let rms_b = (fly_sim::validation::np_sum(&qb) / nf).sqrt() as f32;
+        let rms = (qx / n).sqrt();
         // slide the spectrum window
         if samples.len() >= WINDOW {
             self.buf.copy_from_slice(&samples[samples.len() - WINDOW..]);

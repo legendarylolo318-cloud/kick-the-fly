@@ -2031,6 +2031,7 @@ pub struct LabToolsPlugin;
 
 impl Plugin for LabToolsPlugin {
     fn build(&self, app: &mut App) {
+        crate::lab_extra::register();
         app.init_resource::<LabTools>().add_systems(Update, (tick, record_context));
     }
 }

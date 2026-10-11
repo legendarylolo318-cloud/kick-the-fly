@@ -39,6 +39,7 @@ pub mod inspector_play;
 pub mod killcam;
 pub mod killcam_play;
 pub mod kitchen;
+pub mod lab_extra;
 pub mod lab_play;
 pub mod labtools;
 pub mod lesion;

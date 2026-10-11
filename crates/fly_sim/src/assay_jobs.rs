@@ -279,7 +279,7 @@ pub fn summarize(kind: &str, flies: &[Value]) -> Value {
         }
         "thermo_escape" => crate::thermogenetics::summarize(flies),
         "sleep_deprivation" => crate::sleepdep::summarize(flies),
-        _ => Value::Null,
+        other => EXT.get().and_then(|e| (e.summarize)(other, flies)).unwrap_or(Value::Null),
     }
 }
 
@@ -380,8 +380,27 @@ pub fn assay_task(
             let dn = g["dnp01"].clone();
             crate::thermogenetics::escape_fly(&mut br, &dn, seed, &temps, target, eff, T_ESCAPE)
         }
-        other => Err(format!("the {other} assay is not part of this build yet")),
+        other => match EXT.get().and_then(|e| (e.task)(weights, labels, other, seed, options, surgery)) {
+            Some(r) => r,
+            None => Err(format!("the {other} assay is not part of this build yet")),
+        },
     }
+}
+
+/// Assay kinds that need the game's engines (the predators, the microphone's analyser, the orchard): the game registers them once.
+#[allow(clippy::type_complexity)]
+pub struct ExtAssays {
+    /// One fly: `Some(result)` for a kind it knows.
+    pub task: fn(&Arc<Weights>, &Arc<Labels>, &str, u64, &Value, &[(String, i8)]) -> Option<Result<Value, String>>,
+    /// The summary of a kind it knows.
+    pub summarize: fn(&str, &[Value]) -> Option<Value>,
+}
+
+static EXT: std::sync::OnceLock<ExtAssays> = std::sync::OnceLock::new();
+
+/// Register the game's extra assay kinds (the first call wins).
+pub fn register_ext(e: ExtAssays) {
+    let _ = EXT.set(e);
 }
 
 /// `labjobs.run_sync`: every seed with the surgery, and without it as the matched control; `progress(done, total)` returns false to cancel.

@@ -38,7 +38,7 @@ struct AssayJob {
     label: String,
 }
 
-/// `labjobs.ASSAYS` and `ASSAY_LABEL`, all eight as the page lists them; this build runs the first three.
+/// `labjobs.ASSAYS` and `ASSAY_LABEL`, all eight as the page lists them (the engines are `fly_sim::assay_jobs` and `lab_extra`).
 pub const ASSAY_KINDS: [(&str, &str); 8] = [
     ("tmaze", "T-maze conditioning"),
     ("looming", "Looming escape"),
