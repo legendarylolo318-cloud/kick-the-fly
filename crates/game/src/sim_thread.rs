@@ -1331,7 +1331,7 @@ fn publish(
         s.dead = brain.dead();
         s.speed = state.speed;
         s.hz.clear();
-        s.hz.extend_from_slice(&brain.groups.fast);
+        s.hz.extend(brain.groups.fast.iter().map(|&x| x as f32));
         s.levels.clear();
         s.levels.extend(brain.groups.names.iter().map(|n| brain.groups.level(n)));
         s.focus = multi.focus;
@@ -1340,7 +1340,7 @@ fn publish(
             s.others.push(crate::snapshot::OtherFly {
                 slot: *slot,
                 levels: b.groups.names.iter().map(|n| b.groups.level(n)).collect(),
-                hz: b.groups.fast.clone(),
+                hz: b.groups.fast.iter().map(|&x| x as f32).collect(),
                 dead: b.dead(),
             });
         }
@@ -1584,7 +1584,12 @@ impl MemState {
         let g = brain.groups_ref();
         if !self.autopsy_done && g.hist_n >= brain.death_sample + 150 {
             self.autopsy_done = true;
-            if let Some(a) = fly_sim::autopsy::compute(g, brain.death_sample, &brain.death_base, g.pain_level) {
+            if let Some(a) = fly_sim::autopsy::compute(
+                g,
+                brain.death_sample,
+                &brain.death_base.iter().map(|&x| x as f32).collect::<Vec<f32>>(),
+                g.pain_level,
+            ) {
                 let _ = events.send(SimEvent::Autopsy(Box::new(a)));
             }
         }

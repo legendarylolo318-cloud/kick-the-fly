@@ -445,4 +445,29 @@ if __name__ == "__main__":
     _ko_sel = next((f"{r['behavior']}|{r['candidate']}" for r in _ko_rows if r["is_batch"]), None)
     R.render("lab_knockout", "Graphics", out / "page_lab_knockout.png", prep=scr_prep("knockout", scr_gold["ko"]))
     R.render("lab_knockout", "Graphics", out / "page_lab_knockout_sel.png", prep=scr_prep("knockout", scr_gold["ko"], _ko_sel, "drop_share", True))
+    from kickthefly.lab import labrigs as lr_mod, rigassay as ra_mod
+
+    rig_opts = {"tethered": dict(mode="closed", omega=2.0, seconds=9.0, gain=1.0), "ball": dict(scene="bar", seconds=10.0, bar_deg=-90.0),
+                "buridan": dict(seconds=15.0), "fourfield": dict(seconds=15.0, mode="odor")}
+    rig_res = {r: ra_mod.scene_run(r, 1000, "off", **o) for r, o in rig_opts.items()}
+    (out / "lab_rigs_fixture.json").write_text(json.dumps(rig_res, default=str))
+
+    def rig_prep(rig=None, t=0.0, with_res=True):
+        def prep(m):
+            prep_for(lr_mod.PAGES[rig] if rig else "lab_rigs")(m)
+            s = lr_mod.st(m)
+            if with_res:
+                s.res = {k: v for k, v in rig_res.items()}
+            s.playing = False
+            s.t = t
+            if rig:
+                s.p[rig].update(rig_opts[rig] if with_res else {})
+        return prep
+
+    R.render("lab_rigs", "Graphics", out / "page_lab_rigs_hub.png", prep=rig_prep(None, 0.0, True))
+    R.render("lab_rig_tethered", "Graphics", out / "page_lab_rig_tethered.png", prep=rig_prep("tethered", 5.0))
+    R.render("lab_rig_ball", "Graphics", out / "page_lab_rig_ball.png", prep=rig_prep("ball", 6.0))
+    R.render("lab_rig_buridan", "Graphics", out / "page_lab_rig_buridan.png", prep=rig_prep("buridan", 12.0))
+    R.render("lab_rig_fourfield", "Graphics", out / "page_lab_rig_fourfield.png", prep=rig_prep("fourfield", 12.0))
+    R.render("lab_rig_buridan", "Graphics", out / "page_lab_rig_empty.png", prep=rig_prep("buridan", 0.0, False))
     print("wrote", out)

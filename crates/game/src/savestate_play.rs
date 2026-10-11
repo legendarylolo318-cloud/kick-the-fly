@@ -62,8 +62,8 @@ fn utc_stamp(fmt_dash: bool) -> String {
     if fmt_dash { format!("{y:04}{m:02}{d:02}-{h:02}{mi:02}{s:02}") } else { format!("{y:04}-{m:02}-{d:02} {h:02}:{mi:02}:{s:02}") }
 }
 
-fn f64_array(v: &[f32]) -> Array {
-    Array { shape: vec![v.len()], data: Data::F64(v.iter().map(|&x| f64::from(x)).collect()) }
+fn f64_array(v: &[f64]) -> Array {
+    Array { shape: vec![v.len()], data: Data::F64(v.to_vec()) }
 }
 
 fn pack_info(snap: &LatestSnapshot) -> Option<PackInfo> {
@@ -187,10 +187,10 @@ fn save_and_load(
                 return Err(format!("can't load this save: {why}"));
             }
             let file = SaveFile::read(&path).map_err(|e| e.to_string())?;
-            let groups = |name: &str| -> Vec<f32> {
+            let groups = |name: &str| -> Vec<f64> {
                 match file.arrays.get(name).map(|a| &a.data) {
-                    Some(Data::F64(v)) => v.iter().map(|&x| x as f32).collect(),
-                    Some(Data::F32(v)) => v.clone(),
+                    Some(Data::F64(v)) => v.clone(),
+                    Some(Data::F32(v)) => v.iter().map(|&x| f64::from(x)).collect(),
                     _ => vec![],
                 }
             };

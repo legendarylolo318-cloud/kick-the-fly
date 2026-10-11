@@ -42,6 +42,7 @@ pub mod patchclamp;
 pub mod pharmacology;
 pub mod psychometrics;
 pub mod race;
+pub mod rigs;
 pub mod rng;
 pub mod robustness;
 pub mod screens;

@@ -83,7 +83,7 @@ pub struct Brain {
     gain_adapt: f64,
     /// History sample count and calm baselines at the moment of death (the autopsy reads them).
     pub death_sample: usize,
-    pub death_base: Vec<f32>,
+    pub death_base: Vec<f64>,
     /// Learning on the mushroom body synapses (`Brain.memory`), when the pack has the dopamine tables and it was switched on.
     pub memory: Option<Box<crate::memory::Memory>>,
 }
@@ -92,8 +92,8 @@ pub struct Brain {
 #[derive(Debug, Clone)]
 pub struct BrainState {
     pub sim: crate::lif::SimState,
-    pub fast: Vec<f32>,
-    pub base: Vec<f32>,
+    pub fast: Vec<f64>,
+    pub base: Vec<f64>,
     pub steps: u64,
 }
 
@@ -360,6 +360,11 @@ impl Brain {
     /// `Brain.hz`.
     pub fn hz(&self, name: &str) -> f32 {
         self.groups.hz(name)
+    }
+
+    /// `Brain.hz` in double precision (the trackers are float64 in Python).
+    pub fn hz64(&self, name: &str) -> f64 {
+        self.groups.hz64(name)
     }
 
     /// One brain step (`Brain._step`): queued pokes, held currents, the step itself, then the group rate trackers.

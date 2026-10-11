@@ -311,8 +311,8 @@ fn pain_matches_python() {
         g.set_pain_level(level);
         for (name, v) in case["fast"].as_object().unwrap() {
             let i = g.col(name).unwrap();
-            g.fast[i] = v.as_f64().unwrap() as f32;
-            g.base[i] = case["base"][name].as_f64().unwrap() as f32;
+            g.fast[i] = v.as_f64().unwrap();
+            g.base[i] = case["base"][name].as_f64().unwrap();
         }
         let parts = g.pain_parts(level);
         for (j, want) in case["parts"].as_array().unwrap().iter().enumerate() {

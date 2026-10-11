@@ -125,15 +125,15 @@ pub struct Groups {
     pub n_det: usize,
     det_id: Vec<i32>,
     pop_id: Vec<i32>,
-    sizes: Vec<f32>,
+    sizes: Vec<f64>,
     col: HashMap<String, usize>,
     sense: HashMap<(String, Option<char>), Vec<u32>>,
     /// Hz per neuron, EMA ~150 ms.
-    pub fast: Vec<f32>,
+    pub fast: Vec<f64>,
     /// Calm baseline, Hz per neuron.
-    pub base: Vec<f32>,
-    k_fast: f32,
-    k_base: f32,
+    pub base: Vec<f64>,
+    k_fast: f64,
+    k_base: f64,
     pending: Vec<Pending>,
     cur: Vec<f32>,
     pub last_poke: i64,
@@ -142,7 +142,7 @@ pub struct Groups {
     pub recruit: f64,
     pub spill: f64,
     rng: Generator,
-    dt_s: f32,
+    dt_s: f64,
     counts: Vec<u32>,
     /// Overlapping readout groups (they may share neurons with a detail group): `(column, membership mask)`.
     extra: Vec<(usize, Vec<bool>)>,
@@ -167,11 +167,11 @@ impl Groups {
         };
         let mut det_id = vec![-1i32; n];
         let mut names: Vec<String> = Vec::new();
-        let mut sizes: Vec<f32> = Vec::new();
+        let mut sizes: Vec<f64> = Vec::new();
         let mut sense: HashMap<(String, Option<char>), Vec<u32>> = HashMap::new();
 
         // claim the rows of `mask` that no earlier detail group has, as a new group; returns them
-        let add_detail = |name: &str, mask: Vec<bool>, det_id: &mut Vec<i32>, names: &mut Vec<String>, sizes: &mut Vec<f32>| -> Vec<u32> {
+        let add_detail = |name: &str, mask: Vec<bool>, det_id: &mut Vec<i32>, names: &mut Vec<String>, sizes: &mut Vec<f64>| -> Vec<u32> {
             let id = names.len() as i32;
             let mut rows = Vec::new();
             for (i, &m) in mask.iter().enumerate() {
@@ -181,7 +181,7 @@ impl Groups {
                 }
             }
             names.push(name.to_string());
-            sizes.push(rows.len() as f32);
+            sizes.push(rows.len() as f64);
             rows
         };
         let mask_of = |pred: &dyn Fn(usize) -> bool| -> Vec<bool> { (0..n).map(pred).collect() };
@@ -306,12 +306,12 @@ impl Groups {
                 }
             }
             names.push((*name).to_string());
-            sizes.push(count as f32);
+            sizes.push(count as f64);
         }
         names.push("whole brain".to_string());
-        sizes.push(n as f32);
+        sizes.push(n as f64);
         let g = names.len();
-        let sizes: Vec<f32> = sizes.into_iter().map(|s| s.max(1.0)).collect();
+        let sizes: Vec<f64> = sizes.into_iter().map(|s| s.max(1.0)).collect();
         let col = names.iter().enumerate().map(|(i, s)| (s.clone(), i)).collect();
         let mut this = Self {
             n,
@@ -324,8 +324,8 @@ impl Groups {
             sense,
             fast: vec![0.0; g],
             base: vec![0.0; g],
-            k_fast: 1.0 - (-1.0f32 / 30.0).exp(),
-            k_base: 1.0 - (-1.0f32 / 2000.0).exp(),
+            k_fast: 1.0 - (-1.0f64 / 30.0).exp(),
+            k_base: 1.0 - (-1.0f64 / 2000.0).exp(),
             pending: Vec::new(),
             cur: vec![0.0; n],
             last_poke: -1_000_000_000,
@@ -333,7 +333,7 @@ impl Groups {
             recruit: PAIN_LEVELS[0].1,
             spill: 0.0,
             rng: Generator::new(seed),
-            dt_s: (dt_ms / 1000.0) as f32,
+            dt_s: dt_ms / 1000.0,
             counts: vec![0; g],
             extra: Vec::new(),
             hist: Vec::new(),
@@ -349,7 +349,7 @@ impl Groups {
     pub fn add_readout(&mut self, name: &str, rows: &[u32]) {
         let col = self.names.len();
         self.names.push(name.to_string());
-        self.sizes.push((rows.len() as f32).max(1.0));
+        self.sizes.push((rows.len() as f64).max(1.0));
         self.fast.push(0.0);
         self.base.push(0.0);
         self.counts.push(0);
@@ -487,7 +487,7 @@ impl Groups {
             self.counts[*col] = spikes.iter().filter(|&&s| mask[s as usize]).count() as u32;
         }
         for i in 0..g {
-            let inst = self.counts[i] as f32 / self.sizes[i] / self.dt_s;
+            let inst = f64::from(self.counts[i]) / self.sizes[i] / self.dt_s;
             self.fast[i] += (inst - self.fast[i]) * self.k_fast;
         }
         if step.is_multiple_of(4) {
@@ -495,7 +495,9 @@ impl Groups {
             if self.hist.len() < HIST * g {
                 self.hist.resize(HIST * g, 0.0);
             }
-            self.hist[row..row + g].copy_from_slice(&self.fast);
+            for (h, f) in self.hist[row..row + g].iter_mut().zip(&self.fast) {
+                *h = *f as f32;
+            }
             self.hist_n += 1;
         }
         if calm && step as i64 - self.last_poke > CALM_STEPS as i64 {
@@ -506,11 +508,11 @@ impl Groups {
     }
 
     /// `Brain.warmup` lets the baseline settle quickly: swap in a faster base constant, returning the old one.
-    pub fn set_base_tau_steps(&mut self, tau: f32) -> f32 {
-        std::mem::replace(&mut self.k_base, 1.0 - (-1.0f32 / tau).exp())
+    pub fn set_base_tau_steps(&mut self, tau: f64) -> f64 {
+        std::mem::replace(&mut self.k_base, 1.0 - (-1.0f64 / tau).exp())
     }
 
-    pub fn restore_base_k(&mut self, k: f32) {
+    pub fn restore_base_k(&mut self, k: f64) {
         self.k_base = k;
     }
 
@@ -521,8 +523,8 @@ impl Groups {
             let (mut num, mut den) = (0.0f64, 0.0f64);
             for n in names {
                 if let Some(i) = self.col(n) {
-                    let sz = self.sizes[i] as f64;
-                    num += (self.fast[i] as f64 - self.base[i] as f64) * sz;
+                    let sz = self.sizes[i];
+                    num += (self.fast[i] - self.base[i]) * sz;
                     den += sz;
                 }
             }
@@ -535,7 +537,7 @@ impl Groups {
         let touch = above(&touch_names, 35.0);
         let thermal = above(&["heat"], 30.0).max(above(&["cold"], 30.0));
         let chemical = (above(&["smell", "taste"], 1.0) - 8.0) / 27.0;
-        let ratio = |name: &str| self.col(name).map_or(0.0, |i| self.fast[i] as f64 / (self.base[i] as f64).max(1.0));
+        let ratio = |name: &str| self.col(name).map_or(0.0, |i| self.fast[i] / self.base[i].max(1.0));
         let alarm = (ratio("descending") - 1.06) / 0.3;
         let relay = if level >= 2 { (ratio("ascending") - 1.06) / 0.35 } else { 0.0 };
         [touch, thermal, chemical, alarm, relay].map(|v| v.clamp(0.0, 1.0) as f32)
@@ -567,11 +569,16 @@ impl Groups {
 
     /// `Brain.level`: the fast rate as a multiple of the calm baseline (the baseline is floored at 2 Hz).
     pub fn level(&self, name: &str) -> f32 {
-        self.col(name).map_or(0.0, |i| self.fast[i] / self.base[i].max(2.0))
+        self.col(name).map_or(0.0, |i| (self.fast[i] / self.base[i].max(2.0)) as f32)
     }
 
     /// `Brain.hz`: the fast rate in Hz per neuron.
     pub fn hz(&self, name: &str) -> f32 {
+        self.col(name).map_or(0.0, |i| self.fast[i] as f32)
+    }
+
+    /// `Brain.hz` as Python has it: the double-precision tracker value.
+    pub fn hz64(&self, name: &str) -> f64 {
         self.col(name).map_or(0.0, |i| self.fast[i])
     }
 }

@@ -211,6 +211,9 @@ pub struct LabTools {
     imaging: ImagingPage,
     /// Lab > Mini-papers: the results by paper.
     papers: BTreeMap<String, Value>,
+    /// Lab > Behavior rigs: the latest run per rig, and a counter that tells the page a new one arrived.
+    rigs: BTreeMap<String, Value>,
+    rig_runs: u64,
     /// Lab > Activation / Knockout screen: the finished result per kind (`activation`, `knockout`) and the last error.
     screens: BTreeMap<String, (Option<Value>, bool, String)>,
     /// A page asked for the menu to close (the screen's 'Inspect a neuron' button).
@@ -266,6 +269,8 @@ impl Default for LabTools {
             patch: PatchPage::default(),
             imaging: ImagingPage::default(),
             papers: BTreeMap::new(),
+            rigs: BTreeMap::new(),
+            rig_runs: 0,
             screens: BTreeMap::new(),
             close_menu: Arc::new(AtomicBool::new(false)),
             base_seed: 1000,
@@ -459,6 +464,14 @@ impl LabTools {
                 "Connectome diff" => self.diff = Some(v),
                 "Psych sweep" => self.psych = Some(v),
                 "Patch I-F curve" => self.patch.curve = Some(v),
+                l if l.starts_with("Rig ") => {
+                    if let Some(rig) = v["rig"].as_str() {
+                        self.rig_runs += 1;
+                        let mut v = v.clone();
+                        v["_id"] = json!(self.rig_runs);
+                        self.rigs.insert(rig.to_string(), v);
+                    }
+                }
                 "Activation screen" | "Knockout screen" => {
                     let kind = if label == "Activation screen" { "activation" } else { "knockout" };
                     self.screens.entry(kind.into()).or_default().0 = Some(v);
@@ -524,6 +537,10 @@ impl LabTools {
                 json!({format!("lab.screen_{kind}_state"): {
                     "res": res, "job": job, "error": e.map_or(String::new(), |e| e.2.clone()), "type_ops": ops,
                 }})
+            }
+            r if r == "lab_rigs" || r.starts_with("lab_rig_") => {
+                let job = self.job.as_ref().filter(|j| j.label.starts_with("Rig ")).map(BgJob::json);
+                json!({"lab.rigs_state": {"results": self.rigs, "job": job, "error": self.error}})
             }
             "lab_minipapers" => {
                 let job = self.job.as_ref().filter(|j| j.label.starts_with("Mini-paper ")).map(BgJob::json);
@@ -1394,6 +1411,29 @@ fn tick(
                                 Err(e) => tools.error = if e.is_empty() { why } else { e },
                             }
                         }
+                    }
+                }
+            }
+            "lab.rig_run" if !busy => {
+                let rig = a["rig"].as_str().unwrap_or("").to_string();
+                let params = a["params"].clone();
+                let shared = link.0.shared.lock().unwrap_or_else(PoisonError::into_inner).clone();
+                let seed = tools.base_seed.max(0) as u64;
+                let mode = match cfg.0.get_str("brain.individuality") {
+                    m @ ("off" | "subtle" | "strong") => m.to_string(),
+                    _ => "subtle".to_string(),
+                };
+                match shared {
+                    None => tools.error = "The brain is still loading".into(),
+                    Some(sh) => {
+                        tools.error.clear();
+                        tools.job = Some(BgJob::start(&format!("Rig {rig}"), move |upd, cancel| {
+                            upd(0.1, "building the fly's brain");
+                            let c = fly_sim::rigs::Ctx { weights: &sh.weights, labels: &sh.labels, cancel: Some(cancel) };
+                            let mut r = fly_sim::rigs::scene_run(&c, &rig, seed, &mode, &params)?;
+                            r["params_shown"] = params;
+                            Ok(r)
+                        }));
                     }
                 }
             }

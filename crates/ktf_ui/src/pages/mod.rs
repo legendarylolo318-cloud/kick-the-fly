@@ -18,6 +18,7 @@ pub mod loadout;
 pub mod minipapers;
 pub mod neurodex;
 pub mod psych;
+pub mod rigs;
 pub mod screens;
 pub mod shapes_ask;
 pub mod share;
@@ -65,6 +66,11 @@ pub fn install_with(menu: &mut Menu, dex: neurodex::SharedDex) {
     menu.register_page("lab_minipapers", Box::<minipapers::LabMinipapers>::default());
     menu.register_page("lab_activation", Box::new(screens::LabScreen::activation()));
     menu.register_page("lab_knockout", Box::new(screens::LabScreen::knockout()));
+    let (hub, scenes) = rigs::pages();
+    menu.register_page("lab_rigs", Box::new(hub));
+    for (name, page) in scenes {
+        menu.register_page(name, Box::new(page));
+    }
     menu.register_page("lab_patch", Box::<toolkit::LabPatch>::default());
     menu.register_page("lab_imaging", Box::<toolkit::LabImaging>::default());
     menu.register_page("whatsnew", Box::new(whatsnew::WhatsNew));

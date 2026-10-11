@@ -210,7 +210,7 @@ pub fn pathway_response(br: &mut Brain, drive: &[(Vec<u32>, f32)], readouts: &[&
 }
 
 /// `assays.emd_stage` at amp 0.5: the optomotor transduction (a game rule) in front of T4/T5.
-fn emd_stage(g: &HashMap<&'static str, Vec<u32>>, yaw: f64) -> Vec<(Vec<u32>, f32)> {
+pub fn emd_stage(g: &HashMap<&'static str, Vec<u32>>, yaw: f64) -> Vec<(Vec<u32>, f32)> {
     let resp = (yaw).tanh();
     let (prog_r, regr_l, prog_l, regr_r) = (resp.max(0.0), resp.max(0.0), (-resp).max(0.0), (-resp).max(0.0));
     let amp = |e: f64| (f64::from(STIM_AMP) * e) as f32;

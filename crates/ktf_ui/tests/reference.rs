@@ -1249,3 +1249,56 @@ fn lab_screen_pages() {
         compare(name, &cv.to_rgb_over(BG), 0.02);
     }
 }
+
+#[test]
+fn lab_rig_pages() {
+    struct H(serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            if key == "lab.rigs_state" { self.0.clone() } else { serde_json::Value::Null }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    use ktf_ui::pages::rigs::RigScene;
+    let root = env!("CARGO_MANIFEST_DIR");
+    let text = std::fs::read_to_string(format!("{root}/../../tests/ui_reference/lab_rigs_fixture.json")).unwrap().replace("NaN", "null");
+    let fx: serde_json::Value = serde_json::from_str(&text).unwrap();
+    let mut results = serde_json::Map::new();
+    for (k, v) in fx.as_object().unwrap() {
+        let mut v = v.clone();
+        v["_id"] = serde_json::json!(1);
+        results.insert(k.clone(), v);
+    }
+    let params = |rig: &str| -> serde_json::Value {
+        let mut p = fly_sim::rigs::scene_defaults(rig);
+        for (k, v) in fx[rig]["params"].as_object().unwrap() {
+            p[k] = v.clone();
+        }
+        p
+    };
+    let cases: [(&str, &str, f64, bool); 6] = [
+        ("page_lab_rigs_hub.png", "lab_rigs", 0.0, true),
+        ("page_lab_rig_tethered.png", "lab_rig_tethered", 5.0, true),
+        ("page_lab_rig_ball.png", "lab_rig_ball", 6.0, true),
+        ("page_lab_rig_buridan.png", "lab_rig_buridan", 12.0, true),
+        ("page_lab_rig_fourfield.png", "lab_rig_fourfield", 12.0, true),
+        ("page_lab_rig_empty.png", "lab_rig_buridan", 0.0, false),
+    ];
+    for (name, page, t, with_res) in cases {
+        let st = serde_json::json!({"results": if with_res { serde_json::Value::Object(results.clone()) } else { serde_json::json!({}) },
+                                    "job": null, "error": ""});
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        if let Some(rig) = page.strip_prefix("lab_rig_") {
+            let p = if with_res { params(rig) } else { fly_sim::rigs::scene_defaults(rig) };
+            m.page_mut::<RigScene>(page).unwrap().set_view(p, t, false, 1);
+        }
+        m.show(page);
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(st));
+        compare(name, &cv.to_rgb_over(BG), 0.02);
+    }
+}

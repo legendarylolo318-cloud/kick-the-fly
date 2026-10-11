@@ -28,7 +28,13 @@ fn autopsy_matches_python() {
     run(&mut b, 800);
     assert_eq!(b.death_sample as u64, g["ds"].as_u64().unwrap());
     assert_eq!(b.groups_ref().hist_n as u64, g["hist_n"].as_u64().unwrap());
-    let a = autopsy::compute(b.groups_ref(), b.death_sample, &b.death_base, b.groups_ref().pain_level).unwrap();
+    let a = autopsy::compute(
+        b.groups_ref(),
+        b.death_sample,
+        &b.death_base.iter().map(|&x| x as f32).collect::<Vec<f32>>(),
+        b.groups_ref().pain_level,
+    )
+    .unwrap();
     assert_eq!(a.n as u64, g["n"].as_u64().unwrap());
     assert_eq!(a.death_at as u64, g["death_at"].as_u64().unwrap());
     let close = |x: f32, y: f64, what: &str| assert!((f64::from(x) - y).abs() <= 1e-3 * y.abs() + 1e-4, "{what}: {x} vs {y}");
