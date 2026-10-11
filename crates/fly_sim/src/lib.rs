@@ -32,6 +32,7 @@ pub mod lesions;
 pub mod lif;
 pub mod memory;
 pub mod minipapers;
+pub mod neurosearch;
 pub mod mirror;
 pub mod netsci;
 pub mod neurodex;
