@@ -3,7 +3,6 @@
 //! together) and the brain's own speed (so what you watch is what it computes).
 
 use bevy::prelude::*;
-use bevy::render::view::screenshot::{Screenshot, save_to_disk};
 use bevy::window::{PrimaryWindow, WindowMode};
 
 use crate::actions::Actions;
@@ -46,10 +45,10 @@ fn keys(
     mut switch: MessageWriter<SwitchArena>,
     mut reset: MessageWriter<ResetFly>,
     mut window: Single<&mut Window, With<PrimaryWindow>>,
-    mut commands: Commands,
     mut notes: ResMut<Notes>,
     mut popups: MessageWriter<Popup>,
     time: Res<Time<Real>>,
+    mut photo: ResMut<crate::photo_play::Photo>,
 ) {
     let now = time.elapsed_secs();
     if act.just("time_pause") {
@@ -119,9 +118,7 @@ fn keys(
         cfg.set_and_save("graphics.fullscreen", serde_json::json!(!matches!(window.mode, WindowMode::Windowed)));
     }
     if act.just("screenshot") {
-        let path =
-            format!("kick-the-fly-{}.png", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs()));
-        commands.spawn(Screenshot::primary_window()).observe(save_to_disk(path));
+        photo.snap = true;
     }
     let _ = &mut popups;
 }

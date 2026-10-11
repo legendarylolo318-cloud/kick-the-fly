@@ -124,6 +124,8 @@ pub struct HudState {
     pub memory: Vec<(String, f32, f32)>,
     /// Pet mode's card (`_draw_pet_widget`), under the memory card.
     pub pet: Option<PetView>,
+    /// Photo mode's viewfinder (`_draw_photo_viewfinder`), while it is on and the HUD is not hidden.
+    pub photo: Option<PhotoView>,
     /// The hotbar page's tools, in slot order.
     pub tools: Vec<ToolSlot>,
     /// The tool in hand: its name, and the line above the hotbar ("1  HAND: drag the fly and throw it").
@@ -161,6 +163,17 @@ pub struct HudState {
     pub mouse: (i32, i32),
     /// The challenge panel (`Challenge.draw`), as drawing operations, and where its buttons sit afterwards.
     pub challenge: Vec<Op>,
+}
+
+/// What the photo-mode viewfinder shows.
+#[derive(Debug, Clone, Default)]
+pub struct PhotoView {
+    pub fov: f32,
+    pub focus: f32,
+    pub dof: f32,
+    pub scale: i32,
+    /// The saved/changed toast and its age in seconds.
+    pub toast: Option<(String, f32)>,
 }
 
 /// What the pet widget shows.
@@ -577,6 +590,9 @@ impl Hud<'_> {
         }
         if let Some(t) = &st.training {
             hits.train = self.training(t);
+        }
+        if let Some(p) = &st.photo {
+            self.viewfinder(p, st.tags_on);
         }
         if !st.challenge.is_empty() {
             hits.challenge = self.ops(&st.challenge, st.mouse);
@@ -1103,6 +1119,44 @@ impl Hud<'_> {
         text(self.cv, "real synapses · T: train", (x + 12, y + h - 16), DIM, &f.small, "topleft");
         if let Some(p) = &st.pet {
             self.pet_card(p, y + h + 8);
+        }
+    }
+
+    /// `Game3D._draw_photo_viewfinder`: four corners, a focus dot, the info chip, the FREE CAMERA badge and the toast.
+    fn viewfinder(&mut self, p: &PhotoView, tags_on: bool) {
+        let f = self.f;
+        let (w, h) = (self.lay.play_w, self.lay.hud_h);
+        let (m, c) = (32, 28);
+        let col = [220, 225, 235];
+        for (sx, sy, dx, dy) in [(m, m, 1, 1), (w - m, m, -1, 1), (m, h - m, 1, -1), (w - m, h - m, -1, -1)] {
+            self.cv.line((sx, sy), (sx + dx * c, sy), 2, col, 180);
+            self.cv.line((sx, sy), (sx, sy + dy * c), 2, col, 180);
+        }
+        self.cv.aa_ring((w as f32 / 2.0, h as f32 / 2.0), 3.0, [255, 255, 255]);
+        let msg = format!(
+            "PHOTO MODE  |  FOV: {:.0}° [ ]  |  Focus: {:.1}m (K/L, F auto)  |  DOF: {:.2} (, .)  |  Scale: {}x  |  F12/Click: Snap",
+            p.fov, p.focus, p.dof, p.scale
+        );
+        let tw = f.small.size(&msg);
+        let bg = Rect::new((w - (tw + 24)) / 2, h - m - 26, tw + 24, 24);
+        card(self.cv, bg, ([12, 15, 22], 200), 6);
+        self.cv.stroke_rect(bg, [70, 80, 100], 6);
+        text(self.cv, &msg, bg.center(), [240, 243, 248], &f.small, "center");
+        let title_w = f.small.size("FREE CAMERA");
+        card(self.cv, Rect::new(m + 8, m + 8, 140, 24), ([15, 18, 26], 190), 4);
+        text(self.cv, "FREE CAMERA", (m + 14, m + 12), [240, 240, 240], &f.small, "topleft");
+        if tags_on {
+            let chip_x = m + 14 + title_w + 8;
+            source_chip(self.cv, (chip_x, m + 12), "rule", &f.small, false, 255);
+        }
+        if let Some((msg, age)) = &p.toast
+            && *age < 3.0
+        {
+            let a = (255.0 * ((3.0 - age) * 2.0).min(1.0)) as u32;
+            let tw = f.bold.size(msg);
+            let r = Rect::new(w / 2 - tw / 2 - 10, m + 20 - f.bold.linesize / 2 - 4, tw + 20, f.bold.linesize + 8);
+            self.cv.fill_rect_a(r, [10, 14, 20], (200.0 * a as f32 / 255.0) as u32, 4);
+            text(self.cv, msg, r.center(), [120, 255, 160], &f.bold, "center");
         }
     }
 

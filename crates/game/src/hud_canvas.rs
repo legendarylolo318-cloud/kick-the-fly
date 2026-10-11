@@ -62,7 +62,7 @@ struct HudCanvas {
 }
 
 #[derive(Component)]
-struct HudNode;
+pub struct HudNode;
 
 #[derive(Default)]
 struct PopupLive {
@@ -270,6 +270,7 @@ struct HudIn<'w, 's> {
     flies: Query<'w, 's, (&'static Fly, &'static crate::fly::Slot)>,
     which: Res<'w, crate::flies_play::Flies>,
     pet: Res<'w, crate::pet_play::PetRes>,
+    photo: Res<'w, crate::photo_play::Photo>,
 }
 
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
@@ -316,6 +317,7 @@ fn draw(
         flies,
         which,
         pet,
+        photo,
     } = i;
     let l = lay.0;
     let crisp = (l.scale.fract() == 0.0) && l.scale >= 1.0;
@@ -507,6 +509,13 @@ fn draw(
             age_days: ((std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0.0, |d| d.as_secs_f64()) - p.born_time) / 86400.0)
                 as f32,
             welcome: (rnow < 12.0 && !p.welcome_message.is_empty()).then(|| p.welcome_message.clone()),
+        }),
+        photo: photo.active.then(|| ktf_ui::hud::PhotoView {
+            fov: photo.fov_deg,
+            focus: photo.focus,
+            dof: photo.dof,
+            scale: cfg.0.get_i64("graphics.photo_scale").max(1) as i32,
+            toast: photo.toast.as_ref().map(|(t, at)| (t.clone(), rnow as f32 - at)),
         }),
         tools: slots,
         tool_name: sel.0.into(),

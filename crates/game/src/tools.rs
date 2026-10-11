@@ -48,6 +48,7 @@ pub struct Pointer<'w> {
     pub mouse: Res<'w, ButtonInput<MouseButton>>,
     pub look: Res<'w, MouseLook>,
     pub aim: Res<'w, Aim>,
+    pub photo: Res<'w, crate::photo_play::Photo>,
 }
 
 /// Mesh and material stores for spawning things.
@@ -354,7 +355,7 @@ fn use_tools(
     let now = virt.elapsed_secs();
     let name = st.name();
     let (mouse, look, aim) = (&*ptr.mouse, &*ptr.look, &*ptr.aim);
-    let active = look.captured;
+    let active = look.captured && !ptr.photo.active;
     let (eye, dir) = (aim.eye, aim.dir);
     let tip = tool_tip(aim);
     let bounds = {

@@ -160,6 +160,15 @@ pub fn sfx_bank() -> HashMap<&'static str, Vec<f32>> {
     let a: Vec<f32> = low(&n, 20).iter().zip(env(&tt, 14.0)).map(|(a, e)| a * 3.0 * e).collect();
     let b: Vec<f32> = sine(&tt, 70.0).iter().zip(env(&tt, 10.0)).map(|(a, e)| a * e).collect();
     fx.insert("hurt", snd(zip(&a, &b, |a, b| a + b), 0.7));
+    // the camera shutter: two clicks 20 ms apart (photo mode, F12)
+    let (t1, t2) = (t(0.04), t(0.06));
+    let (n1, n2) = (noise(&mut rng, 0.04), noise(&mut rng, 0.06));
+    let c1: Vec<f32> = (0..t1.len()).map(|i| (TAU * 1800.0 * t1[i]).sin() * (-t1[i] * 120.0).exp() + n1[i] * (-t1[i] * 150.0).exp() * 0.4).collect();
+    let c2: Vec<f32> = (0..t2.len()).map(|i| (TAU * 1100.0 * t2[i]).sin() * (-t2[i] * 80.0).exp() + n2[i] * (-t2[i] * 100.0).exp() * 0.5).collect();
+    let mut sh = c1;
+    sh.extend(std::iter::repeat_n(0.0, (RATE as f32 * 0.02) as usize));
+    sh.extend(c2);
+    fx.insert("shutter", snd(sh, 0.6));
     // courtship pulse song: 220 Hz in 12 ms pulses 35 ms apart
     let tt = t(0.42);
     let mut song = vec![0.0f32; tt.len()];
@@ -557,6 +566,7 @@ mod tests {
             "hiss",
             "whoosh",
             "click",
+            "shutter",
             "pew",
             "hum",
         ] {

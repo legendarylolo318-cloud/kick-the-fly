@@ -110,8 +110,11 @@ fn walk(
     settings: Res<Settings>,
     arena: Res<Arena>,
     boxes: Res<WorldColliders>,
+    photo: Res<crate::photo_play::Photo>,
     mut player: Single<(&mut Player, &mut Transform, &mut LinearVelocity)>,
 ) {
+    // photo mode: the free camera takes the mouse and the keys; the body stands still
+    let look = &MouseLook { captured: look.captured && !photo.active, ..*look };
     let dt = time.delta_secs().min(0.05);
     let (p, tf, lv) = &mut *player;
     let p = &mut **p;
@@ -147,7 +150,7 @@ fn walk(
     p.eye_h += (eye_target - p.eye_h) * (dt * 10.0).min(1.0);
 }
 
-fn update_camera(
+pub fn update_camera(
     player: Single<(&Player, &Transform), Without<PlayerCamera>>,
     mut cam: Single<&mut Transform, With<PlayerCamera>>,
     mut aim: ResMut<Aim>,

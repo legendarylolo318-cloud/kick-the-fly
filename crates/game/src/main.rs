@@ -35,6 +35,7 @@ struct Args {
     bugreport: bool,
     out: Option<PathBuf>,
     crash_screen: Option<Vec<PathBuf>>,
+    photo: Option<(f32, f32)>,
 }
 
 const USAGE: &str = "usage: kick_the_fly [--pack FILE | --synthetic N] [--seed S] [--smoke SECONDS]\n\
@@ -55,6 +56,7 @@ const USAGE: &str = "usage: kick_the_fly [--pack FILE | --synthetic N] [--seed S
   --challenge KEY  start a challenge at launch (tmaze sneak sweet reverse_surgery predict), for screenshots\n\
   --train-screen   open the training screen (T) at start, for screenshots\n\
   --headless --validate|--protocol F|--rerun-bundle Z|--rig N|--rig-assay N|--minipaper ID|--activation-screen|--knockout-screen  no window; see headless.rs\n\
+  --photo DOF,FOCUS  with --cam: start in photo mode (blur 0..1, focus in metres), for screenshots\n\
   --bugreport [--out DIR]  print what a bug report would contain (nothing is sent) and write DIR/bugreport.md";
 
 fn parse(args: impl Iterator<Item = String>) -> Result<Args, String> {
@@ -70,6 +72,7 @@ fn parse(args: impl Iterator<Item = String>) -> Result<Args, String> {
     let mut surgery_screen = false;
     let mut inspect = None;
     let mut challenge = None;
+    let mut photo = None;
     while let Some(a) = args.next() {
         if a == "--crash-screen" {
             crash_screen = Some(args.by_ref().map(PathBuf::from).collect());
@@ -95,6 +98,10 @@ fn parse(args: impl Iterator<Item = String>) -> Result<Args, String> {
             "--inspect" => inspect = Some(value("a neuron row")?.parse().map_err(|_| "bad neuron row")?),
             "--challenge" => challenge = Some(value("a challenge: tmaze sneak sweet reverse_surgery predict")?),
             "--bugreport" => bugreport = true,
+            "--photo" => {
+                let v: Vec<f32> = value("DOF,FOCUS (0..1, metres), with --cam")?.split(',').filter_map(|x| x.trim().parse().ok()).collect();
+                photo = Some((v.first().copied().unwrap_or(0.0), v.get(1).copied().unwrap_or(1.8)));
+            }
             "--2d" => {
                 // the original top-down pygame game is not part of this build (PORTING.md, "The 2D game")
                 eprintln!("note: --2d is not part of this build; starting the 3D game (it has every feature the 2D game had)");
@@ -161,6 +168,7 @@ fn parse(args: impl Iterator<Item = String>) -> Result<Args, String> {
         bugreport,
         out,
         crash_screen,
+        photo,
     })
 }
 
@@ -308,6 +316,9 @@ fn main() -> ExitCode {
     }
     if let Some((eye, target)) = args.cam {
         app.insert_resource(kick_the_fly::player::CameraOverride(eye, target));
+        if let Some((dof, focus)) = args.photo {
+            app.insert_resource(kick_the_fly::photo_play::Photo::at(eye, target, 70.0, dof, focus));
+        }
     }
     if let Some((path, frames)) = args.shot {
         app.add_plugins(kick_the_fly::capture::CapturePlugin(kick_the_fly::capture::CaptureRequest {

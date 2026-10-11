@@ -22,9 +22,14 @@ impl Actions {
     pub fn held(&self, action: &str) -> bool {
         self.held.contains(action)
     }
+
+    /// Drop an action fired this frame (photo mode takes the keys it uses).
+    pub fn swallow(&mut self, action: &str) {
+        self.just.remove(action);
+    }
 }
 
-fn collect(keys: Res<ButtonInput<KeyCode>>, cfg: Res<UserConfig>, mut act: ResMut<Actions>) {
+pub fn collect(keys: Res<ButtonInput<KeyCode>>, cfg: Res<UserConfig>, mut act: ResMut<Actions>) {
     act.just.clear();
     act.held.clear();
     for k in keys.get_just_pressed() {
