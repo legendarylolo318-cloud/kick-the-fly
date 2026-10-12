@@ -77,7 +77,10 @@ jobs:
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Tests (unit, integration, Python-file compatibility)
         run: cargo test --workspace --release --no-fail-fast
-      - name: Golden tests (simulator, pain, Neurodex against the Python reference)
+      # The step above already runs every golden test. This one adds the '#[ignore]'d whole validation suite (seeds 1000-1009), which
+      # takes more than an hour on a hosted runner: only when the workflow is started by hand (Actions > ci > Run workflow).
+      - name: Whole validation suite (manual runs only)
+        if: github.event_name == 'workflow_dispatch'
         run: cargo test -p fly_sim -p ktf_data --release --no-fail-fast -- --include-ignored
 
   appimage:
