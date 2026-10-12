@@ -289,6 +289,7 @@ fn draw(
     mut hits_out: ResMut<HudHitsRes>,
     mut stamps: Local<std::collections::VecDeque<f64>>,
     science: Res<crate::science_play::Science>,
+    mut last: Local<Option<(HudKey, HudState)>>,
     mut prof: ResMut<crate::profiler::ProfilerStats>,
 ) {
     let t_state = std::time::Instant::now();
@@ -612,15 +613,30 @@ fn draw(
     };
     prof.record("hud state", t_state);
     let t_draw = std::time::Instant::now();
-    let fonts = HudFonts::new(cfg.0.get_bool("access.larger_text"));
+    // Nothing on the HUD changed since the last frame (a menu is up, time is paused, or the game runs faster than the brain reports):
+    // the picture on screen is still right, so it is neither drawn nor sent to the GPU again. The only thing the drawing reads besides
+    // the state is the half-second blink of the panel's 'live' dot.
+    let blink = (rnow * 2.0) as i64 % 2 != 0;
+    let larger = cfg.0.get_bool("access.larger_text");
+    let key = (blink, larger, hc.crisp, hc.canvas.w, hc.canvas.h, cfg.0.get_str("access.language").to_string(), hc.image.id());
+    if last.as_ref().is_some_and(|(k, s)| *k == key && *s == state) {
+        prof.record("hud draw", t_draw);
+        prof.record("hud copy", std::time::Instant::now());
+        return;
+    }
+    let fonts = HudFonts::new(larger);
     let HudCanvas { canvas, image, .. } = &mut *hc;
     canvas.clear();
     hits_out.0 = Hud { cv: canvas, lay: l, f: &fonts }.draw(&state, rnow);
     prof.record("hud draw", t_draw);
     let t_copy = std::time::Instant::now();
     if let Some(mut img) = images.get_mut(&*image) {
-        img.data = Some(canvas.px.clone());
+        // hand the finished picture over and take the image's old buffer back for the next frame (no 8 MB copy)
+        let old = img.data.replace(std::mem::take(&mut canvas.px));
+        canvas.px =
+            old.filter(|o| o.len() == (canvas.w * canvas.h * 4) as usize).unwrap_or_else(|| vec![0; (canvas.w * canvas.h * 4) as usize]);
     }
+    *last = Some((key, state));
     prof.record("hud copy", t_copy);
 }
 
@@ -678,6 +694,9 @@ struct ClickCtx<'w> {
     reset: MessageWriter<'w, ResetFly>,
     sfx: MessageWriter<'w, crate::feedback::Sfx>,
 }
+
+/// What the HUD's picture depends on besides its state: the blink phase, text size, pixel mode, size, language, and which image it is.
+type HudKey = (bool, bool, bool, i32, i32, String, AssetId<Image>);
 
 /// Clicks on the HUD itself (the Neuron of the Day card), with the mouse free.
 #[allow(clippy::too_many_arguments)]

@@ -41,7 +41,7 @@ impl HudFonts {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct ToolSlot {
     pub name: String,
     pub label: String,
@@ -49,7 +49,7 @@ pub struct ToolSlot {
     pub key: String,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct Popup {
     pub x: f32,
     pub y: f32,
@@ -61,7 +61,7 @@ pub struct Popup {
     pub source: Option<String>,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct MotorRow {
     pub label: String,
     /// Fast rate as a multiple of the calm baseline.
@@ -69,14 +69,14 @@ pub struct MotorRow {
     pub thresh: Option<f32>,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct LogLine {
     pub age: f32,
     pub text: String,
     pub source: Option<String>,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct PanelData {
     pub dead: bool,
     pub calm_fx: bool,
@@ -92,7 +92,7 @@ pub struct PanelData {
     pub step_ms: f32,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct HudState {
     pub fly_state: String,
     pub hits: u32,
@@ -172,13 +172,13 @@ pub struct HudState {
 }
 
 /// What `LiveInputs.draw` shows: the pills, and while streaming the vote tally.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct LiveView {
     pub pills: Vec<String>,
     pub tally: Option<TallyView>,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct TallyView {
     pub title: String,
     /// Seconds left of the open round or the cooldown.
@@ -190,7 +190,7 @@ pub struct TallyView {
 }
 
 /// What the photo-mode viewfinder shows.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct PhotoView {
     pub fov: f32,
     pub focus: f32,
@@ -201,7 +201,7 @@ pub struct PhotoView {
 }
 
 /// What the pet widget shows.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct PetView {
     pub label: String,
     pub hunger: f32,
@@ -222,7 +222,7 @@ pub enum FontSel {
 }
 
 /// One drawing step of a challenge panel: the pygame calls of `Challenge.draw`, recorded by the game and replayed here.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Op {
     /// A veil over the whole HUD (`(4, 5, 8, alpha)`).
     Veil(u32),
@@ -304,7 +304,7 @@ pub enum Op {
 }
 
 /// One smell of the training screen's list.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct TrainRow {
     pub name: String,
     pub fear: f32,
@@ -314,7 +314,7 @@ pub struct TrainRow {
 }
 
 /// A conditioning run in progress.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct TrainProgress {
     pub kind: String,
     pub scent: String,
@@ -325,7 +325,7 @@ pub struct TrainProgress {
 }
 
 /// The training screen (`Game._draw_training`).
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct TrainingScreen {
     /// False: the pack has no dopamine tables ("Training needs the updated brain pack").
     pub available: bool,
@@ -345,7 +345,7 @@ pub struct TrainingScreen {
 }
 
 /// The tutorial's card (`ui/tutorial.py:draw`).
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct TutorialView {
     /// "Step 2 of 5" (and "  ·  replay")
     pub step_line: String,
@@ -360,7 +360,7 @@ pub struct TutorialView {
 }
 
 /// What the launch card shows (`Extras.draw_notd`).
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct NotdView {
     pub label: String,
     pub text: String,
@@ -373,7 +373,7 @@ pub struct NotdView {
 }
 
 /// Where the clickable parts of the HUD ended up this frame (HUD units), for the click handler.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct HudHits {
     pub notd_try: Option<Rect>,
     pub notd_off: Option<Rect>,

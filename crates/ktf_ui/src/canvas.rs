@@ -158,9 +158,40 @@ impl Canvas {
                 r
             };
             let ins = Self::inset(r, d);
-            for x in rc.x + ins..rc.right() - ins {
-                self.blend(x, rc.y + dy, c, alpha);
+            self.blend_row(rc.y + dy, rc.x + ins, rc.right() - ins, c, alpha);
+        }
+    }
+
+    /// [`Canvas::blend`] on the pixels `x0..x1` of row `y`, with the clip test and the alpha lookup done once for the row. The big
+    /// fills of the HUD (the panel, the cards, the menu's veil) are most of a frame's drawing; the result is the same, pixel for pixel.
+    fn blend_row(&mut self, y: i32, x0: i32, x1: i32, c: Color, alpha: u32) {
+        let b = self.bounds();
+        let (x0, x1) = (x0.max(b.x), x1.min(b.right()));
+        if alpha == 0 || y < b.y || y >= b.bottom() || x0 >= x1 {
+            return;
+        }
+        let alpha = if self.linear_light && alpha < 255 { light_lut()[alpha as usize] as u32 } else { alpha };
+        let i = ((y * self.w + x0) * 4) as usize;
+        let row = &mut self.px[i..i + ((x1 - x0) * 4) as usize];
+        if alpha >= 255 {
+            for d in row.as_chunks_mut::<4>().0 {
+                d.copy_from_slice(&[c[0], c[1], c[2], 255]);
             }
+            return;
+        }
+        for d in row.as_chunks_mut::<4>().0 {
+            let da = d[3] as u32;
+            if da == 0 {
+                // over nothing: the colour itself (what the general sum gives, without the division)
+                d.copy_from_slice(&[c[0], c[1], c[2], alpha as u8]);
+                continue;
+            }
+            let out_a = alpha + da * (255 - alpha) / 255;
+            for k in 0..3 {
+                let num = c[k] as u32 * alpha * 255 + d[k] as u32 * da * (255 - alpha);
+                d[k] = (num / (out_a * 255)).min(255) as u8;
+            }
+            d[3] = out_a as u8;
         }
     }
 
@@ -402,4 +433,38 @@ fn point_in_poly(p: (f32, f32), pts: &[(f32, f32)]) -> bool {
         j = i;
     }
     inside
+}
+
+#[cfg(test)]
+mod row_tests {
+    use super::*;
+
+    /// The row fill must be the per-pixel blend, bit for bit: over nothing, over opaque, over half-transparent, clipped, both alpha modes.
+    #[test]
+    fn a_row_fill_equals_pixel_by_pixel_blending() {
+        for linear in [false, true] {
+            for alpha in [0u32, 1, 37, 128, 200, 254, 255] {
+                let mut a = Canvas { linear_light: linear, ..Canvas::new(40, 6) };
+                // a varied background: empty, opaque and translucent stripes
+                for x in 0..40 {
+                    for y in 0..6 {
+                        match x % 3 {
+                            0 => {}
+                            1 => a.blend(x, y, [(x * 6) as u8, 90, (y * 40) as u8], 255),
+                            _ => a.blend(x, y, [10, (x * 5) as u8, 200], 60 + (y as u32) * 30),
+                        }
+                    }
+                }
+                a.clip = Some(Rect::new(3, 1, 30, 4));
+                let mut b = Canvas { linear_light: linear, clip: a.clip, w: a.w, h: a.h, px: a.px.clone() };
+                for y in 0..6 {
+                    a.blend_row(y, -5, 50, [220, 40, 130], alpha);
+                    for x in -5..50 {
+                        b.blend(x, y, [220, 40, 130], alpha);
+                    }
+                }
+                assert!(a.px == b.px, "linear {linear} alpha {alpha}");
+            }
+        }
+    }
 }
