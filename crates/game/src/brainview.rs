@@ -264,7 +264,9 @@ fn update_activity(
     mut materials: ResMut<Assets<BrainMaterial>>,
     time: Res<Time>,
     cfg: Res<crate::menu_ui::UserConfig>,
+    mut prof: ResMut<crate::profiler::ProfilerStats>,
 ) {
+    let t0 = std::time::Instant::now();
     let (Some(cloud), Some(s)) = (cloud, snap.0.as_deref()) else { return };
     if s.rates.len() != view.activity.len() {
         return;
@@ -323,6 +325,7 @@ fn update_activity(
             }
         }
     }
+    prof.record("brain view", t0);
 }
 
 /// The big view's mouse, as in Python (`kick3d.py` MOUSEWHEEL, `kick_the_fly.py` `big_drag`): with the mouse free, the wheel zooms, a drag

@@ -77,4 +77,46 @@ timelapse_target; audio.buzz, sfx, sonify, sonify_vol, sonify_song; stream.allow
 autopilot_orbit, song_buzz, lunge, day_night, dtype, backend, process; controls.gamepad, pad_look_speed, pad_deadzone, pad_invert_y.
 Regenerate the list with the script in `REVIEW_PROMPT.md` (section SETTINGS AUDIT) after your fixes.
 
+## Review of 2026-10-11 (laptop: i7-13620H, Intel UHD + RTX 4060 Laptop, Wayland): what was found and done for 1-8
+
+1. **Big view zoom: fixed** (6f74fb2). The wheel never reached `BrainView.zoom`. The view now has Python's camera: wheel 1.15 / 0.87 clipped to
+   0.2-5x, drag turns *and tilts* (0.4 degrees a HUD pixel), Shift+drag or middle-drag pans, 1 / 2 / 3 / 0 = front / side / top / reset. The
+   inspector's picking and the skeleton overlay use the same `BrainView::turn` as the shader. The wheel cycles tools only while the mouse is
+   captured (`tools.rs:select` returns early otherwise), so the two never fight. Changed on purpose: the cloud no longer turns by itself
+   (Python's turns only with Autopilot + 'brain orbit', 12 degrees a second), and R no longer resets the view (R is respawn; 0 resets).
+2. **Focus follows the nearest fly: it does** (measured with `KTF_DEBUG=1 KTF_FLIES=2`: game and sim focus went 2 -> 1 as fly 1 came nearest;
+   the status card shows `flies 3/16 · #2`). No early return is stuck and `Flies.focus` and the sim thread agree. What was really wrong and
+   probably what it looked like: the zapper, torch, cans, cVA, decoys, treats and predators poked the *focused* brain whichever fly they touched,
+   so the panel lit up for the wrong fly. **Fixed** (7768e4d): they poke the touched fly's own brain (`Fly.slot`, `Command::PokeFly`).
+   If the panel still seems not to follow, please write down which readout (health bar, state word, `#n`, the brain picture) and what you did.
+3. **Held tool: fixed** (db54b74, e219da9). `Game3D.draw_viewmodel` was never ported; `viewmodel.rs` ports it shape for shape with its animations.
+4. **Fruit fly: fixed** (7c285c0). `_draw_fly` ported shape for shape (tan body, banded abdomen with a dark tip, scutellum, big red eyes with
+   glints, antennae, mouthparts, bristles, clear ellipsoid wings, two-tone legs with knee and foot beads), colours through a port of `k2.shade`.
+5. **FPS counter, FPS cap, VSync: fixed** (6b2e502).
+6. **UI scale: works exactly as in Python, and that is why it looks dead.** `compute_layout` is the same code in both. In 'crisp' menu size the
+   scale snaps to a whole number and is then limited to window height / 760: at 1080p every value from 100 % to 145 % gives the same picture,
+   at 1600p every value from 75 % to 145 %. Below 100 % at 1080p (and anywhere in 'large' menu size) it shrinks smoothly. Not changed (parity).
+   The menu pages use the same scale as the HUD; `access.larger_text` and `graphics.menu_size` are read and live.
+7. **GPU**: the adapter is right on this laptop (`AdapterInfo { name: "NVIDIA GeForce RTX 4060 Laptop GPU", backend: Vulkan }`; Bevy asks for
+   `HighPerformance` by default). The GPU is nearly idle (main 3D pass 0.26 ms): the frame is CPU-bound, see the performance notes in
+   `continue.md`. Before this review VSync was always on whatever the setting said. Still needed from you: the symptom (low fps? stutter?
+   glitches? which machine?).
+8. **Sugar: fixed** (7768e4d). The cube was a physics ball that rolled on for seconds, and the fly only walks to a treat that has landed; it is
+   now pinned where it first touches the floor (`_sugar3d`). The `sweet` taste poke (recruit 0.6) was missing and is back.
+
+## Found during the review (not reported by hand)
+
+9. **Profiler overlay (F3)**: 'render 0.0 fps frame 0.00 ms' (the frame-time diagnostics plugin was never added) and the overlay sat *under* the
+   HUD cards. Fixed; it also lists CPU sections now (HUD state / draw / copy, brain view).
+10. **Settings with no effect** (found by the audit, fixed in 499d9c7): `audio.sfx`, `audio.buzz`, `audio.sonify`, `audio.sonify_vol`,
+    `audio.sonify_song`, `stream.allow_sonify`, `brain.song_buzz`, `graphics.panel_mode`, `brain.day_night`, `brain.autopilot_orbit`. Still without
+    effect, with the reason: see the table 'Settings audit' in PORTING.md.
+11. **Twitch reader could freeze the game for up to 10 s** when Streamer mode was switched off (or the game closed) during a DNS lookup or a
+    connection attempt: `stop()` joined the thread. Fixed (4a2b136).
+12. **CI could not have run**: `ci.yml` only triggered on `main` and `bevy-port` (the branch is `rust-3.1.2`), and its test job would link about
+    60 fat-LTO test binaries on a 4-core runner inside 90 minutes. Fixed (c55727b); still never run on GitHub.
+13. Missing from the port and not written anywhere before: the **PROBOSCIS reaction** (MN9 over an eating bout, proboscis drawn out for 1.5 s),
+    **aggression lunges** (`brain.lunge`), the **'Real flies do this too' cards** (`brain.science_popups`), the **spectator behaviour of Autopilot**
+    (only the HUD hiding and the orbit exist), the cap of **3 sugar / 3 alcohol** items at a time. Not fixed (no new features in this pass).
+
 (the user may add more below)

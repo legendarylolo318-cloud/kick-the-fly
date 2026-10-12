@@ -24,9 +24,26 @@ use crate::gpu::{ParticleCloud, PointsMaterial};
 #[derive(Resource, Default)]
 pub struct ProfilerStats {
     frame_ms: VecDeque<f32>,
+    /// CPU time of the named parts of a frame, in ms, smoothed (Python's `PROF` sections).
+    pub cpu: Vec<(&'static str, f32)>,
     pub batches: usize,
     pub mesh_entities: usize,
     pub points_on_screen: usize,
+}
+
+impl ProfilerStats {
+    /// A part of the frame took the time since `t0`.
+    pub fn record(&mut self, name: &'static str, t0: std::time::Instant) {
+        let ms = t0.elapsed().as_secs_f32() * 1000.0;
+        match self.cpu.iter_mut().find(|c| c.0 == name) {
+            Some(c) => c.1 += (ms - c.1) * 0.05,
+            None => self.cpu.push((name, ms)),
+        }
+    }
+
+    fn cpu_line(&self) -> String {
+        self.cpu.iter().map(|(n, v)| format!("{n} {v:.2} ms")).collect::<Vec<_>>().join("   ")
+    }
 }
 
 #[derive(Component)]
@@ -54,6 +71,7 @@ fn setup(mut commands: Commands) {
                 ..default()
             },
             BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.55)),
+            GlobalZIndex(600), // over the HUD canvas (500), as Python draws its card last
         ))
         .with_children(|p| {
             for i in 0..120 {
@@ -67,6 +85,7 @@ fn setup(mut commands: Commands) {
         TextColor(Color::srgb(0.85, 0.95, 0.85)),
         Node { position_type: PositionType::Absolute, top: px(200), left: px(12), display: Display::None, ..default() },
         BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.55)),
+        GlobalZIndex(600),
     ));
 }
 
@@ -87,10 +106,17 @@ fn survey(
     view: Res<BrainView>,
     snap: Res<LatestSnapshot>,
     settings: Res<Settings>,
+    mut last_print: Local<f32>,
 ) {
     stats.frame_ms.push_back(time.delta_secs() * 1000.0);
     while stats.frame_ms.len() > 120 {
         stats.frame_ms.pop_front();
+    }
+    // KTF_DEBUG=1: the same numbers on the terminal every two seconds
+    if std::env::var_os("KTF_DEBUG").is_some() && time.elapsed_secs() - *last_print >= 2.0 {
+        *last_print = time.elapsed_secs();
+        let mean = stats.frame_ms.iter().sum::<f32>() / stats.frame_ms.len().max(1) as f32;
+        eprintln!("profiler: frame {mean:.2} ms ({:.0} fps)   cpu: {}", 1000.0 / mean.max(1e-3), stats.cpu_line());
     }
     if !settings.show_profiler {
         return;
@@ -145,6 +171,7 @@ fn show(
     }
     s += &format!("draws   {} batches ({} visible meshes)   {} entities\n", stats.batches, stats.mesh_entities, entities as u64);
     s += &format!("points  {} drawn by instanced shaders (one draw each)\n", stats.points_on_screen);
+    s += &format!("cpu     {}\n", stats.cpu_line());
     let mut gpu: Vec<(String, f64)> = diagnostics
         .iter()
         .filter(|d| d.path().as_str().ends_with("/elapsed_gpu"))
@@ -184,7 +211,7 @@ pub struct ProfilerPlugin;
 impl Plugin for ProfilerPlugin {
     fn build(&self, app: &mut App) {
         let _ = DiagnosticPath::new("kick_the_fly");
-        app.add_plugins((EntityCountDiagnosticsPlugin::default(), RenderDiagnosticsPlugin))
+        app.add_plugins((FrameTimeDiagnosticsPlugin::default(), EntityCountDiagnosticsPlugin::default(), RenderDiagnosticsPlugin))
             .init_resource::<ProfilerStats>()
             .add_systems(Startup, setup)
             .add_systems(Update, (toggle, survey, show).chain());

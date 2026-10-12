@@ -288,7 +288,9 @@ fn draw(
     mut node: Single<&mut ImageNode, With<HudNode>>,
     mut hits_out: ResMut<HudHitsRes>,
     mut stamps: Local<std::collections::VecDeque<f64>>,
+    mut prof: ResMut<crate::profiler::ProfilerStats>,
 ) {
+    let t_state = std::time::Instant::now();
     let HudIn {
         time,
         real,
@@ -606,13 +608,18 @@ fn draw(
         mouse: window.cursor_position().map_or((-1, -1), |p| ((p.x * sf / l.scale) as i32, (p.y * sf / l.scale) as i32)),
         ..Default::default()
     };
+    prof.record("hud state", t_state);
+    let t_draw = std::time::Instant::now();
     let fonts = HudFonts::new(cfg.0.get_bool("access.larger_text"));
     let HudCanvas { canvas, image, .. } = &mut *hc;
     canvas.clear();
     hits_out.0 = Hud { cv: canvas, lay: l, f: &fonts }.draw(&state, rnow);
+    prof.record("hud draw", t_draw);
+    let t_copy = std::time::Instant::now();
     if let Some(mut img) = images.get_mut(&*image) {
         img.data = Some(canvas.px.clone());
     }
+    prof.record("hud copy", t_copy);
 }
 
 /// What the T screen shows (`Game._draw_training`) from the sim thread's memory view.
