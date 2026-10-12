@@ -128,6 +128,10 @@ pub struct Body {
     pub asleep_ok: bool,
     pub eating: bool,
     pub duel_focus: bool,
+    /// MN9's firing rate in Hz (`br.hz("proboscis")`).
+    pub mn9_hz: f32,
+    /// How far the nearest other living fly is, in metres (`None`: alone, or Settings > Brain > Aggression lunges is off).
+    pub rival: Option<f32>,
 }
 
 /// The ready-times of one fly's reactions (seconds on the game clock).
@@ -146,6 +150,12 @@ pub struct ReactState {
     /// The ps1 level read over about a second (two neurons are noisy).
     pub song_slow: f32,
     pub eating_until: f32,
+    /// MN9 over the current eating bout (one value a tick) and its slow average while not eating.
+    pub mn9_bout: Vec<f32>,
+    pub mn9_calm: Option<f32>,
+    /// The proboscis is out until then (`fly.proboscis_until`).
+    pub proboscis_until: f32,
+    pub lunge_ready: f32,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -172,6 +182,10 @@ pub enum Reaction {
     Groom(f32),
     Song(f32),
     Sleep(f32),
+    /// MN9 fired at this multiple of its calm rate over the first second of eating: the proboscis comes out.
+    Proboscis(f32),
+    /// Aggression neurons (AVLP727m, pC1) above the threshold with another fly near: a lunge at it.
+    Lunge(f32),
 }
 
 impl Reaction {
@@ -189,6 +203,8 @@ impl Reaction {
             Reaction::Groom(_) => "GROOM",
             Reaction::Song(_) => "SONG",
             Reaction::Sleep(_) => "SLEEP",
+            Reaction::Proboscis(_) => "PROBOSCIS",
+            Reaction::Lunge(_) => "LUNGE",
         }
     }
 }
@@ -252,6 +268,23 @@ pub fn decide(lv: &Levels, st: &mut ReactState, body: Body, now: f32, rng: &mut 
         st.groom_ready = now + 4.0;
         out.push(Reaction::Groom(groom));
     }
+    // PROBOSCIS (`assays.PER_RATIO`): one second into an eating bout, MN9 at 1.5 times its calm rate or more
+    let mn9 = body.mn9_hz;
+    if body.eating {
+        st.mn9_bout.push(mn9);
+        if st.mn9_bout.len() == 60 {
+            let mean = st.mn9_bout.iter().sum::<f32>() / 60.0;
+            let ratio = mean / st.mn9_calm.unwrap_or(mn9).max(1.0);
+            if ratio >= PER_RATIO {
+                st.proboscis_until = now + 1.5;
+                out.push(Reaction::Proboscis(ratio));
+            }
+        }
+    } else {
+        st.mn9_bout.clear();
+        let calm = st.mn9_calm.unwrap_or(mn9);
+        st.mn9_calm = Some(calm + (mn9 - calm) * 0.02);
+    }
     st.song_slow += (lv.get("song") - st.song_slow) / 60.0;
     if st.song_slow > th.song && now >= st.song_ready {
         st.song_ready = now + 1.8;
@@ -264,8 +297,19 @@ pub fn decide(lv: &Levels, st: &mut ReactState, body: Body, now: f32, rng: &mut 
         }
         st.asleep_until = now + 2.0;
     }
+    // LUNGE (`Game._aggression`): another living fly within 180 fly-pixels
+    let aggr = lv.get("aggression");
+    if body.free && now >= st.lunge_ready && aggr > th.aggression && body.rival.is_some_and(|d| d <= LUNGE_REACH) {
+        st.lunge_ready = now + 1.8;
+        out.push(Reaction::Lunge(aggr));
+    }
     out
 }
+
+/// `assays.PER_RATIO`.
+pub const PER_RATIO: f32 = 1.5;
+/// How near the other fly must be for a lunge: 180 of the 2D game's pixels, in metres.
+pub const LUNGE_REACH: f32 = 180.0 * 0.006;
 
 /// The tags the game keeps on screen: which reactions are triggered by the connectome sim's own neurons (REAL) and which by a game rule.
 pub fn reaction_source(word: &str) -> Option<&'static str> {
@@ -334,7 +378,8 @@ mod tests {
         decide(&Levels { names: &names, values: &values }, st, body, now, &mut Rng::new(1))
     }
 
-    const FREE: Body = Body { can_fly: true, free: true, grabbed: false, asleep_ok: true, eating: false, duel_focus: false };
+    const FREE: Body =
+        Body { can_fly: true, free: true, grabbed: false, asleep_ok: true, eating: false, duel_focus: false, mn9_hz: 0.0, rival: None };
 
     #[test]
     fn the_giant_fiber_dodges_then_waits_for_its_cooldown() {
@@ -396,5 +441,42 @@ mod tests {
         assert_eq!(reaction_source("DODGE"), Some("real"));
         assert_eq!(reaction_source("WRAPPED"), Some("rule"));
         assert_eq!(reaction_source("NOPE"), None);
+    }
+    #[test]
+    fn the_proboscis_comes_out_one_second_into_a_meal_when_mn9_fires() {
+        let mut st = ReactState::default();
+        // calm: MN9 at 4 Hz
+        for i in 0..120 {
+            run(&[], &mut st, Body { mn9_hz: 4.0, ..FREE }, i as f32 / 60.0);
+        }
+        // eating with MN9 at 8 Hz: twice calm, so on the 60th tick it fires, once
+        let mut fired = Vec::new();
+        for i in 0..90 {
+            let now = 2.0 + i as f32 / 60.0;
+            for r in run(&[], &mut st, Body { mn9_hz: 8.0, eating: true, ..FREE }, now) {
+                fired.push((i, r));
+            }
+        }
+        assert_eq!(fired.len(), 1);
+        assert_eq!(fired[0].0, 59);
+        assert!(matches!(fired[0].1, Reaction::Proboscis(x) if (x - 2.0).abs() < 0.05));
+        assert!(st.proboscis_until > 4.4);
+        // a meal with MN9 at its calm rate: nothing
+        let mut st = ReactState { mn9_calm: Some(4.0), ..Default::default() };
+        for i in 0..90 {
+            assert!(run(&[], &mut st, Body { mn9_hz: 4.5, eating: true, ..FREE }, i as f32 / 60.0).is_empty());
+        }
+    }
+
+    #[test]
+    fn a_lunge_needs_aggression_a_near_rival_and_its_cooldown() {
+        let mut st = ReactState::default();
+        let near = Body { rival: Some(0.8), ..FREE };
+        assert!(run(&[("aggression", 3.0)], &mut st, FREE, 1.0).is_empty(), "alone");
+        assert!(run(&[("aggression", 3.0)], &mut st, Body { rival: Some(1.5), ..FREE }, 1.0).is_empty(), "too far");
+        assert!(run(&[("aggression", 1.5)], &mut st, near, 1.0).is_empty(), "calm");
+        assert_eq!(run(&[("aggression", 3.0)], &mut st, near, 1.0), vec![Reaction::Lunge(3.0)]);
+        assert!(run(&[("aggression", 3.0)], &mut st, near, 2.0).is_empty(), "1.8 s cooldown");
+        assert_eq!(run(&[("aggression", 3.0)], &mut st, near, 2.9).len(), 1);
     }
 }

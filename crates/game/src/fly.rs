@@ -394,16 +394,24 @@ fn brain_reactions(
     }
     let now = virt.elapsed_secs();
     let outdoor = world::is_outdoor(arena.name());
+    let mn9_col = info.group_names.iter().position(|n| n == "proboscis");
+    // the living flies, for the lunge (`Game._aggression`)
+    let lunges = settings.lunge;
+    let rivals: Vec<(Entity, Vec3)> = flies
+        .iter()
+        .filter(|(_, f, _)| !f.dead() && !f.gone())
+        .filter_map(|(e, f, _)| transforms.get(f.parts[Part::Thorax.index()]).ok().map(|t| (e, t.translation)))
+        .collect();
     for (e, mut f, slot) in &mut flies {
         if f.dead() || f.frozen_at.is_some() || f.gone() {
             continue;
         }
         // the focused fly's levels are the snapshot's own; the others' travel beside them
-        let values: &[f32] = if slot.0 == s.focus {
-            &s.levels
+        let (values, hz): (&[f32], &[f32]) = if slot.0 == s.focus {
+            (&s.levels, &s.hz)
         } else {
             match s.others.iter().find(|o| o.slot == slot.0) {
-                Some(o) if o.levels.len() == info.group_names.len() => &o.levels,
+                Some(o) if o.levels.len() == info.group_names.len() => (&o.levels, &o.hz),
                 _ => continue,
             }
         };
@@ -418,6 +426,8 @@ fn brain_reactions(
             asleep_ok: true,
             eating: now < f.react.eating_until,
             duel_focus: false,
+            mn9_hz: mn9_col.and_then(|c| hz.get(c)).copied().unwrap_or(0.0),
+            rival: if lunges { rivals.iter().filter(|r| r.0 != e).map(|r| r.1.distance(thx)).min_by(f32::total_cmp) } else { None },
         };
         let mut rs = f.react.clone();
         let mut rng = Rng::new((now * 1000.0) as u64 ^ e.to_bits());
@@ -438,6 +448,8 @@ fn brain_reactions(
                 Reaction::Groom(l) => format!("GROOM    aDN1/aDN2 x{l:.1}"),
                 Reaction::Song(l) => format!("SONG     ps1 wing MNs x{l:.1}"),
                 Reaction::Sleep(l) => format!("SLEEP    dFB FB6/FB7 x{l:.1}"),
+                Reaction::Proboscis(l) => format!("PROBOSCIS MN9 x{l:.1}"),
+                Reaction::Lunge(l) => format!("LUNGE    AVLP727m/pC1 x{l:.1}"),
             };
             notes.push(now, note, Tag::of_reaction(word));
             let above = thx + Vec3::Y * 0.4;
@@ -483,6 +495,19 @@ fn brain_reactions(
                     popups.write(Popup::new(above, "ZZZ", (170, 190, 255)));
                 }
                 Reaction::Groom(_) => {}
+                Reaction::Lunge(_) => {
+                    // thrown at the nearest other fly: 6 fly-pixels a tick toward it and 2.5 up (`fly.impulse`)
+                    if let Some((_, at)) = rivals.iter().filter(|r| r.0 != e).min_by(|a, b| a.1.distance(thx).total_cmp(&b.1.distance(thx)))
+                    {
+                        let to = (*at - thx).normalize_or_zero();
+                        f.yaw_target = to.z.atan2(to.x);
+                        if let Ok((_, mut v)) = parts.get_mut(thx_e) {
+                            v.0 += (to * 6.0 + Vec3::Y * 2.5) * world::S * 60.0;
+                        }
+                    }
+                    popups.write(Popup::new(above, "LUNGE!", (255, 120, 80)));
+                    sfx.write(Sfx::new("whack"));
+                }
                 Reaction::Song(_) if song_buzz => {
                     popups.write(Popup::new(above, "~ BUZZ ~", (255, 180, 220)));
                     sfx.write(Sfx::new("song"));

@@ -347,7 +347,13 @@ fn attach_visuals(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, new:
             wings[k] = pivot;
         }
         let proboscis = commands
-            .spawn((Mesh3d(seg_mesh.clone()), MeshMaterial3d(look.tinted[PROBOSCIS].0.clone()), Transform::default(), Visibility::Hidden))
+            .spawn((
+                LegSegment,
+                Mesh3d(seg_mesh.clone()),
+                MeshMaterial3d(look.tinted[PROBOSCIS].0.clone()),
+                Transform::default(),
+                Visibility::Hidden,
+            ))
             .id();
         commands.entity(e).insert(FlyVisuals { rig: rig(), segments, beads, wings, proboscis });
     }
@@ -418,6 +424,19 @@ fn animate(
                     *tb = Transform::from_translation(b).with_scale(Vec3::splat(BEAD_R[k]));
                     *vb = show;
                 }
+            }
+        }
+        // the proboscis, out while MN9 answers the sugar (`proboscis_until`): from under the head, forward and down
+        if let Ok((mut tp, mut vp)) = segs.get_mut(vis.proboscis) {
+            let head = parts.iter().find(|(p, _)| p.fly == e && p.part == Part::Head).map(|(_, t)| *t);
+            match head {
+                Some(h) if now < f.react.proboscis_until && !gone => {
+                    let frame = h.rotation * body_tilt();
+                    let (fwd, up) = (frame * Vec3::X, frame * Vec3::Y);
+                    place_segment(&mut tp, h.translation - up * 0.06, h.translation + fwd * 0.1 - up * 0.16, 0.012);
+                    *vp = Visibility::Inherited;
+                }
+                _ => *vp = Visibility::Hidden,
             }
         }
         // wings (`_draw_fly`): a flat clear ellipsoid from the wing base to its tip, 9 S longer than half the span, 12 S wide. Folded
