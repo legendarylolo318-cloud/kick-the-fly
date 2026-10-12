@@ -2876,7 +2876,7 @@ dependencies = [
 
 [[package]]
 name = "fly_sim"
-version = "4.0.0-dev"
+version = "4.0.0"
 dependencies = [
  "criterion 0.8.2",
  "rayon",
@@ -3802,7 +3802,7 @@ checksum = "e2db585e1d738fc771bf08a151420d3ed193d9d895a36df7f6f8a9456b911ddc"
 
 [[package]]
 name = "kick_the_fly"
-version = "4.0.0-dev"
+version = "4.0.0"
 dependencies = [
  "arboard",
  "avian3d",
@@ -3828,7 +3828,7 @@ dependencies = [
 
 [[package]]
 name = "ktf_data"
-version = "4.0.0-dev"
+version = "4.0.0"
 dependencies = [
  "directories",
  "flate2",
@@ -3843,7 +3843,7 @@ dependencies = [
 
 [[package]]
 name = "ktf_ui"
-version = "4.0.0-dev"
+version = "4.0.0"
 dependencies = [
  "ab_glyph",
  "fly_sim",

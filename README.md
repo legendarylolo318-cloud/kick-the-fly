@@ -127,12 +127,12 @@ Controls (all rebindable, gamepad included), settings, loadouts, challenges and 
 
 | | |
 |---|---|
-| ![first person in the 3D room, the fly on the rug and its brain panel on the right](docs/room3d.png) | ![swatting the fly in first person; touch neurons and descending neurons light up in the brain panel](docs/swat3d.png) |
+| ![first person in the 3D room: the swatter has just hit the fly, its brain panel on the right](docs/room3d.png) | ![swatting the fly in first person; touch neurons and descending neurons light up in the brain panel](docs/swat3d.png) |
 | **The room**, first person, with the live brain on the right. | **Swatting**: the touch neurons fire, then the leg-touch descending neurons kick. |
-| ![the fly flying over the open field](docs/field.png) | ![a fly feeding on a fruit inside an orchard tree's crown](docs/orchard.png) |
-| **The open field**: wind drives its real antennal wind neurons. | **The orchard**: flies fly to fruit, land and feed. |
-| ![big brain view lit up while the fly is torched](docs/brain.png) | ![the fly shooting at you in the 1v1 duel](docs/duel.png) |
-| **The big brain view** under the blowtorch: the heat-sensing neurons and everything downstream. | **The 1v1 duel**: it aims through LC10 and its steering neurons, and shoots through DNp35. |
+| ![swatting the fly in the open field](docs/field.png) | ![the orchard arena with its fruit trees](docs/orchard.png) |
+| **The open field**: wind drives its real antennal wind neurons. | **The orchard**: fruit trees; flies fly to the fruit, land and feed. |
+| ![big brain view lit up while the fly is torched](docs/brain.png) | ![the blowtorch on the fly in the open field, pain at 84 of 100](docs/torch3d.png) |
+| **The big brain view** under the blowtorch: the heat-sensing neurons and everything downstream. | **The blowtorch**: heat and touch neurons fire, the pain estimate climbs, the fly chars. |
 | ![a spider wrapping the fly in silk](docs/spider.png) | ![the brain autopsy after the fly died under the blowtorch](docs/autopsy.png) |
 | **A spider** bites (body and leg touch neurons) and wraps it. | **Autopsy**: every brain region's last 2 s alive against its calm baseline. |
 
