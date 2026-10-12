@@ -449,6 +449,16 @@ fn layout(
     }
 }
 
+pub struct BrainViewPlugin;
+
+impl Plugin for BrainViewPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<BrainView>()
+            .add_systems(Startup, setup)
+            .add_systems(Update, (control, build_cloud, update_activity, layout).chain());
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -471,8 +481,7 @@ mod tests {
     #[test]
     fn turn_matches_the_python_rotation() {
         // `_recompute_big`'s R (yaw 30, pitch 20 degrees) with y pointing up here and down there
-        let mut v = BrainView::default();
-        v.zoom = 1.0;
+        let mut v = BrainView { zoom: 1.0, ..Default::default() };
         v.orbit(30f32.to_radians(), 20f32.to_radians());
         let p = Vec3::new(0.3, -0.2, 0.5);
         let (sy, cy) = 30f32.to_radians().sin_cos();
@@ -488,15 +497,5 @@ mod tests {
         assert!((v.turn(p) - (p * 2.0 + Vec3::new(0.25, -0.5, 0.0))).length() < 1e-6);
         v.set_preset("top");
         assert!((v.zoom - ZOOM_FRONT).abs() < 1e-6 && v.pan == Vec2::ZERO && v.pitch < -1.5);
-    }
-}
-
-pub struct BrainViewPlugin;
-
-impl Plugin for BrainViewPlugin {
-    fn build(&self, app: &mut App) {
-        app.init_resource::<BrainView>()
-            .add_systems(Startup, setup)
-            .add_systems(Update, (control, build_cloud, update_activity, layout).chain());
     }
 }
