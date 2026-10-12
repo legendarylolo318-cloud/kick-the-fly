@@ -118,5 +118,16 @@ Regenerate the list with the script in `REVIEW_PROMPT.md` (section SETTINGS AUDI
 13. Missing from the port and not written anywhere before: the **PROBOSCIS reaction** (MN9 over an eating bout, proboscis drawn out for 1.5 s),
     **aggression lunges** (`brain.lunge`), the **'Real flies do this too' cards** (`brain.science_popups`), the **spectator behaviour of Autopilot**
     (only the HUD hiding and the orbit exist), the cap of **3 sugar / 3 alcohol** items at a time. Not fixed (no new features in this pass).
+14. **First CI runs (2026-10-12)**. `ci.yml` was invalid YAML (an unquoted `: ` in a step name): no job had ever started. After that:
+    - Linux (glibc 2.35): the noise bank differed from NumPy's in a few values, so every spike golden failed. Cause: the float ziggurat's tail
+      calls `log1pf`, which only recent glibc rounds correctly. Fixed in `fly_sim/src/rng.rs` (through double precision); the whole test step
+      passes on Ubuntu 22.04 since.
+    - Windows: a byte-compared fixture was checked out with CRLF (`.gitattributes` now forbids conversion); the duel engine differs from Python
+      in the last bit (Windows' `sin`/`cos`/`atan2`/`hypot`; no portable library reproduces glibc, the `libm` crate was tried), so
+      `duel_golden` is bit-exact on Linux and 1e-9 elsewhere; the wind-compass probe's circular correlation is numerically arbitrary (the mean
+      of evenly spread wind directions is a zero vector) and comes out 0.396 on Windows against the published 0.470, so that one number is
+      only compared on Linux; the Graphics settings tab has a Linux-only row, so its picture is only compared on Linux.
+    **Meaning for players:** on Windows the brain's spikes equal Linux's (same noise, same sim), but a duel can differ in the last digit and so,
+    rarely, in its outcome, and Lab > Validation shows a different 'direction tracking' number for the wind compass than the published one.
 
 (the user may add more below)

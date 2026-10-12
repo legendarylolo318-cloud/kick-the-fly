@@ -124,6 +124,14 @@ fn compass_probes_equal_the_published_python_results() {
     let pub_seeds = published["tests"].as_array().unwrap().iter().find(|t| t["id"] == "epg_compass_wind").unwrap()["per_seed"].clone();
     for (mine, theirs) in wind["per_seed"].as_array().unwrap().iter().zip(pub_seeds.as_array().unwrap()) {
         for k in ["baseline_contrast", "contrast", "persistence_ms", "circ_corr_left", "circ_corr_right"] {
+            // The circular correlation subtracts the mean wind direction, and the winds are spread evenly round the circle: their mean
+            // vector is zero up to rounding, so its angle is decided by the last bits of `sin` and `cos`. With glibc (Linux) those are
+            // the bits NumPy had and the published number comes out; another C library (Windows) gives another, equally arbitrary
+            // angle and a different correlation (0.396 against 0.470 on seed 1000). The spikes behind it are the same (the three
+            // numbers before it are compared everywhere).
+            if k.starts_with("circ_corr") && !cfg!(target_os = "linux") {
+                continue;
+            }
             let (a, b) = (mine[k].as_f64().unwrap(), theirs[k].as_f64().unwrap());
             assert!((a - b).abs() < 1e-9 * b.abs().max(1.0), "seed {} {k}: {a} vs {b}", mine["seed"]);
         }

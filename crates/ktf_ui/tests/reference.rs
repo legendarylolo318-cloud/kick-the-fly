@@ -124,10 +124,19 @@ fn pause_and_quit_dialog() {
 
 #[test]
 fn every_settings_tab() {
+    // The Graphics tab has a Linux-only row ('Display backend'), and the pygame pictures were made on Linux: elsewhere the rows below it
+    // sit one row higher, as they did in the Python game on Windows. Only Linux can compare that tab pixel by pixel.
+    let linux = cfg!(target_os = "linux");
     for tab in ["Graphics", "Audio", "Brain", "Controls", "Accessibility", "Help"] {
+        if tab == "Graphics" && !linux {
+            continue;
+        }
         compare(&format!("settings_{}.png", tab.to_lowercase()), &draw("settings", tab, true, |_| {}), 0.009);
     }
     compare("settings_controls_2d.png", &draw("settings", "Controls", false, |_| {}), 0.009);
+    if !linux {
+        return;
+    }
     compare(
         "settings_graphics_big.png",
         &draw("settings", "Graphics", true, |c| {
