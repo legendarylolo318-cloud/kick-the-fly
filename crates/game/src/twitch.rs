@@ -214,10 +214,22 @@ impl TwitchChat {
 
     pub fn stop(&mut self) {
         self.stop.store(true, Ordering::Relaxed);
-        if let Some(t) = self.thread.take() {
+        self.hang_up();
+        *self.shared.state.lock().unwrap_or_else(PoisonError::into_inner) = Some(ChatState::Off);
+    }
+
+    /// Wait for the reader to say QUIT and close, but not for long: it notices the stop within [`RECV_POLL`] once it is connected,
+    /// while a DNS lookup or a connection attempt may take up to [`CONNECT_TIMEOUT`]. The game's frame (and its exit) must not hang on
+    /// that, so after a short wait the thread is left to finish by itself (it sees the stop flag and sends nothing but QUIT).
+    fn hang_up(&mut self) {
+        let Some(t) = self.thread.take() else { return };
+        let until = Instant::now() + RECV_POLL * 3;
+        while !t.is_finished() && Instant::now() < until {
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        if t.is_finished() {
             let _ = t.join();
         }
-        *self.shared.state.lock().unwrap_or_else(PoisonError::into_inner) = Some(ChatState::Off);
     }
 
     /// The commands read since the last call: `(viewer, text)` for messages that start with `!`.
@@ -229,9 +241,7 @@ impl TwitchChat {
 impl Drop for TwitchChat {
     fn drop(&mut self) {
         self.stop.store(true, Ordering::Relaxed);
-        if let Some(t) = self.thread.take() {
-            let _ = t.join();
-        }
+        self.hang_up();
     }
 }
 

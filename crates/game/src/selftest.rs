@@ -407,8 +407,9 @@ fn check_microphone() -> Check {
 
 /// `netguard.allowed()`: false when `KTF_NO_NETWORK` is set (the test suite does) or `KICK_THE_FLY_OFFLINE=1`.
 pub fn network_allowed() -> (bool, String) {
-    if std::env::var_os("KTF_NO_NETWORK").is_some_and(|v| !v.is_empty()) {
-        return (false, "the network is off here (KTF_NO_NETWORK is set; the test suite does this)".into());
+    // the one switch (`netguard.allowed`): off in headless runs and under KTF_NO_NETWORK
+    if let Err(why) = crate::twitch::allowed() {
+        return (false, why);
     }
     if std::env::var("KICK_THE_FLY_OFFLINE").is_ok_and(|v| v == "1") {
         return (false, "the network is off here (KICK_THE_FLY_OFFLINE=1)".into());

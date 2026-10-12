@@ -200,6 +200,8 @@ fn main() -> ExitCode {
     {
         let argv: Vec<String> = std::env::args().collect();
         if kick_the_fly::headless::wanted(&argv) {
+            // `netguard.disable`: a headless run never opens a connection
+            kick_the_fly::twitch::disable("headless run");
             return ExitCode::from(kick_the_fly::headless::main(&argv) as u8);
         }
     }
