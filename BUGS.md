@@ -129,5 +129,13 @@ Regenerate the list with the script in `REVIEW_PROMPT.md` (section SETTINGS AUDI
       only compared on Linux; the Graphics settings tab has a Linux-only row, so its picture is only compared on Linux.
     **Meaning for players:** on Windows the brain's spikes equal Linux's (same noise, same sim), but a duel can differ in the last digit and so,
     rarely, in its outcome, and Lab > Validation shows a different 'direction tracking' number for the wind compass than the published one.
+15. **Done on request, 2026-10-12** (the open findings of the review): the PROBOSCIS reaction and aggression lunges (01cad77), the 3 + 3 treat cap
+    (85eed16), the 'Real flies do this too' cards (308ecdc), Autopilot as a spectator with Y and `--autopilot` (c28ea0d), the gamepad
+    (ec9539d), the HUD's drawing cost (ecd11f8: 4.8 -> 2.8 ms a frame, no copy), the X11 pointer grab and Display backend = x11, the memory
+    golden's MBON tolerance (5 % -> 1e-4). **Not done:** `graphics.resolution_scale` and `graphics.photo_scale` (both need the 3D view drawn
+    into an off-screen picture of another size), gamepad rebinding by button press and menu navigation with the pad.
+16. **Open: about 4 ms a frame appeared with the science cards / Autopilot / gamepad commits** (308ecdc..ec9539d). Measured back to back at
+    1080p, uncapped: 11.5 ms a frame at 01cad77, 13.0 ms at the head although the HUD draws 3 ms faster there. Ruled out with switches: the
+    gamepad reading, the gilrs backend, the science-card watcher, the HUD's skip and buffer swap. Not found; no effect at the 60 fps cap.
 
 (the user may add more below)
