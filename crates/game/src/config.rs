@@ -22,6 +22,13 @@ pub struct SwitchArena(pub usize);
 #[derive(Resource, Debug, Clone)]
 pub struct Settings {
     pub master_volume: f32,
+    /// Settings > Audio: the wing buzz and every other effect have their own volume under the master (`Sound.configure`).
+    pub sfx_volume: f32,
+    pub buzz_volume: f32,
+    /// The one-off buzz and the popup when the fly sings (`brain.song_buzz`).
+    pub song_buzz: bool,
+    /// `--day SECONDS` on the command line wins over Settings > Day/night cycle.
+    pub day_cli: Option<f32>,
     pub mute: bool,
     /// Accessibility: no strobing lightning, no flashes.
     pub reduced_flashing: bool,
@@ -45,6 +52,10 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             master_volume: 0.7,
+            sfx_volume: 1.0,
+            buzz_volume: 1.0,
+            song_buzz: true,
+            day_cli: None,
             mute: false,
             reduced_flashing: false,
             day_night_s: 0.0,
@@ -77,6 +88,10 @@ impl Settings {
     /// Copy the settings the game reads live out of the config (after the menu changed one, or at start).
     pub fn apply_config(&mut self, c: &ktf_data::config::Config) {
         self.master_volume = c.get_f32("audio.master");
+        self.sfx_volume = c.get_f32("audio.sfx");
+        self.buzz_volume = c.get_f32("audio.buzz");
+        self.song_buzz = c.get_bool("brain.song_buzz");
+        self.day_night_s = self.day_cli.unwrap_or(c.get_i64("brain.day_night") as f32);
         self.mute = c.get_bool("audio.mute");
         self.reduced_flashing = c.get_bool("access.reduced_flashing");
         self.mouse_sensitivity = Self::BASE_SENSITIVITY * c.get_f32("controls.mouse_sensitivity");

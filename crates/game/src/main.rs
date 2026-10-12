@@ -290,7 +290,10 @@ fn main() -> ExitCode {
         let mut st = app.world_mut().resource_mut::<kick_the_fly::config::Settings>();
         st.rain = args.rain;
         st.storm = args.storm;
-        st.day_night_s = args.day;
+        if args.day > 0.0 {
+            st.day_cli = Some(args.day);
+            st.day_night_s = args.day;
+        }
     }
     if let Some(c) = args.challenge.clone() {
         app.world_mut().resource_mut::<kick_the_fly::challenges::Challenges>().request = Some(c);

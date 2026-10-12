@@ -53,6 +53,25 @@ impl PanelMode {
         }
     }
 
+    /// The name in `graphics.panel_mode` (`PANEL_MODES`).
+    pub fn setting(self) -> &'static str {
+        match self {
+            PanelMode::Solid => "solid",
+            PanelMode::SeeThrough => "see-through",
+            PanelMode::Faint => "faint",
+            PanelMode::Hidden => "hidden",
+        }
+    }
+
+    pub fn from_setting(name: &str) -> Self {
+        match name {
+            "see-through" => PanelMode::SeeThrough,
+            "faint" => PanelMode::Faint,
+            "hidden" => PanelMode::Hidden,
+            _ => PanelMode::Solid,
+        }
+    }
+
     fn gain(self) -> f32 {
         match self {
             PanelMode::Solid => 1.0,
@@ -318,7 +337,7 @@ fn control(
     mut wheel: MessageReader<MouseWheel>,
     look: Res<MouseLook>,
     menu: Res<crate::menu_ui::MenuOpen>,
-    cfg: Res<crate::menu_ui::UserConfig>,
+    mut cfg: ResMut<crate::menu_ui::UserConfig>,
     hud: Res<crate::hud_canvas::HudLayout>,
     window: Single<&Window, With<PrimaryWindow>>,
     mut view: ResMut<BrainView>,
@@ -327,8 +346,14 @@ fn control(
     if act.just("big_view") {
         view.big = !view.big;
     }
+    // V steps Settings > Graphics > Brain panel, and the setting is followed live (`Game3D.apply_setting`)
     if act.just("panel") {
-        view.mode = view.mode.next();
+        let next = PanelMode::from_setting(cfg.0.get_str("graphics.panel_mode")).next();
+        cfg.set_and_save("graphics.panel_mode", serde_json::json!(next.setting()));
+    }
+    let mode = PanelMode::from_setting(cfg.0.get_str("graphics.panel_mode"));
+    if view.mode != mode {
+        view.mode = mode;
     }
     let free = view.big && !look.captured && !menu.0;
     let scroll: f32 = wheel.read().map(|w| w.y).sum();

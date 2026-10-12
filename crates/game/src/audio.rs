@@ -13,6 +13,7 @@ use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
 use bevy::audio::{AddAudioSource, AudioPlayer, AudioSink, AudioSinkPlayback, AudioSource, Decodable, PlaybackSettings, Source, Volume};
+use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
 use crate::app::LatestSnapshot;
@@ -81,6 +82,10 @@ struct Sonification;
 #[derive(Resource)]
 pub struct Sonifier {
     pub on: bool,
+    /// Wanted but not sounding (muted, the microphone is on, Streamer mode...).
+    pub silent: bool,
+    /// The song voice follows the SONG reaction (`audio.sonify_song`).
+    pub song_voice: bool,
     queue: Arc<Mutex<VecDeque<f32>>>,
     synth: Synth,
     meter: RegionMeter,
@@ -94,6 +99,8 @@ impl Default for Sonifier {
     fn default() -> Self {
         Self {
             on: false,
+            silent: false,
+            song_voice: true,
             queue: Arc::new(Mutex::new(VecDeque::new())),
             synth: Synth::new(RATE),
             meter: RegionMeter::new(synth::VOICES.len()),
@@ -131,7 +138,7 @@ fn play_sfx(
             continue;
         }
         if let Some(h) = bank.sounds.get(m.name) {
-            let v = (settings.master_volume * m.volume).clamp(0.0, 1.5);
+            let v = (settings.master_volume * settings.sfx_volume * m.volume).clamp(0.0, 1.5);
             commands.spawn((AudioPlayer::new(h.clone()), PlaybackSettings::DESPAWN.with_volume(Volume::Linear(v))));
             room -= 1;
         }
@@ -145,35 +152,105 @@ fn buzz(settings: Res<Settings>, flies: Query<&Fly>, mut sink: Single<&mut Audio
     match flying {
         Some(power) if !settings.mute => {
             let k = (power / 2.0).clamp(0.0, 1.0);
-            sink.set_volume(Volume::Linear(settings.master_volume * (0.18 + 0.3 * k)));
+            sink.set_volume(Volume::Linear(settings.master_volume * settings.buzz_volume * (0.18 + 0.3 * k)));
             sink.set_speed(0.9 + 0.35 * k);
         }
         _ => sink.set_volume(Volume::Linear(0.0)),
     }
 }
 
-/// F5 turns the sonification on and off.
-fn toggle(act: Res<crate::actions::Actions>, mut son: ResMut<Sonifier>, mut notes: ResMut<Notes>, time: Res<Time<Real>>) {
-    if act.just("sonify") {
-        son.on = !son.on;
-        let msg = if son.on { "SONIFY   the brain's regions as voices on one scale (F5 to stop)" } else { "SONIFY   off" };
-        notes.push(time.elapsed_secs(), msg, Tag::GameRule);
-        if !son.on {
-            son.queue.lock().unwrap_or_else(PoisonError::into_inner).clear();
-        }
+/// `sonify.silent_reason`: why the sonification is silent right now, or `None` if it may play.
+#[allow(clippy::too_many_arguments)]
+pub fn silent_reason(
+    enabled: bool,
+    muted: bool,
+    master: f32,
+    volume: f32,
+    mic_on: bool,
+    stream_on: bool,
+    allow_in_stream: bool,
+    paused: bool,
+) -> Option<&'static str> {
+    if !enabled {
+        Some("off")
+    } else if muted {
+        Some("muted")
+    } else if master * volume <= 0.001 {
+        Some("volume is 0")
+    } else if mic_on {
+        Some("the microphone is on (it would hear the speakers and drive the fly's hearing neurons)")
+    } else if stream_on && !allow_in_stream {
+        Some("Streamer mode is on (Settings > Audio > Sonification in Streamer mode)")
+    } else if paused {
+        Some("time is paused")
+    } else {
+        None
     }
+}
+
+/// What may silence the sonification (`SonifyPlay.silent_reason`).
+#[derive(SystemParam)]
+struct SonifyPolicy<'w> {
+    cfg: Res<'w, crate::menu_ui::UserConfig>,
+    settings: Res<'w, Settings>,
+    mic: Option<Res<'w, crate::mic::Mic>>,
+    live: Option<Res<'w, crate::live_play::Live>>,
+    tc: Res<'w, crate::controls::TimeControl>,
+}
+
+impl SonifyPolicy<'_> {
+    fn reason(&self) -> Option<&'static str> {
+        let c = &self.cfg.0;
+        silent_reason(
+            c.get_bool("audio.sonify"),
+            self.settings.mute || c.get_bool("audio.mute"),
+            c.get_f32("audio.master"),
+            c.get_f32("audio.sonify_vol"),
+            self.mic.as_ref().is_some_and(|m| m.handle.is_some()),
+            self.live.as_ref().is_some_and(|l| l.stream_on),
+            c.get_bool("stream.allow_sonify"),
+            self.tc.paused,
+        )
+    }
+}
+
+/// F5 turns the sonification on and off: the same switch as Settings > Audio > Brain sonification (`SonifyPlay.toggle`).
+fn toggle(
+    act: Res<crate::actions::Actions>,
+    mut cfg: ResMut<crate::menu_ui::UserConfig>,
+    mut son: ResMut<Sonifier>,
+    mut notes: ResMut<Notes>,
+    time: Res<Time<Real>>,
+) {
+    if act.just("sonify") {
+        let on = !cfg.0.get_bool("audio.sonify");
+        cfg.set_and_save("audio.sonify", serde_json::json!(on));
+        let msg = if on { "SONIFY   on [GAME RULE: the sound; CONNECTOME: the activity it follows]" } else { "SONIFY   off" };
+        notes.push(time.elapsed_secs(), msg, Tag::GameRule);
+    }
+    // the menu's switch works the same way
+    let on = cfg.0.get_bool("audio.sonify");
+    if son.on && !on {
+        son.queue.lock().unwrap_or_else(PoisonError::into_inner).clear();
+    }
+    son.on = on;
 }
 
 /// Each frame: region rates -> voice targets -> samples. Which neurons feed which voice is fixed once, from the snapshot's labels.
 fn render(
     time: Res<Time>,
     snap: Res<LatestSnapshot>,
-    settings: Res<Settings>,
+    policy: SonifyPolicy,
     mut son: ResMut<Sonifier>,
     mut sink: Single<&mut AudioSink, With<Sonification>>,
 ) {
-    sink.set_volume(Volume::Linear(if son.on && !settings.mute { settings.master_volume * 0.8 } else { 0.0 }));
-    if !son.on {
+    // `SonifyPlay.volume`: master x the sonification's own volume, and silence for any of the reasons above
+    let cfg = &policy.cfg.0;
+    let silent = policy.reason().is_some();
+    sink.set_volume(Volume::Linear(if silent { 0.0 } else { (cfg.get_f32("audio.master") * cfg.get_f32("audio.sonify_vol")).min(1.0) }));
+    son.silent = silent;
+    son.song_voice = cfg.get_bool("audio.sonify_song");
+    if silent {
         return;
     }
     let Some(s) = snap.0.as_deref() else { return };
@@ -215,7 +292,8 @@ fn render(
     let song_level = info.group_names.iter().position(|n| n == "song").and_then(|i| s.levels.get(i).copied()).unwrap_or(1.0);
     son.song_slow += (song_level - son.song_slow) * (dt * 1.0).min(1.0);
     let slow = son.song_slow;
-    let on = son.gate.update(slow);
+    // Settings > Audio > Sonification: courtship song (off: the song voice stays silent)
+    let on = son.gate.update(slow) && son.song_voice;
     let loud = son.gate.loudness();
     son.synth.set_song(on, loud);
     let want = ((dt.min(0.1)) * RATE as f32) as usize;
@@ -234,5 +312,23 @@ impl Plugin for AudioPlugin {
             .add_audio_source::<LiveSynth>()
             .add_systems(Startup, setup)
             .add_systems(Update, (play_sfx, buzz, toggle, render));
+    }
+}
+
+#[cfg(test)]
+mod policy_tests {
+    use super::silent_reason;
+
+    /// The order of `sonify.silent_reason` (legacy-python/kickthefly/core/sonify.py).
+    #[test]
+    fn silent_for_the_same_reasons_as_python() {
+        assert_eq!(silent_reason(false, false, 1.0, 0.4, false, false, false, false), Some("off"));
+        assert_eq!(silent_reason(true, true, 1.0, 0.4, true, true, false, true), Some("muted"));
+        assert_eq!(silent_reason(true, false, 1.0, 0.0, false, false, false, false), Some("volume is 0"));
+        assert!(silent_reason(true, false, 1.0, 0.4, true, false, false, false).unwrap().starts_with("the microphone"));
+        assert!(silent_reason(true, false, 1.0, 0.4, false, true, false, false).unwrap().starts_with("Streamer mode"));
+        assert_eq!(silent_reason(true, false, 1.0, 0.4, false, true, true, false), None);
+        assert_eq!(silent_reason(true, false, 1.0, 0.4, false, false, false, true), Some("time is paused"));
+        assert_eq!(silent_reason(true, false, 1.0, 0.4, false, false, false, false), None);
     }
 }

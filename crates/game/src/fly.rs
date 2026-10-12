@@ -382,7 +382,11 @@ fn brain_reactions(
     mut popups: MessageWriter<Popup>,
     mut sfx: MessageWriter<Sfx>,
     mut fired: MessageWriter<ReactionFired>,
+    settings: Res<Settings>,
+    sonifier: Option<Res<crate::audio::Sonifier>>,
 ) {
+    // the buzz of a singing fly, unless the sonification's song voice is already sounding it (`Sonify.voicing_song`)
+    let song_buzz = settings.song_buzz && !sonifier.is_some_and(|s| s.on && !s.silent && s.song_voice);
     let Some(s) = snap.0.as_deref() else { return };
     let Some(info) = s.info.as_deref() else { return };
     if s.levels.len() != info.group_names.len() || s.levels.is_empty() {
@@ -479,7 +483,7 @@ fn brain_reactions(
                     popups.write(Popup::new(above, "ZZZ", (170, 190, 255)));
                 }
                 Reaction::Groom(_) => {}
-                Reaction::Song(_) => {
+                Reaction::Song(_) if song_buzz => {
                     popups.write(Popup::new(above, "~ BUZZ ~", (255, 180, 220)));
                     sfx.write(Sfx::new("song"));
                 }
