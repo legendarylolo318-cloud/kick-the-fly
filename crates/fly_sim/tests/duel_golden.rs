@@ -86,6 +86,18 @@ fn rows_eq(got: &[duel::DriverRow], want: &Value, what: &str) {
     }
 }
 
+/// Two numbers of a duel are the same. On Linux that means equal to the last bit: the goldens were made by Python with glibc's `sin`, `cos`,
+/// `atan2` and `hypot`, and the Rust standard library calls the same ones. Other C libraries (Windows' UCRT) round those functions
+/// differently in the last bit now and then, and no portable implementation reproduces glibc bit for bit (the `libm` crate was tried:
+/// it differs at seed 91, frame 49). So elsewhere the duel must agree to nine digits: the same fight, not the same bits.
+fn same(a: f64, b: f64) -> bool {
+    if cfg!(target_os = "linux") { a == b } else { (a - b).abs() <= 1e-9 * b.abs().max(1.0) }
+}
+
+fn same_all(a: &[f64], b: &[f64]) -> bool {
+    a.len() == b.len() && a.iter().zip(b).all(|(x, y)| same(*x, *y))
+}
+
 #[test]
 fn duel_engine_equals_python() {
     let g: Value =
@@ -103,24 +115,24 @@ fn duel_engine_equals_python() {
             _ => None,
         };
         assert_eq!(r.winner, win, "{tag}");
-        assert_eq!(r.hp, [f(&w["hp"]["A"]), f(&w["hp"]["B"])], "{tag}");
+        assert!(same_all(&r.hp, &[f(&w["hp"]["A"]), f(&w["hp"]["B"])]), "{tag}: hp {:?}", r.hp);
         assert_eq!(r.shots, [w["shots"]["A"].as_u64().unwrap() as u32, w["shots"]["B"].as_u64().unwrap() as u32], "{tag}");
         assert_eq!(r.hits, [w["hits"]["A"].as_u64().unwrap() as u32, w["hits"]["B"].as_u64().unwrap() as u32], "{tag}");
-        assert_eq!(r.seconds, f(&w["seconds"]), "{tag}");
+        assert!(same(r.seconds, f(&w["seconds"])), "{tag}: seconds {}", r.seconds);
         assert_eq!(r.knockout, w["knockout"].as_bool().unwrap(), "{tag}");
         assert_eq!(r.steps, w["steps"].as_u64().unwrap(), "{tag}");
         for (i, who) in ["A", "B"].iter().enumerate() {
             let ml = &w["max_levels"][who];
             let got = r.max_levels[i];
             for (j, name) in ["fire", "escape", "run", "walk"].iter().enumerate() {
-                assert_eq!(got[j], f(&ml[name]), "{tag} max level {who} {name}");
+                assert!(same(got[j], f(&ml[name])), "{tag} max level {who} {name}: {} vs {}", got[j], ml[name]);
             }
         }
         let ev = w["events"].as_array().unwrap();
         assert_eq!(r.events.len(), ev.len(), "{tag}: events");
         for (e, we) in r.events.iter().zip(ev) {
             assert_eq!(e.kind, we[0].as_str().unwrap());
-            assert_eq!(e.t, f(&we[1]));
+            assert!(same(e.t, f(&we[1])), "{tag}: event time {} vs {}", e.t, we[1]);
             assert_eq!(["A", "B"][e.who], we[2].as_str().unwrap());
         }
         let fr = w["frames"].as_array().unwrap();
@@ -128,11 +140,14 @@ fn duel_engine_equals_python() {
         for (i, (g, wf)) in r.frames.iter().zip(fr).enumerate() {
             let want = [f(&wf[0]), f(&wf[1]), f(&wf[2]), f(&wf[3]), f(&wf[4]), f(&wf[5]), f(&wf[6]), f(&wf[7]), f(&wf[8])];
             let got = [g.t, g.pos[0][0], g.pos[0][1], g.yaw[0], g.hp[0], g.pos[1][0], g.pos[1][1], g.yaw[1], g.hp[1]];
-            assert_eq!(got, want, "{tag} frame {i}");
+            assert!(same_all(&got, &want), "{tag} frame {i}\n  left: {got:?}\n right: {want:?}");
             let wp = wf[9].as_array().unwrap();
             assert_eq!(g.pellets.len(), wp.len(), "{tag} frame {i} pellets");
             for (p, q) in g.pellets.iter().zip(wp) {
-                assert_eq!((p.0, p.1, p.2 as u64), (f(&q[0]), f(&q[1]), q[2].as_u64().unwrap()), "{tag} frame {i}");
+                assert!(
+                    same(p.0, f(&q[0])) && same(p.1, f(&q[1])) && p.2 as u64 == q[2].as_u64().unwrap(),
+                    "{tag} frame {i} pellet {p:?} vs {q}"
+                );
             }
         }
         for (i, log) in [&a.log, &b.log].into_iter().enumerate() {
@@ -141,7 +156,7 @@ fn duel_engine_equals_python() {
             for (p, q) in log.iter().zip(wl) {
                 assert_eq!(p.0, q[0].as_str().unwrap());
                 assert_eq!(p.1.map(|c| c.to_string()), q[1].as_str().map(str::to_string));
-                assert_eq!(p.2, f(&q[2]), "{tag} poke strength {}", p.0);
+                assert!(same(p.2, f(&q[2])), "{tag} poke strength {}: {} vs {}", p.0, p.2, q[2]);
                 assert_eq!(p.3, q[3].as_bool().unwrap());
             }
         }

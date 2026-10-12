@@ -76,9 +76,9 @@ jobs:
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Tests (unit, integration, Python-file compatibility)
-        run: cargo test --workspace --release
+        run: cargo test --workspace --release --no-fail-fast
       - name: Golden tests (simulator, pain, Neurodex against the Python reference)
-        run: cargo test -p fly_sim -p ktf_data --release -- --include-ignored
+        run: cargo test -p fly_sim -p ktf_data --release --no-fail-fast -- --include-ignored
 
   appimage:
     needs: check
