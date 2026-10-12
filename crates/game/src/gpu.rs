@@ -149,6 +149,8 @@ pub struct BrainParams {
     pub base_glow: f32,
     pub gain: f32,
     pub rot: Vec4,
+    /// The tilt (cos, sin) and the shift of the turned, zoomed cloud in the camera's plane.
+    pub tilt: Vec4,
     /// Imaging mode: the four stops of the palette (`imaging.LUTS`), and `x` = 1 to colour by them instead of by population.
     pub lut: [Vec4; 4],
     pub mode: Vec4,

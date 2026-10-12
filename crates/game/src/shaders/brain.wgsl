@@ -9,6 +9,8 @@ struct Params {
     gain: f32,
     // x, y: rotation about the vertical axis (cos, sin); z, w: scale and vertical shift of the cloud
     rot: vec4<f32>,
+    // x, y: the tilt (cos, sin); z, w: the shift of the turned, zoomed cloud in the camera's plane
+    tilt: vec4<f32>,
     // imaging mode: the palette's four stops, and x = 1 to colour by them (brightness through the palette) instead of by population
     lut: array<vec4<f32>, 4>,
     mode: vec4<f32>,
@@ -61,7 +63,11 @@ fn vertex(in: VertexIn) -> VertexOut {
     let a = activity[id];
     let c = params.rot.x;
     let sn = params.rot.y;
-    let p = vec3<f32>(s.x * c + s.z * sn, s.y + params.rot.w, -s.x * sn + s.z * c) * params.rot.z;
+    // the same sum as `BrainView::turn`
+    let z1 = -s.x * sn + s.z * c;
+    let y1 = s.y + params.rot.w;
+    let p = vec3<f32>(s.x * c + s.z * sn, y1 * params.tilt.x + z1 * params.tilt.y, -y1 * params.tilt.y + z1 * params.tilt.x) * params.rot.z
+        + vec3<f32>(params.tilt.z, params.tilt.w, 0.0);
     let vpos = view.view_from_world * vec4<f32>(p, 1.0);
     let size = params.size * (1.0 + 2.5 * a);
     out.clip = view.clip_from_view * (vpos + vec4<f32>(in.corner_id.xy * size, 0.0, 0.0));

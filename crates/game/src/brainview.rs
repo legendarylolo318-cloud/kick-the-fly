@@ -12,7 +12,7 @@
 use bevy::asset::RenderAssetUsages;
 use bevy::camera::visibility::{NoFrustumCulling, RenderLayers};
 use bevy::camera::{ClearColorConfig, RenderTarget};
-use bevy::input::mouse::AccumulatedMouseMotion;
+use bevy::input::mouse::{AccumulatedMouseMotion, MouseWheel};
 use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureFormat};
 use bevy::render::storage::ShaderBuffer;
@@ -70,7 +70,8 @@ pub struct BrainView {
     pub yaw: f32,
     pub pitch: f32,
     pub zoom: f32,
-    pub auto_rotate: bool,
+    /// Shift of the turned, zoomed cloud in the camera's plane (layout units; `BrainView.pan_x/pan_y` in Python).
+    pub pan: Vec2,
     pub lit: usize,
     /// While the kill cam plays, these per-neuron rates (spikes per step) are shown instead of the live brain's, and `highlight` neurons pulse.
     pub replay: Option<Vec<f32>>,
@@ -86,8 +87,8 @@ impl Default for BrainView {
             big: false,
             yaw: 0.0,
             pitch: 0.0,
-            zoom: 0.8,
-            auto_rotate: true,
+            zoom: ZOOM_FRONT,
+            pan: Vec2::ZERO,
             lit: 0,
             replay: None,
             highlight: Vec::new(),
@@ -97,7 +98,43 @@ impl Default for BrainView {
     }
 }
 
+/// The zoom of the front view (Python's `zoom = 1.0`); the wheel may go from 0.2 to 5 times this (`set_camera`'s clip).
+pub const ZOOM_FRONT: f32 = 0.8;
+/// The brain camera: its distance from the cloud's centre and half its vertical field of view.
+pub const CAM_DIST: f32 = 3.4;
+pub const CAM_HALF_FOV: f32 = 16.0;
+
 impl BrainView {
+    /// A layout-space point as the brain camera sees it: turned about the vertical axis, tilted, zoomed, then shifted
+    /// (`BrainView._recompute_big`). `shaders/brain.wgsl` does the same sum; the inspector's picking and the skeleton overlay use this.
+    pub fn turn(&self, p: Vec3) -> Vec3 {
+        let (sy, cy) = self.yaw.sin_cos();
+        let (sp, cp) = self.pitch.sin_cos();
+        let z1 = -p.x * sy + p.z * cy;
+        Vec3::new(p.x * cy + p.z * sy, p.y * cp + z1 * sp, -p.y * sp + z1 * cp) * self.zoom + self.pan.extend(0.0)
+    }
+
+    /// `BrainView.zoom_by`: the wheel, clipped to 0.2-5 times the front view.
+    pub fn zoom_by(&mut self, factor: f32) {
+        self.zoom = (self.zoom * factor).clamp(0.2 * ZOOM_FRONT, 5.0 * ZOOM_FRONT);
+    }
+
+    /// `BrainView.orbit`, in radians; the tilt stops at straight up and straight down.
+    pub fn orbit(&mut self, dyaw: f32, dpitch: f32) {
+        self.yaw += dyaw;
+        self.pitch = (self.pitch + dpitch).clamp(-std::f32::consts::FRAC_PI_2, std::f32::consts::FRAC_PI_2);
+    }
+
+    /// `BrainView.set_preset`: front / side / top / reset.
+    pub fn set_preset(&mut self, name: &str) {
+        let (yaw, pitch) = match name {
+            "side" => (std::f32::consts::FRAC_PI_2, 0.0),
+            "top" => (0.0, -std::f32::consts::FRAC_PI_2),
+            _ => (0.0, 0.0),
+        };
+        (self.yaw, self.pitch, self.zoom, self.pan) = (yaw, pitch, ZOOM_FRONT, Vec2::ZERO);
+    }
+
     pub fn built(&self) -> bool {
         self.built
     }
@@ -133,8 +170,8 @@ fn setup(mut commands: Commands, mut view: ResMut<BrainView>, mut images: ResMut
         Camera3d::default(),
         Camera { order: -2, clear_color: ClearColorConfig::Custom(Color::srgb(0.015, 0.02, 0.035)), is_active: true, ..default() },
         RenderTarget::Image(image.clone().into()),
-        Projection::Perspective(PerspectiveProjection { fov: 32f32.to_radians(), near: 0.05, far: 50.0, ..default() }),
-        Transform::from_xyz(0.0, 0.0, 3.4).looking_at(Vec3::ZERO, Vec3::Y),
+        Projection::Perspective(PerspectiveProjection { fov: (2.0 * CAM_HALF_FOV).to_radians(), near: 0.05, far: 50.0, ..default() }),
+        Transform::from_xyz(0.0, 0.0, CAM_DIST).looking_at(Vec3::ZERO, Vec3::Y),
         RenderLayers::layer(BRAIN_LAYER),
     ));
     commands.spawn((
@@ -180,6 +217,7 @@ fn build_cloud(
             base_glow: 0.012,
             gain: 0.7,
             rot: Vec4::new(1.0, 0.0, 1.0, 0.0),
+            tilt: Vec4::new(1.0, 0.0, 0.0, 0.0),
             lut: [Vec4::ZERO; 4],
             mode: Vec4::ZERO,
         },
@@ -254,6 +292,8 @@ fn update_activity(
         m.params.base_glow = 0.015 + 0.03 * v.mode.gain();
         let (sn, c) = v.yaw.sin_cos();
         m.params.rot = Vec4::new(c, sn, v.zoom, 0.0);
+        let (sp, cp) = v.pitch.sin_cos();
+        m.params.tilt = Vec4::new(cp, sp, v.pan.x, v.pan.y);
         m.params.size = 0.0030 * if v.big { 1.3 } else { 1.0 };
         m.params.mode.x = if imaging { 1.0 } else { 0.0 };
         if imaging {
@@ -266,13 +306,21 @@ fn update_activity(
     }
 }
 
+/// The big view's mouse, as in Python (`kick3d.py` MOUSEWHEEL, `kick_the_fly.py` `big_drag`): with the mouse free, the wheel zooms, a drag
+/// turns and tilts (0.4 degrees a HUD pixel), Shift+drag or a middle-button drag shifts the picture with the pointer; 1 / 2 / 3 / 0 pick
+/// the front / side / top / reset camera. Autopilot with 'brain orbit' turns it by 12 degrees a second.
 #[allow(clippy::too_many_arguments)]
 fn control(
     act: Res<crate::actions::Actions>,
     keys: Res<ButtonInput<KeyCode>>,
     mouse: Res<ButtonInput<MouseButton>>,
     motion: Res<AccumulatedMouseMotion>,
+    mut wheel: MessageReader<MouseWheel>,
     look: Res<MouseLook>,
+    menu: Res<crate::menu_ui::MenuOpen>,
+    cfg: Res<crate::menu_ui::UserConfig>,
+    hud: Res<crate::hud_canvas::HudLayout>,
+    window: Single<&Window, With<PrimaryWindow>>,
     mut view: ResMut<BrainView>,
     time: Res<Time>,
 ) {
@@ -282,15 +330,40 @@ fn control(
     if act.just("panel") {
         view.mode = view.mode.next();
     }
-    if view.big && !look.captured && mouse.pressed(MouseButton::Left) {
-        view.yaw += motion.delta.x * 0.01;
-        view.auto_rotate = false;
-    } else if view.auto_rotate {
-        view.yaw += time.delta_secs() * 0.12;
+    let free = view.big && !look.captured && !menu.0;
+    let scroll: f32 = wheel.read().map(|w| w.y).sum();
+    if !free {
+        return;
     }
-    if keys.just_pressed(KeyCode::KeyR) && view.big {
-        view.yaw = 0.0;
-        view.auto_rotate = true;
+    if scroll != 0.0 {
+        view.zoom_by(if scroll > 0.0 { 1.15 } else { 0.87 });
+    }
+    let shift = keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight);
+    let (left, middle) = (mouse.pressed(MouseButton::Left), mouse.pressed(MouseButton::Middle));
+    let dragging = (left || middle) && motion.delta != Vec2::ZERO;
+    if dragging {
+        // window pixels to HUD pixels, so a drag turns the same on every window size
+        let k = (hud.0.scale / window.scale_factor()).max(1e-3);
+        if shift || middle {
+            // 120 of Python's 96,000 layout units a pixel of its 860 wide picture: a touch faster than the pointer
+            let per_px = 2.0 * CAM_DIST * CAM_HALF_FOV.to_radians().tan() / window.height().max(1.0) * (120.0 * 860.0 / 96_000.0);
+            view.pan += Vec2::new(motion.delta.x, -motion.delta.y) * per_px;
+        } else {
+            let step = 0.4f32.to_radians() / k;
+            view.orbit(motion.delta.x * step, -motion.delta.y * step);
+        }
+    } else if cfg.0.get_bool("brain.autopilot") && cfg.0.get_bool("brain.autopilot_orbit") && !(left || middle) {
+        view.orbit(time.delta_secs() * 12f32.to_radians(), 0.0);
+    }
+    for (codes, name) in [
+        ([KeyCode::Digit1, KeyCode::Numpad1], "front"),
+        ([KeyCode::Digit2, KeyCode::Numpad2], "side"),
+        ([KeyCode::Digit3, KeyCode::Numpad3], "top"),
+        ([KeyCode::Digit0, KeyCode::Numpad0], "reset"),
+    ] {
+        if keys.any_just_pressed(codes) {
+            view.set_preset(name);
+        }
     }
 }
 
@@ -345,6 +418,48 @@ fn layout(
         && let Some(mut img) = images.get_mut(&panel.0)
     {
         img.resize(Extent3d { width: pw, height: ph, depth_or_array_layers: 1 });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn wheel_zoom_is_clipped_like_python() {
+        let mut v = BrainView::default();
+        v.zoom_by(1.15);
+        assert!((v.zoom - ZOOM_FRONT * 1.15).abs() < 1e-6);
+        for _ in 0..40 {
+            v.zoom_by(1.15);
+        }
+        assert!((v.zoom - 5.0 * ZOOM_FRONT).abs() < 1e-6);
+        for _ in 0..80 {
+            v.zoom_by(0.87);
+        }
+        assert!((v.zoom - 0.2 * ZOOM_FRONT).abs() < 1e-6);
+    }
+
+    #[test]
+    fn turn_matches_the_python_rotation() {
+        // `_recompute_big`'s R (yaw 30, pitch 20 degrees) with y pointing up here and down there
+        let mut v = BrainView::default();
+        v.zoom = 1.0;
+        v.orbit(30f32.to_radians(), 20f32.to_radians());
+        let p = Vec3::new(0.3, -0.2, 0.5);
+        let (sy, cy) = 30f32.to_radians().sin_cos();
+        let (sp, cp) = 20f32.to_radians().sin_cos();
+        let (x, y, z) = (p.x, -p.y, p.z);
+        let want = Vec3::new(cy * x + sy * z, -(sp * sy * x + cp * y - sp * cy * z), -cp * sy * x + sp * y + cp * cy * z);
+        assert!((v.turn(p) - want).length() < 1e-6, "{:?} vs {want:?}", v.turn(p));
+        // the tilt stops at the poles; zoom scales and the shift comes last
+        v.orbit(0.0, 9.0);
+        assert!((v.pitch - std::f32::consts::FRAC_PI_2).abs() < 1e-6);
+        v.set_preset("reset");
+        (v.zoom, v.pan) = (2.0, Vec2::new(0.25, -0.5));
+        assert!((v.turn(p) - (p * 2.0 + Vec3::new(0.25, -0.5, 0.0))).length() < 1e-6);
+        v.set_preset("top");
+        assert!((v.zoom - ZOOM_FRONT).abs() < 1e-6 && v.pan == Vec2::ZERO && v.pitch < -1.5);
     }
 }
 

@@ -181,10 +181,8 @@ fn draw_overlay(
     }
     let Some(info) = insp.info.as_ref() else { return };
     let Some(skel) = skeleton_of(shapes.state(info.body_id).as_ref()) else { return };
-    let (sn, c) = view.yaw.sin_cos();
     let to_view = |p: [f32; 3]| -> Vec3 {
-        let (x, y, z) = ((p[0] - 48_000.0) / 48_000.0, (35_000.0 - p[1]) / 48_000.0, (p[2] - 65_000.0) / 48_000.0);
-        Vec3::new(x * c + z * sn, y, -x * sn + z * c) * view.zoom
+        view.turn(Vec3::new((p[0] - 48_000.0) / 48_000.0, (35_000.0 - p[1]) / 48_000.0, (p[2] - 65_000.0) / 48_000.0))
     };
     let col = Color::srgb(1.0, 0.93, 0.55);
     for (a, b) in skel.segments() {

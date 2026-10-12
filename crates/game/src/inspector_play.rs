@@ -58,13 +58,12 @@ pub struct Inspector {
 
 /// The brain shader's projection (`brain.wgsl`, camera at z 3.4, 32 degrees): a layout point to window fractions (0..1, y down).
 pub fn project(view: &BrainView, p: [f32; 3], aspect: f32) -> Option<(f32, f32)> {
-    let (sn, c) = view.yaw.sin_cos();
-    let q = Vec3::new(p[0] * c + p[2] * sn, p[1], -p[0] * sn + p[2] * c) * view.zoom;
-    let d = 3.4 - q.z;
+    let q = view.turn(Vec3::from(p));
+    let d = crate::brainview::CAM_DIST - q.z;
     if d <= 0.05 {
         return None;
     }
-    let t = (16f32).to_radians().tan();
+    let t = crate::brainview::CAM_HALF_FOV.to_radians().tan();
     let (nx, ny) = (q.x / (d * t * aspect), q.y / (d * t));
     Some(((nx + 1.0) / 2.0, (1.0 - ny) / 2.0))
 }
