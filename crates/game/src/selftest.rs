@@ -145,7 +145,7 @@ fn check_pack(brain: &str, ctx: &mut Ctx) -> Check {
                 };
             }
             return Check::new(&cid, &name, Status::Fail, "the adult brain pack (kick_brain.npz) was not found").fix(
-                "Build it with the Python dev tool in legacy-python/ (README, 'Build from source') and put it in data/, or use a release build (it has the pack inside).",
+                "Build it with the Python game's dev tool (the python-legacy branch; README, 'Build from source') and put it in data/, or use a release build (it has the pack inside).",
             );
         }
         return Check::new(&cid, &name, Status::Pass, "not present (optional: the larva brain is built locally, see docs/larva.md)");

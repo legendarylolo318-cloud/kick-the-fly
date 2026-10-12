@@ -1,5 +1,9 @@
 # PORTING.md: Python → Rust + Bevy parity checklist
 
+> **Where the Python code is.** This checklist was written while the Python game sat in `legacy-python/` on the port branch. That folder is
+> not on `main`: every `legacy-python/...` path below is a path on the branch `python-legacy` (tag `python-3.1.1`) without that prefix, and the
+> `make_*_reference.py` scripts are now in `tests/reference_tools/`. The old protocol files are in `tests/python_files/protocols/`.
+
 Source of truth for the `bevy-port` branch. Every feature of the Python game (3.1.1, `kickthefly/`) is listed once, with the Python file
 and function/class it lives in. Later steps tick items off. **Do not tick an item until the Rust version reproduces the Python behavior**
 (for the simulator: the golden tests in `crates/fly_sim/tests/golden.rs`; for everything else: a test or a documented manual check).

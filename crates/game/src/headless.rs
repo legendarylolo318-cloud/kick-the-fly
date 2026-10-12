@@ -514,7 +514,7 @@ pub fn main(argv: &[String]) -> i32 {
         }
     };
     if let Some(flag) = &c.refused {
-        eprintln!("error: {flag} is not part of the Rust build (the Python tools for it are in legacy-python/; see PORTING.md)");
+        eprintln!("error: {flag} is not part of the Rust build (the Python game has it: the python-legacy branch; see PORTING.md)");
         return 2;
     }
     let nothing = !(c.validate

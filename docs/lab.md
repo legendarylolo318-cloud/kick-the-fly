@@ -1,7 +1,7 @@
 # Lab mode
 
 **Lab** (Esc > Mode, or Settings > Brain) replaces Play's challenges with research tools. Everything here also runs
-headless, and the same machinery is a Python library ([api.md](api.md)). What comes from the connectome and what is
+headless, and the same machinery is a Python library (`api.md` on the `python-legacy` branch). What comes from the connectome and what is
 a game rule is the same as in the game (README: What is the connectome and what is a game rule).
 
 ## Lab tools

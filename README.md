@@ -48,8 +48,8 @@ Rust 1.95 or newer through `rustup`, and a Vulkan driver.
 | Debian / Ubuntu | `sudo apt install build-essential pkg-config libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev libx11-dev`, then [rustup.rs](https://rustup.rs) |
 | Windows | [rustup.rs](https://rustup.rs) with the MSVC build tools (`x86_64-pc-windows-msvc`) |
 
-**The brain pack.** The connectome is `data/kick_brain.npz` (37 MB, not in git: it is built from the public MaleCNS v1.0 download with the dev
-tool in `legacy-python/`, or taken out of a release's AppImage). It is found from the working directory upward, next to the program, or at
+**The brain pack.** The connectome is `data/kick_brain.npz` (37 MB, not in git: it is built from the public MaleCNS v1.0 download with the Python
+game's dev tool on the `python-legacy` branch, or taken out of a release's AppImage). It is found from the working directory upward, next to the program, or at
 `$KICK_THE_FLY_PACK`; `--pack FILE` overrides. Without it a synthetic random network runs, which is not the fly.
 `cargo build --release --features bundle-pack` compiles the pack into the program.
 
@@ -82,8 +82,8 @@ than 32 GB of memory add `-j 3`, or set `CARGO_PROFILE_RELEASE_LTO=off` as CI do
 
 **Layout.** `crates/fly_sim` (the simulator and every engine: pure Rust, no Bevy), `crates/ktf_data` (config, stores, saves, recorder, bundles,
 protocols, pet, streamer rules), `crates/ktf_ui` (the software-drawn menu pages and HUD), `crates/game` (the Bevy app: render thread, simulation
-thread, one plugin per feature). `legacy-python/` is the Python game, unchanged, as the reference every part is checked against: golden data
-from it is in `tests/golden/`, page pictures in `tests/ui_reference/`. Notes for developers: `docs/dev/`.
+thread, one plugin per feature). Every part is checked against the Python game 3.1.1 (the `python-legacy` branch): golden data from it is in
+`tests/golden/`, page pictures in `tests/ui_reference/`, the scripts that made them in `tests/reference_tools/`. Open issues: `docs/dev/BUGS.md`.
 
 ## New in 3.0
 
@@ -105,7 +105,7 @@ from it is in `tests/golden/`, page pictures in `tests/ui_reference/`. Notes for
 **What did not change: the simulation.** `--validate` gives the same results as 2.13 (21 tests, **12 PASS / 9 FAIL**), and no weight, time
 constant or threshold was tuned to make anything pass. Old saves, settings, pet files, replays and protocols keep working. Everything new is
 tagged **CONNECTOME**, **GAME RULE** or **MODEL PREDICTION**. The whole release: [docs/changelog.md](docs/changelog.md); how it was checked, the
-decisions and the known limits: [docs/3.0-review.md](docs/3.0-review.md).
+decisions and the known limits are in the 3.0 review on the `python-legacy` branch.
 
 ## Play
 
@@ -151,18 +151,7 @@ transmitter sign flips), neural clamp, diff mode, classroom lectures, the 3.0 to
 | ![the Lab tools menu](docs/lab.png) | ![the validation dashboard with PASS and FAIL results](docs/validation.png) |
 | **Lab mode**, with the simulation engine shown top right. | **Validation**: which published fly results it reproduces, with numbers, and which it doesn't. |
 
-From a source checkout the brain is also a Python library ([docs/api.md](docs/api.md), with a [notebook](docs/api_example.ipynb)):
-
-```python
-from kickthefly import Fly
-
-fly = Fly(seed=1000)
-rec = fly.record({"giant fiber": "dnp01"})
-fly.step(2.0)
-fly.drive("loom")           # LPLC2 + LC4, like optogenetic activation
-fly.step(2.0)
-print(rec.rates(0, 2), rec.rates(2, 4))
-```
+The Python library (`from kickthefly import Fly`) belongs to the Python version, on the `python-legacy` branch; 4.0 has no scripting API yet.
 
 ## Validation
 
@@ -223,9 +212,9 @@ crates/fly_sim/      the LIF connectome simulator and every analysis engine (pur
 crates/ktf_data/     config.toml, saves, share codes, protocols, bundles and per-OS folders, compatible with the Python game's files
 crates/ktf_ui/       the menu pages and the HUD (drawn in software, compared with pictures of the Python game)
 crates/game/         the Bevy game
-legacy-python/       the Python game 3.1.1, unchanged (the reference; also on the python-legacy branch)
 tests/golden/  tests/python_files/  tests/ui_reference/    reference outputs, real files and page pictures from the Python game
-docs/                the manual (written for 3.x; where 4.0 differs, PORTING.md says so) and docs/dev/ (working notes)
+tests/reference_tools/   the scripts that made them (they run inside a checkout of the python-legacy branch)
+docs/                the manual (written for 3.x; where 4.0 differs, PORTING.md says so) and docs/dev/BUGS.md (open issues)
 data/                not in git: the brain pack (bundled in the exe and AppImage)
 ```
 

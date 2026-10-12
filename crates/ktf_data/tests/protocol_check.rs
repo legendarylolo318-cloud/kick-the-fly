@@ -8,7 +8,7 @@ fn bundled_files_and_bad_cases_equal_python() {
     let root = concat!(env!("CARGO_MANIFEST_DIR"), "/../..");
     let g: Value = serde_json::from_str(&std::fs::read_to_string(format!("{root}/tests/golden/protocol.json")).unwrap()).unwrap();
     for (name, want) in g["files"].as_object().unwrap() {
-        let got = load(std::path::Path::new(&format!("{root}/legacy-python/protocols/{name}")));
+        let got = load(std::path::Path::new(&format!("{root}/tests/python_files/protocols/{name}")));
         match (got, want.get("ok")) {
             (Ok(v), Some(w)) => {
                 // compare structure ignoring float/int spelling

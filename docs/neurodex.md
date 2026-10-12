@@ -59,7 +59,7 @@ dopamine synapses, are not in it), and the share is of that type's total input o
   `Documents\Kick the Fly\memory`). A corrupt file is kept as `.bad` and the dex starts empty; a file from a newer version is never
   overwritten. Settings > Brain > **Neurodex discoveries** turns collecting off (what you found stays); **Reset Neurodex** in the panel
   erases it after a second click.
-- The larva has its own list inside the same file. The windowed game runs the adult brain (docs/larva.md), so the larva dex fills only
+- The larva has its own list inside the same file. The windowed game runs the adult brain (`docs/larva.md` on the `python-legacy` branch), so the larva dex fills only
   from code that steps a larval brain (the playthrough bot and tests do; `tests/test_neurodex.py` discovers KC on the real larval brain).
   Its "types" are the 17 cell classes of Winding et al. 2023's annotation table (KC, MBON, MBIN, LN, PN, LHN, DN-SEZ, DN-VNC, sensory...);
   the 346 neurons the dataset leaves "unassigned" are not a type and are skipped. Larval entries carry **no transmitter**: the larva pack's

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Builds dist/KickTheFly-x86_64.AppImage from the Rust release build: the game, the brain pack and the desktop files in one file.
-# Needs data/kick_brain.npz (the pack is built from the MaleCNS download with the Python dev tool in legacy-python/, see README.md).
+# Needs data/kick_brain.npz (the pack is built from the MaleCNS download with the Python game's dev tool, on the python-legacy branch; see README.md).
 # Build on an old glibc (CI uses ubuntu-22.04) so the AppImage runs on most distros. The game needs a Vulkan driver at run time
 # (vulkan-icd-loader plus the GPU's driver); like every AppImage it uses the host's libasound, libudev, libwayland and libxkbcommon.
 set -euo pipefail

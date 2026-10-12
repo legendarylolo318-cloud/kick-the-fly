@@ -3,7 +3,7 @@
 # release builds: the Linux AppImage and the Windows .exe, uploaded as artifacts.
 #
 # The brain pack (data/kick_brain.npz) is not in git. It is built once from the public MaleCNS v1.0 connectome with the Python dev tool in
-# legacy-python/ (about 1.1 GB download) and cached; the golden tests need it and skip themselves without it.
+# the python-legacy branch (about 1.1 GB download) and cached; the golden tests need it and skip themselves without it.
 name: ci
 
 on:
@@ -25,24 +25,25 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 60
     steps:
+      # the pack is built by the Python game's dev tool, which lives on the python-legacy branch (the Python game 3.1.1)
       - uses: actions/checkout@v4
+        with: {ref: python-legacy}
       - uses: actions/cache@v4
         id: cache
         with:
           path: data/kick_brain.npz
-          key: brainpack-v2-${{ hashFiles('legacy-python/kickthefly/sim/connectome/loader.py', 'legacy-python/kickthefly/sim/brainpack.py') }}
+          key: brainpack-v2-${{ hashFiles('kickthefly/sim/connectome/loader.py', 'kickthefly/sim/brainpack.py') }}
+          restore-keys: brainpack-v2-
       - uses: actions/setup-python@v5
-        if: steps.cache.outputs.cache-hit != 'true'
+        if: steps.cache.outputs.cache-hit != 'true' && hashFiles('data/kick_brain.npz') == ''
         with:
           python-version: "3.11"
       - name: Build the brain pack
-        if: steps.cache.outputs.cache-hit != 'true'
-        working-directory: legacy-python
+        if: steps.cache.outputs.cache-hit != 'true' && hashFiles('data/kick_brain.npz') == ''
         run: |
           python -m pip install numpy scipy pyarrow
           python -m kickthefly.sim.connectome.loader build
           python -m kickthefly.sim.brainpack build
-          mkdir -p ../data && cp data/kick_brain.npz ../data/
       - uses: actions/upload-artifact@v4
         with:
           name: brainpack
