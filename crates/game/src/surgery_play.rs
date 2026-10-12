@@ -13,8 +13,6 @@ use crate::menu_ui::{MenuInputSet, MenuOpen};
 use crate::player::MouseLook;
 use crate::sim_thread::Command;
 
-const H: i32 = 760;
-
 #[derive(Resource, Default)]
 pub struct Surgery {
     pub open: bool,
@@ -25,7 +23,7 @@ pub struct Surgery {
 
 fn build(s: &mut Surgery, counts: &[u32], modes: &[i8], types: &[(String, i8)]) {
     let mut ops = vec![];
-    let panel = Rect::new(75, 12, 740, (H - 24).min(690));
+    let panel = Rect::new(75, 12, 740, (crate::hud_canvas::live_hud_h() - 24).min(690));
     ops.push(Op::Veil(170));
     ops.push(Op::Card { rect: panel, fill: [18, 21, 28], alpha: 255, radius: 16 });
     ops.push(Op::Stroke { rect: panel, color: [40, 47, 60], width: 1, radius: 16 });

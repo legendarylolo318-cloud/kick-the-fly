@@ -14,7 +14,6 @@ use crate::tools::{ActiveLoadout, TOOLS, ToolState};
 
 const WHEEL_R: f32 = 150.0;
 const WHEEL_DEAD: f32 = 38.0;
-const PLAY_W: i32 = 890;
 
 #[derive(Resource, Default)]
 pub struct Wheel {
@@ -128,7 +127,7 @@ fn build(
     hud_h: i32,
 ) -> Vec<Op> {
     let n = list.len();
-    let (cx, cy) = (PLAY_W / 2, hud_h / 2);
+    let (cx, cy) = (crate::hud_canvas::live_play_w() / 2, hud_h / 2);
     let select = ktf_ui::pages::loadout::select_color(cfg);
     let pick = pick(vec, n);
     let mut ops = vec![Op::DiscA { c: (cx as f32, cy as f32), r: WHEEL_R + 58.0, color: [8, 10, 16], alpha: 200 }];

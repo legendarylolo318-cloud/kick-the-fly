@@ -106,6 +106,20 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     commands.insert_resource(HudCanvas { canvas: Canvas { linear_light: true, ..Canvas::new(1280, 720) }, image, crisp: true });
 }
 
+/// The HUD's play width and height this frame, for the panels that Python sizes with the rebound module constants `PLAY_W` and `H`
+/// (`render` sets `k2.W, k2.H, k2.PLAY_W = hud_w, hud_h, play_w` every frame): the tool wheel, the challenge panels, the autopsy card and
+/// brain surgery. 890 x 760 until the first layout (and in the tests, which compare against pictures made at that size).
+static LIVE_PLAY_W: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(890);
+static LIVE_HUD_H: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(760);
+
+pub fn live_play_w() -> i32 {
+    LIVE_PLAY_W.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+pub fn live_hud_h() -> i32 {
+    LIVE_HUD_H.load(std::sync::atomic::Ordering::Relaxed)
+}
+
 /// The layout for this frame, and the 3D camera's viewport: with a solid brain panel the room is drawn only left of it.
 #[allow(clippy::too_many_arguments)]
 fn layout(
@@ -127,6 +141,8 @@ fn layout(
     };
     let l = compute_layout(wn, hn, cfg.0.get_str("graphics.menu_size") != "large", mode, cfg.0.get_f32("graphics.ui_scale"));
     lay.0 = l;
+    LIVE_PLAY_W.store(l.play_w, std::sync::atomic::Ordering::Relaxed);
+    LIVE_HUD_H.store(l.hud_h, std::sync::atomic::Ordering::Relaxed);
     let want = if view.mode == PanelMode::Solid && !view.big {
         let w = ((l.view_w as f32 * l.scale).round() as u32).clamp(1, wn as u32);
         Some(bevy::camera::Viewport { physical_position: UVec2::ZERO, physical_size: UVec2::new(w, hn as u32), ..default() })

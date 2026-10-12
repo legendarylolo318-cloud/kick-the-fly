@@ -428,6 +428,35 @@ struct PelletMesh(usize);
 
 const POOL: usize = 8;
 
+/// `KTF_DUEL=1`: start with the duel on (for screenshots and checks without a person at the keyboard).
+fn start_on(mut duel: ResMut<Duel>) {
+    if std::env::var_os("KTF_DUEL").is_some() {
+        duel.on = true;
+    }
+}
+
+/// `KTF_DEBUG=1`: the duel's numbers on the terminal every 2 s.
+fn debug_line(duel: Res<Duel>, virt: Res<Time<Virtual>>, mut last: Local<f32>) {
+    let now = virt.elapsed_secs();
+    if duel.on && std::env::var_os("KTF_DEBUG").is_some() && now - *last >= 2.0 {
+        *last = now;
+        eprintln!(
+            "duel: hp {:.0} steer {:+.1} Hz trigger x{:.1} valence {:+.2} fear {:.2} like {:.2} scent {} shots {} hits {} died {} pellets {}",
+            duel.hp,
+            duel.steer,
+            duel.trigger,
+            duel.valence,
+            duel.fear,
+            duel.like,
+            duel.scent,
+            duel.stats.shots,
+            duel.stats.hits,
+            duel.stats.deaths,
+            duel.pellets.len()
+        );
+    }
+}
+
 fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut materials: ResMut<Assets<StandardMaterial>>) {
     let sphere = meshes.add(Sphere::new(1.0).mesh().uv(16, 10));
     let cube = meshes.add(Cuboid::new(1.0, 1.0, 1.0));
@@ -515,8 +544,8 @@ pub struct DuelPlugin;
 impl Plugin for DuelPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Duel>()
-            .add_systems(Startup, setup)
-            .add_systems(Update, (toggle_and_respawn, punish_on_damage))
+            .add_systems(Startup, (setup, start_on))
+            .add_systems(Update, (toggle_and_respawn, punish_on_damage, debug_line))
             .add_systems(
                 FixedUpdate,
                 (scent_and_flee, senses, pellets, motor).chain().after(crate::fly::brain_reactions).before(crate::fly::control),

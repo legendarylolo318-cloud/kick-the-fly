@@ -24,8 +24,13 @@ use crate::player::{Aim, MouseLook};
 use crate::sim_thread::{Command, SimEvent};
 use crate::tools::{ToolState, tool_tip};
 
-const PLAY_W: i32 = 890;
-const H: i32 = 760;
+fn play_w() -> i32 {
+    crate::hud_canvas::live_play_w()
+}
+
+fn hud_h() -> i32 {
+    crate::hud_canvas::live_hud_h()
+}
 const INK: [u8; 3] = [240, 243, 248];
 const TEXT: [u8; 3] = [205, 212, 224];
 const LABEL: [u8; 3] = [130, 142, 160];
@@ -211,7 +216,7 @@ struct Panel;
 impl Panel {
     /// `Challenge.panel`: the veil, the card, the title and subtitle. Returns the card.
     fn draw(ops: &mut Vec<Op>, title: &str, subtitle: &str, h: i32) -> Rect {
-        let p = rect(40, 30, (PLAY_W - 80).min(820), (H - 60).min(h));
+        let p = rect(40, 30, (play_w() - 80).min(820), (hud_h() - 60).min(h));
         ops.push(Op::Veil(140));
         ops.push(Op::Card { rect: p, fill: [18, 21, 28], alpha: 255, radius: 16 });
         ops.push(Op::Stroke { rect: p, color: [52, 60, 76], width: 1, radius: 16 });
@@ -538,7 +543,7 @@ fn tmaze_ops(ops: &mut Vec<Op>, t: &TMazeUi, view: Option<&crate::snapshot::Chal
 
 fn sneak_ops(ops: &mut Vec<Op>, s: &SneakUi, d: f32, scores: &Scores) {
     let (w, h) = (330, 120);
-    let b = rect(PLAY_W / 2 - w / 2, 120, w, h);
+    let b = rect(play_w() / 2 - w / 2, 120, w, h);
     card(ops, b, [10, 12, 18], 200, None);
     text(ops, "HOW CLOSE CAN YOU SNEAK?", (b.x + 14, b.y + 8), AMBER, FontSel::Bold, "topleft");
     button(ops, rect(b.right() - 70, b.y + 6, 60, 26), "Quit", "end", 0, true);
@@ -639,7 +644,7 @@ fn sweet_ops(ops: &mut Vec<Op>, sw: &mut SweetUi, view: Option<&crate::snapshot:
 }
 
 fn reverse_ops(ops: &mut Vec<Op>, r: &ReverseUi, scores: &Scores) {
-    let cx = (PLAY_W - 250).min(250.max(PLAY_W / 2));
+    let cx = (play_w() - 250).min(250.max(play_w() / 2));
     let c = &CIRCUITS[r.circuit];
     match r.state {
         0 => {
@@ -801,7 +806,7 @@ fn predict_answer(p: &mut PredictUi, choice: &str, now: f32, link: &SimLink, sfx
 }
 
 fn predict_ops(ops: &mut Vec<Op>, p: &PredictUi, now: f32) {
-    let cx = (PLAY_W - 260).min(260.max(PLAY_W / 2));
+    let cx = (play_w() - 260).min(260.max(play_w() / 2));
     let r = &READOUTS[p.readout];
     match p.state {
         1 => {

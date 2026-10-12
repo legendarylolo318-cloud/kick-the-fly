@@ -861,7 +861,7 @@ impl Hud<'_> {
         let f = self.f;
         let mut hits: Vec<(Rect, String, Option<String>)> = vec![];
         self.cv.veil([4, 5, 8], 150);
-        let (play_w, h) = (890, 760); // the pygame module constants PLAY_W and H, not the window
+        let (play_w, h) = (self.lay.play_w, self.lay.hud_h); // `PLAY_W` and `H` are rebound to the layout every frame
         let panel = Rect::new(40, 30, (play_w - 80).min(820), (h - 60).min(610));
         self.cv.fill_rect(panel, [18, 21, 28], 16);
         self.cv.stroke_rect(panel, BORDER, 16);

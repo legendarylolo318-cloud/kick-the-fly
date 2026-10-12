@@ -13,8 +13,6 @@ use crate::fly::{Fly, ResetFly};
 use crate::hud_canvas::HudStats;
 use crate::sim_thread::SimEvent;
 
-const PLAY_W: i32 = 890;
-const H: i32 = 760;
 const UP: [u8; 3] = [230, 103, 103];
 const DOWN: [u8; 3] = [57, 135, 229];
 const MID: [u8; 3] = [56, 56, 53];
@@ -61,7 +59,7 @@ fn build(rep: &Report, e: f32, f: &HudFonts) -> (Vec<Op>, Vec<(Rect, String)>) {
     let mut ops = vec![];
     let mut hits = vec![];
     ops.push(Op::VeilC([6, 7, 10], (200.0 * e) as u32));
-    let card = Rect::new(28, 26, PLAY_W - 56, H - 52);
+    let card = Rect::new(28, 26, crate::hud_canvas::live_play_w() - 56, crate::hud_canvas::live_hud_h() - 52);
     ops.push(Op::Card { rect: card, fill: [20, 22, 28], alpha: 255, radius: 16 });
     ops.push(Op::Stroke { rect: card, color: [40, 47, 60], width: 1, radius: 16 });
     let (x, y) = (card.x + 26, card.y + 18);
