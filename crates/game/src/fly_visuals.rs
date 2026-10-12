@@ -143,7 +143,7 @@ impl BodyMeshes {
             abdomen: meshes.add(painted_sphere(96, 28, stripes)),
             eye: meshes.add(painted_sphere(20, 16, eye_shade)),
             cylinder: meshes.add(Cylinder::new(1.0, 1.0).mesh().resolution(10)),
-            cube: meshes.add(Cuboid::new(2.0, 2.0, 2.0)),
+            cube: meshes.add(Cuboid::new(1.0, 1.0, 1.0)),
         }
     }
 }

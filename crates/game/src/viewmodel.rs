@@ -31,7 +31,7 @@ pub enum Shape {
     Sphere,
     /// Radius 1, one unit long along y, centred.
     Cylinder,
-    /// Two units a side.
+    /// One unit a side (`mesh_cube`: corners at +-0.5).
     Cube,
     /// In the xz plane: ring radius 1, tube radius 0.18 (`mesh_torus`).
     Torus,
@@ -230,7 +230,7 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
     let mut map = HashMap::new();
     map.insert(Shape::Sphere, meshes.add(Sphere::new(1.0).mesh().uv(22, 14)));
     map.insert(Shape::Cylinder, meshes.add(Cylinder::new(1.0, 1.0).mesh().resolution(16)));
-    map.insert(Shape::Cube, meshes.add(Cuboid::new(2.0, 2.0, 2.0)));
+    map.insert(Shape::Cube, meshes.add(Cuboid::new(1.0, 1.0, 1.0)));
     map.insert(Shape::Torus, meshes.add(Torus::new(0.82, 1.18)));
     let sphere = map[&Shape::Sphere].clone();
     commands.insert_resource(ViewAssets { meshes: map, materials: HashMap::new() });
