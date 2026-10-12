@@ -1,8 +1,8 @@
 # continue.md: where the Bevy port stands (read this, PORTING.md, then work)
 
-Branch `bevy-port`. Task = the user's 7-point brief (exact parity with the pygame game incl. GUI; UI; Lab tools; serde persistence; real neuron shapes;
+Branch `rust-3.1.2` (same commits as `bevy-port` up to 825329e; work continues on `rust-3.1.2` only). Task = the user's 7-point brief (exact parity with the pygame game incl. GUI; UI; Lab tools; serde persistence; real neuron shapes;
 packaging + CI; README). Tick PORTING.md only for verified things; unmatched things get a written reason there. Commit with
-`git -c user.name=Logan -c user.email=legendarylolo318@gmail.com commit` and end messages with `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>`.
+`git -c user.name=Logan -c user.email=legendarylolo318@gmail.com commit` and end messages with `Co-Authored-By: Claude Opus <noreply@anthropic.com>`.
 The user is on Wayland tiling: **run the game with `--fullscreen`** (memory notes: kick-the-fly-bevy-port, feedback-fullscreen-wayland-tiling).
 
 ## How to verify (keep using these)
@@ -72,6 +72,39 @@ The pygame references need `/tmp/pgvenv` recreated: `python3 -m venv V; V/bin/pi
   the hum test's "N of 50 neurons firing" counts are not shown. Photo: no `graphics.photo_scale` supersampling (the picture is window sized).
 - Neuron search box overlaps the pain card at the top left (Python's big view covers the cards); `lab_diff`/`lab_clamp` Python files forget `import numpy` (ours run).
 - Big-view path tracing is drawn as HUD ops over the 3D cloud (not pixel-compared with pygame's flat picture).
+
+## Session 2026-10-11/12 (laptop: i7-13620H, Intel UHD + RTX 4060 Laptop, Wayland): the review of REVIEW_PROMPT.md
+
+Baseline before any change: `cargo test --workspace --release` = 60 test binaries, 286 passed, 0 failed, 1 ignored (the 25-minute validation suite).
+`data/kick_brain.npz` was present (the goldens ran, none skipped).
+
+**Fixed and committed (one commit each, details in BUGS.md 'Review of 2026-10-11'):** big-view zoom / tilt / pan / presets; the held tool
+(`viewmodel.rs`); the fruit-fly model (`fly_visuals.rs`); FPS counter, FPS cap, VSync (`framerate.rs`); sugar (treats land, `sweet` poke) and
+per-fly pokes (`Fly.slot`); ten settings that did nothing (audio, sonification, panel mode, day/night); the profiler overlay; the Twitch reader's
+blocking join; the glyph cache in `ktf_ui::font`; `ci.yml` (branch, no LTO in the test job). New tests: `brainview::tests`, `viewmodel::tests`,
+`fly_visuals::tests`, `framerate::tests`, `audio::policy_tests`, `tools::tests`, `ktf_data/tests/fuzz_parsers.rs`.
+
+**Not a bug:** UI scale (Python's `compute_layout` snaps it, see BUGS.md 6); the focus does follow the nearest fly (BUGS.md 2).
+
+**How to look at things without a screenshot** (new): `KTF_DEBUG=1` prints `focus: game N sim Some(N) blocked ...` with each fly's distance every
+second, and `profiler: frame X ms (N fps)  cpu: hud state / hud draw / hud copy / brain view` every two seconds. A clean test home needs
+`[first_run] tutorial_done = true, loadout_notice = false, neuron_shapes_asked = true, whatsnew_3_0_seen = true` in `config/config.toml`,
+otherwise a first-run page covers the game and pauses it (a config without `schema_version` raises the loadout notice).
+
+**Performance** (1920x1080 fullscreen, room, no cap, no vsync, nothing else running; see the report for the table): the frame is CPU-bound in
+the software HUD. The GPU's main 3D pass takes 0.26 ms. Before: 11.0 ms a frame (91 fps), of which 6.3 ms `hud draw`; after the glyph cache:
+9.3 ms (107 fps), 4.8 ms `hud draw`, 0.7 ms copying the canvas into the image, 0.2 ms brain view. What is left in `hud draw` is clearing and
+alpha-blending a full-window canvas every frame; the next step would be to redraw only when the HUD's content changed, or to draw the cards on
+the GPU (neither done: both change how the HUD is produced and want the pixel references re-run).
+
+**Still open / not done in this review**
+- GPU symptom (BUGS.md 7): needs the user's description.
+- Missing features found (BUGS.md 13): PROBOSCIS reaction, aggression lunges, science cards, Autopilot's spectator behaviour, 3-item cap on treats.
+- Settings with no effect: the table at the end of PORTING.md (22 keys).
+- Never run: `ci.yml` / `release.yml` on GitHub, anything on Windows, the 25-minute `--include-ignored` validation suite, the real Twitch service,
+  a microphone, AMD / Intel-only GPUs, X11 / XWayland.
+- No pixel reference: the in-game HUD (only by eye against `py_3d_hud_room.png`), pet / photo / live-input HUD cards, the big view's inspector,
+  search and path drawing, `load_state`, `loadout_notice`, `neuron_shapes_ask`, kill cam, fly's eye, profiler.
 
 ## Known deviations (written in PORTING.md)
 FreeSans font (check redistribution), linear-light alpha LUT, glyph AA, 3D brain cloud and whole-window big view instead of the flat image, Neuron of the Day uses UTC,
