@@ -32,6 +32,7 @@ pub mod flies_play;
 pub mod fly;
 pub mod fly_visuals;
 pub mod flyeye;
+pub mod framerate;
 pub mod fx;
 pub mod gpu;
 pub mod headless;
@@ -206,6 +207,7 @@ impl Plugin for GamePlugin {
                 arcade_hub::ArcadeHubPlugin,
                 live_play::LivePlugin,
                 flies_play::FliesPlugin,
+                framerate::FrameRatePlugin,
                 viewmodel::ViewModelPlugin,
                 share_play::SharePlugin,
                 lab_play::LabPlugin,

@@ -143,6 +143,8 @@ pub struct HudState {
     pub dead_player: bool,
     pub crosshair_hot: bool,
     pub hide_hud: bool,
+    /// Settings > Graphics > Show FPS counter: frames per second over the last second (`Extras.draw_fps`), top right.
+    pub fps: Option<f32>,
     pub tags_on: bool,
     pub panel: Option<PanelData>,
     pub panel_alpha: u32,
@@ -625,6 +627,14 @@ impl Hud<'_> {
             let bx = Rect::new(play_w / 2 - w / 2 - 11, 92 - 5, w + 22, self.f.bold.linesize + 10);
             self.cv.fill_rect(bx, if *user { AMBER } else { ACCENT }, 8);
             text(self.cv, label, bx.center(), [20, 16, 8], &self.f.bold, "center");
+        }
+        if let Some(fps) = st.fps {
+            let msg = format!("{fps:.0} FPS");
+            let pad = 6;
+            let bx = Rect::new(0, 8, self.f.small.size(&msg) + 2 * pad, self.f.small.linesize + 2 * pad);
+            let bx = Rect::new(self.lay.hud_w - bx.w - 8, bx.y, bx.w, bx.h);
+            card(self.cv, bx, ([8, 10, 16], 190), 6);
+            self.f.small.draw_a(self.cv, &msg, bx.x + pad, bx.y + pad, [200, 235, 210], 255);
         }
         hits
     }

@@ -287,6 +287,7 @@ fn draw(
     mut images: ResMut<Assets<Image>>,
     mut node: Single<&mut ImageNode, With<HudNode>>,
     mut hits_out: ResMut<HudHitsRes>,
+    mut stamps: Local<std::collections::VecDeque<f64>>,
 ) {
     let HudIn {
         time,
@@ -333,6 +334,13 @@ fn draw(
     }
     let now = time.elapsed_secs();
     let rnow = real.elapsed_secs_f64();
+    // `Extras.draw_fps`: the frames of the last second (the profiler overlay, when it is up, shows its own)
+    stamps.push_back(rnow);
+    while stamps.front().is_some_and(|t| rnow - t > 1.0) {
+        stamps.pop_front();
+    }
+    let fps = (cfg.0.get_bool("graphics.show_fps") && !settings.show_profiler)
+        .then(|| if stamps.len() > 1 && rnow > stamps[0] { ((stamps.len() - 1) as f64 / (rnow - stamps[0])) as f32 } else { 0.0 });
     // popups: world points projected to HUD units, with Python's rate limit
     for p in incoming.read() {
         if popups.live.last().is_some_and(|x| now - x.0 < 0.3 && x.2 != p.text) {
@@ -534,6 +542,7 @@ fn draw(
         dead_player: false,
         crosshair_hot: false,
         hide_hud: cfg.0.get_bool("brain.autopilot") && cfg.0.get_bool("brain.autopilot_hide_hud"),
+        fps,
         tags_on,
         panel,
         panel_alpha: match view.mode {
