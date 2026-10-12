@@ -127,6 +127,8 @@ pub struct ToolState {
     pub flick_t: f32,
     /// How many treats lie about: sugar and fruit together, and alcohol (Python allows 3 of each at a time).
     pub treats_out: [usize; 2],
+    /// Autopilot / spectator (`brain.autopilot`): hands off. No tool is used, you do not kick or scare the fly.
+    pub autopilot: bool,
     pub zap_ready: f32,
     pub kick_t: f32,
     pub laser_target: usize,
@@ -157,6 +159,7 @@ impl Default for ToolState {
             swing_t: -9.0,
             flick_t: -9.0,
             treats_out: [0; 2],
+            autopilot: false,
             zap_ready: 0.0,
             kick_t: -9.0,
             laser_target: 2,
@@ -355,6 +358,25 @@ fn select(
     }
 }
 
+/// Y (the `autopilot` action) switches Autopilot / spectator on and off, as Settings > Brain does (`Game.do_action`).
+fn autopilot(
+    act: Res<Actions>,
+    mut cfg: ResMut<crate::menu_ui::UserConfig>,
+    mut st: ResMut<ToolState>,
+    mut notes: ResMut<crate::feedback::Notes>,
+    virt: Res<Time<Virtual>>,
+) {
+    if act.just("autopilot") {
+        let on = !cfg.0.get_bool("brain.autopilot");
+        cfg.set_and_save("brain.autopilot", serde_json::json!(on));
+        notes.push(virt.elapsed_secs(), format!("AUTOPILOT {}", if on { "on: spectator mode" } else { "off" }), Tag::GameRule);
+    }
+    let on = cfg.0.get_bool("brain.autopilot");
+    if st.autopilot != on {
+        st.autopilot = on;
+    }
+}
+
 // --- using them -------------------------------------------------------------------------------------------------------------------------
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 fn use_tools(
@@ -377,7 +399,7 @@ fn use_tools(
     let now = virt.elapsed_secs();
     let name = st.name();
     let (mouse, look, aim) = (&*ptr.mouse, &*ptr.look, &*ptr.aim);
-    let active = look.captured && !ptr.photo.active;
+    let active = look.captured && !ptr.photo.active && !st.autopilot;
     let (eye, dir) = (aim.eye, aim.dir);
     let tip = tool_tip(aim);
     let bounds = {
@@ -687,7 +709,7 @@ fn continuous(
 ) {
     let now = virt.elapsed_secs();
     let name = st.name();
-    let held = look.captured && mouse.pressed(MouseButton::Left);
+    let held = look.captured && !st.autopilot && mouse.pressed(MouseButton::Left);
     let (eye, dir) = (aim.eye, aim.dir);
     let tip = tool_tip(&aim);
 
@@ -1156,6 +1178,10 @@ fn kick(
     aim: Res<Aim>,
     mut rng: Local<Option<Rng>>,
 ) {
+    // a spectator has no legs to kick with and is nothing the fly sees (`_kick`, `_threats`)
+    if st.autopilot {
+        return;
+    }
     let now = virt.elapsed_secs();
     let (p, tf) = *player;
     threats.push("player", Vec3::new(tf.translation.x, aim.eye.y - 0.35, tf.translation.z), 0.28);
@@ -1285,7 +1311,7 @@ impl Plugin for ToolsPlugin {
         app.init_resource::<ToolState>()
             .init_resource::<ActiveLoadout>()
             .add_message::<SpawnPredator>()
-            .add_systems(Update, (sync_loadout, select).chain())
+            .add_systems(Update, (sync_loadout, select, autopilot).chain())
             .add_systems(FixedUpdate, (use_tools, continuous, bombs, treats, decoys_and_puffs, kick, slow_effects).chain());
     }
 }

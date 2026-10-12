@@ -27,6 +27,7 @@ struct Args {
     kill_at: Option<f32>,
     menu: Option<String>,
     fullscreen: bool,
+    autopilot: bool,
     selftest: bool,
     train_screen: bool,
     surgery_screen: bool,
@@ -46,6 +47,7 @@ const USAGE: &str = "usage: kick_the_fly [--pack FILE | --synthetic N] [--seed S
   --arena NAME     start in this arena (room fan flypaper pool lamp escaperoom field orchard thermo kitchen)\n\
   --cam x,y,z,tx,ty,tz  fixed camera (screenshots)\n\
   --rain F --storm --day S   weather (outdoor arenas) and day/night cycle length\n\
+  --autopilot      spectator mode: hands off, the big brain view up and turning (also --spectator)\n\
   --fullscreen     start borderless fullscreen (a tiling compositor otherwise opens half-size windows)\n\
   --flies N        start with N flies (N spawns another, F cycles the focus, J recalls lost ones)
   --2d             accepted and ignored: the 2D game is not part of this build
@@ -67,6 +69,7 @@ fn parse(args: impl Iterator<Item = String>) -> Result<Args, String> {
     let mut kill_at = None;
     let mut menu = None;
     let mut fullscreen = false;
+    let mut autopilot = false;
     let (mut selftest, mut bugreport, mut out, mut crash_screen) = (false, false, None, None);
     let mut train_screen = false;
     let mut surgery_screen = false;
@@ -92,6 +95,7 @@ fn parse(args: impl Iterator<Item = String>) -> Result<Args, String> {
             "--rain" => rain = value("0..1")?.parse().map_err(|_| "bad rain")?,
             "--storm" => storm = true,
             "--fullscreen" => fullscreen = true,
+            "--autopilot" | "--spectator" => autopilot = true,
             "--selftest" => selftest = true,
             "--train-screen" => train_screen = true,
             "--surgery-screen" => surgery_screen = true,
@@ -160,6 +164,7 @@ fn parse(args: impl Iterator<Item = String>) -> Result<Args, String> {
         kill_at,
         menu,
         fullscreen,
+        autopilot,
         selftest,
         train_screen,
         surgery_screen,
@@ -258,7 +263,11 @@ fn main() -> ExitCode {
     let mut full = args.fullscreen;
     {
         // the player's settings: the same config.toml the Python game wrote (missing or damaged files fall back to defaults)
-        let cfg = ktf_data::config::Config::load(&ktf_data::paths::get().config_file());
+        let mut cfg = ktf_data::config::Config::load(&ktf_data::paths::get().config_file());
+        if args.autopilot {
+            // `--autopilot`: for this run only, not written to the config
+            let _ = cfg.set_for_session("brain.autopilot", &serde_json::json!(true));
+        }
         for w in &cfg.warnings {
             eprintln!("config: {w}");
         }

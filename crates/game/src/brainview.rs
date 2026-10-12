@@ -180,8 +180,14 @@ struct BrainCloud {
     activity: Handle<ShaderBuffer>,
 }
 
-fn setup(mut commands: Commands, mut view: ResMut<BrainView>, mut images: ResMut<Assets<Image>>) {
-    view.big = std::env::var_os("KTF_BIG_BRAIN").is_some();
+fn setup(
+    mut commands: Commands,
+    mut view: ResMut<BrainView>,
+    mut images: ResMut<Assets<Image>>,
+    cfg: Option<Res<crate::menu_ui::UserConfig>>,
+) {
+    // a spectator starts in the big view (`if cfg["brain.autopilot"]: game.big_view = True`)
+    view.big = std::env::var_os("KTF_BIG_BRAIN").is_some() || cfg.is_some_and(|c| c.0.get_bool("brain.autopilot"));
     let image = images.add(Image::new_target_texture(512, 512, TextureFormat::Rgba8UnormSrgb, None));
     commands.insert_resource(PanelImage(image.clone()));
     commands.spawn((
