@@ -53,6 +53,7 @@ fn control(
     hud: Res<HudStats>,
     motion: Res<AccumulatedMouseMotion>,
     mut mouse: ResMut<ButtonInput<MouseButton>>,
+    mut clicks: ResMut<crate::tools::ClickLatch>,
     cfg: Res<UserConfig>,
     mut tools: ResMut<ToolState>,
     mut loadout: ResMut<ActiveLoadout>,
@@ -77,6 +78,7 @@ fn control(
     let clicked = mouse.just_pressed(MouseButton::Left);
     if clicked {
         mouse.clear_just_pressed(MouseButton::Left); // the click chose a tool; it must not also use it
+        clicks.take();
     }
     if !act.held("tool_wheel") || clicked {
         let list = tools_for(&cfg);

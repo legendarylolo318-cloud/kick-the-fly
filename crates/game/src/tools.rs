@@ -377,6 +377,31 @@ fn autopilot(
     }
 }
 
+/// A left click, kept until the game's tick has used it. The tools run on the fixed 60-a-second tick, and 'pressed this frame' is only
+/// true for one drawn frame: above 60 frames a second some frames have no tick, and a click that landed on one of them was lost (the
+/// swatter did nothing); below 60 a frame can have two ticks, and one click counted twice.
+#[derive(Resource, Default)]
+pub struct ClickLatch(bool);
+
+impl ClickLatch {
+    pub fn set(&mut self) {
+        self.0 = true;
+    }
+
+    /// Use the click (if there is one): the next call says no.
+    pub fn take(&mut self) -> bool {
+        std::mem::take(&mut self.0)
+    }
+}
+
+fn latch_click(mouse: Res<ButtonInput<MouseButton>>, look: Res<MouseLook>, mut clicks: ResMut<ClickLatch>, mut was_captured: Local<bool>) {
+    // only a click made while the mouse already belonged to the game: the click that captures it ('click the room') uses no tool
+    if mouse.just_pressed(MouseButton::Left) && *was_captured && look.captured {
+        clicks.set();
+    }
+    *was_captured = look.captured;
+}
+
 // --- using them -------------------------------------------------------------------------------------------------------------------------
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 fn use_tools(
@@ -395,6 +420,7 @@ fn use_tools(
     mut spawn_pred: MessageWriter<SpawnPredator>,
     mut fx: ResMut<Fx>,
     mut decoys: Query<(Entity, &mut Transform), (With<Decoy>, Without<FlyPart>)>,
+    mut clicks: ResMut<ClickLatch>,
 ) {
     let now = virt.elapsed_secs();
     let name = st.name();
@@ -406,7 +432,8 @@ fn use_tools(
         let w = crate::world::spec(arena.name());
         (w.rx, w.rz)
     };
-    let pressed = active && mouse.just_pressed(MouseButton::Left);
+    // the click is remembered from the frame it happened in (see `ClickLatch`); it is used once, here
+    let pressed = active && clicks.take();
     let held = active && mouse.pressed(MouseButton::Left);
     if pressed {
         st.uses += 1;
@@ -1309,6 +1336,8 @@ pub struct ToolsPlugin;
 impl Plugin for ToolsPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ToolState>()
+            .init_resource::<ClickLatch>()
+            .add_systems(Update, latch_click)
             .init_resource::<ActiveLoadout>()
             .add_message::<SpawnPredator>()
             .add_systems(Update, (sync_loadout, select, autopilot).chain())
@@ -1329,5 +1358,15 @@ mod tests {
         assert!(treat_landed(0.8, 0.035, 1.0, 0.05));
         // the top of its arc is not a landing
         assert!(!treat_landed(1.6, 0.035, 0.2, 0.1));
+    }
+    #[test]
+    fn a_click_waits_for_the_next_tick_and_counts_once() {
+        let mut c = ClickLatch::default();
+        assert!(!c.take());
+        c.set();
+        // a frame with no tick passes: nothing consumes it; then the tick comes
+        assert!(c.take());
+        // a second tick in the same frame must not see it again
+        assert!(!c.take());
     }
 }
