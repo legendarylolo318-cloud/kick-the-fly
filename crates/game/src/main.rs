@@ -273,6 +273,12 @@ fn main() -> ExitCode {
         }
         app.insert_resource(kick_the_fly::config::Settings::from_config(&cfg));
         full |= cfg.get_bool("graphics.fullscreen");
+        let set = |k: &str| std::env::var_os(k).is_some_and(|v| !v.is_empty());
+        if kick_the_fly::config::force_x11(cfg.get_str("graphics.backend"), set("WAYLAND_DISPLAY"), set("DISPLAY")) {
+            // Settings > Graphics > Display backend = x11: before the window system is chosen, and before any thread exists
+            unsafe { std::env::remove_var("WAYLAND_DISPLAY") };
+            ktf_data::diag::set_info("video_driver", "x11 (forced by the Display backend setting)");
+        }
         app.insert_resource(kick_the_fly::menu_ui::UserConfig(cfg));
     }
     let mode = if full {

@@ -105,3 +105,24 @@ impl Settings {
         self.killcam = c.get_bool("brain.killcam");
     }
 }
+
+/// Settings > Graphics > Display backend (`platform_env.choose_backend`; Linux only): should this run be forced onto X11 / XWayland?
+/// winit takes Wayland whenever `WAYLAND_DISPLAY` is set, so 'auto' and 'wayland' need nothing; 'x11' needs that variable gone, and
+/// only makes sense when an X display exists.
+pub fn force_x11(configured: &str, wayland_display: bool, x_display: bool) -> bool {
+    cfg!(target_os = "linux") && configured == "x11" && wayland_display && x_display
+}
+
+#[cfg(test)]
+mod backend_tests {
+    #[test]
+    #[cfg(target_os = "linux")]
+    fn x11_is_only_forced_when_asked_for_and_possible() {
+        use super::force_x11;
+        assert!(force_x11("x11", true, true));
+        assert!(!force_x11("auto", true, true));
+        assert!(!force_x11("wayland", true, true));
+        assert!(!force_x11("x11", false, true), "already X11");
+        assert!(!force_x11("x11", true, false), "no X display to fall back to");
+    }
+}

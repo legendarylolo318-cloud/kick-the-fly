@@ -182,11 +182,19 @@ fn cursor(act: Res<crate::actions::Actions>, mut look: ResMut<MouseLook>, mut op
     if act.just("free_mouse") {
         look.captured = !look.captured;
     }
-    let (grab, visible) = if look.captured { (CursorGrabMode::Locked, false) } else { (CursorGrabMode::None, true) };
+    // X11 (and XWayland) cannot lock the pointer in place, only keep it inside the window: asking for a lock there logged
+    // 'Unable to grab cursor' and left the pointer free to leave the window. The look uses raw mouse motion either way.
+    let hold = if on_x11() { CursorGrabMode::Confined } else { CursorGrabMode::Locked };
+    let (grab, visible) = if look.captured { (hold, false) } else { (CursorGrabMode::None, true) };
     if opts.grab_mode != grab || opts.visible != visible {
         opts.grab_mode = grab;
         opts.visible = visible;
     }
+}
+
+/// Linux without a Wayland session variable: winit opens an X11 window.
+fn on_x11() -> bool {
+    cfg!(target_os = "linux") && std::env::var_os("WAYLAND_DISPLAY").is_none_or(|v| v.is_empty())
 }
 
 pub struct PlayerPlugin;
