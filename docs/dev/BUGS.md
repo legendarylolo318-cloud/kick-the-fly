@@ -143,4 +143,13 @@ Regenerate the list with the script in `REVIEW_PROMPT.md` (section SETTINGS AUDI
     not overlap it with them. It now queues the rare card lookup as a command and holds no `LabRuns` borrow. The gamepad reader and gilrs were
     already ruled out with switches. **Needs one uncapped measurement** (`KTF_DEBUG=1`, 2 s profiler lines) to confirm the 4 ms is gone.
 
+18. **Review of 2026-10-12 (duel, brain audit, GUI):** done and listed in CHANGELOG.md and PORTING.md. **Measured in the game:** the swatter click
+    registers (a single `--fire` swing: health 100 -> 83, 4 hits); the FPS counter shows; uncapped frame 11.5-12.5 ms at 1080p with the HUD
+    at 2.5 ms (item 16: back at the 01cad77 level); the duel runs (steer, shoot, 9 hits of 10 shots, memory of `player` learned).
+    **Not verified by play:** the tool wheel (hold ` and move the mouse; needs a person: the code path was read and its unit tests pass),
+    the new click-the-room / hotbar clicks (needs a mouse), the gamepad.
+19. **Still open:** `graphics.resolution_scale` and `graphics.photo_scale` (need an off-screen 3D target), gamepad rebinding and menu
+    navigation with the pad, time-lapse recording (L), the memory belongs to the focused fly instead of one per fly, the PAIN card's two
+    labels overlap exactly as in Python.
+
 (the user may add more below)

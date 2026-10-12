@@ -12,12 +12,21 @@ MaleCNS v1.0 connectome, and the new simulator fires the same neurons at the sam
 - **Everything you had keeps working.** Settings, save states, share codes, your pet and your fly's memories from 3.x are read as they are.
 - The whole Lab, the arcade, challenges, Pet mode, photo mode, the microphone and Streamer mode, the gamepad, the Neurodex and the kill cam.
 
+**Added in the last review pass**
+
+- **The 1v1 duel is back** (press X): the fly gets a blaster, aims with its real steering neurons and shoots when its DNp35 neurons fire.
+  It can kill you; R respawns you. It can also learn to fear your smell.
+- The fly's reactions were checked against 3.1.1 neuron by neuron; several stimuli were weaker than they should have been and some flies
+  were reading each other's brains. Fixed.
+- Clicking the room gives the mouse back to the game, the hotbar can be clicked, screen shake works, and a few small things the Python
+  game did and this build had forgotten.
+
 **Being honest about it**
 
 - The picture is **not faster** than 3.1.1's yet. The on-screen panels are drawn by the processor and take about 3 ms of each frame at
   1080p; the game holds the default 60 frames a second, but an uncapped run is slower than the Python game was. This is the next thing to fix.
 - **Not in 4.0:** the 2D game, the larva brain, GPU brain engines (Numba, PyTorch, OpenGL), the Python API, NWB / TIFF export, GIF, video and
-  time-lapse recording, replays. If you need one of them, 3.1.1 stays available on the `python-legacy` branch.
+  time-lapse recording (the L key does nothing), replays. If you need one of them, 3.1.1 stays available on the `python-legacy` branch.
 - Two Graphics settings do nothing yet (resolution scale, screenshot resolution), gamepad buttons cannot be rebound in the menu yet (the
   defaults work, and `config.toml` can be edited), and the gamepad has not been tried on real hardware by us.
 - On Windows a duel between two flies can differ from Linux in the last digit (the two systems round sines differently), and Lab >

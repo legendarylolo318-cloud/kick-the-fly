@@ -1,5 +1,22 @@
 # Changelog
 
+## 4.0.0 (2026-10-12), review pass
+
+- **The 1v1 duel (X) is back.** It had not been ported: the fly now gets a blaster, aims through its LC10 / DNa02 neurons, shoots through DNp35,
+  and you have 100 HP, die, and respawn on R. Its mushroom body learns your smell and can learn to fear you. The card, the red edge and the
+  YOU DIED screen are Python's. Save states keep a duel.
+- **The fly's behaviour was audited against the Python game** ([PORTING.md](PORTING.md), "Brain-driven or rule: audit"). Fixed: looming, light
+  and sugar pokes had lost Python's `recruit` share (weaker pulses); every fly now feels its own pain and the smell of your tool in its own
+  brain (it was the focused fly's brain for all); the kitchen's vinegar trap read the focused fly's neurons for every fly; CO2 / HEAT / COLD
+  readouts were missing; the lamp's phototaxis also ran in the escape room, and a flight to the lamp or a fruit did not lift the body off.
+- **GUI:** clicking the room gives the mouse back to the game (it did nothing before; only Tab did); the hotbar, its page arrows and the
+  panel's brain picture are clickable; the right and middle buttons use the tool (right + hand removes a decoy); hotbar keys work with the
+  mouse free; the crosshair turns amber over a fly; the laser's badge; camera shake after hits and blasts (it was never drawn); the
+  one-line toasts (V, U, time, hotbar page, duel); U cycles the menu size; the panel's thresholds follow Lab > Parameters; log chips follow
+  Python's table (FOCUS, SPAWNED, TIME... carry none); the tool wheel, challenge panels, autopsy card and surgery use the real play width.
+- **Speed:** the science-card watcher no longer holds a resource every menu system also uses. Uncapped frame at 1080p is about 12 ms again
+  (it was 13 ms), HUD drawing about 2.5 ms.
+
 ## 4.0.0 (2026-10-12)
 
 The game is rewritten in Rust on Bevy 0.19 (`crates/`); the Python game is kept unchanged in `legacy-python/` and on the branch
