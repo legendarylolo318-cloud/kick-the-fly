@@ -381,16 +381,19 @@ fn autopilot(
 /// true for one drawn frame: above 60 frames a second some frames have no tick, and a click that landed on one of them was lost (the
 /// swatter did nothing); below 60 a frame can have two ticks, and one click counted twice.
 #[derive(Resource, Default)]
-pub struct ClickLatch(bool);
+pub struct ClickLatch(Option<std::time::Instant>);
+
+/// A click that no tick has used after this long is forgotten (the game was paused, a menu came up): it must not fire a tool later.
+const CLICK_KEEPS: std::time::Duration = std::time::Duration::from_millis(150);
 
 impl ClickLatch {
     pub fn set(&mut self) {
-        self.0 = true;
+        self.0 = Some(std::time::Instant::now());
     }
 
-    /// Use the click (if there is one): the next call says no.
+    /// Use the click (if there is a fresh one): the next call says no.
     pub fn take(&mut self) -> bool {
-        std::mem::take(&mut self.0)
+        self.0.take().is_some_and(|t| t.elapsed() <= CLICK_KEEPS)
     }
 }
 
@@ -433,7 +436,9 @@ fn use_tools(
         (w.rx, w.rz)
     };
     // the click is remembered from the frame it happened in (see `ClickLatch`); it is used once, here
-    let pressed = active && clicks.take();
+    // (taken even when no tool can be used right now, in photo mode or as a spectator: that click is spent, not saved for later)
+    let click = clicks.take();
+    let pressed = active && click;
     let held = active && mouse.pressed(MouseButton::Left);
     if pressed {
         st.uses += 1;
@@ -1367,6 +1372,9 @@ mod tests {
         // a frame with no tick passes: nothing consumes it; then the tick comes
         assert!(c.take());
         // a second tick in the same frame must not see it again
+        assert!(!c.take());
+        // a click nobody used in time (the game was paused) is forgotten
+        c.0 = Some(std::time::Instant::now() - std::time::Duration::from_secs(1));
         assert!(!c.take());
     }
 }

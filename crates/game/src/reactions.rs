@@ -271,7 +271,10 @@ pub fn decide(lv: &Levels, st: &mut ReactState, body: Body, now: f32, rng: &mut 
     // PROBOSCIS (`assays.PER_RATIO`): one second into an eating bout, MN9 at 1.5 times its calm rate or more
     let mn9 = body.mn9_hz;
     if body.eating {
-        st.mn9_bout.push(mn9);
+        // only the first second of a bout is looked at; 61 marks 'already judged'
+        if st.mn9_bout.len() <= 60 {
+            st.mn9_bout.push(mn9);
+        }
         if st.mn9_bout.len() == 60 {
             let mean = st.mn9_bout.iter().sum::<f32>() / 60.0;
             let ratio = mean / st.mn9_calm.unwrap_or(mn9).max(1.0);
