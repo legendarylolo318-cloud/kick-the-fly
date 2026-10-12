@@ -289,6 +289,8 @@ struct HudIn<'w, 's> {
     photo: Res<'w, crate::photo_play::Photo>,
     live: Res<'w, crate::live_play::Live>,
     mic: Res<'w, crate::mic::Mic>,
+    aim: Res<'w, crate::player::Aim>,
+    parts: Query<'w, 's, (&'static crate::fly::FlyPart, &'static Transform)>,
     duel: Res<'w, crate::duel_play::Duel>,
     saved: Res<'w, crate::feedback::SavedMsg>,
 }
@@ -345,6 +347,8 @@ fn draw(
         photo,
         live,
         mic,
+        aim,
+        parts,
         duel,
         saved,
     } = i;
@@ -581,7 +585,23 @@ fn draw(
             dead_for: duel.dead_at.map(|t| (time.elapsed_secs() - t).max(0.0)),
             calm_fx: cfg.0.get_bool("access.reduced_flashing"),
         }),
-        crosshair_hot: false,
+        // the crosshair turns amber when the aim ray touches a fly within reach (`_nearest_fly3d(eye, d, REACH, 0.25)`)
+        crosshair_hot: crate::tools::ray_touches(
+            parts.iter().filter(|(p, _)| flies.get(p.fly).is_ok_and(|(f, _)| !f.gone())).map(|(p, t)| {
+                (
+                    t.translation,
+                    match p.part {
+                        crate::fly::Part::Head => crate::fly::HEAD_R,
+                        crate::fly::Part::Thorax => crate::fly::THX_R,
+                        crate::fly::Part::Abdomen => crate::fly::ABD_R,
+                    },
+                )
+            }),
+            aim.eye,
+            aim.dir,
+            crate::tools::REACH,
+            0.25,
+        ),
         hide_hud: cfg.0.get_bool("brain.autopilot") && cfg.0.get_bool("brain.autopilot_hide_hud"),
         fps,
         science: science.card.as_ref().map(|c| c.0.clone()),

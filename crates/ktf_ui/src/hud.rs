@@ -695,11 +695,11 @@ impl Hud<'_> {
         hits
     }
 
-    /// `Game3D._draw_duel`. The card sits at the pygame module's `PLAY_W` (890), not at the layout's play width, as in Python.
+    /// `Game3D._draw_duel`: the card sits at the top right of the play area (`k2.PLAY_W` is rebound to the layout's play width every frame).
     fn duel(&mut self, d: &DuelView) {
         let f = self.f;
         let (w, h) = (262, 150);
-        let (x, y) = (890 - w - 12, 72);
+        let (x, y) = (self.lay.play_w - w - 12, 72);
         let r = Rect::new(x, y, w, h);
         self.cv.fill_rect_a(r, [14, 8, 10], 205, 10);
         self.cv.stroke_rect2_a(r, [170, 60, 60], 220, 1, 10);
@@ -759,7 +759,7 @@ impl Hud<'_> {
         if let Some(t) = d.dead_for {
             let a = ((t * 200.0) as u32).min(140);
             self.cv.fill_rect_a(Rect::new(0, 0, vw, vh), [60, 0, 0], a, 0);
-            let (cx, cy) = (890 / 2, vh / 2 - 40);
+            let (cx, cy) = (self.lay.play_w / 2, vh / 2 - 40);
             text(self.cv, "YOU DIED", (cx, cy), [255, 90, 80], &f.title, "center");
             text(self.cv, &format!("The fly shot you {} times with {} shots.", d.hits, d.shots), (cx, cy + 36), INK, &f.text, "midtop");
             text(

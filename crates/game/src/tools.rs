@@ -257,6 +257,16 @@ pub fn nearest_to_ray(
     best
 }
 
+/// Does the aim ray pass within `max_perp` of any of these body spheres `(centre, radius)`, ahead of the eye and within `reach`?
+/// (`Fly3D.nearest_to_ray`'s test, used for the crosshair turning amber.)
+pub fn ray_touches(spheres: impl IntoIterator<Item = (Vec3, f32)>, eye: Vec3, dir: Vec3, reach: f32, max_perp: f32) -> bool {
+    spheres.into_iter().any(|(c, r)| {
+        let rel = c - eye;
+        let along = rel.dot(dir);
+        along > 0.0 && along < reach && (rel - dir * along).length() - r < max_perp
+    })
+}
+
 /// The point on the floor the aim ray hits (or two metres ahead when looking up).
 pub fn floor_point(aim: &Aim, bounds: (f32, f32)) -> Vec3 {
     let pt =
@@ -1378,5 +1388,16 @@ mod tests {
         // a click nobody used in time (the game was paused) is forgotten
         c.0 = Some(std::time::Instant::now() - std::time::Duration::from_secs(1));
         assert!(!c.take());
+    }
+
+    #[test]
+    fn the_crosshair_is_hot_only_for_a_fly_ahead_within_reach() {
+        let eye = Vec3::new(0.0, 1.6, 0.0);
+        let dir = Vec3::NEG_Z;
+        let fly = [(Vec3::new(0.1, 1.55, -2.0), 0.05)];
+        assert!(ray_touches(fly, eye, dir, REACH, 0.25));
+        assert!(!ray_touches([(Vec3::new(0.1, 1.55, -3.5), 0.05)], eye, dir, REACH, 0.25), "beyond reach");
+        assert!(!ray_touches([(Vec3::new(0.1, 1.55, 2.0), 0.05)], eye, dir, REACH, 0.25), "behind you");
+        assert!(!ray_touches([(Vec3::new(1.0, 1.6, -2.0), 0.05)], eye, dir, REACH, 0.25), "off to the side");
     }
 }
