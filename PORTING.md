@@ -351,3 +351,71 @@ check); the `--2d` rows of section 1 are written off with this reason, not ticke
   Python run, and every measured number equal to it to 1e-6 except the two numbers of the one `da1pn_to_lh_asp` control response above.** The run is kept
   as the build's bundled results (`docs/results/4.0/validation_results.json`; `validation_real.rs full_suite -- --ignored`).
 - **Not done yet:** the larva tests (2), `--validate` on the command line, the sensitivity/robustness sweeps.
+
+### Settings audit (review of 2026-10-11; all 75 keys of `crates/ktf_data/data/schema.json`)
+
+Method: for every key, where the Rust code reads it (grep), where Python read it (`grep -rn "<key>" legacy-python/kickthefly`), and whether the
+effect is the same. "live" = acts as soon as the menu changes it; "start" = read once at launch; "none" = stored and shown, no effect.
+"code" in the last column means verified by reading both implementations; a test name means there is a unit test. Nothing here was verified
+with a screenshot. Keys never mentioned in the Rust code after this review (22): `graphics.resolution_scale, backend, brain_view, photo_focus,
+timelapse_*` (3), `brain.brain` (read through `Config::larva()`), `real_vs_rule, science_popups, lunge, dtype, backend, process`,
+`stream.allow_tool/arena/surgery` (read through `format!("stream.allow_{n}")`), `controls.gamepad, pad_look_speed, pad_deadzone, pad_invert_y`.
+
+| key | where read (Rust) | effect | verified how |
+|---|---|---|---|
+| graphics.fullscreen | `main.rs`, `menu_ui::apply_live`, `controls.rs` (F11) | live + start | code |
+| graphics.resolution_scale | - | **none**. Python drew the 3D room into a smaller framebuffer and stretched it. Bevy 0.19 has `MainPassResolutionOverride` but no built-in upscale pass; not wired | code |
+| graphics.fps_cap | `framerate.rs:cap` | live (sleeps out the frame like `Clock.tick`; 0 = no cap). **Was none before this review** | `framerate::tests` + code |
+| graphics.show_fps | `hud_canvas.rs` -> `ktf_ui::hud` (`HudState.fps`) | live: `Extras.draw_fps` box top right, hidden while the profiler is up. **Was none** | code |
+| graphics.vsync | `framerate.rs:vsync` | live (`PresentMode::AutoVsync` / `AutoNoVsync`); Python needed a restart. **Was none** (Bevy's default is vsync on) | code |
+| graphics.backend | - | **none**: winit picks Wayland when `WAYLAND_DISPLAY` is set, else X11; force X11 with `WAYLAND_DISPLAY= ./kick_the_fly`. Python's SDL video-driver switch and its relaunch are not ported | code |
+| graphics.brain_view | - | **none**: there is one brain view, drawn on the GPU (no CPU fallback) | code |
+| graphics.panel_mode | `brainview.rs:control` | live; V steps and saves it (`Game3D.apply_setting`). **Was none** (V changed an unsaved state) | code |
+| graphics.menu_size | `hud_canvas.rs:layout` -> `compute_layout` | live | `ktf_ui::layout` tests |
+| graphics.ui_scale | `hud_canvas.rs:layout` -> `compute_layout` (HUD and menu pages share the layout scale) | live, **exactly as Python**: in 'crisp' menu size the scale snaps to whole pixels and is then limited to window height / 760, so at 1080p nothing changes between 100 % and 145 %, at 1600p nothing between 75 % and 145 %; below 100 % (and in 'large' size) it shrinks smoothly. See BUGS.md 6 | `ktf_ui::layout` tests + code |
+| graphics.photo_scale | `hud_canvas.rs` (viewfinder chip only) | **none on the picture**: pictures are window sized (no supersampling) | code |
+| graphics.clean_capture | `photo_play.rs:capture` | live | code |
+| graphics.photo_dof | `photo_play.rs` | live (start value of the blur; Bevy's DoF, not Python's shader) | code |
+| graphics.photo_focus | - | none in Python too (the focus distance is kept in the photo state) | code |
+| graphics.timelapse_speedup / _format / _target | - | **none**: time-lapse capture is not ported | code |
+| audio.master | `config.rs:Settings.master_volume` | live | code |
+| audio.buzz | `Settings.buzz_volume` -> `audio.rs:buzz` | live. **Was none** | code |
+| audio.sfx | `Settings.sfx_volume` -> `audio.rs:play_sfx` | live. **Was none** | code |
+| audio.mute | `Settings.mute`, `controls.rs` (M) | live | code |
+| audio.stethoscope_enabled / _vol / _target | `stethoscope_play.rs`, `sim_thread.rs` | live | code |
+| audio.sonify | `audio.rs:toggle` (F5 saves it) | live. **Was none** (F5 flipped an unsaved switch) | code |
+| audio.sonify_vol | `audio.rs:render` (`master * sonify_vol`, was a fixed 0.8) | live. **Was none** | code |
+| audio.sonify_song | `audio.rs:render` (song voice), `fly.rs:brain_reactions` (no double buzz) | live. **Was none** | code |
+| stream.allow_sonify | `audio.rs:silent_reason` | live: silent in Streamer mode unless allowed; also silent while the microphone is on, muted, paused. **Was none** | `audio::policy_tests` |
+| brain.mode | `menu_ui.rs`, `tools.rs`, `wheel_play.rs`, `pet_play.rs`, loadout | live | code |
+| brain.brain | `Config::larva()` -> loadout only | **none on the brain**: the larva is not ported (adult pack only) | code |
+| brain.individuality | `fly.rs`, `flies_play.rs`, `savestate_play.rs` | on the next fly / respawn | code |
+| brain.pet_real_stakes | `pet_play.rs` | live | code |
+| brain.pain_level | `menu_ui::apply_live`, `controls.rs` | live | code |
+| brain.immortal | `Settings.immortal` | live | code |
+| brain.sim_speed | `menu_ui::apply_live`, `controls.rs` | live | code |
+| brain.seed | `menu_ui.rs`, `savestate_play.rs`, `flies_play.rs`, `share_play.rs` | on the next brain | code |
+| brain.real_vs_rule | - | none in Python too (never read) | code |
+| brain.science_popups | - | **none**: the "Real flies do this too" cards are not ported, so they are off whatever the setting says (default false) | code |
+| brain.neurodex / killcam / neuron_of_day | `neurodex_play.rs`, `sim_thread.rs`, `Settings.killcam`, `hud_canvas.rs` | live | code |
+| brain.neuron_shapes | `first_run.rs`, `inspector_play.rs`, `shapes_play.rs` | live (opt-in; no network without it) | `shapes_play` tests |
+| brain.mic_sensitivity | `mic.rs`, `live_play.rs` | live | code |
+| stream.allow_tool / _arena / _surgery | `live_play.rs` (`format!("stream.allow_{n}")`) | live | `ktf_data::streamer` golden |
+| stream.window_s / cooldown_s / min_votes | `live_play.rs` | live | `ktf_data::streamer` golden |
+| brain.imaging_indicator / _fps / _f0_tau_s | `labtools.rs` | on the next imaging session | code |
+| brain.autopilot | `hud_canvas.rs` (hide HUD), `brainview.rs` (orbit) | live, **partly**: the HUD hiding and the big view's orbit follow it; Python's spectator behaviour itself (hands-off play, `kick3d.py:1081, 2004`) is not ported | code |
+| brain.autopilot_orbit | `brainview.rs:control` | live: 12 degrees a second in the big view. **Was none** (the cloud always turned, also in the panel) | code |
+| brain.autopilot_hide_hud | `hud_canvas.rs` | live | code |
+| brain.arena | `controls.rs` (E saves it) | live | code |
+| brain.song_buzz | `Settings.song_buzz` -> `fly.rs:brain_reactions` | live. **Was none** | code |
+| brain.lunge | - | **none**: aggression lunges between flies (`Game._lunge`) are not ported | code |
+| brain.day_night | `Settings.day_night_s` (`--day` wins) | live. **Was none** (only `--day` set it) | code |
+| brain.mirror_weights | `lab_play.rs`, `sim_thread.rs` | live | golden (asymmetry) |
+| brain.dtype / backend / process | - | **none**: one f32 CPU backend on a thread (section 2) | code |
+| controls.mouse_sensitivity / invert_y / fov | `Settings` | live | code |
+| controls.loadout_preset | `ktf_data::loadout`, `tools.rs` | live | `ktf_data::loadout` tests |
+| controls.gamepad / pad_look_speed / pad_deadzone / pad_invert_y | - | **none**: the gamepad is not ported (section 4.2) | code |
+| access.palette | `brainview.rs` (imaging), `fly_sim::imaging` | live | code |
+| access.reduced_flashing | `Settings`, `hud_canvas.rs`, weather | live | code |
+| access.larger_text | `ktf_ui::menu`, `hud_canvas.rs`, `autopsy_play.rs` | live | code |
+| access.language | `menu_ui::apply_live`, `crash.rs` | live | code |
