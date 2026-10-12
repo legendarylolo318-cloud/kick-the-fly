@@ -77,6 +77,7 @@ struct Bodies<'w, 's> {
     flies: Query<'w, 's, (&'static Fly, &'static Slot)>,
     parts: Query<'w, 's, &'static Transform, With<FlyPart>>,
     virt: Res<'w, Time<Virtual>>,
+    duel: ResMut<'w, crate::duel_play::Duel>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -96,8 +97,9 @@ fn save_and_load(
     mut reset: MessageWriter<ResetFly>,
     mut flash: MessageWriter<MenuFlash>,
     screen: Res<crate::menu_ui::MenuScreen>,
-    bodies: Bodies,
+    mut bodies: Bodies,
 ) {
+    let duel = &mut *bodies.duel;
     // KTF_SAVELOAD_CHECK=1: save at 8 s, load that save at 14 s (a scripted check of the save/load path for several flies)
     if std::env::var_os("KTF_SAVELOAD_CHECK").is_some() {
         let t = real.elapsed_secs();
@@ -160,6 +162,13 @@ fn save_and_load(
             );
         }
         file.meta["flies"] = Value::Array(flies);
+        // `Game3D.save_extra`: the duel's part
+        file.meta["extra"] = json!({
+            "duel": duel.on,
+            "player_hp": duel.hp,
+            "duel_stats": {"shots": duel.stats.shots, "hits": duel.stats.hits, "deaths": duel.stats.deaths},
+            "valence": duel.valence,
+        });
         let _ = meta;
         let dir = saves_dir();
         let _ = std::fs::create_dir_all(&dir);
@@ -247,6 +256,15 @@ fn save_and_load(
                 tools.selected = t as usize;
                 lo.0.show(TOOLS[t as usize].0);
             }
+            // `Game3D.load_extra`: the duel as it was, you alive
+            let ex = &meta["extra"];
+            duel.on = ex["duel"].as_bool().unwrap_or(false);
+            duel.hp = ex["player_hp"].as_f64().map_or(crate::duel_rules::PLAYER_HP, |h| h as f32);
+            duel.dead_at = None;
+            duel.pellets.clear();
+            let n = |k: &str| ex["duel_stats"][k].as_u64().unwrap_or(0) as u32;
+            duel.stats = crate::duel_rules::Stats { shots: n("shots"), hits: n("hits"), deaths: n("deaths") };
+            duel.valence = ex["valence"].as_f64().unwrap_or(0.0) as f32;
             stats.kills = meta["kills"].as_u64().unwrap_or(0) as u32;
             settings.immortal = meta["immortal"].as_bool().unwrap_or(false);
             link.0.send(Command::PainLevel(meta["pain_level"].as_u64().unwrap_or(0).min(2) as usize));
