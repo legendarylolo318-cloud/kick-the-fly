@@ -1,5 +1,21 @@
 # Changelog
 
+## 4.0.0 (2026-10-12)
+
+The game is rewritten in Rust on Bevy 0.19 (`crates/`); the Python game is kept unchanged in `legacy-python/` and on the branch
+`python-legacy`. [PORTING.md](PORTING.md) lists every feature with how it was checked against the Python version.
+
+- **Same model.** The Rust LIF simulator reproduces NumPy's spikes bit for bit on the real pack (Linux and Windows); the 21 validation
+  tests give the published results (12 PASS / 9 FAIL). No weight, time constant or threshold changed.
+- **Ported:** the 3D game (ten arenas, 18 tools, up to 16 flies, learning, surgery, inspector with search and path tracing, autopsy, kill cam,
+  challenges, arcade, Pet mode, photo mode, microphone and Streamer mode, gamepad, science cards), the whole Lab, save states, share codes,
+  protocols and bundles, the headless command line. Files written by 3.x load unchanged.
+- **Not ported:** the 2D game, the larva, Numba / PyTorch / OpenGL backends and float64, the Python API, NWB / TIFF export, GIF / video /
+  time-lapse, replays, `graphics.resolution_scale`, `graphics.photo_scale`, gamepad rebinding in the menu.
+- **Platform notes:** bit-exact with the Python goldens on Linux; on Windows the duel engine agrees to nine digits and the wind compass's
+  circular correlation differs (C library rounding of `sin` / `cos`).
+- **Performance:** one brain step about 0.6 ms (NumPy: roughly 2 ms); frame about 13 ms at 1080p uncapped, limited by the software HUD.
+
 ## 3.1.1 (2026-10-06)
 
 - **Windows: the gl engine works.** On Windows ModernGL's WGL context is exactly the version asked for (3.3 by default),

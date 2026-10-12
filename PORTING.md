@@ -372,7 +372,7 @@ with a screenshot. Keys never mentioned in the Rust code after this review (14):
 | graphics.brain_view | - | **none**: there is one brain view, drawn on the GPU (no CPU fallback) | code |
 | graphics.panel_mode | `brainview.rs:control` | live; V steps and saves it (`Game3D.apply_setting`). **Was none** (V changed an unsaved state) | code |
 | graphics.menu_size | `hud_canvas.rs:layout` -> `compute_layout` | live | `ktf_ui::layout` tests |
-| graphics.ui_scale | `hud_canvas.rs:layout` -> `compute_layout` (HUD and menu pages share the layout scale) | live, **exactly as Python**: in 'crisp' menu size the scale snaps to whole pixels and is then limited to window height / 760, so at 1080p nothing changes between 100 % and 145 %, at 1600p nothing between 75 % and 145 %; below 100 % (and in 'large' size) it shrinks smoothly. See BUGS.md 6 | `ktf_ui::layout` tests + code |
+| graphics.ui_scale | `hud_canvas.rs:layout` -> `compute_layout` (HUD and menu pages share the layout scale) | live, **exactly as Python**: in 'crisp' menu size the scale snaps to whole pixels and is then limited to window height / 760, so at 1080p nothing changes between 100 % and 145 %, at 1600p nothing between 75 % and 145 %; below 100 % (and in 'large' size) it shrinks smoothly. See docs/dev/BUGS.md 6 | `ktf_ui::layout` tests + code |
 | graphics.photo_scale | `hud_canvas.rs` (viewfinder chip only) | **none on the picture**: pictures are window sized (no supersampling) | code |
 | graphics.clean_capture | `photo_play.rs:capture` | live | code |
 | graphics.photo_dof | `photo_play.rs` | live (start value of the blur; Bevy's DoF, not Python's shader) | code |
