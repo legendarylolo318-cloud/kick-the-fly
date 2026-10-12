@@ -113,6 +113,11 @@ impl LabRuns {
         }
     }
 
+    /// The validation results in use (`Value::Null` before any were found).
+    pub fn results(&self) -> &Value {
+        &self.results
+    }
+
     pub fn query(&self) -> Value {
         let job = self.job.as_ref().map(|j| {
             let s = j.state.lock().unwrap_or_else(PoisonError::into_inner);

@@ -66,6 +66,7 @@ pub mod race;
 pub mod reactions;
 pub mod rng;
 pub mod savestate_play;
+pub mod science_play;
 pub mod selftest;
 pub mod senses;
 pub mod shapes_play;
@@ -208,6 +209,7 @@ impl Plugin for GamePlugin {
                 live_play::LivePlugin,
                 flies_play::FliesPlugin,
                 framerate::FrameRatePlugin,
+                science_play::SciencePlugin,
                 viewmodel::ViewModelPlugin,
                 share_play::SharePlugin,
                 lab_play::LabPlugin,

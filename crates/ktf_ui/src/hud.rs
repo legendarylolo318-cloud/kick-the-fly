@@ -145,6 +145,8 @@ pub struct HudState {
     pub hide_hud: bool,
     /// Settings > Graphics > Show FPS counter: frames per second over the last second (`Extras.draw_fps`), top right.
     pub fps: Option<f32>,
+    /// 'Real flies do this too': the validation test's sentence about the behavior just shown.
+    pub science: Option<String>,
     pub tags_on: bool,
     pub panel: Option<PanelData>,
     pub panel_alpha: u32,
@@ -376,6 +378,8 @@ pub struct HudHits {
     pub notd_try: Option<Rect>,
     pub notd_off: Option<Rect>,
     pub notd_close: Option<Rect>,
+    /// The 'Real flies do this too' card: a click anywhere on it dismisses it.
+    pub science: Option<Rect>,
     pub tutorial_next: Option<Rect>,
     pub tutorial_skip: Option<Rect>,
     /// The training screen's buttons: (rectangle, what, which smell for `select`).
@@ -627,6 +631,23 @@ impl Hud<'_> {
             let bx = Rect::new(play_w / 2 - w / 2 - 11, 92 - 5, w + 22, self.f.bold.linesize + 10);
             self.cv.fill_rect(bx, if *user { AMBER } else { ACCENT }, 8);
             text(self.cv, label, bx.center(), [20, 16, 8], &self.f.bold, "center");
+        }
+        if let Some(play) = &st.science {
+            // `Game._draw_science_card`
+            let r = Rect::new(play_w / 2 - 300, self.lay.hud_h - 250, 600, 104);
+            self.cv.fill_rect_a(r, [12, 30, 22], 235, 14);
+            self.cv.stroke_rect2(r, [90, 200, 120], 2, 14);
+            // `menu_ui.draw_check` at (x + 30, y + 30), size 22
+            let (cx, cy, s) = (r.x as f32 + 30.0, r.y as f32 + 30.0, 22.0f32);
+            let p = |dx: f32, dy: f32| ((cx + s * dx) as i32, (cy + s * dy) as i32);
+            self.cv.line(p(-0.45, 0.0), p(-0.1, 0.35), 3, [90, 220, 130], 255);
+            self.cv.line(p(-0.1, 0.35), p(0.5, -0.4), 3, [90, 220, 130], 255);
+            text(self.cv, "Real flies do this too", (r.x + 54, r.y + 14), [170, 240, 190], &self.f.head, "topleft");
+            for (i, ln) in wrap_lines(play, &self.f.text, r.w - 80).iter().take(2).enumerate() {
+                text(self.cv, ln, (r.x + 54, r.y + 46 + i as i32 * 20), TEXT, &self.f.text, "topleft");
+            }
+            text(self.cv, "click to dismiss", (r.right() - 14, r.y + 12), DIM, &self.f.small, "topright");
+            hits.science = Some(r);
         }
         if let Some(fps) = st.fps {
             let msg = format!("{fps:.0} FPS");

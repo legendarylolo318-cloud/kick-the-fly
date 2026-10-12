@@ -288,6 +288,7 @@ fn draw(
     mut node: Single<&mut ImageNode, With<HudNode>>,
     mut hits_out: ResMut<HudHitsRes>,
     mut stamps: Local<std::collections::VecDeque<f64>>,
+    science: Res<crate::science_play::Science>,
     mut prof: ResMut<crate::profiler::ProfilerStats>,
 ) {
     let t_state = std::time::Instant::now();
@@ -545,6 +546,7 @@ fn draw(
         crosshair_hot: false,
         hide_hud: cfg.0.get_bool("brain.autopilot") && cfg.0.get_bool("brain.autopilot_hide_hud"),
         fps,
+        science: science.card.as_ref().map(|c| c.0.clone()),
         tags_on,
         panel,
         panel_alpha: match view.mode {
@@ -693,6 +695,7 @@ fn hud_clicks(
     real: Res<Time<Real>>,
     mut tut: ResMut<crate::tutorial_play::Tutorial>,
     cx: ClickCtx,
+    mut science: ResMut<crate::science_play::Science>,
 ) {
     let ClickCtx { mut learned, snap, mut chal, virt, surgery, autopsy, mut reset, mut sfx } = cx;
     if !buttons.just_pressed(MouseButton::Left) || look.captured || menu.0 {
@@ -703,6 +706,10 @@ fn hud_clicks(
     let pos = ((p.x * k) as i32, (p.y * k) as i32);
     let at = |r: Option<ktf_ui::Rect>| r.is_some_and(|r| r.contains(pos));
     let now = real.elapsed_secs();
+    if science.card.is_some() && at(hits.0.science) {
+        science.card = None;
+        return;
+    }
     if crate::autopsy_play::click(&autopsy, pos, &mut reset, &mut notes, &mut sfx, virt.elapsed_secs()) {
         return;
     }
