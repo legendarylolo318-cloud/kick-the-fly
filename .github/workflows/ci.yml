@@ -8,7 +8,7 @@ name: ci
 
 on:
   push:
-    branches: [main, bevy-port]
+    branches: [main, bevy-port, rust-3.1.2]
   pull_request:
   workflow_dispatch:
   workflow_call:
@@ -56,7 +56,13 @@ jobs:
       matrix:
         os: [ubuntu-22.04, windows-latest]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 90
+    timeout-minutes: 180
+    env:
+      # The release profile is fat LTO with one codegen unit: right for the shipped binary, but this job links about 60 test binaries
+      # and a hosted runner has 4 cores. No LTO here; the results are the same (no fast-math anywhere), the appimage / windows-exe
+      # jobs below still build the real release profile.
+      CARGO_PROFILE_RELEASE_LTO: "off"
+      CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "16"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
