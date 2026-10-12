@@ -1002,6 +1002,8 @@ pub struct FlyPlugin;
 impl Plugin for FlyPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<crate::flies_play::Flies>()
+            // the reactions leave the focused fly's turning to the duel's steering, so they read its state
+            .init_resource::<crate::duel_play::Duel>()
             .add_message::<ReactionFired>()
             .add_message::<ResetFly>()
             .add_message::<FlyHit>()
