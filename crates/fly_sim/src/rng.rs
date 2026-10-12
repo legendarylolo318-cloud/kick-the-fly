@@ -303,8 +303,8 @@ impl Generator {
             }
             if idx == 0 {
                 loop {
-                    let xx = -NOR_INV_R_F * (-b.next_f32()).ln_1p();
-                    let yy = -(-b.next_f32()).ln_1p();
+                    let xx = -NOR_INV_R_F * ln_1p_f32(-b.next_f32());
+                    let yy = -ln_1p_f32(-b.next_f32());
                     if yy + yy > xx * xx {
                         return if (rabs >> 8) & 1 == 1 { -(NOR_R_F + xx) } else { NOR_R_F + xx };
                     }
@@ -491,4 +491,12 @@ impl Generator {
             x.swap(i, j);
         }
     }
+}
+
+/// `log1pf`, correctly rounded on every platform. The C library's single-precision `log1pf` is only correctly rounded in recent glibc
+/// (the one NumPy used for the golden files); older glibc (Ubuntu 22.04) and other C libraries differ in the last bit now and then, which
+/// changed a few values of the noise bank and with them the spikes. Going through double precision gives the correctly rounded result
+/// everywhere (a double `log1p` is good to well under one ulp, far finer than a float's rounding step).
+fn ln_1p_f32(x: f32) -> f32 {
+    f64::from(x).ln_1p() as f32
 }

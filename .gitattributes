@@ -1,0 +1,2 @@
+# Fixtures and golden files are compared byte for byte: never convert line endings (Windows checkouts turned them into CRLF).
+* -text
