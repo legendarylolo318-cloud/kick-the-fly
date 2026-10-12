@@ -125,6 +125,8 @@ pub struct ToolState {
     pub swing_t: f32,
     /// When the finger last flicked (`Game3D.flick_t`: the held hand's finger snaps for 0.15 s).
     pub flick_t: f32,
+    /// How many treats lie about: sugar and fruit together, and alcohol (Python allows 3 of each at a time).
+    pub treats_out: [usize; 2],
     pub zap_ready: f32,
     pub kick_t: f32,
     pub laser_target: usize,
@@ -154,6 +156,7 @@ impl Default for ToolState {
             throw_t: -9.0,
             swing_t: -9.0,
             flick_t: -9.0,
+            treats_out: [0; 2],
             zap_ready: 0.0,
             kick_t: -9.0,
             laser_target: 2,
@@ -565,8 +568,11 @@ fn use_tools(
                 fb.sfx.write(Sfx::new("drop"));
             }
             "sugar" | "fruit" | "alcohol" => {
-                if now - st.throw_t > 0.3 {
+                // `len(self.sugars3) < 3` / `len(self.alcohols3) < 3`
+                let kind = usize::from(name == "alcohol");
+                if st.treats_out[kind] < 3 && now - st.throw_t > 0.3 {
                     st.throw_t = now;
+                    st.treats_out[kind] += 1;
                     let (r, col) = match name {
                         "sugar" => (0.035, Color::srgb(1.0, 0.96, 0.96)),
                         "fruit" => (0.055, Color::srgb(0.85, 0.2, 0.12)),
@@ -1003,8 +1009,14 @@ fn treats(
     link: Res<SimLink>,
     mut scents: ResMut<Scents>,
     mut pet: ResMut<crate::pet_play::PetRes>,
+    mut st: ResMut<ToolState>,
 ) {
     let now = virt.elapsed_secs();
+    let count = |alcohol: bool| treats.iter().filter(|t| (t.1.kind == "alcohol") == alcohol).count();
+    let out = [count(false), count(true)];
+    if st.treats_out != out {
+        st.treats_out = out;
+    }
     for (e, mut t, tf, v) in &mut treats {
         // `_sugar3d`: a treat stays where it first touches the floor. Here it is a physics ball, which would roll on for seconds and
         // keep the fly waiting; so it is pinned as soon as it reaches the floor (or has come to rest on something higher up).
