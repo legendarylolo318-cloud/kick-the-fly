@@ -1180,7 +1180,7 @@ impl Hud<'_> {
         if st.muted {
             bits.push("muted (M)".into());
         }
-        bits.push(if st.arena_status.is_empty() { "F11 fullscreen   H help".into() } else { "H help".into() });
+        bits.push(if st.arena_status.is_empty() { "V panel   X 1v1   F11 fullscreen   H help".into() } else { "H help".into() });
         let hint = bits.join("   ");
         let w = f.small.size(&hint);
         let hb = Rect::new(play_w - 14 - w - 7, 44 - 3, w + 14, f.small.linesize + 6);
