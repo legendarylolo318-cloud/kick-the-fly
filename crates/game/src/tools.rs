@@ -321,10 +321,9 @@ fn select(
     keys: Res<ButtonInput<KeyCode>>,
     mut saved: ResMut<crate::feedback::SavedMsg>,
     real: Res<Time<Real>>,
+    view: Res<crate::brainview::BrainView>,
 ) {
-    if !look.captured {
-        return;
-    }
+    // the hotbar keys work with the mouse free too (`handle3d` does not look at `self.look` for them); only the wheel needs the mouse
     if st.puppet {
         st.selected = TOOLS.iter().position(|t| t.0 == "laser").unwrap_or(0);
         if keys.just_pressed(KeyCode::Semicolon) {
@@ -336,8 +335,10 @@ fn select(
         return;
     }
     // slot1..slot10 are the rebindable keys 1-9, 0: the tool in that slot on the page showing (`Game.select_slot`)
+    // (in the big view 1, 2, 3 and 0 pick the camera instead: `handle3d` hands those keys to the view)
     for i in 0..10 {
-        if act.just(&format!("slot{}", i + 1))
+        if !view.big
+            && act.just(&format!("slot{}", i + 1))
             && let Some(name) = lo.0.slot_tool(i)
         {
             st.selected = tool_index(name);
@@ -350,6 +351,9 @@ fn select(
         }
     }
     for w in wheel.read() {
+        if !look.captured {
+            continue;
+        }
         // the wheel steps through the loadout, wrapping (`Game.cycle_tool`)
         let cur = TOOLS[st.selected].0;
         let name = lo.0.neighbor(cur, if w.y > 0.0 { -1 } else { 1 }).to_string();

@@ -602,6 +602,10 @@ fn draw(
             calm_fx: cfg.0.get_bool("access.reduced_flashing"),
         }),
         // the crosshair turns amber when the aim ray touches a fly within reach (`_nearest_fly3d(eye, d, REACH, 0.25)`)
+        laser_badge: (tools.name() == "laser" && tools.laser.is_active(time.elapsed_secs_f64())).then(|| {
+            let stim = tools.laser.mode == "activate";
+            (format!("LASER: {} ({})", tools.laser.target_type, if stim { "STIM" } else { "SILENCE" }), stim)
+        }),
         crosshair_hot: crate::tools::ray_touches(
             parts.iter().filter(|(p, _)| flies.get(p.fly).is_ok_and(|(f, _)| !f.gone())).map(|(p, t)| {
                 (

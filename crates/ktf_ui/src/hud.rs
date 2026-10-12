@@ -144,6 +144,8 @@ pub struct HudState {
     pub menu_open: bool,
     pub dead_player: bool,
     pub crosshair_hot: bool,
+    /// "LASER: LC10 (STIM)" beside the crosshair while the laser is on: (text, stimulating).
+    pub laser_badge: Option<(String, bool)>,
     pub hide_hud: bool,
     /// Settings > Graphics > Show FPS counter: frames per second over the last second (`Extras.draw_fps`), top right.
     pub fps: Option<f32>,
@@ -624,6 +626,9 @@ impl Hud<'_> {
             for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
                 self.cv.line((cx + dx * 5 + 1, cy + dy * 5 + 1), (cx + dx * 13 + 1, cy + dy * 13 + 1), 3, [0, 0, 0], 120);
                 self.cv.line((cx + dx * 5, cy + dy * 5), (cx + dx * 13, cy + dy * 13), 2, col, 255);
+            }
+            if let Some((badge, stim)) = &st.laser_badge {
+                text(self.cv, badge, (cx + 18, cy - 18), if *stim { [255, 140, 50] } else { [60, 190, 255] }, &self.f.small, "topleft");
             }
         }
         let (tool_rects, page_rects) = self.toolbar(st);
