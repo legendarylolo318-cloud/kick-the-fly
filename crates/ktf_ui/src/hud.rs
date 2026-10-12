@@ -126,6 +126,8 @@ pub struct HudState {
     pub pet: Option<PetView>,
     /// The red microphone / Twitch pills and the vote tally (`LiveInputs.draw`).
     pub live: Option<LiveView>,
+    /// The 1v1 duel's card (X).
+    pub duel: Option<DuelView>,
     /// Photo mode's viewfinder (`_draw_photo_viewfinder`), while it is on and the HUD is not hidden.
     pub photo: Option<PhotoView>,
     /// The hotbar page's tools, in slot order.
@@ -198,6 +200,36 @@ pub struct PhotoView {
     pub scale: i32,
     /// The saved/changed toast and its age in seconds.
     pub toast: Option<(String, f32)>,
+}
+
+/// The 1v1 duel's card, red edge and 'YOU DIED' screen (`Game3D._draw_duel`).
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct DuelView {
+    pub hp: f32,
+    pub hp_max: f32,
+    pub valence: f32,
+    pub fear: f32,
+    pub like: f32,
+    /// DNa02 right minus left, Hz.
+    pub steer: f32,
+    /// DNp35 level (x calm), and the threshold it must pass to shoot.
+    pub trigger: f32,
+    pub fire_thresh: f32,
+    pub shots: u32,
+    pub hits: u32,
+    pub deaths: u32,
+    /// 1 right after a hit, falling to 0 in half a second.
+    pub hurt: f32,
+    /// Seconds since you died.
+    pub dead_for: Option<f32>,
+    /// Reduced flashing: no red edges.
+    pub calm_fx: bool,
+}
+
+/// The red vignette's opacity (0..255) `d` pixels from the nearest edge: `clip(1 - d / 90, 0, 1) ** 2 * 190`.
+pub fn vignette_alpha(d: f32) -> u32 {
+    let e = (1.0 - d / 90.0).clamp(0.0, 1.0);
+    (e * e * 190.0) as u32
 }
 
 /// What the pet widget shows.
@@ -591,6 +623,9 @@ impl Hud<'_> {
         }
         self.toolbar(st);
         self.status(st, now);
+        if let Some(d) = &st.duel {
+            self.duel(d);
+        }
         if !st.look && !st.overlay_open && !st.dead_player && !st.menu_open && !st.hide_hud {
             let msg = format!("click the room (or press {}) to look around   ·   Esc: menu", title_case(&st.free_mouse_key));
             let w = self.f.bold.size(&msg);
@@ -658,6 +693,85 @@ impl Hud<'_> {
             self.f.small.draw_a(self.cv, &msg, bx.x + pad, bx.y + pad, [200, 235, 210], 255);
         }
         hits
+    }
+
+    /// `Game3D._draw_duel`. The card sits at the pygame module's `PLAY_W` (890), not at the layout's play width, as in Python.
+    fn duel(&mut self, d: &DuelView) {
+        let f = self.f;
+        let (w, h) = (262, 150);
+        let (x, y) = (890 - w - 12, 72);
+        let r = Rect::new(x, y, w, h);
+        self.cv.fill_rect_a(r, [14, 8, 10], 205, 10);
+        self.cv.stroke_rect2_a(r, [170, 60, 60], 220, 1, 10);
+        text(self.cv, "1V1", (x + 12, y + 6), [255, 110, 90], &f.head, "topleft");
+        text(self.cv, "X to end", (x + w - 12, y + 10), LABEL, &f.small, "topright");
+        let frac = d.hp / d.hp_max.max(1.0);
+        let col = if frac > 0.5 {
+            S_GOOD
+        } else if frac > 0.25 {
+            S_WARN
+        } else {
+            S_CRIT
+        };
+        self.cv.fill_rect(Rect::new(x + 12, y + 34, w - 24, 14), [40, 30, 34], 7);
+        if frac > 0.0 {
+            self.cv.fill_rect(Rect::new(x + 12, y + 34, (((w - 24) as f32 * frac) as i32).max(10), 14), col, 7);
+        }
+        text(self.cv, &format!("YOU {:.0}", d.hp), (x + w / 2, y + 41), INK, &f.small, "center");
+        let (mood, mcol) = if d.valence > 0.15 {
+            ("HUNTING YOU", [255, 120, 90])
+        } else if d.valence < -0.2 {
+            ("FEARS YOU", [120, 190, 255])
+        } else {
+            ("SIZING YOU UP", TEXT)
+        };
+        text(self.cv, mood, (x + 12, y + 54), mcol, &f.bold, "topleft");
+        text(self.cv, &format!("likes you {:.2}   fears you {:.2}", d.like, d.fear), (x + 12, y + 76), LABEL, &f.small, "topleft");
+        text(self.cv, &format!("steer DNa02 R-L {:+5.1} Hz", d.steer), (x + 12, y + 94), TEXT, &f.small, "topleft");
+        let tc = if d.trigger > d.fire_thresh { AMBER } else { TEXT };
+        text(self.cv, &format!("trigger DNp35 x{:.1}", d.trigger), (x + 12, y + 110), tc, &f.small, "topleft");
+        text(
+            self.cv,
+            &format!("shots {}  hits {}  you died {}x", d.shots, d.hits, d.deaths),
+            (x + 12, y + 128),
+            LABEL,
+            &f.small,
+            "topleft",
+        );
+        let (vw, vh) = (self.lay.view_w, self.lay.hud_h);
+        if d.hurt > 0.0 && !d.calm_fx {
+            // red edges when you get hit, blended over the HUD
+            for yy in 0..vh {
+                let mut xx = 0;
+                while xx < vw {
+                    let dist = xx.min(vw - 1 - xx).min(yy).min(vh - 1 - yy);
+                    if dist >= 90 {
+                        // the middle of the row has no vignette: jump to the right edge band
+                        xx = if xx < vw - 90 { vw - 90 } else { xx + 1 };
+                        continue;
+                    }
+                    let a = (vignette_alpha(dist as f32) as f32 * d.hurt.clamp(0.0, 1.0)) as u32;
+                    self.cv.blend(xx, yy, [210, 20, 20], a);
+                    xx += 1;
+                }
+            }
+        }
+        if let Some(t) = d.dead_for {
+            let a = ((t * 200.0) as u32).min(140);
+            self.cv.fill_rect_a(Rect::new(0, 0, vw, vh), [60, 0, 0], a, 0);
+            let (cx, cy) = (890 / 2, vh / 2 - 40);
+            text(self.cv, "YOU DIED", (cx, cy), [255, 90, 80], &f.title, "center");
+            text(self.cv, &format!("The fly shot you {} times with {} shots.", d.hits, d.shots), (cx, cy + 36), INK, &f.text, "midtop");
+            text(
+                self.cv,
+                &format!("Its mushroom body now likes you {:.2} and fears you {:.2}.", d.like, d.fear),
+                (cx, cy + 60),
+                TEXT,
+                &f.text,
+                "midtop",
+            );
+            text(self.cv, "press R to respawn", (cx, cy + 92), AMBER, &f.bold, "midtop");
+        }
     }
 
     /// Replay a challenge panel's drawing steps; returns its enabled buttons.

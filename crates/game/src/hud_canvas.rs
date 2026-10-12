@@ -273,6 +273,8 @@ struct HudIn<'w, 's> {
     photo: Res<'w, crate::photo_play::Photo>,
     live: Res<'w, crate::live_play::Live>,
     mic: Res<'w, crate::mic::Mic>,
+    duel: Res<'w, crate::duel_play::Duel>,
+    saved: Res<'w, crate::feedback::SavedMsg>,
 }
 
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
@@ -327,6 +329,8 @@ fn draw(
         photo,
         live,
         mic,
+        duel,
+        saved,
     } = i;
     let l = lay.0;
     let crisp = (l.scale.fract() == 0.0) && l.scale >= 1.0;
@@ -543,7 +547,24 @@ fn draw(
         free_mouse_key: cfg.0.key_of("free_mouse").into(),
         overlay_open: st.help || view.big || arcade.open || learned.train_open || chal.overlay || surgery.open || autopsy.report.is_some(),
         menu_open: menu.0,
-        dead_player: false,
+        dead_player: duel.player_dead(),
+        saved_msg: saved.current(rnow as f32).map(str::to_string),
+        duel: duel.on.then(|| ktf_ui::hud::DuelView {
+            hp: duel.hp,
+            hp_max: crate::duel_rules::PLAYER_HP,
+            valence: duel.valence,
+            fear: duel.fear,
+            like: duel.like,
+            steer: duel.steer,
+            trigger: duel.trigger,
+            fire_thresh: crate::reactions::thresholds().fire,
+            shots: duel.stats.shots,
+            hits: duel.stats.hits,
+            deaths: duel.stats.deaths,
+            hurt: duel.hurt_flash,
+            dead_for: duel.dead_at.map(|t| (time.elapsed_secs() - t).max(0.0)),
+            calm_fx: cfg.0.get_bool("access.reduced_flashing"),
+        }),
         crosshair_hot: false,
         hide_hud: cfg.0.get_bool("brain.autopilot") && cfg.0.get_bool("brain.autopilot_hide_hud"),
         fps,
@@ -609,7 +630,6 @@ fn draw(
             chal.ops.clone()
         },
         mouse: window.cursor_position().map_or((-1, -1), |p| ((p.x * sf / l.scale) as i32, (p.y * sf / l.scale) as i32)),
-        ..Default::default()
     };
     prof.record("hud state", t_state);
     let t_draw = std::time::Instant::now();

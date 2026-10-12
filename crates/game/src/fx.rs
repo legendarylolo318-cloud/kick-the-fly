@@ -24,6 +24,9 @@ pub enum Kind {
     Spark,
     Ice,
     Steam,
+    /// The blaster's muzzle flash and the pellet's trail (the duel).
+    Muzzle,
+    Trail,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -140,11 +143,13 @@ fn color(p: &Particle, age: f32) -> ([f32; 3], f32) {
         Kind::Spark => ([1.0, 0.95, 0.5], 1.2 * (1.0 - k)),
         Kind::Ice => ([0.7, 0.9, 1.0], 1.0 - 0.6 * k),
         Kind::Steam => ([0.85, 0.85, 0.9], 0.4 * (1.0 - k)),
+        Kind::Muzzle => ([0.7, 1.0, 0.5], 0.9 * (1.0 - k)),
+        Kind::Trail => ([0.4, 1.0, 0.35], 0.4 * (1.0 - k)),
     }
 }
 
 /// Move and age the particles, then hand the survivors to the GPU cloud (one draw call).
-fn step(time: Res<Time<Virtual>>, mut fx: ResMut<Fx>, mut cloud: Single<&mut ParticleCloud, With<FxCloud>>) {
+pub fn step(time: Res<Time<Virtual>>, mut fx: ResMut<Fx>, mut cloud: Single<&mut ParticleCloud, With<FxCloud>>) {
     let (now, dt) = (time.elapsed_secs(), time.delta_secs());
     let fx = &mut *fx;
     for p in &mut fx.particles {
@@ -161,7 +166,7 @@ fn step(time: Res<Time<Virtual>>, mut fx: ResMut<Fx>, mut cloud: Single<&mut Par
                     p.vel *= Vec3::new(0.6, -0.3, 0.6);
                 }
             }
-            Kind::Streak | Kind::Spark => {}
+            Kind::Streak | Kind::Spark | Kind::Muzzle | Kind::Trail => {}
         }
     }
     fx.particles.retain(|p| now - p.born < p.life);
@@ -169,7 +174,12 @@ fn step(time: Res<Time<Virtual>>, mut fx: ResMut<Fx>, mut cloud: Single<&mut Par
     for p in &fx.particles {
         let age = now - p.born;
         let (c, a) = color(p, age);
-        let grow = if matches!(p.kind, Kind::Dust | Kind::Steam | Kind::Flame | Kind::Fire) { 1.0 + 1.5 * age / p.life } else { 1.0 };
+        let grow = match p.kind {
+            Kind::Dust | Kind::Steam | Kind::Flame | Kind::Fire => 1.0 + 1.5 * age / p.life,
+            // `muzzle`: 0.06 + 0.1 e, from a start size of 0.05
+            Kind::Muzzle => 1.2 + 2.0 * age / p.life,
+            _ => 1.0,
+        };
         cloud.push(p.pos, p.size * grow, c, a);
     }
 }

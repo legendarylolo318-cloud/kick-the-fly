@@ -89,10 +89,28 @@ pub struct Shake {
     pub strength: f32,
 }
 
+/// `Game.saved_msg`: the one-line toast under the status card ("1v1 duel: ON ...", "time: normal speed"), shown for 4 real seconds.
+#[derive(Resource, Default)]
+pub struct SavedMsg(pub Option<(String, f32)>);
+
+impl SavedMsg {
+    pub const SHOWN_S: f32 = 4.0;
+
+    /// Show `text` from real time `real_now` on.
+    pub fn set(&mut self, text: impl Into<String>, real_now: f32) {
+        self.0 = Some((text.into(), real_now));
+    }
+
+    /// The text still on screen at `real_now`.
+    pub fn current(&self, real_now: f32) -> Option<&str> {
+        self.0.as_ref().filter(|(_, t)| real_now - t < Self::SHOWN_S).map(|(s, _)| s.as_str())
+    }
+}
+
 pub struct FeedbackPlugin;
 
 impl Plugin for FeedbackPlugin {
     fn build(&self, app: &mut App) {
-        app.add_message::<Popup>().add_message::<Sfx>().init_resource::<Notes>().init_resource::<Shake>();
+        app.add_message::<Popup>().add_message::<Sfx>().init_resource::<Notes>().init_resource::<Shake>().init_resource::<SavedMsg>();
     }
 }

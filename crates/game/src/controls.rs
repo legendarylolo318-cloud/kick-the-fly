@@ -8,7 +8,7 @@ use bevy::window::{PrimaryWindow, WindowMode};
 use crate::actions::Actions;
 use crate::app::{LatestSnapshot, SimLink};
 use crate::config::{Arena, Settings, SwitchArena};
-use crate::feedback::{Notes, Popup, Tag};
+use crate::feedback::{Notes, Tag};
 use crate::fly::ResetFly;
 use crate::menu_ui::UserConfig;
 use crate::sim_thread::Command;
@@ -46,9 +46,9 @@ fn keys(
     mut reset: MessageWriter<ResetFly>,
     mut window: Single<&mut Window, With<PrimaryWindow>>,
     mut notes: ResMut<Notes>,
-    mut popups: MessageWriter<Popup>,
     time: Res<Time<Real>>,
     mut photo: ResMut<crate::photo_play::Photo>,
+    duel: Res<crate::duel_play::Duel>,
 ) {
     let now = time.elapsed_secs();
     if act.just("time_pause") {
@@ -77,7 +77,7 @@ fn keys(
     }
     virt.set_relative_speed(if tc.paused || tc.menu_paused { 0.0 } else { tc.speed });
     // Shift+R is the video recorder (Python), plain R is "reset / respawn"
-    if act.just("reset") && !keys.pressed(KeyCode::ShiftLeft) {
+    if act.just("reset") && !keys.pressed(KeyCode::ShiftLeft) && !duel.player_dead() {
         reset.write(ResetFly::default());
     }
     if act.just("arena") {
@@ -120,7 +120,6 @@ fn keys(
     if act.just("screenshot") {
         photo.snap = true;
     }
-    let _ = &mut popups;
 }
 
 pub struct ControlsPlugin;

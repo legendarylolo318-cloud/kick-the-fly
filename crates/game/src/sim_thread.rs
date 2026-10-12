@@ -626,6 +626,7 @@ pub enum Command {
     PokeFlyRecruit {
         slot: u32,
         region: String,
+        side: Option<char>,
         strength: f32,
         recruit: f32,
     },
@@ -898,9 +899,9 @@ fn run(
                         b.poke(&region, side, strength);
                     }
                 }
-                Ok(Command::PokeFlyRecruit { slot, region, strength, recruit }) => {
+                Ok(Command::PokeFlyRecruit { slot, region, side, strength, recruit }) => {
                     if let Some(b) = multi.brain_of(&mut brain, slot) {
-                        b.poke_recruit(&region, None, strength, Some(recruit));
+                        b.poke_recruit(&region, side, strength, Some(recruit));
                     }
                 }
                 Ok(Command::SetWiring { wiring, counts }) => {

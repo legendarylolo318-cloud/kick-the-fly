@@ -371,7 +371,7 @@ fn wrap(a: f32) -> f32 {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn brain_reactions(
+pub fn brain_reactions(
     virt: Res<Time<Virtual>>,
     snap: Res<LatestSnapshot>,
     arena: Res<Arena>,
@@ -384,6 +384,8 @@ fn brain_reactions(
     mut fired: MessageWriter<ReactionFired>,
     settings: Res<Settings>,
     sonifier: Option<Res<crate::audio::Sonifier>>,
+    duel: Res<crate::duel_play::Duel>,
+    focus: Res<crate::flies_play::Flies>,
 ) {
     // the buzz of a singing fly, unless the sonification's song voice is already sounding it (`Sonify.voicing_song`)
     let song_buzz = settings.song_buzz && !sonifier.is_some_and(|s| s.on && !s.silent && s.song_voice);
@@ -425,7 +427,8 @@ fn brain_reactions(
             grabbed: f.grabbed.is_some(),
             asleep_ok: true,
             eating: now < f.react.eating_until,
-            duel_focus: false,
+            // in a duel the focused fly's turning is the duel's steering, not the 1.5 s TURN reaction
+            duel_focus: duel.on && slot.0 == focus.focus,
             mn9_hz: mn9_col.and_then(|c| hz.get(c)).copied().unwrap_or(0.0),
             rival: if lunges { rivals.iter().filter(|r| r.0 != e).map(|r| r.1.distance(thx)).min_by(f32::total_cmp) } else { None },
         };

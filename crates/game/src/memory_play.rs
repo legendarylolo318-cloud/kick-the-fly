@@ -28,7 +28,7 @@ pub struct Learned {
     pub sugar_scent: bool,
     pub fear_now: f32,
     pub like_now: f32,
-    avoid_ready: f32,
+    pub avoid_ready: f32,
     tick: u64,
     pub train_open: bool,
     pub train_scent: &'static str,

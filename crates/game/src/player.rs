@@ -111,9 +111,16 @@ fn walk(
     arena: Res<Arena>,
     boxes: Res<WorldColliders>,
     photo: Res<crate::photo_play::Photo>,
+    duel: Res<crate::duel_play::Duel>,
     mut player: Single<(&mut Player, &mut Transform, &mut LinearVelocity)>,
 ) {
     // photo mode: the free camera takes the mouse and the keys; the body stands still
+    // dead in a duel: no looking and no walking, the body slumps (`update_player` is skipped; `duel_play` lowers the eye)
+    if duel.player_dead() {
+        let (_, _, lv) = &mut *player;
+        lv.0 = Vec3::ZERO;
+        return;
+    }
     let look = &MouseLook { captured: look.captured && !photo.active, ..*look };
     let dt = time.delta_secs().min(0.05);
     let (p, tf, lv) = &mut *player;
@@ -157,12 +164,23 @@ pub fn update_camera(
     settings: Res<Settings>,
     mut proj: Single<&mut Projection, With<PlayerCamera>>,
     over: Option<Res<CameraOverride>>,
+    shake: Res<crate::feedback::Shake>,
+    virt: Res<Time<Virtual>>,
+    mut tick: Local<u32>,
 ) {
     let (p, tf) = *player;
     let eye = Vec3::new(tf.translation.x, p.eye_h + 0.012 * (p.walk_phase * 2.0).sin(), tf.translation.z);
     let cp = p.pitch.cos();
     let dir = Vec3::new(cp * p.yaw.cos(), p.pitch.sin(), cp * p.yaw.sin());
-    cam.translation = eye;
+    // the screen shake after a hit or an explosion (`shake = uniform(-0.01, 0.01, 3)` while `now < shake_until`, not with reduced flashing)
+    *tick = tick.wrapping_add(1);
+    let jolt = if virt.elapsed_secs() < shake.until && !settings.reduced_flashing {
+        let mut r = crate::rng::Rng::new(u64::from(*tick));
+        Vec3::new(r.uniform(-0.01, 0.01), r.uniform(-0.01, 0.01), r.uniform(-0.01, 0.01))
+    } else {
+        Vec3::ZERO
+    };
+    cam.translation = eye + jolt;
     cam.look_to(dir, Vec3::Y);
     if let Projection::Perspective(pp) = &mut **proj {
         pp.fov = settings.fov_deg.to_radians();

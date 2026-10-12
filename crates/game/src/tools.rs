@@ -1141,6 +1141,7 @@ fn treats(
         link.0.send(Command::PokeFlyRecruit {
             slot: f.slot,
             region: "sweet".into(),
+            side: None,
             strength: if sugar { 0.5 * tg } else { 0.6 },
             recruit: 0.6,
         });

@@ -25,6 +25,8 @@ pub mod contraption;
 pub mod controls;
 pub mod crash;
 pub mod duel;
+pub mod duel_play;
+pub mod duel_rules;
 pub mod environment;
 pub mod feedback;
 pub mod first_run;
@@ -216,6 +218,7 @@ impl Plugin for GamePlugin {
                 share_play::SharePlugin,
                 lab_play::LabPlugin,
                 labtools::LabToolsPlugin,
+                duel_play::DuelPlugin,
             ));
     }
 }
