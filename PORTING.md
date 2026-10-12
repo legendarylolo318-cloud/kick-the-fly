@@ -164,7 +164,7 @@ Entry: `kick_the_fly.py` shim → `kickthefly/__main__.py:main` → `game/kick_t
 ## 9. Menus, settings and screens (`ui/`, `core/config.py`)
 
 - [~] Immediate-mode menu framework (`ui/menu.py:Menu`: pages, buttons, sliders, charts, tooltips, gamepad nav) → Bevy UI or egui (decision pending; pin the version if a plugin is used). **Review 2026-10-11:** ported as `ktf_ui::Menu` (see section 16); gamepad navigation is missing.
-- [~] Pause menu + Settings with six tabs (Graphics 17, Audio 11, Brain 35, Controls 8, Accessibility 4 settings = 75 in `config.SETTINGS`); `config.toml`, schema version 3, `first_run` flags, clamping, unknown-key tolerance, `.bad` backup. **Review 2026-10-11:** the pause menu and the six tabs match pygame (screenshot pairs); `config.toml` written by Python loads with the same clamping, unknown-key tolerance and migration (`tests/python_files/config`, 6 cases). What each of the 75 settings does: the audit table at the end of this file (22 keys have no effect).
+- [~] Pause menu + Settings with six tabs (Graphics 17, Audio 11, Brain 35, Controls 8, Accessibility 4 settings = 75 in `config.SETTINGS`); `config.toml`, schema version 3, `first_run` flags, clamping, unknown-key tolerance, `.bad` backup. **Review 2026-10-11:** the pause menu and the six tabs match pygame (screenshot pairs); `config.toml` written by Python loads with the same clamping, unknown-key tolerance and migration (`tests/python_files/config`, 6 cases). What each of the 75 settings does: the audit table at the end of this file (the keys without effect are marked **none**).
   - Graphics: fullscreen, resolution_scale, fps_cap, show_fps, vsync, backend, brain_view, panel_mode, menu_size, ui_scale, photo_scale, clean_capture, photo_dof, photo_focus, timelapse_speedup/format/target.
   - Audio: master, buzz, sfx, mute, stethoscope_{enabled,vol,target}, sonify, sonify_vol, sonify_song, stream.allow_sonify.
   - Brain: mode, brain, individuality, pet_real_stakes, pain_level, immortal, sim_speed, seed, real_vs_rule, science_popups, neurodex, killcam, neuron_of_day, neuron_shapes, mic_sensitivity, stream.{allow_tool,allow_arena,allow_surgery,window_s,cooldown_s,min_votes}, imaging_{indicator,fps,f0_tau_s}, autopilot{,_orbit,_hide_hud}, arena, song_buzz, lunge, day_night, mirror_weights, dtype, backend, process.
@@ -357,7 +357,7 @@ check); the `--2d` rows of section 1 are written off with this reason, not ticke
 Method: for every key, where the Rust code reads it (grep), where Python read it (`grep -rn "<key>" legacy-python/kickthefly`), and whether the
 effect is the same. "live" = acts as soon as the menu changes it; "start" = read once at launch; "none" = stored and shown, no effect.
 "code" in the last column means verified by reading both implementations; a test name means there is a unit test. Nothing here was verified
-with a screenshot. Keys never mentioned in the Rust code after this review (22): `graphics.resolution_scale, backend, brain_view, photo_focus,
+with a screenshot. Keys never mentioned in the Rust code after this review (21): `graphics.resolution_scale, backend, brain_view, photo_focus,
 timelapse_*` (3), `brain.brain` (read through `Config::larva()`), `real_vs_rule, science_popups, lunge, dtype, backend, process`,
 `stream.allow_tool/arena/surgery` (read through `format!("stream.allow_{n}")`), `controls.gamepad, pad_look_speed, pad_deadzone, pad_invert_y`.
 

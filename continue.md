@@ -84,6 +84,13 @@ per-fly pokes (`Fly.slot`); ten settings that did nothing (audio, sonification, 
 blocking join; the glyph cache in `ktf_ui::font`; `ci.yml` (branch, no LTO in the test job). New tests: `brainview::tests`, `viewmodel::tests`,
 `fly_visuals::tests`, `framerate::tests`, `audio::policy_tests`, `tools::tests`, `ktf_data/tests/fuzz_parsers.rs`.
 
+After the changes: `cargo fmt --all --check` clean, `cargo clippy --workspace --all-targets --release -- -D warnings` clean, and the whole suite
+= 61 test binaries, 302 passed, 0 failed, 1 ignored. **That last run was made with `CARGO_PROFILE_RELEASE_LTO=off CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16`
+(what `ci.yml` now uses)**: on this 15 GB laptop the nine fat-LTO links of the game crate's test binaries run at once and swap for hours
+(use `-j 3` if you want the fat-LTO run here). The shipped fat-LTO binary was built and smoke-tested through the AppImage: `--smoke 3` in an empty
+environment (198.6 steps/s), `--selftest` (19 passed), a window on native Wayland and one on XWayland (`WAYLAND_DISPLAY=`; there the log shows
+one 'Unable to grab cursor' error at start).
+
 **Not a bug:** UI scale (Python's `compute_layout` snaps it, see BUGS.md 6); the focus does follow the nearest fly (BUGS.md 2).
 
 **How to look at things without a screenshot** (new): `KTF_DEBUG=1` prints `focus: game N sim Some(N) blocked ...` with each fly's distance every
@@ -100,7 +107,7 @@ the GPU (neither done: both change how the HUD is produced and want the pixel re
 **Still open / not done in this review**
 - GPU symptom (BUGS.md 7): needs the user's description.
 - Missing features found (BUGS.md 13): PROBOSCIS reaction, aggression lunges, science cards, Autopilot's spectator behaviour, 3-item cap on treats.
-- Settings with no effect: the table at the end of PORTING.md (22 keys).
+- Settings with no effect: the table at the end of PORTING.md (rows marked **none**).
 - Never run: `ci.yml` / `release.yml` on GitHub, anything on Windows, the 25-minute `--include-ignored` validation suite, the real Twitch service,
   a microphone, AMD / Intel-only GPUs, X11 / XWayland.
 - No pixel reference: the in-game HUD (only by eye against `py_3d_hud_room.png`), pet / photo / live-input HUD cards, the big view's inspector,
