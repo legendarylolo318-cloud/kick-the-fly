@@ -181,7 +181,11 @@ pub fn prims(tool: &str, s: &ViewState) -> Vec<Prim> {
             if s.now - s.throw_t > 0.3 {
                 o.push(Prim {
                     shape: Shape::Cube,
-                    at: Transform { translation: base + v(0.0, 0.05, -0.05), rotation: Quat::from_rotation_y(0.5), scale: Vec3::splat(0.055) },
+                    at: Transform {
+                        translation: base + v(0.0, 0.05, -0.05),
+                        rotation: Quat::from_rotation_y(0.5),
+                        scale: Vec3::splat(0.055),
+                    },
                     color: rgb(0.98, 0.98, 1.0),
                     glow: 0.0,
                 });
@@ -327,7 +331,16 @@ mod tests {
     use super::*;
 
     fn state(now: f32) -> ViewState {
-        ViewState { now, walk_phase: 0.0, grabbed: false, flick_t: -9.0, swing_t: -9.0, throw_t: -9.0, zap_ready: 0.0, laser_activate: true }
+        ViewState {
+            now,
+            walk_phase: 0.0,
+            grabbed: false,
+            flick_t: -9.0,
+            swing_t: -9.0,
+            throw_t: -9.0,
+            zap_ready: 0.0,
+            laser_activate: true,
+        }
     }
 
     #[test]

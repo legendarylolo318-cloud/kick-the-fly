@@ -248,9 +248,12 @@ pub fn kick_all(parts: &mut Query<(&FlyPart, &mut LinearVelocity)>, fly: Entity,
 /// The materials a fly's visuals share (tinted every frame for burns, frost and damage).
 #[derive(Component)]
 pub struct FlyLook {
-    pub body: Handle<StandardMaterial>,
+    /// The body's materials with their healthy colours (0-255, `_draw_fly`'s `col(...)`), re-shaded every frame (`fly_visuals::tint`).
+    pub tinted: Vec<(Handle<StandardMaterial>, [f32; 3])>,
     pub wing: Handle<StandardMaterial>,
-    pub eye: Handle<StandardMaterial>,
+    /// Never re-shaded: the glint on a living eye and the cross on a dead one.
+    pub glint: Handle<StandardMaterial>,
+    pub cross: Handle<StandardMaterial>,
 }
 
 pub fn spawn_fly(
@@ -262,37 +265,13 @@ pub fn spawn_fly(
     seed: u64,
     slot: u32,
 ) -> Entity {
-    let body = materials.add(StandardMaterial {
-        base_color: Color::srgb(0.16, 0.13, 0.11),
-        perceptual_roughness: 0.45,
-        metallic: 0.1,
-        ..default()
-    });
-    let eye = materials.add(StandardMaterial {
-        base_color: Color::srgb(0.75, 0.08, 0.06),
-        perceptual_roughness: 0.2,
-        emissive: LinearRgba::rgb(0.25, 0.02, 0.01),
-        ..default()
-    });
-    let wing = materials.add(StandardMaterial {
-        base_color: Color::srgba(0.85, 0.9, 1.0, 0.35),
-        alpha_mode: AlphaMode::Blend,
-        perceptual_roughness: 0.1,
-        double_sided: true,
-        cull_mode: None,
-        ..default()
-    });
+    let look = crate::fly_visuals::build_look(materials);
+    let shapes = crate::fly_visuals::BodyMeshes::new(meshes);
     let rot = Quat::from_rotation_y(-yaw);
-    let sphere = meshes.add(Sphere::new(1.0).mesh().uv(20, 14));
-    let eye_mesh = meshes.add(Sphere::new(1.0).mesh().uv(12, 8));
     let root = commands.spawn((Transform::from_translation(pos), Visibility::default())).id();
-    let specs = [
-        (Part::Head, HEAD_R, HEAD_OFF, 0.35, Vec3::new(1.0, 0.95, 1.1)),
-        (Part::Thorax, THX_R, Vec3::ZERO, 0.9, Vec3::new(1.15, 1.0, 1.0)),
-        (Part::Abdomen, ABD_R, ABD_OFF, 0.7, Vec3::new(1.45, 0.95, 0.95)),
-    ];
+    let specs = [(Part::Head, HEAD_R, HEAD_OFF, 0.35), (Part::Thorax, THX_R, Vec3::ZERO, 0.9), (Part::Abdomen, ABD_R, ABD_OFF, 0.7)];
     let mut parts = [Entity::PLACEHOLDER; 3];
-    for (part, r, off, mass, scale) in specs {
+    for (part, r, off, mass) in specs {
         let at = pos + rot * off;
         let e = commands
             .spawn((
@@ -310,19 +289,7 @@ pub fn spawn_fly(
                 Transform::from_translation(at).with_rotation(rot),
                 Visibility::default(),
             ))
-            .with_children(|c| {
-                c.spawn((Mesh3d(sphere.clone()), MeshMaterial3d(body.clone()), Transform::from_scale(scale * r)));
-                if part == Part::Head {
-                    for side in [-1.0f32, 1.0] {
-                        c.spawn((
-                            Mesh3d(eye_mesh.clone()),
-                            MeshMaterial3d(eye.clone()),
-                            Transform::from_translation(Vec3::new(0.35 * r, 0.25 * r, side * 0.7 * r))
-                                .with_scale(Vec3::new(0.55, 0.7, 0.45) * r),
-                        ));
-                    }
-                }
-            })
+            .with_children(|c| crate::fly_visuals::dress(c, part, &look, &shapes))
             .id();
         parts[part.index()] = e;
     }
@@ -385,7 +352,7 @@ pub fn spawn_fly(
             flying_now: false,
             joints: joints_spawned,
         },
-        FlyLook { body, wing, eye },
+        look,
         Slot(slot),
     ));
     root
@@ -941,11 +908,9 @@ fn reset_fly(
             commands.entity(*j).despawn();
         }
         if let Some(v) = vis {
-            for [a, b] in &v.segments {
-                commands.entity(*a).despawn();
-                commands.entity(*b).despawn();
+            for x in v.loose() {
+                commands.entity(x).despawn();
             }
-            commands.entity(v.proboscis).despawn();
         }
         commands.entity(e).despawn();
     }
