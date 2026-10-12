@@ -3,7 +3,9 @@
 //! liberationsans, arial that the OS had; on Windows that was Segoe UI. The Rust game bundles DejaVu Sans so every OS looks like
 //! the Linux original (the one listed difference of the menus in PORTING.md).
 
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::rc::Rc;
 use std::sync::OnceLock;
 
 use ab_glyph::{Font as _, FontRef, PxScale, ScaleFont};
@@ -53,9 +55,24 @@ fn tables() -> &'static HashMap<String, Table> {
     })
 }
 
+/// One rasterised glyph: where its top-left pixel sits relative to the pen on the baseline, its width, and the coverage row by row.
+struct Raster {
+    x0: i32,
+    y0: i32,
+    w: usize,
+    cov: Vec<f32>,
+}
+
+thread_local! {
+    /// (font file, pixel size, character) -> its picture.
+    static GLYPHS: RefCell<HashMap<(usize, i32, char), Rc<Raster>>> = RefCell::new(HashMap::new());
+}
+
 #[derive(Clone)]
 pub struct Font {
     face: FontRef<'static>,
+    /// Which bundled font file this is (its address), for the glyph cache.
+    face_id: usize,
     pub size: i32,
     pub bold: bool,
     pub linesize: i32,
@@ -66,10 +83,12 @@ pub struct Font {
 impl Font {
     fn make(bytes: &'static [u8], key: &str, size: i32, bold: bool) -> Self {
         let face = FontRef::try_from_slice(bytes).expect("bundled font");
+        let face_id = bytes.as_ptr() as usize;
         match tables().get(key) {
-            Some(t) => Font { face, size, bold, linesize: t.linesize, ascent: t.ascent, glyphs: Some(&t.glyphs) },
+            Some(t) => Font { face, face_id, size, bold, linesize: t.linesize, ascent: t.ascent, glyphs: Some(&t.glyphs) },
             None => Font {
                 face,
+                face_id,
                 size,
                 bold,
                 linesize: (size as f32 * 1.2).ceil() as i32,
@@ -142,18 +161,46 @@ impl Font {
 
     /// The same with `img.set_alpha(alpha)`.
     pub fn draw_a(&self, cv: &mut Canvas, text: &str, x: i32, y: i32, color: Color, alpha: u32) {
-        let s = self.scaled();
         let mut pen = x;
+        let base = y + self.ascent;
         for c in text.chars() {
-            let g = s.glyph_id(c).with_scale_and_position(s.scale(), ab_glyph::point(pen as f32, (y + self.ascent) as f32));
-            if let Some(o) = self.face.outline_glyph(g) {
-                let b = o.px_bounds();
-                o.draw(|gx, gy, cov| {
+            let g = self.raster(c);
+            for (i, &cov) in g.cov.iter().enumerate() {
+                if cov > 0.0 {
                     let a = (cov * alpha as f32 + 0.5) as u32;
-                    cv.blend(b.min.x as i32 + gx as i32, b.min.y as i32 + gy as i32, color, a);
-                });
+                    cv.blend(pen + g.x0 + (i % g.w) as i32, base + g.y0 + (i / g.w) as i32, color, a);
+                }
             }
             pen += self.metrics(c)[0];
         }
+    }
+
+    /// The coverage of one glyph with its pen at the origin. The pen always sits on whole pixels, so the picture of a glyph is the same
+    /// wherever it is drawn: it is outlined and rasterised once per (font, size, character) and kept. The HUD draws a few hundred
+    /// glyphs a frame; doing the outline for each of them every frame took most of the frame.
+    fn raster(&self, c: char) -> Rc<Raster> {
+        let key = (self.face_id, self.size, c);
+        if let Some(g) = GLYPHS.with_borrow(|m| m.get(&key).cloned()) {
+            return g;
+        }
+        let s = self.scaled();
+        let g = s.glyph_id(c).with_scale_and_position(s.scale(), ab_glyph::point(0.0, 0.0));
+        let r = match self.face.outline_glyph(g) {
+            Some(o) => {
+                let b = o.px_bounds();
+                let (w, h) = ((b.width() as usize).max(1), (b.height() as usize).max(1));
+                let mut cov = vec![0.0f32; w * h];
+                o.draw(|gx, gy, v| {
+                    if let Some(px) = cov.get_mut(gy as usize * w + gx as usize) {
+                        *px = v;
+                    }
+                });
+                Raster { x0: b.min.x as i32, y0: b.min.y as i32, w, cov }
+            }
+            None => Raster { x0: 0, y0: 0, w: 1, cov: Vec::new() },
+        };
+        let r = Rc::new(r);
+        GLYPHS.with_borrow_mut(|m| m.insert(key, r.clone()));
+        r
     }
 }
