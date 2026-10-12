@@ -149,7 +149,6 @@ Regenerate the list with the script in `REVIEW_PROMPT.md` (section SETTINGS AUDI
     **Not verified by play:** the tool wheel (hold ` and move the mouse; needs a person: the code path was read and its unit tests pass),
     the new click-the-room / hotbar clicks (needs a mouse), the gamepad.
 19. **Still open:** `graphics.resolution_scale` and `graphics.photo_scale` (need an off-screen 3D target), gamepad rebinding and menu
-    navigation with the pad, time-lapse recording (L), the memory belongs to the focused fly instead of one per fly, the PAIN card's two
-    labels overlap exactly as in Python.
+    navigation with the pad, time-lapse recording (L), the memory belongs to the focused fly instead of one per fly, (the PAIN card's two labels no longer overlap: fixed after the review).
 
 (the user may add more below)

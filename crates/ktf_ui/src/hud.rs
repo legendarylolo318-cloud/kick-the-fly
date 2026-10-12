@@ -1211,11 +1211,13 @@ impl Hud<'_> {
         } else {
             ("calm", S_GOOD)
         };
-        text(self.cv, "PAIN", (x + 12, y + 8), LABEL, &f.small, "topleft");
+        // Python draws the second label at x + 46, which lands on the end of "PAIN" in the real font; it starts after the word instead
+        let pain = text(self.cv, "PAIN", (x + 12, y + 8), LABEL, &f.small, "topleft");
+        let lx = (x + 46).max(pain.right() + 8);
         if st.pain_connectome {
-            text(self.cv, "CONNECTOME (noci)", (x + 46, y + 8), [50, 220, 100], &f.small, "topleft");
+            text(self.cv, "CONNECTOME (noci)", (lx, y + 8), [50, 220, 100], &f.small, "topleft");
         } else {
-            text(self.cv, "ESTIMATE (RULE)", (x + 46, y + 8), DIM, &f.small, "topleft");
+            text(self.cv, "ESTIMATE (RULE)", (lx, y + 8), DIM, &f.small, "topleft");
         }
         let r = text(self.cv, &format!("{p:.0}"), (x + 12, y + 20), INK, &f.title, "topleft");
         text(self.cv, "/100", (r.right() + 4, r.bottom() - 22), LABEL, &f.small, "topleft");
