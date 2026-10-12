@@ -308,7 +308,7 @@ fn sync_loadout(cfg: Res<UserConfig>, mut lo: ResMut<ActiveLoadout>, mut sig: Lo
     *sig = Some(now);
 }
 
-fn tool_index(name: &str) -> usize {
+pub fn tool_index(name: &str) -> usize {
     TOOLS.iter().position(|t| t.0 == name).unwrap_or(0)
 }
 
@@ -319,6 +319,8 @@ fn select(
     mut lo: ResMut<ActiveLoadout>,
     look: Res<MouseLook>,
     keys: Res<ButtonInput<KeyCode>>,
+    mut saved: ResMut<crate::feedback::SavedMsg>,
+    real: Res<Time<Real>>,
 ) {
     if !look.captured {
         return;
@@ -341,11 +343,11 @@ fn select(
             st.selected = tool_index(name);
         }
     }
-    if act.just("page_prev") && lo.0.turn_page(-1) {
-        st.page = lo.0.page;
-    }
-    if act.just("page_next") && lo.0.turn_page(1) {
-        st.page = lo.0.page;
+    for (key, d) in [("page_prev", -1), ("page_next", 1)] {
+        if act.just(key) && lo.0.turn_page(d) {
+            st.page = lo.0.page;
+            saved.set(format!("Hotbar page {}/{}", lo.0.page + 1, lo.0.n_pages()), real.elapsed_secs());
+        }
     }
     for w in wheel.read() {
         // the wheel steps through the loadout, wrapping (`Game.cycle_tool`)
@@ -391,7 +393,7 @@ fn autopilot(
 /// true for one drawn frame: above 60 frames a second some frames have no tick, and a click that landed on one of them was lost (the
 /// swatter did nothing); below 60 a frame can have two ticks, and one click counted twice.
 #[derive(Resource, Default)]
-pub struct ClickLatch(Option<std::time::Instant>);
+pub struct ClickLatch(Option<std::time::Instant>, Option<std::time::Instant>);
 
 /// A click that no tick has used after this long is forgotten (the game was paused, a menu came up): it must not fire a tool later.
 const CLICK_KEEPS: std::time::Duration = std::time::Duration::from_millis(150);
@@ -405,12 +407,28 @@ impl ClickLatch {
     pub fn take(&mut self) -> bool {
         self.0.take().is_some_and(|t| t.elapsed() <= CLICK_KEEPS)
     }
+
+    /// The right button's own latch (with the hand it removes a decoy, `handle3d`).
+    pub fn set_right(&mut self) {
+        self.1 = Some(std::time::Instant::now());
+    }
+
+    pub fn take_right(&mut self) -> bool {
+        self.1.take().is_some_and(|t| t.elapsed() <= CLICK_KEEPS)
+    }
 }
 
 fn latch_click(mouse: Res<ButtonInput<MouseButton>>, look: Res<MouseLook>, mut clicks: ResMut<ClickLatch>, mut was_captured: Local<bool>) {
     // only a click made while the mouse already belonged to the game: the click that captures it ('click the room') uses no tool
-    if mouse.just_pressed(MouseButton::Left) && *was_captured && look.captured {
+    // any of the three buttons uses the tool (`handle3d`: `ev.button in (1, 2, 3)`)
+    if (mouse.just_pressed(MouseButton::Left) || mouse.just_pressed(MouseButton::Middle) || mouse.just_pressed(MouseButton::Right))
+        && *was_captured
+        && look.captured
+    {
         clicks.set();
+        if mouse.just_pressed(MouseButton::Right) {
+            clicks.set_right();
+        }
     }
     *was_captured = look.captured;
 }
@@ -447,9 +465,35 @@ fn use_tools(
     };
     // the click is remembered from the frame it happened in (see `ClickLatch`); it is used once, here
     // (taken even when no tool can be used right now, in photo mode or as a spectator: that click is spent, not saved for later)
-    let click = clicks.take();
+    let mut click = clicks.take();
+    // right button with the hand: the decoy you hold, or the nearest one in reach, is removed instead of using the tool
+    if clicks.take_right() && active && name == "hand" {
+        let target = st.grabbed_decoy.or_else(|| {
+            decoys
+                .iter()
+                .filter_map(|(e, t)| {
+                    let rel = t.translation - eye;
+                    let along = rel.dot(dir);
+                    let perp = (rel - dir * along).length();
+                    (along > 0.0 && along < GRAB_REACH && perp < 0.4).then_some((e, along))
+                })
+                .min_by(|a, b| a.1.total_cmp(&b.1))
+                .map(|d| d.0)
+        });
+        if let Some(e) = target {
+            if let Ok((_, t)) = decoys.get(e) {
+                fb.popups.write(Popup::new(t.translation, "DECOY REMOVED", (200, 180, 220)));
+            }
+            commands.entity(e).despawn();
+            st.grabbed_decoy = None;
+            fb.sfx.write(Sfx::new("pop"));
+            click = false;
+        }
+    }
     let pressed = active && click;
-    let held = active && mouse.pressed(MouseButton::Left);
+    let any_button =
+        |m: &ButtonInput<MouseButton>| m.pressed(MouseButton::Left) || m.pressed(MouseButton::Middle) || m.pressed(MouseButton::Right);
+    let held = active && any_button(mouse);
     if pressed {
         st.uses += 1;
         st.last_used = TOOLS[st.selected].0;
@@ -751,7 +795,9 @@ fn continuous(
 ) {
     let now = virt.elapsed_secs();
     let name = st.name();
-    let held = look.captured && !st.autopilot && mouse.pressed(MouseButton::Left);
+    let held = look.captured
+        && !st.autopilot
+        && (mouse.pressed(MouseButton::Left) || mouse.pressed(MouseButton::Middle) || mouse.pressed(MouseButton::Right));
     let (eye, dir) = (aim.eye, aim.dir);
     let tip = tool_tip(&aim);
 

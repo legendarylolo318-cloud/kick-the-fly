@@ -368,15 +368,75 @@ pub const PER_RATIO: f32 = 1.5;
 /// How near the other fly must be for a lunge: 180 of the 2D game's pixels, in metres.
 pub const LUNGE_REACH: f32 = 180.0 * 0.006;
 
-/// The tags the game keeps on screen: which reactions are triggered by the connectome sim's own neurons (REAL) and which by a game rule.
+/// `REACTION_SOURCE`, every entry: which reactions are triggered by the connectome sim's own neurons (REAL) and which by a game rule.
+/// Everything not listed (your tools' effects, settings) is untagged.
+const REACTION_SOURCE: &[(&str, &str)] = &[
+    ("DODGE", "real"),
+    ("FLY AWAY", "real"),
+    ("TAKE OFF", "real"),
+    ("RUN", "real"),
+    ("KICK", "real"),
+    ("BACK UP", "real"),
+    ("WALK", "real"),
+    ("TURN", "real"),
+    ("SHOOT", "real"),
+    ("GROOM", "real"),
+    ("PROBOSCIS", "real"),
+    ("SONG", "real"),
+    ("CO2", "real"),
+    ("HEAT", "real"),
+    ("COLD", "real"),
+    ("ROLL", "rule"),
+    ("ROLLING", "rule"),
+    ("PAIN (LARVA)", "rule"),
+    ("CRAWL", "rule"),
+    ("HEAD CAST", "rule"),
+    ("EATING", "rule"),
+    ("TO LIGHT", "rule"),
+    ("AVOID", "rule"),
+    ("APPROACH", "rule"),
+    ("FLEE", "rule"),
+    ("WRAPPED", "rule"),
+    ("BROKE FREE", "rule"),
+    ("DIED", "rule"),
+    ("HIT YOU", "rule"),
+    ("YOU DIED", "rule"),
+    ("AUTOPILOT", "rule"),
+    ("PHOTO MODE", "rule"),
+    ("ALCOHOL", "rule"),
+    ("INEBRIATED", "rule"),
+    ("STUMBLE", "rule"),
+    ("SIP", "rule"),
+    ("DRINKING", "rule"),
+    ("TO FRUIT", "rule"),
+    ("LOST", "rule"),
+    ("RECALL", "rule"),
+    ("LUNGE", "rule"),
+    ("FIGHT", "rule"),
+    ("SLEEP", "rule"),
+    ("cVA PUFF", "rule"),
+    ("DECOY FEMALE", "rule"),
+    ("COURTSHIP", "rule"),
+    ("CAUGHT", "rule"),
+    ("TRAPPED", "rule"),
+    ("TO VINEGAR", "rule"),
+    ("MIC", "rule"),
+    ("STREAM", "rule"),
+    ("CHAT VOTED", "rule"),
+];
+
+/// `reaction_source(text)` for one key: the tag of a reaction word.
 pub fn reaction_source(word: &str) -> Option<&'static str> {
-    match word {
-        "DODGE" | "FLY AWAY" | "TAKE OFF" | "RUN" | "KICK" | "BACK UP" | "WALK" | "TURN" | "SHOOT" | "GROOM" | "PROBOSCIS" | "SONG"
-        | "CO2" | "HEAT" | "COLD" => Some("real"),
-        "EATING" | "TO LIGHT" | "AVOID" | "APPROACH" | "FLEE" | "WRAPPED" | "BROKE FREE" | "DIED" | "HIT YOU" | "YOU DIED"
-        | "AUTOPILOT" | "ROLL" | "CRAWL" | "SLEEP" | "LUNGE" => Some("rule"),
-        _ => None,
-    }
+    REACTION_SOURCE.iter().find(|(k, _)| *k == word).map(|(_, s)| *s)
+}
+
+/// `reaction_source(text)`: the chip of a log line, from its first words ("TURN R   DNa01/02 R-L +2.5" is TURN: REAL). `None`: no chip.
+pub fn note_source(text: &str) -> Option<&'static str> {
+    let head = text.split("  ").next().unwrap_or("").trim();
+    REACTION_SOURCE
+        .iter()
+        .find(|(k, _)| head == *k || head.starts_with(&format!("{k} ")) || text.starts_with(&format!("{k} ")))
+        .map(|(_, s)| *s)
 }
 
 /// `POPUP_SOURCE`: which floating words carry a REAL / RULE chip.
@@ -437,6 +497,18 @@ mod tests {
 
     const FREE: Body =
         Body { can_fly: true, free: true, grabbed: false, asleep_ok: true, eating: false, duel_focus: false, mn9_hz: 0.0, rival: None };
+
+    #[test]
+    fn log_lines_get_their_chip_from_the_text_as_in_python() {
+        assert_eq!(note_source("TURN R   DNa01/02 R-L +2.5"), Some("real"));
+        assert_eq!(note_source("EATING   sugar: taste + PAM reward"), Some("rule"));
+        assert_eq!(note_source("FLEE     fears you (0.50)"), Some("rule"));
+        assert_eq!(note_source("HIT YOU  PAM reward dopamine fires"), Some("rule"));
+        assert_eq!(note_source("SHOOT    DNp35/DNpe052 x3.2"), Some("real"));
+        assert_eq!(note_source("FOCUS    fly #2/3 [card not measured]"), None, "untagged in Python");
+        assert_eq!(note_source("1V1      on: it has a blaster"), None);
+        assert_eq!(note_source("TO FRUIT flies to a fruit"), Some("rule"));
+    }
 
     #[test]
     fn co2_heat_and_cold_are_only_logged_every_three_seconds() {

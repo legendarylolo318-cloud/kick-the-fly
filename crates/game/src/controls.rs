@@ -122,10 +122,18 @@ fn keys(
     }
 }
 
+/// `time_action`'s last line: with the clock back at normal speed the badge is gone, so the HUD says so for a moment.
+fn time_toast(act: Res<Actions>, tc: Res<TimeControl>, mut saved: ResMut<crate::feedback::SavedMsg>, real: Res<Time<Real>>) {
+    let any = ["time_pause", "time_slower", "time_faster", "time_step"].iter().any(|a| act.just(a));
+    if any && !tc.paused && (tc.speed - 1.0).abs() < 1e-6 {
+        saved.set("time: normal speed", real.elapsed_secs());
+    }
+}
+
 pub struct ControlsPlugin;
 
 impl Plugin for ControlsPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<TimeControl>().add_systems(Update, keys);
+        app.init_resource::<TimeControl>().add_systems(Update, (keys, time_toast).chain());
     }
 }

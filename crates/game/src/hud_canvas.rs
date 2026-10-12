@@ -240,18 +240,35 @@ fn pygame_state(f: &Fly, now: f32, arena: &str) -> String {
     }
 }
 
-const MOTOR_ROWS: [(&str, &str, Option<f32>); 10] = [
-    ("jump", "head-touch DNs  > JUMP", Some(3.0)),
-    ("run", "body-touch DNs  > RUN", Some(2.4)),
-    ("kick", "leg-touch DNs   > KICK", Some(2.0)),
-    ("walk", "DNp09 (P9)      > WALK", Some(3.0)),
-    ("back", "MDN moonwalker  > BACK UP", Some(3.8)),
-    ("turn_l", "DNa01/02 left   > TURN", Some(2.1)),
-    ("turn_r", "DNa01/02 right  > TURN", Some(2.1)),
-    ("fly", "DNg02 wing power> FLY", Some(1.58)),
-    ("escape", "DNp01 giant fiber> DODGE", Some(4.0)),
-    ("fire", "DNp35 object DNs> SHOOT", Some(3.0)),
+const MOTOR_ROWS: [(&str, &str); 10] = [
+    ("jump", "head-touch DNs  > JUMP"),
+    ("run", "body-touch DNs  > RUN"),
+    ("kick", "leg-touch DNs   > KICK"),
+    ("walk", "DNp09 (P9)      > WALK"),
+    ("back", "MDN moonwalker  > BACK UP"),
+    ("turn_l", "DNa01/02 left   > TURN"),
+    ("turn_r", "DNa01/02 right  > TURN"),
+    ("fly", "DNg02 wing power> FLY"),
+    ("escape", "DNp01 giant fiber> DODGE"),
+    ("fire", "DNp35 object DNs> SHOOT"),
 ];
+
+/// `THRESH.get(name)` for a descending-neuron row, live (the Lab's parameters change it). The two turn rows have no entry in Python's
+/// table (its key is `turn`), so they show no threshold mark and never go amber.
+fn motor_threshold(name: &str) -> Option<f32> {
+    let th = crate::reactions::thresholds();
+    match name {
+        "jump" => Some(th.jump),
+        "run" => Some(th.run),
+        "kick" => Some(th.kick),
+        "walk" => Some(th.walk),
+        "back" => Some(th.back),
+        "fly" => Some(th.fly),
+        "escape" => Some(th.escape),
+        "fire" => Some(th.fire),
+        _ => None,
+    }
+}
 
 /// Everything the HUD reads (bundled: a system takes at most 16 parameters).
 #[derive(bevy::ecs::system::SystemParam)]
@@ -445,23 +462,22 @@ fn draw(
         let lvl = |name: &str| idx(name).and_then(|i| s.and_then(|s| s.levels.get(i).copied())).unwrap_or(0.0);
         PanelData {
             dead: s.is_some_and(|s| s.dead),
-            calm_fx: false,
+            calm_fx: cfg.0.get_bool("access.reduced_flashing"),
             neurons: s.map_or(0, |s| s.neurons),
             big_view: view.big,
             touch: [hz("head"), hz("body"), hz("legs"), hz("wing")],
-            motor: MOTOR_ROWS.iter().map(|(n, label, th)| MotorRow { label: (*label).into(), level: lvl(n), thresh: *th }).collect(),
+            motor: MOTOR_ROWS
+                .iter()
+                .map(|(n, label)| MotorRow { label: (*label).into(), level: lvl(n), thresh: motor_threshold(n) })
+                .collect(),
             whole_trace: s.map_or(vec![], |s| s.whole_trace.clone()),
             log: notes
                 .lines
                 .iter()
-                .map(|(born, text, tag)| LogLine {
+                .map(|(born, text, _)| LogLine {
                     age: now - born,
                     text: text.clone(),
-                    source: match tag {
-                        Tag::Connectome => Some("real".into()),
-                        Tag::GameRule => Some("rule".into()),
-                        Tag::Model => None,
-                    },
+                    source: crate::reactions::note_source(text).map(Into::into),
                 })
                 .collect(),
             steps_per_s: s.map_or(0.0, |s| s.steps_per_s),
@@ -749,6 +765,12 @@ struct ClickCtx<'w> {
     autopsy: Res<'w, crate::autopsy_play::AutopsyCard>,
     reset: MessageWriter<'w, ResetFly>,
     sfx: MessageWriter<'w, crate::feedback::Sfx>,
+    tools: ResMut<'w, ToolState>,
+    loadout: ResMut<'w, ActiveLoadout>,
+    view: ResMut<'w, BrainView>,
+    duel: Res<'w, crate::duel_play::Duel>,
+    arcade: Res<'w, Arcade>,
+    saved: ResMut<'w, crate::feedback::SavedMsg>,
 }
 
 /// What the HUD's picture depends on besides its state: the blink phase, text size, pixel mode, size, language, and which image it is.
@@ -758,7 +780,7 @@ type HudKey = (bool, bool, bool, i32, i32, String, AssetId<Image>);
 #[allow(clippy::too_many_arguments)]
 fn hud_clicks(
     buttons: Res<ButtonInput<MouseButton>>,
-    look: Res<MouseLook>,
+    mut look: ResMut<MouseLook>,
     menu: Res<MenuOpen>,
     window: Single<&Window, With<PrimaryWindow>>,
     lay: Res<HudLayout>,
@@ -771,8 +793,24 @@ fn hud_clicks(
     mut tut: ResMut<crate::tutorial_play::Tutorial>,
     cx: ClickCtx,
     mut science: ResMut<crate::science_play::Science>,
+    mut hud_stats: ResMut<HudStats>,
 ) {
-    let ClickCtx { mut learned, snap, mut chal, virt, surgery, autopsy, mut reset, mut sfx } = cx;
+    let ClickCtx {
+        mut learned,
+        snap,
+        mut chal,
+        virt,
+        surgery,
+        autopsy,
+        mut reset,
+        mut sfx,
+        mut tools,
+        mut loadout,
+        mut view,
+        duel,
+        arcade,
+        mut saved,
+    } = cx;
     if !buttons.just_pressed(MouseButton::Left) || look.captured || menu.0 {
         return;
     }
@@ -835,6 +873,37 @@ fn hud_clicks(
         }
         return;
     }
+    // a click in the room: the mouse goes back to the game (`handle3d`: not while dead or over a panel, not on the hotbar); then the hotbar,
+    // then the brain picture in the panel opens the big view
+    let overlay =
+        hud_stats.help || view.big || arcade.open || learned.train_open || chal.overlay || surgery.open || autopsy.report.is_some();
+    let on_tools = hits.0.tools.iter().any(|r| r.contains(pos)) || hits.0.pages.iter().any(|(r, _)| r.contains(pos));
+    let on_card =
+        at(hits.0.tutorial_next) || at(hits.0.tutorial_skip) || at(hits.0.notd_try) || at(hits.0.notd_off) || at(hits.0.notd_close);
+    if !overlay && !on_card {
+        if !duel.player_dead() && pos.0 < lay.0.play_w && !on_tools {
+            look.captured = true;
+            return;
+        }
+        if let Some((_, d)) = hits.0.pages.iter().find(|(r, _)| r.contains(pos)) {
+            if loadout.0.turn_page(*d) {
+                tools.page = loadout.0.page;
+                saved.set(format!("Hotbar page {}/{}", loadout.0.page + 1, loadout.0.n_pages()), now);
+            }
+            return;
+        }
+        if let Some(k) = hits.0.tools.iter().position(|r| r.contains(pos)) {
+            if let Some(name) = loadout.0.slot_tool(k) {
+                tools.selected = crate::tools::tool_index(name);
+            }
+            return;
+        }
+        if at(hits.0.view) {
+            view.big = true;
+            return;
+        }
+    }
+    let _ = &mut hud_stats;
     if tut.active && at(hits.0.tutorial_next) {
         tut.request = Some("next");
     } else if tut.active && at(hits.0.tutorial_skip) {

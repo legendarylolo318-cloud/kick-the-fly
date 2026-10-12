@@ -334,6 +334,26 @@ fn update_activity(
     prof.record("brain view", t0);
 }
 
+/// The toasts of V and U (`handle3d`: "brain panel: <mode>", "menu size: <mode>") and the menu-size key itself.
+fn key_toasts(
+    act: Res<crate::actions::Actions>,
+    mut cfg: ResMut<crate::menu_ui::UserConfig>,
+    mut saved: ResMut<crate::feedback::SavedMsg>,
+    real: Res<Time<Real>>,
+) {
+    let now = real.elapsed_secs();
+    if act.just("panel") {
+        let mode = PanelMode::from_setting(cfg.0.get_str("graphics.panel_mode"));
+        saved.set(format!("brain panel: {}", mode.setting()), now);
+    }
+    if act.just("menu_size") {
+        // `UI_MODES = ("crisp", "large")`: U steps through them and keeps the choice
+        let next = if cfg.0.get_str("graphics.menu_size") == "large" { "crisp" } else { "large" };
+        cfg.set_and_save("graphics.menu_size", serde_json::json!(next));
+        saved.set(format!("menu size: {next}"), now);
+    }
+}
+
 /// The big view's mouse, as in Python (`kick3d.py` MOUSEWHEEL, `kick_the_fly.py` `big_drag`): with the mouse free, the wheel zooms, a drag
 /// turns and tilts (0.4 degrees a HUD pixel), Shift+drag or a middle-button drag shifts the picture with the pointer; 1 / 2 / 3 / 0 pick
 /// the front / side / top / reset camera. Autopilot with 'brain orbit' turns it by 12 degrees a second.
@@ -461,7 +481,7 @@ impl Plugin for BrainViewPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<BrainView>()
             .add_systems(Startup, setup)
-            .add_systems(Update, (control, build_cloud, update_activity, layout).chain());
+            .add_systems(Update, (control, key_toasts.after(control), build_cloud, update_activity, layout).chain());
     }
 }
 

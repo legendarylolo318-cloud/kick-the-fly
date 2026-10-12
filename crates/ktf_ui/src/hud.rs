@@ -418,6 +418,11 @@ pub struct HudHits {
     pub train: Vec<(Rect, String, Option<String>)>,
     /// The challenge panel's enabled buttons: (rectangle, id).
     pub challenge: Vec<(Rect, String)>,
+    /// The hotbar's tool boxes in slot order, its page arrows `(rectangle, -1 | +1)`, and the brain picture in the panel (a click opens
+    /// the big view): `Game._draw_toolbar`'s `tool_rects`, `page_rects` and `view_rect`.
+    pub tools: Vec<Rect>,
+    pub pages: Vec<(Rect, i32)>,
+    pub view: Option<Rect>,
 }
 
 /// `draw_source_chip`: a REAL / RULE pill.
@@ -621,7 +626,7 @@ impl Hud<'_> {
                 self.cv.line((cx + dx * 5, cy + dy * 5), (cx + dx * 13, cy + dy * 13), 2, col, 255);
             }
         }
-        self.toolbar(st);
+        let (tool_rects, page_rects) = self.toolbar(st);
         self.status(st, now);
         if let Some(d) = &st.duel {
             self.duel(d);
@@ -666,6 +671,13 @@ impl Hud<'_> {
             let bx = Rect::new(play_w / 2 - w / 2 - 11, 92 - 5, w + 22, self.f.bold.linesize + 10);
             self.cv.fill_rect(bx, if *user { AMBER } else { ACCENT }, 8);
             text(self.cv, label, bx.center(), [20, 16, 8], &self.f.bold, "center");
+        }
+        hits.tools = tool_rects;
+        hits.pages = page_rects;
+        if let Some(p) = &st.panel
+            && !p.big_view
+        {
+            hits.view = Some(Rect::new(self.lay.play_w + 12, 54, 356, 193));
         }
         if let Some(play) = &st.science {
             // `Game._draw_science_card`
@@ -1406,9 +1418,10 @@ impl Hud<'_> {
         }
     }
 
-    fn toolbar(&mut self, st: &HudState) {
+    fn toolbar(&mut self, st: &HudState) -> (Vec<Rect>, Vec<(Rect, i32)>) {
+        let (mut tool_rects, mut page_rects) = (vec![], vec![]);
         if st.hide_hud {
-            return;
+            return (tool_rects, page_rects);
         }
         let f = self.f;
         let floor = self.lay.hud_h - 120;
@@ -1419,6 +1432,7 @@ impl Hud<'_> {
         text(self.cv, &st.tool_line, (play_w / 2, floor + 10), INK, &f.bold, "midtop");
         for (k, t) in st.tools.iter().enumerate() {
             let r = Rect::new(x0 + k as i32 * (bw + gap), floor + 38, bw, 64);
+            tool_rects.push(r);
             let on = t.name == st.tool_name;
             card(self.cv, r, (if on { [60, 46, 22] } else { [16, 18, 24] }, if on { 230 } else { 210 }), 10);
             self.cv.stroke_rect2(r, if on { AMBER } else { BORDER_PANEL }, 2, 10);
@@ -1429,14 +1443,16 @@ impl Hud<'_> {
         }
         if st.pages > 1 {
             let y = floor + 38 + 18;
-            for (x, sym) in [(x0 - 30, "<"), (x0 + n * (bw + gap) + 2, ">")] {
+            for (x, sym, d) in [(x0 - 30, "<", -1), (x0 + n * (bw + gap) + 2, ">", 1)] {
                 let r = Rect::new(x, y, 28, 28);
+                page_rects.push((r, d));
                 card(self.cv, r, ([16, 18, 24], 210), 8);
                 self.cv.stroke_rect(r, BORDER_PANEL, 8);
                 text(self.cv, sym, r.center(), INK, &f.bold, "center");
             }
             text(self.cv, &format!("{}/{}", st.page + 1, st.pages), (x0 - 16, y + 34), LABEL, &f.small, "center");
         }
+        (tool_rects, page_rects)
     }
 
     fn panel(&mut self, st: &HudState, p: &PanelData, now: f64) {
