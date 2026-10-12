@@ -138,4 +138,9 @@ Regenerate the list with the script in `REVIEW_PROMPT.md` (section SETTINGS AUDI
     1080p, uncapped: 11.5 ms a frame at 01cad77, 13.0 ms at the head although the HUD draws 3 ms faster there. Ruled out with switches: the
     gamepad reading, the gilrs backend, the science-card watcher, the HUD's skip and buffer swap. Not found; no effect at the 60 fps cap.
 
+17. **Item 16, 2026-10-12 (reading only, not measured):** the only per-frame addition in 308ecdc..ec9539d that touches shared state is
+    `science_play::watch`, which took `ResMut<LabRuns>` (a resource every menu system also uses) and `ResMut<Science>`, so the scheduler could
+    not overlap it with them. It now queues the rare card lookup as a command and holds no `LabRuns` borrow. The gamepad reader and gilrs were
+    already ruled out with switches. **Needs one uncapped measurement** (`KTF_DEBUG=1`, 2 s profiler lines) to confirm the 4 ms is gone.
+
 (the user may add more below)

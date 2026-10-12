@@ -12,7 +12,7 @@ use std::path::PathBuf;
 use bevy::prelude::*;
 use serde_json::Value;
 
-use crate::app::{LatestSnapshot, SimLink};
+use crate::app::LatestSnapshot;
 use crate::fly::ReactionFired;
 use crate::menu_ui::UserConfig;
 
@@ -59,14 +59,14 @@ pub fn passing_events(res: &Value, n_neurons: u64, synapses: u64) -> BTreeMap<St
     out
 }
 
-#[allow(clippy::too_many_arguments)]
+/// Looks at the reactions that fired. It holds no `LabRuns` borrow of its own (that resource is busy in the menu systems every frame, and a
+/// mutable borrow here kept the scheduler from overlapping them): the rare card lookup runs as a queued command instead.
 fn watch(
     mut fired: MessageReader<ReactionFired>,
     mut sci: ResMut<Science>,
     cfg: Res<UserConfig>,
     snap: Res<LatestSnapshot>,
-    link: Res<SimLink>,
-    mut runs: ResMut<crate::lab_play::LabRuns>,
+    mut commands: Commands,
     virt: Res<Time<Virtual>>,
 ) {
     let now = virt.elapsed_secs();
@@ -85,11 +85,22 @@ fn watch(
     }
     let seen = sci.seen.get_or_insert_with(|| load_seen(&seen_file())).clone();
     let Some(kind) = kinds.into_iter().find(|k| !seen.contains(k)) else { return };
-    let Some(sh) = link.0.shared.lock().unwrap_or_else(std::sync::PoisonError::into_inner).clone() else { return };
-    runs.refresh();
-    let events = passing_events(runs.results(), sh.weights.n() as u64, sh.weights.csr.nnz() as u64);
-    let Some(play) = events.get(&kind) else { return };
-    sci.card = Some((play.clone(), now));
+    commands.queue(move |world: &mut World| show_card(world, kind, now));
+}
+
+fn show_card(world: &mut World, kind: String, now: f32) {
+    let Some(sh) = world.resource::<crate::app::SimLink>().0.shared.lock().unwrap_or_else(std::sync::PoisonError::into_inner).clone()
+    else {
+        return;
+    };
+    let play = {
+        let mut runs = world.resource_mut::<crate::lab_play::LabRuns>();
+        runs.refresh();
+        passing_events(runs.results(), sh.weights.n() as u64, sh.weights.csr.nnz() as u64).remove(&kind)
+    };
+    let Some(play) = play else { return };
+    let mut sci = world.resource_mut::<Science>();
+    sci.card = Some((play, now));
     if let Some(s) = sci.seen.as_mut() {
         s.insert(kind);
         let path = seen_file();
