@@ -78,6 +78,7 @@ pub mod tools;
 pub mod tournament;
 pub mod tutorial_play;
 pub mod twitch;
+pub mod viewmodel;
 pub mod weather;
 pub mod weather_play;
 pub mod wheel_play;
@@ -205,6 +206,7 @@ impl Plugin for GamePlugin {
                 arcade_hub::ArcadeHubPlugin,
                 live_play::LivePlugin,
                 flies_play::FliesPlugin,
+                viewmodel::ViewModelPlugin,
                 share_play::SharePlugin,
                 lab_play::LabPlugin,
                 labtools::LabToolsPlugin,

@@ -118,12 +118,31 @@ fn follow_nearest(
     bodies: Query<(&Fly, &Slot)>,
     parts: Query<&Transform, With<FlyPart>>,
     player: Query<&Transform, With<Player>>,
+    mut last_debug: Local<f32>,
 ) {
     let now = virt.elapsed_secs();
-    if bodies.iter().count() < 2 || arcade.open || now < flies.manual_until || bodies.iter().all(|(f, _)| f.dead()) {
-        return;
+    let blocked = if bodies.iter().count() < 2 {
+        Some("one fly")
+    } else if arcade.open {
+        Some("arcade open")
+    } else if now < flies.manual_until {
+        Some("chosen with F")
+    } else if bodies.iter().all(|(f, _)| f.dead()) {
+        Some("all dead")
+    } else if snap.0.as_deref().is_some_and(|s| s.challenge.is_some()) {
+        Some("challenge")
+    } else if snap.0.as_deref().is_some_and(|s| s.memory.as_ref().is_some_and(|m| m.train.is_some())) {
+        Some("training")
+    } else {
+        None
+    };
+    // KTF_DEBUG=1: once a second, who is in front and why the focus may not move
+    let debug = std::env::var_os("KTF_DEBUG").is_some() && now - *last_debug >= 1.0;
+    if debug {
+        *last_debug = now;
+        eprintln!("focus: game {} sim {:?} blocked {blocked:?}", flies.focus, snap.0.as_deref().map(|s| s.focus));
     }
-    if snap.0.as_deref().is_some_and(|s| s.challenge.is_some() || s.memory.as_ref().is_some_and(|m| m.train.is_some())) {
+    if blocked.is_some() {
         return;
     }
     let Ok(me) = player.single().map(|t| t.translation) else { return };
@@ -131,6 +150,9 @@ fn follow_nearest(
     for (f, slot) in &bodies {
         let Ok(t) = parts.get(f.parts[Part::Thorax.index()]) else { continue };
         let d = t.translation.distance(me);
+        if debug {
+            eprintln!("focus:   slot {} at {:.2} m", slot.0, d);
+        }
         if best.is_none_or(|b| d < b.0) {
             best = Some((d, slot.0));
         }

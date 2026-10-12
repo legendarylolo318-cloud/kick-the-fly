@@ -123,6 +123,8 @@ pub struct ToolState {
     pub holding: bool,
     pub throw_t: f32,
     pub swing_t: f32,
+    /// When the finger last flicked (`Game3D.flick_t`: the held hand's finger snaps for 0.15 s).
+    pub flick_t: f32,
     pub zap_ready: f32,
     pub kick_t: f32,
     pub laser_target: usize,
@@ -151,6 +153,7 @@ impl Default for ToolState {
             holding: false,
             throw_t: -9.0,
             swing_t: -9.0,
+            flick_t: -9.0,
             zap_ready: 0.0,
             kick_t: -9.0,
             laser_target: 2,
@@ -429,6 +432,7 @@ fn use_tools(
     if pressed && name != "hand" {
         match name {
             "flick" => {
+                st.flick_t = now;
                 if let Some((fly_e, _, along, _)) = nearest_to_ray(&parts, &flies, eye, dir, 2.6, 0.4) {
                     let center = eye + dir * along;
                     if let Ok((_, mut f)) = flies.get_mut(fly_e) {
