@@ -25,7 +25,7 @@ fly_sim.workspace = true
 ktf_data.workspace = true
 ktf_ui.workspace = true
 arboard.workspace = true
-bevy = { workspace = true, features = ["3d", "ui", "audio", "wav", "x11", "wayland", "multi_threaded", "bevy_dev_tools", "png"] }
+bevy = { workspace = true, features = ["3d", "ui", "audio", "wav", "x11", "wayland", "multi_threaded", "bevy_dev_tools", "png", "bevy_gilrs"] }
 avian3d.workspace = true
 serde.workspace = true
 serde_json.workspace = true

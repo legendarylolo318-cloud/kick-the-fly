@@ -23,6 +23,17 @@ impl Actions {
         self.held.contains(action)
     }
 
+    /// An action from somewhere other than the keyboard (the gamepad): held this frame.
+    pub fn hold(&mut self, action: &str) {
+        self.held.insert(action.to_string());
+    }
+
+    /// The same, for an action that fires once.
+    pub fn fire(&mut self, action: &str) {
+        self.just.insert(action.to_string());
+        self.held.insert(action.to_string());
+    }
+
     /// Drop an action fired this frame (photo mode takes the keys it uses).
     pub fn swallow(&mut self, action: &str) {
         self.just.remove(action);

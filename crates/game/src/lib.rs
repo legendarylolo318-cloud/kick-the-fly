@@ -34,6 +34,7 @@ pub mod fly_visuals;
 pub mod flyeye;
 pub mod framerate;
 pub mod fx;
+pub mod gamepad;
 pub mod gpu;
 pub mod headless;
 pub mod hud_canvas;
@@ -210,6 +211,7 @@ impl Plugin for GamePlugin {
                 flies_play::FliesPlugin,
                 framerate::FrameRatePlugin,
                 science_play::SciencePlugin,
+                gamepad::GamepadPlugin,
                 viewmodel::ViewModelPlugin,
                 share_play::SharePlugin,
                 lab_play::LabPlugin,
