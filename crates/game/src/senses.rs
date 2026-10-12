@@ -108,7 +108,8 @@ fn seen(threats: &Threats, mem: &mut LoomMemory, f: &mut Fly, head: Vec3, dt: f3
     if strength > 0.0
         && let Some(p) = best_pos
     {
-        link.0.send(Command::PokeFly { slot, region: "loom".into(), side: None, strength });
+        // `poke("loom", None, strength, recruit=0.6 * strength)`: a harder looming recruits more of the detectors
+        link.0.send(Command::PokeFlyRecruit { slot, region: "loom".into(), side: None, strength, recruit: 0.6 * strength });
         f.threat_x = p;
     }
 }

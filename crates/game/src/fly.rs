@@ -172,6 +172,21 @@ impl Fly {
         launch
     }
 
+    /// `Game3D._fly_to`: take off toward a point without touching `escape_ready`, so the neurons can still trigger a real escape. From
+    /// the ground it also gives the body a little upward speed (6 px a frame); the velocity to set on every part is returned.
+    pub fn fly_to(&mut self, now: f32, thorax: Vec3, target: Vec3, seconds: f32) -> Option<Vec3> {
+        let launch = if now >= self.react.escape_until {
+            self.hover = thorax;
+            Some(Vec3::Y * 6.0 * S * 60.0)
+        } else {
+            None
+        };
+        self.react.escape_until = now + seconds;
+        self.wander = false;
+        self.fly_target = target;
+        launch
+    }
+
     /// Pick where a flight goes: anywhere (wander) or away from a point; indoors it avoids the furniture.
     pub fn new_target(&mut self, thorax: Vec3, away: Option<Vec3>, outdoor: bool, boxes: &[world::Aabb]) {
         let w = world::spec(if outdoor { "field" } else { "room" });
@@ -453,6 +468,9 @@ pub fn brain_reactions(
                 Reaction::Sleep(l) => format!("SLEEP    dFB FB6/FB7 x{l:.1}"),
                 Reaction::Proboscis(l) => format!("PROBOSCIS MN9 x{l:.1}"),
                 Reaction::Lunge(l) => format!("LUNGE    AVLP727m/pC1 x{l:.1}"),
+                Reaction::Co2(l) => format!("CO2      V glomerulus PNs x{l:.1}"),
+                Reaction::Heat(l) => format!("HEAT     VP2 PNs (hot) x{l:.1}"),
+                Reaction::Cold(l) => format!("COLD     VP3 PNs (cold) x{l:.1}"),
             };
             notes.push(now, note, Tag::of_reaction(word));
             let above = thx + Vec3::Y * 0.4;

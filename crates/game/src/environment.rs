@@ -101,11 +101,12 @@ fn on_arena_change(
 }
 
 /// The groups' firing the snapshot carries, by name.
-fn group_hz(snap: &LatestSnapshot, name: &str) -> f32 {
-    snap.0
-        .as_deref()
-        .and_then(|s| s.info.as_deref().and_then(|i| i.group_names.iter().position(|n| n == name)).and_then(|i| s.hz.get(i).copied()))
-        .unwrap_or(0.0)
+/// One fly's firing in a readout group (Hz per neuron): the focused fly's own readouts, or the other flies' that travel beside them.
+fn group_hz(snap: &LatestSnapshot, slot: u32, name: &str) -> f32 {
+    let Some(s) = snap.0.as_deref() else { return 0.0 };
+    let Some(i) = s.info.as_deref().and_then(|i| i.group_names.iter().position(|n| n == name)) else { return 0.0 };
+    let hz = if slot == s.focus { Some(&s.hz) } else { s.others.iter().find(|o| o.slot == slot).map(|o| &o.hz) };
+    hz.and_then(|h| h.get(i).copied()).unwrap_or(0.0)
 }
 
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
@@ -192,7 +193,13 @@ fn arena_effects(
             if !dead {
                 let light = (1.2 - dist / 3.0).clamp(0.15, 1.0);
                 if tick.is_multiple_of(2) {
-                    link.0.send(Command::PokeFly { slot: fo.slot, region: "light".into(), side: None, strength: light });
+                    link.0.send(Command::PokeFlyRecruit {
+                        slot: fo.slot,
+                        region: "light".into(),
+                        side: None,
+                        strength: light,
+                        recruit: 0.25 * light,
+                    });
                 }
                 if dist < 0.36 {
                     link.0.send(Command::PokeFly { slot: fo.slot, region: "heat".into(), side: None, strength: 0.8 });
@@ -210,13 +217,18 @@ fn arena_effects(
             }
             // phototaxis: an idle fly turns to the lamp now and then and flies to it (60%) or walks toward it
             let idle = f.grabbed.is_none() && now >= f.react.escape_until && now >= f.react.stun_until && now >= f.react.walk_until;
-            if !dead && idle && now >= fo.photo_ready {
+            if name == "lamp" && !dead && idle && now >= fo.photo_ready {
                 fo.photo_ready = now + rng.uniform(3.0, 6.0);
                 let to = LAMP3 - thx;
                 f.yaw_target = to.z.atan2(to.x);
                 if f.can_fly() && rng.chance(0.6) {
-                    f.hover = thx;
-                    f.react.escape_until = now + rng.uniform(3.0, 5.0);
+                    // `fly.escape(now, seconds=U(3, 5), wander=True)`: the launch and the cooldown too, then the lamp as the target
+                    let launch = f.escape(now, thx, rng.uniform(3.0, 5.0), true, false);
+                    for (p, mut v) in &mut vels {
+                        if p.fly == e {
+                            v.0 = launch;
+                        }
+                    }
                     f.fly_target = LAMP3 - Vec3::Y * 0.5;
                     notes.push(now, "TO LIGHT flies to the lamp", Tag::GameRule);
                 } else {
@@ -275,7 +287,7 @@ fn arena_effects(
                 let sugar = Vec3::new(RX - 0.7, 0.04, 0.0);
                 if (head - sugar).length() < 0.4 && !dead {
                     if tick.is_multiple_of(3) {
-                        link.0.send(Command::PokeFly { slot: fo.slot, region: "taste".into(), side: None, strength: 1.0 });
+                        link.0.send(Command::PokeFly { slot: fo.slot, region: "sweet".into(), side: None, strength: 1.0 });
                     }
                     if room.cleared.is_none() {
                         let t = now - room.start.unwrap_or(now);
@@ -366,16 +378,36 @@ fn outdoor_effects(
         }
         let light = wx.0.lightning();
         if light > 0.0 && !dead {
-            link.0.send(Command::PokeFly { slot: fo.slot, region: "light".into(), side: Some('L'), strength: light });
-            link.0.send(Command::PokeFly { slot: fo.slot, region: "light".into(), side: Some('R'), strength: light });
+            for side in ['L', 'R'] {
+                // lightning drives the photoreceptors of both eyes, recruiting 60 % x its strength
+                link.0.send(Command::PokeFlyRecruit {
+                    slot: fo.slot,
+                    region: "light".into(),
+                    side: Some(side),
+                    strength: light,
+                    recruit: 0.6 * light,
+                });
+            }
         }
         if !dead && tick.is_multiple_of(2) {
             let (l, r) = world::sun_light(f.yaw, az, el);
             if l > 0.02 {
-                link.0.send(Command::PokeFly { slot: fo.slot, region: "light".into(), side: Some('L'), strength: l });
+                link.0.send(Command::PokeFlyRecruit {
+                    slot: fo.slot,
+                    region: "light".into(),
+                    side: Some('L'),
+                    strength: l,
+                    recruit: 0.25 * l,
+                });
             }
             if r > 0.02 {
-                link.0.send(Command::PokeFly { slot: fo.slot, region: "light".into(), side: Some('R'), strength: r });
+                link.0.send(Command::PokeFlyRecruit {
+                    slot: fo.slot,
+                    region: "light".into(),
+                    side: Some('R'),
+                    strength: r,
+                    recruit: 0.25 * r,
+                });
             }
             if settings.day_night_s > 0.0 {
                 let clock = world::circadian_clock_drive(el);
@@ -409,6 +441,7 @@ fn foraging(
     link: Res<SimLink>,
     mut flies: Query<(Entity, &mut Fly, &mut Forage)>,
     parts: Query<(&FlyPart, &Transform)>,
+    mut vels: Query<(&FlyPart, &mut avian3d::prelude::LinearVelocity)>,
     mut popups: MessageWriter<Popup>,
     mut notes: ResMut<Notes>,
     mut counter: Local<u64>,
@@ -473,6 +506,14 @@ fn foraging(
             f.react.eating_until = now + 0.4;
             let ferm = o.fruit[i].fermented;
             link.0.send(Command::PokeFly { slot: fo.slot, region: "taste".into(), side: None, strength: 0.5 });
+            // the sugar-pathway taste neurons, 60 % of them at a time (`assays.py`): the same real neurons the sugar and alcohol tools drive
+            link.0.send(Command::PokeFlyRecruit {
+                slot: fo.slot,
+                region: "sweet".into(),
+                side: None,
+                strength: if ferm { 0.6 } else { 0.5 },
+                recruit: 0.6,
+            });
             link.0.send(Command::PokeFly { slot: fo.slot, region: "reward".into(), side: None, strength: if ferm { 0.6 } else { 0.4 } });
             if ferm {
                 f.inebriation = (f.inebriation + 0.008).min(1.0);
@@ -486,9 +527,14 @@ fn foraging(
                     popups.write(Popup::new(o.fruit[i].pos + Vec3::Y * 0.3, "ALL GONE", (230, 200, 150)));
                 }
                 leave(&mut fo, &mut f, o, now, &mut rng);
-                f.hover = thx;
-                f.fly_target = thx + Vec3::new(rng.uniform(-2.0, 2.0), 1.2, rng.uniform(-2.0, 2.0));
-                f.react.escape_until = now + 1.5;
+                let away = thx + Vec3::new(rng.uniform(-2.0, 2.0), 1.2, rng.uniform(-2.0, 2.0));
+                if let Some(launch) = f.fly_to(now, thx, away, 1.5) {
+                    for (p, mut v) in &mut vels {
+                        if p.fly == e {
+                            v.0 = launch;
+                        }
+                    }
+                }
             }
             continue;
         }
@@ -509,10 +555,13 @@ fn foraging(
         fo.fruit = Some(target);
         fo.since = now;
         fo.landed = false;
-        f.hover = thx;
-        f.react.escape_until = now + 16.0;
-        f.wander = false;
-        f.fly_target = o.fruit[target].pos + Vec3::Y * 0.07;
+        if let Some(launch) = f.fly_to(now, thx, o.fruit[target].pos + Vec3::Y * 0.07, 16.0) {
+            for (p, mut v) in &mut vels {
+                if p.fly == e {
+                    v.0 = launch;
+                }
+            }
+        }
         f.perch = Some(target);
         notes.push(now, "TO FRUIT flies to a fruit", Tag::GameRule);
     }
@@ -546,7 +595,6 @@ fn kitchen_tick(
     *counter += 1;
     let tick = *counter;
     let _ = &boxes;
-    let alcohol_hz = group_hz(&snap, "scent:alcohol");
     let mut live_thx: Vec<Vec3> = Vec::new();
     let mut ids: Vec<u32> = Vec::new();
     for (e, mut f, mut fo) in &mut flies {
@@ -598,7 +646,7 @@ fn kitchen_tick(
             link.0.send(Command::PokeFly { slot: fo.slot, region: "scent:alcohol".into(), side: None, strength: s });
         }
         if tick.is_multiple_of(6) {
-            k.tracker(key).update(6.0 / 60.0, alcohol_hz, s > 0.0);
+            k.tracker(key).update(6.0 / 60.0, group_hz(&snap, fo.slot, "scent:alcohol"), s > 0.0);
         }
         let busy = f.wrapped
             || f.frozen_at.is_some()
@@ -619,10 +667,13 @@ fn kitchen_tick(
             fo.trap_ready = now + 6.0;
             let trip = kit::mouth() + Vec3::new(0.0, 0.15, 0.0);
             fo.trap_trip = Some(trip);
-            f.hover = thx;
-            f.react.escape_until = now + 8.0;
-            f.wander = false;
-            f.fly_target = trip;
+            if let Some(launch) = f.fly_to(now, thx, trip, 8.0) {
+                for (p, mut v) in &mut vels {
+                    if p.fly == e {
+                        v.0 = launch;
+                    }
+                }
+            }
             f.perch = Some(usize::MAX); // hold over the mouth on arrival, as at a fruit
             fb.notes.push(now, "TO VINEGAR its DM1/DM2/DP1m neurons fire for the smell: it flies to the trap", Tag::GameRule);
         }
@@ -643,6 +694,13 @@ fn kitchen_tick(
                 k.release(key);
                 f.grabbed = None;
                 f.last_hit = kit::TRAP_POS;
+                // `fly.escape(now)`: it breaks out and flies off
+                let launch = f.escape(now, thx, 2.4, false, false);
+                for (p, mut v) in &mut vels {
+                    if p.fly == e {
+                        v.0 = launch;
+                    }
+                }
                 fb.popups.write(Popup::new(head + Vec3::Y * 0.5, "BROKE FREE!", (255, 225, 120)));
             }
         } else if kit::over_mouth(thx) && f.grabbed.is_none() {

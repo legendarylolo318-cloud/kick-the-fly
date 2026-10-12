@@ -165,6 +165,7 @@ fn update_stats(
     which: Res<crate::flies_play::Flies>,
     link: Res<SimLink>,
     mut st: ResMut<HudStats>,
+    mut others: Local<std::collections::HashMap<u32, (f32, [f32; 5])>>,
 ) {
     let Some(s) = snap.0.as_deref() else { return };
     let Some(info) = s.info.as_deref() else { return };
@@ -180,8 +181,23 @@ fn update_stats(
     st.reward += (((reward_level - 1.0) / 0.6).clamp(0.0, 1.0) * 100.0 - st.reward) * 0.1;
     let dead = flies.iter().find(|(_, sl)| sl.0 == which.focus).is_none_or(|(f, _)| f.dead());
     if !dead && st.pain > 25.0 && st.frame.is_multiple_of(3) {
-        link.0.send(Command::Poke { region: "punish".into(), side: None, strength: st.pain / 100.0 });
+        link.0.send(Command::PokeFly { slot: which.focus, region: "punish".into(), side: None, strength: st.pain / 100.0 });
     }
+    // every other fly has its own pain, followed the same way (`slot.pain`), and pokes its own punishment neurons
+    for o in &s.others {
+        let e = others.entry(o.slot).or_insert((0.0, [0.0; 5]));
+        let mut parts = o.pain_parts;
+        parts[3] = parts[3].max(e.1[3] * 0.96);
+        for (cur, new) in e.1.iter_mut().zip(parts) {
+            *cur += (new - *cur) * 0.15;
+        }
+        e.0 += (fly_sim::groups::pain_index(&e.1) - e.0) * 0.15;
+        let alive = flies.iter().find(|(_, sl)| sl.0 == o.slot).is_some_and(|(f, _)| !f.dead());
+        if alive && e.0 > 25.0 && st.frame.is_multiple_of(3) {
+            link.0.send(Command::PokeFly { slot: o.slot, region: "punish".into(), side: None, strength: e.0 / 100.0 });
+        }
+    }
+    others.retain(|k, _| s.others.iter().any(|o| o.slot == *k));
     if !dead {
         st.pain_peak = st.pain_peak.max(st.pain);
         if st.pain >= 99.0 {

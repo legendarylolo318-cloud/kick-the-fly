@@ -135,7 +135,7 @@ pub struct Body {
 }
 
 /// The ready-times of one fly's reactions (seconds on the game clock).
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct ReactState {
     pub escape_ready: f32,
     pub stun_until: f32,
@@ -156,6 +156,37 @@ pub struct ReactState {
     /// The proboscis is out until then (`fly.proboscis_until`).
     pub proboscis_until: f32,
     pub lunge_ready: f32,
+    /// The logged-only readouts (`slot.co2_ready`, `hot_pn_ready`, `cold_pn_ready`): at most one note every 3 s each.
+    pub co2_ready: f32,
+    pub hot_ready: f32,
+    pub cold_ready: f32,
+}
+
+impl Default for ReactState {
+    fn default() -> Self {
+        ReactState {
+            escape_ready: 0.0,
+            stun_until: 0.0,
+            escape_until: 0.0,
+            walk_until: 0.0,
+            back_until: 0.0,
+            flail_until: 0.0,
+            turn_ready: 0.0,
+            groom_ready: 0.0,
+            song_ready: 0.0,
+            asleep_until: 0.0,
+            // `getattr(slot, "song_slow", 1.0)`: the slow average starts at the calm level
+            song_slow: 1.0,
+            eating_until: 0.0,
+            mn9_bout: Vec::new(),
+            mn9_calm: None,
+            proboscis_until: 0.0,
+            lunge_ready: 0.0,
+            co2_ready: 0.0,
+            hot_ready: 0.0,
+            cold_ready: 0.0,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -186,6 +217,10 @@ pub enum Reaction {
     Proboscis(f32),
     /// Aggression neurons (AVLP727m, pC1) above the threshold with another fly near: a lunge at it.
     Lunge(f32),
+    /// Second-order CO2, hot and cold sensory neurons: logged only, the fly does not act on them (`Game.readouts`).
+    Co2(f32),
+    Heat(f32),
+    Cold(f32),
 }
 
 impl Reaction {
@@ -205,6 +240,9 @@ impl Reaction {
             Reaction::Sleep(_) => "SLEEP",
             Reaction::Proboscis(_) => "PROBOSCIS",
             Reaction::Lunge(_) => "LUNGE",
+            Reaction::Co2(_) => "CO2",
+            Reaction::Heat(_) => "HEAT",
+            Reaction::Cold(_) => "COLD",
         }
     }
 }
@@ -292,6 +330,22 @@ pub fn decide(lv: &Levels, st: &mut ReactState, body: Body, now: f32, rng: &mut 
     if st.song_slow > th.song && now >= st.song_ready {
         st.song_ready = now + 1.8;
         out.push(Reaction::Song(st.song_slow));
+    }
+    // CO2, HEAT, COLD: second-order sensory neurons, logged only
+    let co2 = lv.get("co2");
+    if co2 > th.co2 && now >= st.co2_ready {
+        st.co2_ready = now + 3.0;
+        out.push(Reaction::Co2(co2));
+    }
+    let hot = lv.get("hot_pn");
+    if hot > th.hot_pn && now >= st.hot_ready {
+        st.hot_ready = now + 3.0;
+        out.push(Reaction::Heat(hot));
+    }
+    let cold = lv.get("cold_pn");
+    if cold > th.cold_pn && now >= st.cold_ready {
+        st.cold_ready = now + 3.0;
+        out.push(Reaction::Cold(cold));
     }
     let sleep = lv.get("sleep");
     if sleep > th.sleep && body.free {
@@ -383,6 +437,17 @@ mod tests {
 
     const FREE: Body =
         Body { can_fly: true, free: true, grabbed: false, asleep_ok: true, eating: false, duel_focus: false, mn9_hz: 0.0, rival: None };
+
+    #[test]
+    fn co2_heat_and_cold_are_only_logged_every_three_seconds() {
+        let mut st = ReactState::default();
+        let lv = [("co2", 2.5), ("hot_pn", 1.7), ("cold_pn", 1.0)];
+        assert_eq!(run(&lv, &mut st, FREE, 0.0), vec![Reaction::Co2(2.5), Reaction::Heat(1.7)], "cold is under 1.7");
+        assert!(run(&lv, &mut st, FREE, 2.9).is_empty());
+        assert_eq!(run(&lv, &mut st, FREE, 3.1).len(), 2);
+        // the song's slow average starts at the calm level, as in Python (`getattr(slot, "song_slow", 1.0)`)
+        assert_eq!(ReactState::default().song_slow, 1.0);
+    }
 
     #[test]
     fn the_giant_fiber_dodges_then_waits_for_its_cooldown() {

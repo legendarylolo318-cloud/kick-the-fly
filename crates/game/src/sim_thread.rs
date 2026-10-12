@@ -1555,6 +1555,7 @@ fn publish(
                 levels: b.groups.names.iter().map(|n| b.groups.level(n)).collect(),
                 hz: b.groups.fast.iter().map(|&x| x as f32).collect(),
                 dead: b.dead(),
+                pain_parts: b.groups.pain_parts(b.groups.pain_level),
             });
         }
         let level = brain.groups.pain_level;

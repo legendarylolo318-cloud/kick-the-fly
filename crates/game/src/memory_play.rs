@@ -68,23 +68,36 @@ fn scents_and_learn(
     hud: Res<HudStats>,
     view: Res<BrainView>,
     link: Res<SimLink>,
-    flies: Query<&Fly>,
+    flies: Query<(&Fly, &crate::fly::Slot)>,
+    which: Res<crate::flies_play::Flies>,
     parts: Query<&Transform, With<FlyPart>>,
 ) {
     l.scent_now = None;
     l.sugar_scent = false;
-    let Some(f) = flies.iter().next() else { return };
+    let overlay = menu.0 || arcade.open || hud.help || view.big || l.train_open;
+    let name = if tool.name() == "fruit" { "sugar" } else { tool.name() };
+    // `_scents` runs for every fly: the tool in your hand smells to each fly whose head it is near, and that fly's own brain feels it
+    if !overlay && !tool.puppet {
+        for (f, slot) in &flies {
+            if f.dead() {
+                continue;
+            }
+            let Ok(head) = parts.get(f.parts[Part::Head.index()]).map(|t| t.translation) else { continue };
+            if (tool_tip(&aim) - head).length() < 2.5 {
+                link.0.send(Command::PokeFly { slot: slot.0, region: format!("scent:{name}"), side: None, strength: 0.3 });
+            }
+        }
+    }
+    // what it has learned is read for the fly in front (the memory follows the focus)
+    let Some((f, _)) = flies.iter().find(|(_, s)| s.0 == which.focus) else { return };
     if f.dead() || tool.puppet {
         l.fear_now = 0.0;
         l.like_now = 0.0;
         return;
     }
     let Ok(head) = parts.get(f.parts[Part::Head.index()]).map(|t| t.translation) else { return };
-    let overlay = menu.0 || arcade.open || hud.help || view.big || l.train_open;
     if !overlay && (tool_tip(&aim) - head).length() < 2.5 {
-        let name = if tool.name() == "fruit" { "sugar" } else { tool.name() };
         l.scent_now = Some(name);
-        link.0.send(Command::Poke { region: format!("scent:{name}"), side: None, strength: 0.3 });
     }
     l.sugar_scent = sources.0.iter().any(|s| s.scent == "sugar" && Vec2::new(s.pos.x - head.x, s.pos.z - head.z).length() < 2.4);
     l.tick += 1;
@@ -108,7 +121,8 @@ fn behavior(
     virt: Res<Time<Virtual>>,
     aim: Res<Aim>,
     arena: Res<crate::config::Arena>,
-    mut flies: Query<(Entity, &mut Fly)>,
+    which: Res<crate::flies_play::Flies>,
+    mut flies: Query<(Entity, &mut Fly, &crate::fly::Slot)>,
     mut vel: Query<(&FlyPart, &mut avian3d::prelude::LinearVelocity)>,
     tf: Query<&Transform, With<FlyPart>>,
     mut notes: ResMut<Notes>,
@@ -117,7 +131,10 @@ fn behavior(
 ) {
     let now = virt.elapsed_secs();
     let Some(scent) = l.scent_now else { return };
-    for (e, mut f) in &mut flies {
+    for (e, mut f, slot) in &mut flies {
+        if slot.0 != which.focus {
+            continue; // only the focused fly's brain carries the learned memory here
+        }
         let free = f.grabbed.is_none() && now >= f.react.escape_until;
         if f.dead() || !free || now < l.avoid_ready || f.frozen_at.is_some() || now < f.react.stun_until {
             continue;

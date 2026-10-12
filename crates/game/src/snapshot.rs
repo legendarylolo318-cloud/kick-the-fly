@@ -154,6 +154,8 @@ pub struct OtherFly {
     pub levels: Vec<f32>,
     pub hz: Vec<f32>,
     pub dead: bool,
+    /// `Brain.pain_parts` of this fly's brain (touch overload, thermal, chemical, DN alarm, body relay), 0..1.
+    pub pain_parts: [f32; 5],
 }
 
 /// One-slot latest-value box with buffer recycling. See the module docs.

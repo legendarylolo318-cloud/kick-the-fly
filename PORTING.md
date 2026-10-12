@@ -423,3 +423,65 @@ with a screenshot. Keys never mentioned in the Rust code after this review (14):
 | access.reduced_flashing | `Settings`, `hud_canvas.rs`, weather | live | code |
 | access.larger_text | `ktf_ui::menu`, `hud_canvas.rs`, `autopsy_play.rs` | live | code |
 | access.language | `menu_ui::apply_live`, `crash.rs` | live | code |
+
+## Brain-driven or rule: audit
+
+Done on 2026-10-12 against `python-legacy` (`game/kick3d.py`, `game/kick_the_fly.py`), reading both codes. Question for every place the fly's
+body is moved, turned, made to walk, fly, land, eat or flee: is it a **readout of the brain** (a group level or rate: `lv.get("walk")`), or a
+**rule in code** (a timer, a random roll, a distance check)? And is it the same in Python? "Same" means same neurons, thresholds and timings.
+
+### Movement and reactions
+
+| # | Rust place | What happens | Trigger in Rust | Python place | Trigger in Python | Verdict |
+|---|---|---|---|---|---|---|
+| 1 | `fly.rs brain_reactions` (`reactions::decide`) DODGE | launch away, `escape_until` | brain: `escape` (DNp01) level > 4.0, cooldown | `kick3d.update3d` | brain, same | same |
+| 2 | same, FLY AWAY | launch away | brain: `jump` (head-touch DNs) > 3.0 | `update3d` | brain | same |
+| 3 | same, TAKE OFF | wander flight 2.5-4 s | brain: `fly` (DNg02) > 1.58, not eating/asleep | `update3d` | brain; the 2.5-4 s is a random draw (rule) | same |
+| 4 | same, RUN | yaw away, `walk_until` 1.1 s, run | brain: `run` > 2.4 | `update3d` | brain | same |
+| 5 | same, KICK | legs flail 0.6 s | brain: `kick` > 2.0 | `update3d` | brain | same |
+| 6 | same, BACK UP | backwards 0.8 s | brain: `back` (MDN) > 3.8 | `update3d` | brain | same |
+| 7 | same, WALK | forward 1.2 s | brain: `walk` (DNp09) > 3.0 | `update3d` | brain | same |
+| 8 | same, TURN | yaw += U(0.9, 1.6) rad | brain: `turn_r - turn_l` (DNa01/02) > 2.1; the angle is a random draw (rule); not for the focused fly in a duel | `update3d` | same | same |
+| 9 | same, GROOM | log line only | brain: `groom` > 4.0 while `wind` > 2.0 | `kick_the_fly.readouts` | brain | same |
+| 10 | same, PROBOSCIS | proboscis out 1.5 s | brain: MN9 Hz over the first second of an eating bout >= 1.5 x calm | `readouts` | brain | same |
+| 11 | same, SONG | "BUZZ" popup | brain: `song` read over ~1 s > 1.8; the slow average now starts at 1.0 as in Python (it started at 0) | `readouts` | brain | fixed |
+| 12 | same, CO2 / HEAT / COLD | log line only | brain: `co2`, `hot_pn`, `cold_pn` > 2.0 / 1.6 / 1.7, once per 3 s | `readouts` | brain | **was missing, added** |
+| 13 | same, SLEEP | no spontaneous moves 2 s | brain: `sleep` (FB6/FB7) > 2.0 | `_sleep` | brain | same |
+| 14 | same, LUNGE | impulse at the nearest fly | brain: `aggression` > 2.0 with another fly within 1.08 m, if `brain.lunge` | `_aggression` | brain | same, except the facing: Python writes `atan2(vec.x, vec.z)` (x and z swapped, a Python defect); Rust faces the target |
+| 15 | `fly.rs control` walking, turning, wall turn-around | speed 2.3 / 5.0 / -1.7 x S, yaw follows target 0.09 rad a tick, bounce off a wall with U(-0.7, 0.7) | intent timers set by 1-8; the wall bounce is a rule | `Fly3D._pose` | same | same |
+| 16 | `fly.rs control` flying | hover point to `fly_target`, speed `2.5 + 2.5 min(power, 2)`, `power` = `fly` level | brain level scales the speed, rules pick the targets (`new_target`: random) | `Fly3D._fly` | same | same |
+| 17 | `duel_play.rs motor` / `senses` | steer, shoot, pellets | brain: `turn_r - turn_l` Hz steers, `fire` level > 3.0 shoots; what it sees goes in through LC10 / small-object pokes; elevation of the shot toward your chest, dead zone, cooldown are GAME RULES | `_duel_motor`, `_duel_senses` | same | same (new) |
+| 18 | `duel_play.rs scent_and_flee` | runs / flies away from you | brain: its mushroom body's fear - liking of the `player` smell > 0.35 (KC -> MBON synapses), 2.5 s cooldown | `_memory_behavior` | brain | same (new) |
+| 19 | `memory_play.rs behavior` AVOID / APPROACH | flies off / walks to sugar | brain: mushroom body's fear > 0.35 of the smell of your tool (> 0.6: flies, else runs), liking > 0.35 of sugar | `_memory_behavior` | brain | same |
+| 20 | `tools.rs treats` walk to sugar / alcohol and eat | yaw to the treat, `walk_until` 0.2 s, `eating_until` 0.4 s | **RULE**: nearest landed treat, on the floor, not stunned, within 0.2 m = eats | `_sugar3d`, `_alcohol3d` | rule | same; the EATING line was tagged REAL, Python tags EATING and ALCOHOL as RULE: **fixed** |
+| 21 | `environment.rs arena_effects` lamp phototaxis (TO LIGHT) | turns to the lamp, flies (60 %) or walks | **RULE**: idle, timer U(3, 6) s, random roll | `update3d` (arena `lamp` only) | rule, tagged RULE | fixed: only in the lamp arena (Rust also did it in the escape room), and the flight starts with `escape()` (launch and cooldown) |
+| 22 | `environment.rs arena_effects` lamp shove, flypaper release, wind push | impulses, stuck feet | **RULE**: distance, dice | `_environment_one` | rule | same |
+| 23 | `environment.rs foraging` TO FRUIT, feeding, leaving | flight to a ripe fruit, perch, feed bout | **RULE**: timers, nearest ripe fruit within 14 m; if the neurons make it escape elsewhere they win | `_orchard_tick` | rule | same; the take-off now lifts the body like `_fly_to` (6 px a tick up) |
+| 24 | `environment.rs kitchen_tick` TO VINEGAR | flight to the jar | **brain**: DM1/DM2/DP1m rate over a calm baseline (warm-up 3 s, ratio / floor) plus rule timers | `_kitchen_tick` | brain readout, same | **fixed**: Rust read the *focused* fly's rate for every fly; each fly reads its own now |
+| 25 | `environment.rs kitchen_tick` trap fall, drowning, burner shove, cook | held in the jar, damage | **RULE** | `_kitchen_tick`, `_cook_tick` | rule | same; the immortal break-free now also flies off (`escape()`) |
+| 26 | `fly.rs impacts`, `tools.rs` (flick, swat, bomb, kick, zap) | impulses, stun, damage | **RULE** physics of your tools; the touch goes to the brain as pokes, which then drive 1-8 | `use_tool3d`, `_swat3d`, `_kick`, ... | rule | same |
+| 27 | `predator_play.rs` capture, hold, eating | pinned in the mouth, damage | **RULE**; the looming (loom pokes) is what makes the brain dodge | `predator_play.py` | rule | same |
+| 28 | `flies_play.rs collisions`, `recall` | push apart, touch pokes, J puts lost flies back | **RULE** | `_fly_collisions3d`, `recall_flies` | rule | same |
+| 29 | `challenges.rs` puppeteer (`jump`, `fly`, `run`, `kick`, `back`) | the player is the brain | **RULE** by design (Puppeteer) | `challenges.py` | rule | same |
+| 30 | `weather_play.rs`, `environment.rs` outdoor | wind vector pushes the body | **RULE** (the push); wind / rain / light go into the brain as pokes | `_weather` | rule + pokes | same |
+
+### Stimuli sent to the brain (every Python `poke`), to the same fly's brain
+
+| Stimulus | Python | Rust before | Rust now |
+|---|---|---|---|
+| looming (`loom`, recruit 0.6 x strength) | `_vision`, every threat, every fly | strength only, no recruit (a weaker, shorter pulse) | **fixed**: `PokeFlyRecruit`, same fly (`senses.rs`) |
+| `light` of the lamp (recruit 0.25 x light), lightning (0.6 x), sun (0.25 x) | `_environment_one`, `_weather` | no recruit | **fixed** (`environment.rs`) |
+| `sweet` while feeding on fruit (0.5 / 0.6, recruit 0.6) | `_orchard_tick` | missing | **added** |
+| `sweet` at the escape-room's sugar goal (1.0) | `_environment_one` | poked `taste` | **fixed** (`sweet`) |
+| pain -> `punish` (pain / 100 above 25, every 3rd tick) | each fly's own `slot.pain` | the focused fly's pain, to the focused brain only; the other flies never felt their pain | **fixed**: every fly follows its own pain parts (`OtherFly::pain_parts`) and pokes its own PPL1 |
+| the smell of the tool in your hand within 2.5 m of the head | `_scents`, every fly | the first fly's position, poked into the focused brain | **fixed**: each fly whose head is near, into its own brain |
+| `scent:player`, `track`, `small`, `reward`, `punish` of the duel | `_scents`, `_duel_senses`, `_duel_motor` | not sent (no duel) | **added** (`duel_play.rs`) |
+| touch by body part (`hit` -> `particle_region`) | 17 particles: head, thorax, abdomen, each leg L/R, wings | 3 bodies: the part's region plus a spill to legs (0.6) and wing (0.4) | **kept** (the model has three bodies; documented approximation) |
+| taste / reward / sweet / alcohol scent / sugar scent, wind, humid, heat, cold, spider bites, flypaper legs | `_sugar3d` ... `_environment_one` | same regions and strengths (checked line by line) | same |
+
+### What is deliberately not the same
+
+* **The memory belongs to the focused fly.** Python gives every fly its own mushroom body memory (only the first is saved); Rust has one
+  memory that follows the focus on the sim thread (`Command::FocusFly`), so AVOID / APPROACH / FLEE read the focused fly's.
+* **Camera shake** (`shake_until`) was written by tools and hits but never read: it is applied now (uniform +-1 cm on the eye for 0.12-0.4 s,
+  off with Reduced flashing).

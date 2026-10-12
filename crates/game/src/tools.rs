@@ -1128,7 +1128,8 @@ fn treats(
                 } else {
                     "EATING   sugar: taste + PAM reward"
                 },
-                if treat.kind == "alcohol" { Tag::GameRule } else { Tag::Connectome },
+                // both are tagged RULE in Python (`REACTION_SOURCE`: EATING, ALCOHOL)
+                Tag::GameRule,
             );
         }
         f.react.eating_until = now + 0.4;
