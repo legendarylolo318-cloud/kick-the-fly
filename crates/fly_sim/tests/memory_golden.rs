@@ -129,5 +129,6 @@ fn check_last(brain: &Brain, g: &serde_json::Value, got: &[(String, &str, f64)])
     assert!((f64::from(like) - f("like")).abs() < 2e-3, "{label}: like");
     assert!((wsum / f("w_sum") - 1.0).abs() < 1e-4, "{label}: weight sum");
     assert!((f64::from(mem.weakened_share()) - f("weakened")).abs() < 2e-3, "{label}: weakened share");
-    assert!((hz - f("mbon_hz")).abs() < 0.05 * f("mbon_hz").abs(), "{label}: MBON response");
+    // a spike count over a window: the same spikes give the same number (it was allowed 5 % for no reason; it agrees to 1e-4)
+    assert!((hz - f("mbon_hz")).abs() < 1e-4 * f("mbon_hz").abs(), "{label}: MBON response");
 }
