@@ -1,6 +1,6 @@
 # continue.md: where the Bevy port stands (read this, PORTING.md, then work)
 
-Branch `rust-3.1.2` (same commits as `bevy-port` up to 825329e; work continues on `rust-3.1.2` only). Task = the user's 7-point brief (exact parity with the pygame game incl. GUI; UI; Lab tools; serde persistence; real neuron shapes;
+Branch `rust-4.0` (same commits as `bevy-port` up to 825329e; work continues on `rust-4.0` only). Task = the user's 7-point brief (exact parity with the pygame game incl. GUI; UI; Lab tools; serde persistence; real neuron shapes;
 packaging + CI; README). Tick PORTING.md only for verified things; unmatched things get a written reason there. Commit with
 `git -c user.name=Logan -c user.email=legendarylolo318@gmail.com commit` and end messages with `Co-Authored-By: Claude Opus <noreply@anthropic.com>`.
 The user is on Wayland tiling: **run the game with `--fullscreen`** (memory notes: kick-the-fly-bevy-port, feedback-fullscreen-wayland-tiling).

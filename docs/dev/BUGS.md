@@ -4,7 +4,7 @@ Fill this in as you play, then give it to Claude Opus together with `REVIEW_PROM
 
 ```
 ## N. short title
-- Build: AppImage / cargo run   (date, branch rust-3.1.2, commit from `git log -1 --oneline`)
+- Build: AppImage / cargo run   (date, branch rust-4.0, commit from `git log -1 --oneline`)
 - Where: menu page / arena / tool / mode (Play, Lab, Pet)
 - Did:        1) ...  2) ...
 - Expected:   ...
@@ -17,7 +17,7 @@ Fill this in as you play, then give it to Claude Opus together with `REVIEW_PROM
 ## Found so far
 
 ## 1. Big brain view: cannot zoom in and out any more
-- Build: rust-3.1.2. Where: B (big brain view), mouse free (Tab / free_mouse).
+- Build: rust-4.0. Where: B (big brain view), mouse free (Tab / free_mouse).
 - Expected: the mouse wheel over the big view zooms (Python: `view.zoom_by(1.15 if ev.y > 0 else 0.87)` in `game/kick3d.py` MOUSEWHEEL, only when the mouse is free and the pointer is inside `big_rect`); drag orbits, Shift+drag pans.
 - Happened: no zoom (reported by the user, who could zoom before).
 - Lead: `crates/game/src/brainview.rs` keeps `BrainView.zoom` (init 0.8, fed to the shader at `params.rot`) but I found nothing that reads `MouseWheel` and
@@ -25,7 +25,7 @@ Fill this in as you play, then give it to Claude Opus together with `REVIEW_PROM
   or got lost, and whether the inspector's `project()` and `shapes_play` projection agree with the zoom and pan once they change.
 
 ## 2. Several flies: the brain panel does not auto-switch to the nearest fly
-- Build: rust-3.1.2. Where: N spawns more flies, walk toward another one.
+- Build: rust-4.0. Where: N spawns more flies, walk toward another one.
 - Expected: the brain shown (panel, HUD, big view) follows the fly nearest to you unless you chose one with F (Python `_update_focus`).
 - Happened: it stays on the first fly (reported by the user).
 - Lead: `crates/game/src/flies_play.rs:112 follow_nearest` exists; it returns early when `arcade.open`, `now < flies.manual_until` (set 5 s after F),
@@ -113,7 +113,7 @@ Regenerate the list with the script in `REVIEW_PROMPT.md` (section SETTINGS AUDI
     effect, with the reason: see the table 'Settings audit' in PORTING.md.
 11. **Twitch reader could freeze the game for up to 10 s** when Streamer mode was switched off (or the game closed) during a DNS lookup or a
     connection attempt: `stop()` joined the thread. Fixed (4a2b136).
-12. **CI could not have run**: `ci.yml` only triggered on `main` and `bevy-port` (the branch is `rust-3.1.2`), and its test job would link about
+12. **CI could not have run**: `ci.yml` only triggered on `main` and `bevy-port` (the branch is `rust-4.0`), and its test job would link about
     60 fat-LTO test binaries on a 4-core runner inside 90 minutes. Fixed (c55727b); still never run on GitHub.
 13. Missing from the port and not written anywhere before: the **PROBOSCIS reaction** (MN9 over an eating bout, proboscis drawn out for 1.5 s),
     **aggression lunges** (`brain.lunge`), the **'Real flies do this too' cards** (`brain.science_popups`), the **spectator behaviour of Autopilot**

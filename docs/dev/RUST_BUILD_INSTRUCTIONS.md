@@ -1,11 +1,11 @@
-# Running the Rust build on your main PC (branch `rust-3.1.2`)
+# Running the Rust build on your main PC (branch `rust-4.0`)
 
 This branch is the Rust + Bevy port of Kick the Fly. It is **not** on `main`. `main` still has the Python 3.1.1 game, and the same Python code is
 kept for good on the branch `python-legacy` and the tag `python-3.1.1` (both point at the 3.1.1 release commit `2fd9e5b`). Nothing here changes either.
 
 | What | Where |
 |---|---|
-| Rust port (this) | branch `rust-3.1.2` |
+| Rust port (this) | branch `rust-4.0` |
 | Python 3.1.1, frozen | branch `python-legacy`, tag `python-3.1.1` (also `legacy-python/` inside this branch, used as the reference) |
 | Parity checklist | `PORTING.md` (what is ported, how it was verified, what is not) |
 | Where the work stands | `continue.md` |
@@ -13,7 +13,7 @@ kept for good on the branch `python-legacy` and the tag `python-3.1.1` (both poi
 ## 1. Get the code
 
 ```bash
-git clone -b rust-3.1.2 https://github.com/legendarylolo318-cloud/kick-the-fly.git kick-the-fly-rust
+git clone -b rust-4.0 https://github.com/legendarylolo318-cloud/kick-the-fly.git kick-the-fly-rust
 cd kick-the-fly-rust
 ```
 
@@ -82,6 +82,6 @@ the Twitch connection has never been exercised against the real service; the pau
 
 ## 9. If you want to publish this later
 
-Nothing is merged or released. When you are happy: open a PR from `rust-3.1.2` to `main` (the Python code stays on `python-legacy` and in `legacy-python/`),
+Nothing is merged or released. When you are happy: open a PR from `rust-4.0` to `main` (the Python code stays on `python-legacy` and in `legacy-python/`),
 bump the version in `Cargo.toml` (it says `4.0.0-dev`; saves and share codes stamp it), and let `release.yml` build the AppImage and the `.exe`
 (it has never run on GitHub).

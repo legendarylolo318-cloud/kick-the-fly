@@ -8,7 +8,7 @@ name: ci
 
 on:
   push:
-    branches: [main, bevy-port, rust-3.1.2]
+    branches: [main, bevy-port, rust-4.0]
   pull_request:
   workflow_dispatch:
   workflow_call:

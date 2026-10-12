@@ -27,6 +27,8 @@ struct Args {
     kill_at: Option<f32>,
     menu: Option<String>,
     fullscreen: bool,
+    demo: bool,
+    shot_seq: Option<(u32, u32)>,
     autopilot: bool,
     selftest: bool,
     train_screen: bool,
@@ -69,6 +71,8 @@ fn parse(args: impl Iterator<Item = String>) -> Result<Args, String> {
     let mut kill_at = None;
     let mut menu = None;
     let mut fullscreen = false;
+    let mut demo = false;
+    let mut shot_seq = None;
     let mut autopilot = false;
     let (mut selftest, mut bugreport, mut out, mut crash_screen) = (false, false, None, None);
     let mut train_screen = false;
@@ -95,6 +99,14 @@ fn parse(args: impl Iterator<Item = String>) -> Result<Args, String> {
             "--rain" => rain = value("0..1")?.parse().map_err(|_| "bad rain")?,
             "--storm" => storm = true,
             "--fullscreen" => fullscreen = true,
+            "--demo" => demo = true,
+            "--shot-seq" => {
+                let v: Vec<u32> = value("COUNT,EVERY")?.split(',').filter_map(|x| x.trim().parse().ok()).collect();
+                if v.len() != 2 {
+                    return Err("--shot-seq wants COUNT,EVERY".into());
+                }
+                shot_seq = Some((v[0], v[1]));
+            }
             "--autopilot" | "--spectator" => autopilot = true,
             "--selftest" => selftest = true,
             "--train-screen" => train_screen = true,
@@ -164,6 +176,8 @@ fn parse(args: impl Iterator<Item = String>) -> Result<Args, String> {
         kill_at,
         menu,
         fullscreen,
+        demo,
+        shot_seq,
         autopilot,
         selftest,
         train_screen,
@@ -340,11 +354,15 @@ fn main() -> ExitCode {
             app.insert_resource(kick_the_fly::photo_play::Photo::at(eye, target, 70.0, dof, focus));
         }
     }
+    if args.demo {
+        app.add_plugins(kick_the_fly::capture::DemoPlugin);
+    }
     if let Some((path, frames)) = args.shot {
         app.add_plugins(kick_the_fly::capture::CapturePlugin(kick_the_fly::capture::CaptureRequest {
             path,
             after_frames: frames,
             wait_after: 20,
+            seq: args.shot_seq,
         }));
     }
     app.run();
