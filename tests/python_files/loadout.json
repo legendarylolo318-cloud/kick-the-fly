@@ -1,0 +1,1139 @@
+{
+"builds": [
+{
+"preset": "auto",
+"mode": "play",
+"larva": false,
+"tools": [
+"hand",
+"swatter",
+"torch",
+"freeze",
+"sugar"
+],
+"pages": 1,
+"name": "base"
+},
+{
+"preset": "auto",
+"mode": "play",
+"larva": true,
+"tools": [
+"hand",
+"swatter",
+"torch",
+"freeze",
+"sugar"
+],
+"pages": 1,
+"name": "base"
+},
+{
+"preset": "auto",
+"mode": "lab",
+"larva": false,
+"tools": [
+"hand",
+"flick",
+"swatter",
+"bomb",
+"torch",
+"cleaner",
+"zapper",
+"freeze",
+"spider",
+"sugar",
+"alcohol",
+"laser",
+"cva",
+"decoy",
+"fruit",
+"frog",
+"dragonfly",
+"mantis"
+],
+"pages": 2,
+"name": "lab"
+},
+{
+"preset": "auto",
+"mode": "lab",
+"larva": true,
+"tools": [
+"hand",
+"flick",
+"swatter",
+"torch",
+"cleaner",
+"zapper",
+"freeze",
+"sugar",
+"fruit"
+],
+"pages": 1,
+"name": "lab"
+},
+{
+"preset": "auto",
+"mode": "pet",
+"larva": false,
+"tools": [
+"hand",
+"swatter",
+"torch",
+"freeze",
+"sugar",
+"fruit"
+],
+"pages": 1,
+"name": "pet"
+},
+{
+"preset": "auto",
+"mode": "pet",
+"larva": true,
+"tools": [
+"hand",
+"swatter",
+"torch",
+"freeze",
+"sugar",
+"fruit"
+],
+"pages": 1,
+"name": "pet"
+},
+{
+"preset": "base",
+"mode": "play",
+"larva": false,
+"tools": [
+"hand",
+"swatter",
+"torch",
+"freeze",
+"sugar"
+],
+"pages": 1,
+"name": "base"
+},
+{
+"preset": "base",
+"mode": "play",
+"larva": true,
+"tools": [
+"hand",
+"swatter",
+"torch",
+"freeze",
+"sugar"
+],
+"pages": 1,
+"name": "base"
+},
+{
+"preset": "base",
+"mode": "lab",
+"larva": false,
+"tools": [
+"hand",
+"swatter",
+"torch",
+"freeze",
+"sugar"
+],
+"pages": 1,
+"name": "base"
+},
+{
+"preset": "base",
+"mode": "lab",
+"larva": true,
+"tools": [
+"hand",
+"swatter",
+"torch",
+"freeze",
+"sugar"
+],
+"pages": 1,
+"name": "base"
+},
+{
+"preset": "base",
+"mode": "pet",
+"larva": false,
+"tools": [
+"hand",
+"swatter",
+"torch",
+"freeze",
+"sugar"
+],
+"pages": 1,
+"name": "base"
+},
+{
+"preset": "base",
+"mode": "pet",
+"larva": true,
+"tools": [
+"hand",
+"swatter",
+"torch",
+"freeze",
+"sugar"
+],
+"pages": 1,
+"name": "base"
+},
+{
+"preset": "chaos",
+"mode": "play",
+"larva": false,
+"tools": [
+"hand",
+"bomb",
+"torch",
+"cleaner",
+"zapper",
+"spider",
+"alcohol",
+"frog",
+"mantis"
+],
+"pages": 1,
+"name": "chaos"
+},
+{
+"preset": "chaos",
+"mode": "play",
+"larva": true,
+"tools": [
+"hand",
+"torch",
+"cleaner",
+"zapper"
+],
+"pages": 1,
+"name": "chaos"
+},
+{
+"preset": "chaos",
+"mode": "lab",
+"larva": false,
+"tools": [
+"hand",
+"bomb",
+"torch",
+"cleaner",
+"zapper",
+"spider",
+"alcohol",
+"frog",
+"mantis"
+],
+"pages": 1,
+"name": "chaos"
+},
+{
+"preset": "chaos",
+"mode": "lab",
+"larva": true,
+"tools": [
+"hand",
+"torch",
+"cleaner",
+"zapper"
+],
+"pages": 1,
+"name": "chaos"
+},
+{
+"preset": "chaos",
+"mode": "pet",
+"larva": false,
+"tools": [
+"hand",
+"bomb",
+"torch",
+"cleaner",
+"zapper",
+"spider",
+"alcohol",
+"frog",
+"mantis"
+],
+"pages": 1,
+"name": "chaos"
+},
+{
+"preset": "chaos",
+"mode": "pet",
+"larva": true,
+"tools": [
+"hand",
+"torch",
+"cleaner",
+"zapper"
+],
+"pages": 1,
+"name": "chaos"
+},
+{
+"preset": "chemist",
+"mode": "play",
+"larva": false,
+"tools": [
+"hand",
+"cleaner",
+"alcohol",
+"cva",
+"sugar",
+"freeze"
+],
+"pages": 1,
+"name": "chemist"
+},
+{
+"preset": "chemist",
+"mode": "play",
+"larva": true,
+"tools": [
+"hand",
+"cleaner",
+"sugar",
+"freeze"
+],
+"pages": 1,
+"name": "chemist"
+},
+{
+"preset": "chemist",
+"mode": "lab",
+"larva": false,
+"tools": [
+"hand",
+"cleaner",
+"alcohol",
+"cva",
+"sugar",
+"freeze"
+],
+"pages": 1,
+"name": "chemist"
+},
+{
+"preset": "chemist",
+"mode": "lab",
+"larva": true,
+"tools": [
+"hand",
+"cleaner",
+"sugar",
+"freeze"
+],
+"pages": 1,
+"name": "chemist"
+},
+{
+"preset": "chemist",
+"mode": "pet",
+"larva": false,
+"tools": [
+"hand",
+"cleaner",
+"alcohol",
+"cva",
+"sugar",
+"freeze"
+],
+"pages": 1,
+"name": "chemist"
+},
+{
+"preset": "chemist",
+"mode": "pet",
+"larva": true,
+"tools": [
+"hand",
+"cleaner",
+"sugar",
+"freeze"
+],
+"pages": 1,
+"name": "chemist"
+},
+{
+"preset": "lab",
+"mode": "play",
+"larva": false,
+"tools": [
+"hand",
+"flick",
+"swatter",
+"bomb",
+"torch",
+"cleaner",
+"zapper",
+"freeze",
+"spider",
+"sugar",
+"alcohol",
+"cva",
+"decoy",
+"fruit",
+"frog",
+"dragonfly",
+"mantis"
+],
+"pages": 2,
+"name": "lab"
+},
+{
+"preset": "lab",
+"mode": "play",
+"larva": true,
+"tools": [
+"hand",
+"flick",
+"swatter",
+"torch",
+"cleaner",
+"zapper",
+"freeze",
+"sugar",
+"fruit"
+],
+"pages": 1,
+"name": "lab"
+},
+{
+"preset": "lab",
+"mode": "lab",
+"larva": false,
+"tools": [
+"hand",
+"flick",
+"swatter",
+"bomb",
+"torch",
+"cleaner",
+"zapper",
+"freeze",
+"spider",
+"sugar",
+"alcohol",
+"laser",
+"cva",
+"decoy",
+"fruit",
+"frog",
+"dragonfly",
+"mantis"
+],
+"pages": 2,
+"name": "lab"
+},
+{
+"preset": "lab",
+"mode": "lab",
+"larva": true,
+"tools": [
+"hand",
+"flick",
+"swatter",
+"torch",
+"cleaner",
+"zapper",
+"freeze",
+"sugar",
+"fruit"
+],
+"pages": 1,
+"name": "lab"
+},
+{
+"preset": "lab",
+"mode": "pet",
+"larva": false,
+"tools": [
+"hand",
+"flick",
+"swatter",
+"bomb",
+"torch",
+"cleaner",
+"zapper",
+"freeze",
+"spider",
+"sugar",
+"alcohol",
+"cva",
+"decoy",
+"fruit",
+"frog",
+"dragonfly",
+"mantis"
+],
+"pages": 2,
+"name": "lab"
+},
+{
+"preset": "lab",
+"mode": "pet",
+"larva": true,
+"tools": [
+"hand",
+"flick",
+"swatter",
+"torch",
+"cleaner",
+"zapper",
+"freeze",
+"sugar",
+"fruit"
+],
+"pages": 1,
+"name": "lab"
+},
+{
+"preset": "all",
+"mode": "play",
+"larva": false,
+"tools": [
+"hand",
+"flick",
+"swatter",
+"bomb",
+"torch",
+"cleaner",
+"zapper",
+"freeze",
+"spider",
+"sugar",
+"alcohol",
+"cva",
+"decoy",
+"fruit",
+"frog",
+"dragonfly",
+"mantis"
+],
+"pages": 2,
+"name": "all"
+},
+{
+"preset": "all",
+"mode": "play",
+"larva": true,
+"tools": [
+"hand",
+"flick",
+"swatter",
+"torch",
+"cleaner",
+"zapper",
+"freeze",
+"sugar",
+"fruit"
+],
+"pages": 1,
+"name": "all"
+},
+{
+"preset": "all",
+"mode": "lab",
+"larva": false,
+"tools": [
+"hand",
+"flick",
+"swatter",
+"bomb",
+"torch",
+"cleaner",
+"zapper",
+"freeze",
+"spider",
+"sugar",
+"alcohol",
+"laser",
+"cva",
+"decoy",
+"fruit",
+"frog",
+"dragonfly",
+"mantis"
+],
+"pages": 2,
+"name": "all"
+},
+{
+"preset": "all",
+"mode": "lab",
+"larva": true,
+"tools": [
+"hand",
+"flick",
+"swatter",
+"torch",
+"cleaner",
+"zapper",
+"freeze",
+"sugar",
+"fruit"
+],
+"pages": 1,
+"name": "all"
+},
+{
+"preset": "all",
+"mode": "pet",
+"larva": false,
+"tools": [
+"hand",
+"flick",
+"swatter",
+"bomb",
+"torch",
+"cleaner",
+"zapper",
+"freeze",
+"spider",
+"sugar",
+"alcohol",
+"cva",
+"decoy",
+"fruit",
+"frog",
+"dragonfly",
+"mantis"
+],
+"pages": 2,
+"name": "all"
+},
+{
+"preset": "all",
+"mode": "pet",
+"larva": true,
+"tools": [
+"hand",
+"flick",
+"swatter",
+"torch",
+"cleaner",
+"zapper",
+"freeze",
+"sugar",
+"fruit"
+],
+"pages": 1,
+"name": "all"
+},
+{
+"preset": "pet",
+"mode": "play",
+"larva": false,
+"tools": [
+"hand",
+"swatter",
+"torch",
+"freeze",
+"sugar",
+"fruit"
+],
+"pages": 1,
+"name": "pet"
+},
+{
+"preset": "pet",
+"mode": "play",
+"larva": true,
+"tools": [
+"hand",
+"swatter",
+"torch",
+"freeze",
+"sugar",
+"fruit"
+],
+"pages": 1,
+"name": "pet"
+},
+{
+"preset": "pet",
+"mode": "lab",
+"larva": false,
+"tools": [
+"hand",
+"swatter",
+"torch",
+"freeze",
+"sugar",
+"fruit"
+],
+"pages": 1,
+"name": "pet"
+},
+{
+"preset": "pet",
+"mode": "lab",
+"larva": true,
+"tools": [
+"hand",
+"swatter",
+"torch",
+"freeze",
+"sugar",
+"fruit"
+],
+"pages": 1,
+"name": "pet"
+},
+{
+"preset": "pet",
+"mode": "pet",
+"larva": false,
+"tools": [
+"hand",
+"swatter",
+"torch",
+"freeze",
+"sugar",
+"fruit"
+],
+"pages": 1,
+"name": "pet"
+},
+{
+"preset": "pet",
+"mode": "pet",
+"larva": true,
+"tools": [
+"hand",
+"swatter",
+"torch",
+"freeze",
+"sugar",
+"fruit"
+],
+"pages": 1,
+"name": "pet"
+},
+{
+"preset": "custom",
+"mode": "play",
+"larva": false,
+"tools": [
+"hand",
+"swatter",
+"bomb",
+"frog",
+"mantis",
+"dragonfly",
+"fruit",
+"cva",
+"decoy",
+"alcohol"
+],
+"pages": 1,
+"name": "custom"
+},
+{
+"preset": "custom",
+"mode": "play",
+"larva": true,
+"tools": [
+"hand",
+"swatter",
+"fruit"
+],
+"pages": 1,
+"name": "custom"
+},
+{
+"preset": "custom",
+"mode": "lab",
+"larva": false,
+"tools": [
+"hand",
+"swatter",
+"laser",
+"bomb",
+"frog",
+"mantis",
+"dragonfly",
+"fruit",
+"cva",
+"decoy",
+"alcohol"
+],
+"pages": 2,
+"name": "custom"
+},
+{
+"preset": "custom",
+"mode": "lab",
+"larva": true,
+"tools": [
+"hand",
+"swatter",
+"fruit"
+],
+"pages": 1,
+"name": "custom"
+},
+{
+"preset": "custom",
+"mode": "pet",
+"larva": false,
+"tools": [
+"hand",
+"swatter",
+"bomb",
+"frog",
+"mantis",
+"dragonfly",
+"fruit",
+"cva",
+"decoy",
+"alcohol"
+],
+"pages": 1,
+"name": "custom"
+},
+{
+"preset": "custom",
+"mode": "pet",
+"larva": true,
+"tools": [
+"hand",
+"swatter",
+"fruit"
+],
+"pages": 1,
+"name": "custom"
+}
+],
+"ops": [
+{
+"op": "start",
+"tools": [
+"hand",
+"flick",
+"swatter",
+"bomb",
+"torch",
+"cleaner",
+"zapper",
+"freeze",
+"spider",
+"sugar",
+"alcohol",
+"laser",
+"cva",
+"decoy",
+"fruit",
+"frog",
+"dragonfly",
+"mantis"
+],
+"page": 0
+},
+{
+"op": "turn_page",
+"arg": 1,
+"result": true,
+"tools": [
+"hand",
+"flick",
+"swatter",
+"bomb",
+"torch",
+"cleaner",
+"zapper",
+"freeze",
+"spider",
+"sugar",
+"alcohol",
+"laser",
+"cva",
+"decoy",
+"fruit",
+"frog",
+"dragonfly",
+"mantis"
+],
+"page": 1
+},
+{
+"op": "turn_page",
+"arg": 1,
+"result": true,
+"tools": [
+"hand",
+"flick",
+"swatter",
+"bomb",
+"torch",
+"cleaner",
+"zapper",
+"freeze",
+"spider",
+"sugar",
+"alcohol",
+"laser",
+"cva",
+"decoy",
+"fruit",
+"frog",
+"dragonfly",
+"mantis"
+],
+"page": 0
+},
+{
+"op": "turn_page",
+"arg": -1,
+"result": true,
+"tools": [
+"hand",
+"flick",
+"swatter",
+"bomb",
+"torch",
+"cleaner",
+"zapper",
+"freeze",
+"spider",
+"sugar",
+"alcohol",
+"laser",
+"cva",
+"decoy",
+"fruit",
+"frog",
+"dragonfly",
+"mantis"
+],
+"page": 1
+},
+{
+"op": "unequip",
+"arg": "swatter",
+"result": true,
+"tools": [
+"hand",
+"flick",
+"bomb",
+"torch",
+"cleaner",
+"zapper",
+"freeze",
+"spider",
+"sugar",
+"alcohol",
+"laser",
+"cva",
+"decoy",
+"fruit",
+"frog",
+"dragonfly",
+"mantis"
+],
+"page": 1
+},
+{
+"op": "move",
+"arg": [
+"torch",
+1
+],
+"result": true,
+"tools": [
+"hand",
+"torch",
+"flick",
+"bomb",
+"cleaner",
+"zapper",
+"freeze",
+"spider",
+"sugar",
+"alcohol",
+"laser",
+"cva",
+"decoy",
+"fruit",
+"frog",
+"dragonfly",
+"mantis"
+],
+"page": 1
+},
+{
+"op": "show",
+"arg": "mantis",
+"result": null,
+"tools": [
+"hand",
+"torch",
+"flick",
+"bomb",
+"cleaner",
+"zapper",
+"freeze",
+"spider",
+"sugar",
+"alcohol",
+"laser",
+"cva",
+"decoy",
+"fruit",
+"frog",
+"dragonfly",
+"mantis"
+],
+"page": 1
+},
+{
+"op": "equip",
+"arg": "swatter",
+"result": true,
+"tools": [
+"hand",
+"torch",
+"flick",
+"bomb",
+"cleaner",
+"zapper",
+"freeze",
+"spider",
+"sugar",
+"alcohol",
+"laser",
+"cva",
+"decoy",
+"fruit",
+"frog",
+"dragonfly",
+"mantis",
+"swatter"
+],
+"page": 1
+},
+{
+"op": "move",
+"arg": [
+"hand",
+5
+],
+"result": false,
+"tools": [
+"hand",
+"torch",
+"flick",
+"bomb",
+"cleaner",
+"zapper",
+"freeze",
+"spider",
+"sugar",
+"alcohol",
+"laser",
+"cva",
+"decoy",
+"fruit",
+"frog",
+"dragonfly",
+"mantis",
+"swatter"
+],
+"page": 1
+},
+{
+"op": "unequip",
+"arg": "hand",
+"result": false,
+"tools": [
+"hand",
+"torch",
+"flick",
+"bomb",
+"cleaner",
+"zapper",
+"freeze",
+"spider",
+"sugar",
+"alcohol",
+"laser",
+"cva",
+"decoy",
+"fruit",
+"frog",
+"dragonfly",
+"mantis",
+"swatter"
+],
+"page": 1
+},
+{
+"op": "neighbor",
+"arg": [
+"mantis",
+1
+],
+"result": "swatter",
+"tools": [
+"hand",
+"torch",
+"flick",
+"bomb",
+"cleaner",
+"zapper",
+"freeze",
+"spider",
+"sugar",
+"alcohol",
+"laser",
+"cva",
+"decoy",
+"fruit",
+"frog",
+"dragonfly",
+"mantis",
+"swatter"
+],
+"page": 1
+},
+{
+"op": "neighbor",
+"arg": [
+"zzz",
+-1
+],
+"result": "swatter",
+"tools": [
+"hand",
+"torch",
+"flick",
+"bomb",
+"cleaner",
+"zapper",
+"freeze",
+"spider",
+"sugar",
+"alcohol",
+"laser",
+"cva",
+"decoy",
+"fruit",
+"frog",
+"dragonfly",
+"mantis",
+"swatter"
+],
+"page": 1
+}
+]
+}

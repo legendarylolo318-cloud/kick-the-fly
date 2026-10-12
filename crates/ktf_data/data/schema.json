@@ -1,0 +1,2387 @@
+{
+ "toolbar": [
+  [
+   "hand",
+   "HAND",
+   "drag the fly and throw it"
+  ],
+  [
+   "flick",
+   "FLICK",
+   "click near the fly"
+  ],
+  [
+   "swatter",
+   "SWAT",
+   "click on the fly"
+  ],
+  [
+   "bomb",
+   "BOMB",
+   "click to drop a bomb, 1.5 s fuse"
+  ],
+  [
+   "torch",
+   "TORCH",
+   "hold: burns it, maxes out pain"
+  ],
+  [
+   "cleaner",
+   "CLEANER",
+   "hold: brake cleaner dissolves it"
+  ],
+  [
+   "zapper",
+   "ZAP",
+   "click: electric shock through its body"
+  ],
+  [
+   "freeze",
+   "FREEZE",
+   "hold: freezes it solid, then smash the ice"
+  ],
+  [
+   "spider",
+   "SPIDER",
+   "click: drop a spider that hunts it"
+  ],
+  [
+   "sugar",
+   "SUGAR",
+   "click: drop sugar to reward it"
+  ],
+  [
+   "alcohol",
+   "ALCOHOL",
+   "click: drop alcohol, sweet PAM reward but escalating drunkenness"
+  ],
+  [
+   "laser",
+   "LASER",
+   "targeted laser: hold/click to stimulate or silence cell types in real time"
+  ],
+  [
+   "cva",
+   "CVA",
+   "puffs cVA pheromone: activates Or67d/DA1 glomerulus"
+  ],
+  [
+   "decoy",
+   "DECOY",
+   "spawns a decoy female target to evoke courtship"
+  ],
+  [
+   "fruit",
+   "FRUIT",
+   "click: drop ripe fruit, eaten like sugar (as in the orchard)"
+  ],
+  [
+   "frog",
+   "FROG",
+   "click: put down a frog; its tongue is very fast"
+  ],
+  [
+   "dragonfly",
+   "DRAGONFLY",
+   "click: a dragonfly chases flying flies from above"
+  ],
+  [
+   "mantis",
+   "MANTIS",
+   "click: a mantis creeps up slowly, then strikes"
+  ]
+ ],
+ "schema_version": 3,
+ "settings": [
+  {
+   "key": "graphics.fullscreen",
+   "tab": "Graphics",
+   "label": "Fullscreen",
+   "kind": "bool",
+   "default": false,
+   "tip": "Fill the whole screen. F11 or Alt+Enter also toggles it.",
+   "options": [],
+   "labels": [],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "",
+   "restart": false,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "graphics.resolution_scale",
+   "tab": "Graphics",
+   "label": "Resolution scale",
+   "kind": "float",
+   "default": 1.0,
+   "tip": "Draw the 3D room at a fraction of the window's resolution and stretch it. Lower is faster on weak GPUs. Menus and text stay sharp.",
+   "options": [],
+   "labels": [],
+   "lo": 0.5,
+   "hi": 1.0,
+   "step": 0.05,
+   "tag": "",
+   "restart": false,
+   "only": "3d",
+   "fmt": "{:.0%}"
+  },
+  {
+   "key": "graphics.fps_cap",
+   "tab": "Graphics",
+   "label": "FPS cap",
+   "kind": "choice",
+   "default": 60,
+   "tip": "The most frames per second the game draws. The fly's brain always runs at its own real-time pace.",
+   "options": [
+    30,
+    60,
+    90,
+    120,
+    144,
+    165,
+    240,
+    0
+   ],
+   "labels": [
+    "30",
+    "60",
+    "90",
+    "120",
+    "144",
+    "165",
+    "240",
+    "unlimited"
+   ],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "",
+   "restart": false,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "graphics.show_fps",
+   "tab": "Graphics",
+   "label": "Show FPS counter",
+   "kind": "bool",
+   "default": false,
+   "tip": "Shows the frames per second in the top-right corner while you play. Off by default; it only reads the frame clock (F3 shows the full profiler).",
+   "options": [],
+   "labels": [],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "",
+   "restart": false,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "graphics.vsync",
+   "tab": "Graphics",
+   "label": "VSync",
+   "kind": "bool",
+   "default": false,
+   "tip": "Sync frames to the monitor to stop tearing. Applies on restart.",
+   "options": [],
+   "labels": [],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "",
+   "restart": true,
+   "only": "3d",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "graphics.backend",
+   "tab": "Graphics",
+   "label": "Display backend",
+   "kind": "choice",
+   "default": "auto",
+   "tip": "Linux only. Auto uses native Wayland when available and falls back to X11 (XWayland). Try X11 if the window or mouse misbehaves. Applies on restart.",
+   "options": [
+    "auto",
+    "wayland",
+    "x11"
+   ],
+   "labels": [
+    "Auto",
+    "Wayland",
+    "X11"
+   ],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "",
+   "restart": true,
+   "only": "linux",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "graphics.brain_view",
+   "tab": "Graphics",
+   "label": "Brain view drawn by",
+   "kind": "choice",
+   "default": "auto",
+   "tip": "Who draws the live brain image (panel and big view). Auto uses the GPU (every neuron as an instanced point, one number per neuron uploaded a frame) when there is a real GPU, else the CPU. Same picture either way; the GPU makes turning the big view smooth.",
+   "options": [
+    "auto",
+    "gpu",
+    "cpu"
+   ],
+   "labels": [
+    "Auto",
+    "GPU",
+    "CPU"
+   ],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "Game rule",
+   "restart": false,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "graphics.panel_mode",
+   "tab": "Graphics",
+   "label": "Brain panel",
+   "kind": "choice",
+   "default": "solid",
+   "tip": "How the live brain panel on the right is drawn: solid, see-through, faint, or hidden to give the room the whole screen. Hotkey V.",
+   "options": [
+    "solid",
+    "see-through",
+    "faint",
+    "hidden"
+   ],
+   "labels": [
+    "Solid",
+    "See-through",
+    "Faint",
+    "Hidden"
+   ],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "",
+   "restart": false,
+   "only": "3d",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "graphics.menu_size",
+   "tab": "Graphics",
+   "label": "Menu size",
+   "kind": "choice",
+   "default": "crisp",
+   "tip": "Crisp scales menus by whole pixels so text stays sharp. Large keeps them the same size on every screen. Hotkey U.",
+   "options": [
+    "crisp",
+    "large"
+   ],
+   "labels": [
+    "Crisp",
+    "Large"
+   ],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "",
+   "restart": false,
+   "only": "3d",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "graphics.ui_scale",
+   "tab": "Graphics",
+   "label": "UI scale",
+   "kind": "float",
+   "default": 1.0,
+   "tip": "Makes every menu, meter and label bigger or smaller.",
+   "options": [],
+   "labels": [],
+   "lo": 0.75,
+   "hi": 1.5,
+   "step": 0.05,
+   "tag": "",
+   "restart": false,
+   "only": "3d",
+   "fmt": "{:.0%}"
+  },
+  {
+   "key": "graphics.photo_scale",
+   "tab": "Graphics",
+   "label": "Screenshot resolution",
+   "kind": "choice",
+   "default": 2,
+   "tip": "Render scale multiplier for screenshots (1x, 2x, 4x) saved to pictures.",
+   "options": [
+    1,
+    2,
+    4
+   ],
+   "labels": [
+    "1x",
+    "2x (Hi-Res)",
+    "4x (Ultra)"
+   ],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "",
+   "restart": false,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "graphics.clean_capture",
+   "tab": "Graphics",
+   "label": "Clean screenshots",
+   "kind": "bool",
+   "default": true,
+   "tip": "Hide HUD, crosshairs, toolbars, and debug overlays in saved screenshots.",
+   "options": [],
+   "labels": [],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "",
+   "restart": false,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "graphics.photo_dof",
+   "tab": "Graphics",
+   "label": "Depth of field blur",
+   "kind": "float",
+   "default": 0.0,
+   "tip": "Camera depth of field blur amount in photo mode.",
+   "options": [],
+   "labels": [],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.05,
+   "tag": "",
+   "restart": false,
+   "only": "3d",
+   "fmt": "{:.2f}"
+  },
+  {
+   "key": "graphics.photo_focus",
+   "tab": "Graphics",
+   "label": "Photo focus distance",
+   "kind": "float",
+   "default": 1.8,
+   "tip": "Focus distance in meters for depth of field.",
+   "options": [],
+   "labels": [],
+   "lo": 0.1,
+   "hi": 15.0,
+   "step": 0.1,
+   "tag": "",
+   "restart": false,
+   "only": "3d",
+   "fmt": "{:.1f}m"
+  },
+  {
+   "key": "graphics.timelapse_speedup",
+   "tab": "Graphics",
+   "label": "Time-lapse speed-up",
+   "kind": "choice",
+   "default": 5,
+   "tip": "Playback speed-up factor for time-lapse recordings (2x, 5x, 10x, 20x). Hotkey L.",
+   "options": [
+    2,
+    5,
+    10,
+    20
+   ],
+   "labels": [
+    "2x",
+    "5x",
+    "10x",
+    "20x"
+   ],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "Game rule",
+   "restart": false,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "graphics.timelapse_format",
+   "tab": "Graphics",
+   "label": "Time-lapse format",
+   "kind": "choice",
+   "default": "mp4",
+   "tip": "File format for exported time-lapse recordings (MP4 with ffmpeg, or GIF with Pillow).",
+   "options": [
+    "mp4",
+    "gif"
+   ],
+   "labels": [
+    "MP4 (Video)",
+    "GIF (Animated)"
+   ],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "",
+   "restart": false,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "graphics.timelapse_target",
+   "tab": "Graphics",
+   "label": "Time-lapse target",
+   "kind": "choice",
+   "default": "brain",
+   "tip": "Camera subject for time-lapse recording: the big brain view or the full room.",
+   "options": [
+    "brain",
+    "room"
+   ],
+   "labels": [
+    "Brain view",
+    "Room view"
+   ],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "",
+   "restart": false,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "audio.master",
+   "tab": "Audio",
+   "label": "Master volume",
+   "kind": "float",
+   "default": 1.0,
+   "tip": "Volume of everything.",
+   "options": [],
+   "labels": [],
+   "lo": 0,
+   "hi": 1,
+   "step": 0.05,
+   "tag": "",
+   "restart": false,
+   "only": "",
+   "fmt": "{:.0%}"
+  },
+  {
+   "key": "audio.buzz",
+   "tab": "Audio",
+   "label": "Wing buzz volume",
+   "kind": "float",
+   "default": 1.0,
+   "tip": "The buzz while it flies. Its pitch follows the fly's wing-power neurons.",
+   "options": [],
+   "labels": [],
+   "lo": 0,
+   "hi": 1,
+   "step": 0.05,
+   "tag": "",
+   "restart": false,
+   "only": "",
+   "fmt": "{:.0%}"
+  },
+  {
+   "key": "audio.sfx",
+   "tab": "Audio",
+   "label": "Sound effects volume",
+   "kind": "float",
+   "default": 1.0,
+   "tip": "Hits, tools, splashes, menus and every other sound.",
+   "options": [],
+   "labels": [],
+   "lo": 0,
+   "hi": 1,
+   "step": 0.05,
+   "tag": "",
+   "restart": false,
+   "only": "",
+   "fmt": "{:.0%}"
+  },
+  {
+   "key": "audio.mute",
+   "tab": "Audio",
+   "label": "Mute",
+   "kind": "bool",
+   "default": false,
+   "tip": "Silence everything. Hotkey M.",
+   "options": [],
+   "labels": [],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "",
+   "restart": false,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "audio.stethoscope_enabled",
+   "tab": "Audio",
+   "label": "Brain stethoscope",
+   "kind": "bool",
+   "default": false,
+   "tip": "Spike sonification: play subtle audio clicks for spikes in the probed region or group. Hotkey K.",
+   "options": [],
+   "labels": [],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "Game rule",
+   "restart": false,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "audio.stethoscope_vol",
+   "tab": "Audio",
+   "label": "Stethoscope volume",
+   "kind": "float",
+   "default": 0.5,
+   "tip": "Volume of the brain stethoscope spike sonification. Synthetic sonification, not an extracellular LFP recording.",
+   "options": [],
+   "labels": [],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.05,
+   "tag": "Game rule",
+   "restart": false,
+   "only": "",
+   "fmt": "{:.0%}"
+  },
+  {
+   "key": "audio.stethoscope_target",
+   "tab": "Audio",
+   "label": "Stethoscope target",
+   "kind": "choice",
+   "default": "mushroom_body",
+   "tip": "Neuropil region or neuron group to monitor with the stethoscope probe.",
+   "options": [
+    "mushroom_body",
+    "antennal_lobe",
+    "central_complex",
+    "optic_lobes",
+    "motor",
+    "whole_brain"
+   ],
+   "labels": [
+    "Mushroom body",
+    "Antennal lobe",
+    "Central complex",
+    "Optic lobes",
+    "Motor neurons",
+    "Whole brain"
+   ],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "Game rule",
+   "restart": false,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "audio.sonify",
+   "tab": "Audio",
+   "label": "Brain sonification",
+   "kind": "bool",
+   "default": false,
+   "tip": "Opt-in audio: each brain region is a voice (descending neurons low, optic lobe high, all on one pentatonic scale) whose volume and pitch follow how active it is compared with its own calm, and the courtship song is synthesized when the song neurons (ps1, driven by pIP10 and P1) fire. Hotkey F5. Silent while muted, with the microphone on, or in Streamer mode (unless allowed below). CONNECTOME for the activity it follows; GAME RULE for the sound, which is a rendering and not a recording.",
+   "options": [],
+   "labels": [],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "Game rule",
+   "restart": false,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "audio.sonify_vol",
+   "tab": "Audio",
+   "label": "Sonification volume",
+   "kind": "float",
+   "default": 0.4,
+   "tip": "Volume of the brain sonification (times the master volume).",
+   "options": [],
+   "labels": [],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.05,
+   "tag": "Game rule",
+   "restart": false,
+   "only": "",
+   "fmt": "{:.0%}"
+  },
+  {
+   "key": "audio.sonify_song",
+   "tab": "Audio",
+   "label": "Sonification: courtship song",
+   "kind": "bool",
+   "default": true,
+   "tip": "Include the song voice: pulses (220 Hz carrier, 12 ms pulses 35 ms apart, the game's song buzz) while the song neurons fire above the game's SONG threshold.",
+   "options": [],
+   "labels": [],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "Game rule",
+   "restart": false,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "stream.allow_sonify",
+   "tab": "Audio",
+   "label": "Sonification in Streamer mode",
+   "kind": "bool",
+   "default": false,
+   "tip": "Streamer mode silences the brain sonification (a continuous tone bed on a stream is the streamer's call). Tick this to let it play while Streamer mode is on.",
+   "options": [],
+   "labels": [],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "Game rule",
+   "restart": false,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "brain.mode",
+   "tab": "Brain",
+   "label": "Mode",
+   "kind": "choice",
+   "default": "play",
+   "tip": "Play is the game with challenges and scores. Lab adds the research tools: validation results, repeated trials with statistics, data export and protocol files. Pet mode provides a persistent companion fly.",
+   "options": [
+    "play",
+    "lab",
+    "pet"
+   ],
+   "labels": [
+    "Play",
+    "Lab",
+    "Pet"
+   ],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "",
+   "restart": false,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "brain.brain",
+   "tab": "Brain",
+   "label": "Brain",
+   "kind": "choice",
+   "default": "adult",
+   "tip": "Which connectome to simulate: adult Drosophila melanogaster (FlyWire) or Drosophila larva (Winding et al. 2023).",
+   "options": [
+    "adult",
+    "larva"
+   ],
+   "labels": [
+    "Adult (FlyWire)",
+    "Larva (Winding 2023)"
+   ],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "Connectome",
+   "restart": false,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "brain.individuality",
+   "tab": "Brain",
+   "label": "Individuality",
+   "kind": "choice",
+   "default": "subtle",
+   "tip": "Deterministic per-fly gain variation across neurons. Off gives identical brains across flies; subtle adds natural variation; strong accentuates behavioural differences.",
+   "options": [
+    "off",
+    "subtle",
+    "strong"
+   ],
+   "labels": [
+    "Off",
+    "Subtle",
+    "Strong"
+   ],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "Game rule",
+   "restart": false,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "brain.pet_real_stakes",
+   "tab": "Brain",
+   "label": "Pet real stakes",
+   "kind": "bool",
+   "default": false,
+   "tip": "In Pet mode, lets injury or prolonged starvation kill the fly, triggering an autopsy.",
+   "options": [],
+   "labels": [],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "Game rule",
+   "restart": false,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "brain.pain_level",
+   "tab": "Brain",
+   "label": "Pain neurons",
+   "kind": "choice",
+   "default": 0,
+   "tip": "How many of the fly's real sensory neurons the pain meter listens to, and how many each hit fires. Normal: touch, heat, cold, smell and taste. More: plus the rest of the body's sensors. Max: plus the neurons that relay body signals to the brain. The pain score itself is an estimate, not a measurement. Hotkey P.",
+   "options": [
+    0,
+    1,
+    2
+   ],
+   "labels": [
+    "Normal",
+    "More",
+    "Max"
+   ],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "Game rule",
+   "restart": false,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "brain.immortal",
+   "tab": "Brain",
+   "label": "Immortal",
+   "kind": "bool",
+   "default": false,
+   "tip": "It feels everything but can't die, and heals when you stop. Hotkey I.",
+   "options": [],
+   "labels": [],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "Game rule",
+   "restart": false,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "brain.sim_speed",
+   "tab": "Brain",
+   "label": "Sim speed",
+   "kind": "choice",
+   "default": 1.0,
+   "tip": "Slow motion for the whole simulation: the brain and the room slow down together, so every spike still lines up with what happens. Hotkeys [ and ].",
+   "options": [
+    0.1,
+    0.25,
+    0.5,
+    1.0
+   ],
+   "labels": [
+    "0.1x",
+    "0.25x",
+    "0.5x",
+    "1x"
+   ],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "Connectome",
+   "restart": false,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "brain.seed",
+   "tab": "Brain",
+   "label": "Random seed",
+   "kind": "int",
+   "default": 0,
+   "tip": "Seeds the brain's noise and the game's randomness. The same seed and the same inputs give the same run in headless and protocol runs. Applies when you reset the fly (R).",
+   "options": [],
+   "labels": [],
+   "lo": 0,
+   "hi": 2147483647,
+   "step": 0.0,
+   "tag": "Connectome",
+   "restart": false,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "brain.real_vs_rule",
+   "tab": "Brain",
+   "label": "Real vs rule tags",
+   "kind": "choice",
+   "default": "auto",
+   "tip": "Tags reactions on screen as coming from the connectome (REAL) or from a game rule (RULE). Auto: on in Lab, off in Play.",
+   "options": [
+    "auto",
+    "on",
+    "off"
+   ],
+   "labels": [
+    "Auto",
+    "On",
+    "Off"
+   ],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "",
+   "restart": false,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "brain.science_popups",
+   "tab": "Brain",
+   "label": "Real-science popups",
+   "kind": "bool",
+   "default": false,
+   "tip": "Show a short card when the fly does something real flies were shown to do.",
+   "options": [],
+   "labels": [],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "",
+   "restart": false,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "brain.neurodex",
+   "tab": "Brain",
+   "label": "Neurodex discoveries",
+   "kind": "bool",
+   "default": true,
+   "tip": "Collect cell types in the Neurodex (default key D): a type is discovered the first time its neurons fire well above their own calm rate while you play or stimulate it (tagged 'in play' or 'by stimulation'; a calm, untouched fly discovers nothing, and 'at rest' entries from older builds are kept). The numbers in an entry come from the dataset (Connectome); what counts as discovered, and the collection, are game rules. Off stops collecting; what you found stays.",
+   "options": [],
+   "labels": [],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "Game rule",
+   "restart": false,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "brain.killcam",
+   "tab": "Brain",
+   "label": "Kill cam offer",
+   "kind": "bool",
+   "default": true,
+   "tip": "When the fly dies, offer a slow-motion replay of the last 6 seconds of its brain and highlight the neurons whose firing rose most. The firing is the real simulated rate of each neuron (Connectome); the offer, the window and the slow motion are game rules. Skippable; can be saved as a video or GIF.",
+   "options": [],
+   "labels": [],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "Game rule",
+   "restart": false,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "brain.neuron_of_day",
+   "tab": "Brain",
+   "label": "Neuron of the day",
+   "kind": "bool",
+   "default": true,
+   "tip": "A small card at launch with one curated cell type, a fact with its citation (from the literature, not measured here) and a Try it button that sets up a one-click experiment. Separate from the real-science popups. Which type, the card and Try it are game rules.",
+   "options": [],
+   "labels": [],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "Game rule",
+   "restart": false,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "brain.neuron_shapes",
+   "tab": "Brain",
+   "label": "Download real neuron shapes",
+   "kind": "bool",
+   "default": false,
+   "tip": "Lets the game download real neuron shapes (EM skeletons) from Janelia's public MaleCNS v1.0 release (CC BY 4.0, credited on screen): the ten shown in the brain view, and any neuron you inspect, one at a time (10-100 kB each, only when you click it), checksummed and cached in your data folder, never bundled. Off by default: it is the game's only network use outside Streamer mode. Shapes are drawing only: the simulation treats every neuron as a point either way, so no result depends on this. Shapes already in the cache load without the network. Never used in headless runs or tests. Anything that goes wrong falls back to the estimated fiber.",
+   "options": [],
+   "labels": [],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "",
+   "restart": true,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "brain.mic_sensitivity",
+   "tab": "Brain",
+   "label": "Microphone sensitivity",
+   "kind": "float",
+   "default": 1.0,
+   "tip": "Esc > Mic and streamer: how loud a band must be to drive the Johnston's organ JO-A/JO-B neurons fully (the sound is band-passed into JO-B, below ~100 Hz, and JO-A, higher; neurons from the dataset, the transduction and every number a GAME RULE). Only the sensitivity is saved: the microphone itself is off every time the game starts, shows a red MIC ON pill while on, and nothing it hears is saved or sent.",
+   "options": [],
+   "labels": [],
+   "lo": 0.1,
+   "hi": 10.0,
+   "step": 0.1,
+   "tag": "Game rule",
+   "restart": false,
+   "only": "",
+   "fmt": "{:.1f}x"
+  },
+  {
+   "key": "stream.allow_tool",
+   "tab": "Brain",
+   "label": "Streamer mode: viewers may vote !tool",
+   "kind": "bool",
+   "default": true,
+   "tip": "Esc > Mic and streamer: whether Twitch viewers can change the tool in hand by chat vote (!tool NAME, only tools on your hotbar). GAME RULE. Streamer mode itself is off every time the game starts and only reads chat anonymously.",
+   "options": [],
+   "labels": [],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "Game rule",
+   "restart": false,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "stream.allow_arena",
+   "tab": "Brain",
+   "label": "Streamer mode: viewers may vote !arena",
+   "kind": "bool",
+   "default": false,
+   "tip": "Whether viewers can change the arena by chat vote (!arena NAME). Off until you switch it on. GAME RULE.",
+   "options": [],
+   "labels": [],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "Game rule",
+   "restart": false,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "stream.allow_surgery",
+   "tab": "Brain",
+   "label": "Streamer mode: viewers may vote !surgery",
+   "kind": "bool",
+   "default": false,
+   "tip": "Whether viewers can silence or restore a neuron group by chat vote (!surgery NAME). Off until you switch it on. GAME RULE.",
+   "options": [],
+   "labels": [],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "Game rule",
+   "restart": false,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "stream.window_s",
+   "tab": "Brain",
+   "label": "Streamer mode: vote window",
+   "kind": "float",
+   "default": 20.0,
+   "tip": "Seconds a chat vote stays open after the first vote. The winner needs at least the minimum votes. GAME RULE.",
+   "options": [],
+   "labels": [],
+   "lo": 5.0,
+   "hi": 120.0,
+   "step": 5.0,
+   "tag": "Game rule",
+   "restart": false,
+   "only": "",
+   "fmt": "{:.0f} s"
+  },
+  {
+   "key": "stream.cooldown_s",
+   "tab": "Brain",
+   "label": "Streamer mode: cooldown",
+   "kind": "float",
+   "default": 30.0,
+   "tip": "Seconds after a vote ends during which new votes are ignored. GAME RULE.",
+   "options": [],
+   "labels": [],
+   "lo": 5.0,
+   "hi": 300.0,
+   "step": 5.0,
+   "tag": "Game rule",
+   "restart": false,
+   "only": "",
+   "fmt": "{:.0f} s"
+  },
+  {
+   "key": "stream.min_votes",
+   "tab": "Brain",
+   "label": "Streamer mode: minimum votes",
+   "kind": "int",
+   "default": 2,
+   "tip": "The fewest votes the winning option needs to take effect. GAME RULE.",
+   "options": [],
+   "labels": [],
+   "lo": 1,
+   "hi": 50,
+   "step": 1,
+   "tag": "Game rule",
+   "restart": false,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "brain.imaging_indicator",
+   "tab": "Brain",
+   "label": "Imaging indicator",
+   "kind": "choice",
+   "default": "gcamp6s",
+   "tip": "Lab > Calcium imaging: which GCaMP the simulated imaging uses. MODEL: spikes from the simulation convolved with the indicator's kernel plus photon shot noise, not a measurement. The rise and decay come from Chen 2013 (GCaMP6s/6f, its Supplementary Table 3: mouse cortex, single spikes) and Zhang 2023 (jGCaMP8m, fly visual responses). Off until you turn Imaging mode on.",
+   "options": [
+    "gcamp6s",
+    "gcamp6f",
+    "jgcamp8m"
+   ],
+   "labels": [
+    "GCaMP6s",
+    "GCaMP6f",
+    "GCaMP8m"
+   ],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "MODEL",
+   "restart": false,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "brain.imaging_fps",
+   "tab": "Brain",
+   "label": "Imaging frame rate",
+   "kind": "choice",
+   "default": 20,
+   "tip": "Lab > Calcium imaging: frames per second of the simulated imaging (the 5 ms simulation step quantizes it). MODEL, not a measurement.",
+   "options": [
+    5,
+    10,
+    20,
+    30,
+    40
+   ],
+   "labels": [
+    "5 Hz",
+    "10 Hz",
+    "20 Hz",
+    "30 Hz",
+    "40 Hz"
+   ],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "MODEL",
+   "restart": true,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "brain.imaging_f0_tau_s",
+   "tab": "Brain",
+   "label": "Imaging baseline (F0) time constant",
+   "kind": "choice",
+   "default": 30,
+   "tip": "Lab > Calcium imaging: dF/F is measured against a running mean of each neuron's own fluorescence with this time constant. A steady firing rate reads as 0 and only changes show; the first seconds of a session are inflated or deflated while the mean settles. Shorter hides slow changes, longer takes longer to settle. GAME RULE (a choice made for this game, not a measurement); Off until you turn Imaging mode on.",
+   "options": [
+    10,
+    30,
+    60,
+    120
+   ],
+   "labels": [
+    "10 s",
+    "30 s (default)",
+    "60 s",
+    "120 s"
+   ],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "Game rule",
+   "restart": true,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "brain.autopilot",
+   "tab": "Brain",
+   "label": "Autopilot / spectator",
+   "kind": "bool",
+   "default": false,
+   "tip": "Hands-off mode where only environmental inputs reach the fly. Hotkey Y.",
+   "options": [],
+   "labels": [],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "Game rule",
+   "restart": false,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "brain.autopilot_orbit",
+   "tab": "Brain",
+   "label": "Autopilot brain orbit",
+   "kind": "bool",
+   "default": true,
+   "tip": "Slowly orbit the brain view in spectator mode.",
+   "options": [],
+   "labels": [],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "Game rule",
+   "restart": false,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "brain.autopilot_hide_hud",
+   "tab": "Brain",
+   "label": "Autopilot hide HUD",
+   "kind": "bool",
+   "default": true,
+   "tip": "Hide HUD in spectator mode for demo or screensaver use.",
+   "options": [],
+   "labels": [],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "Game rule",
+   "restart": false,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "brain.arena",
+   "tab": "Brain",
+   "label": "Arena",
+   "kind": "choice",
+   "default": "room",
+   "tip": "Where the fly lives. Room is the default. Thermo has a floor running from cold (left) to hot (right) that drives its real cold- and hot-sensing antennal neurons. Open field and Orchard are large outdoor 3D worlds (the 2D game stays indoors). The sensory neurons each arena drives are real; the places themselves are game rules. Hotkey E cycles them.",
+   "options": [
+    "room",
+    "fan",
+    "flypaper",
+    "pool",
+    "lamp",
+    "thermo",
+    "escaperoom",
+    "field",
+    "orchard",
+    "kitchen"
+   ],
+   "labels": [
+    "Room",
+    "Fan",
+    "Flypaper",
+    "Pool",
+    "Lamp",
+    "Thermo",
+    "Escape room",
+    "Open field",
+    "Orchard",
+    "Kitchen"
+   ],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "Game rule",
+   "restart": false,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "brain.song_buzz",
+   "tab": "Brain",
+   "label": "Courtship song buzz",
+   "kind": "bool",
+   "default": true,
+   "tip": "Plays a synthesized pulse-song buzz when its ps1 wing motor neurons fire (SONG). The neurons are real (pIP10 -> ps1 is validated); the sound is the game's.",
+   "options": [],
+   "labels": [],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "Game rule",
+   "restart": false,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "brain.lunge",
+   "tab": "Brain",
+   "label": "Aggression lunges",
+   "kind": "bool",
+   "default": true,
+   "tip": "With two or more flies, a fly whose aggression neurons (AVLP727m, pC1/P1) fire strongly lunges at the nearest one. The firing is real; the lunge is scripted. They rarely fire that hard unless P1 is stimulated in brain surgery.",
+   "options": [],
+   "labels": [],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "Game rule",
+   "restart": false,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "brain.day_night",
+   "tab": "Brain",
+   "label": "Day/night cycle",
+   "kind": "choice",
+   "default": 0,
+   "tip": "Outdoors, the sun circles once a day and night falls. Daylight drives the real photoreceptors and morning clock neurons (l-LNv, s-LNv); the cycle and that link are game rules. Lab > Parameters can set any day length.",
+   "options": [
+    0,
+    300,
+    600,
+    1200
+   ],
+   "labels": [
+    "Off",
+    "5 min day",
+    "10 min day",
+    "20 min day"
+   ],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "Game rule",
+   "restart": false,
+   "only": "3d",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "brain.mirror_weights",
+   "tab": "Brain",
+   "label": "Mirror-average weights",
+   "kind": "bool",
+   "default": false,
+   "tip": "Average left and right synaptic weights to enforce bilateral symmetry. Clearly a data modification game rule.",
+   "options": [],
+   "labels": [],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "Game rule",
+   "restart": false,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "brain.dtype",
+   "tab": "Brain",
+   "label": "State precision",
+   "kind": "choice",
+   "default": "float32",
+   "tip": "Precision of each neuron's membrane voltage. float32 (the default) is what validation used; float64 changes the numbers slightly; validation hasn't been run in it.",
+   "options": [
+    "float32",
+    "float64"
+   ],
+   "labels": [
+    "float32 (Fast)",
+    "float64 (Double)"
+   ],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "Connectome",
+   "restart": false,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "brain.backend",
+   "tab": "Brain",
+   "label": "Compute backend",
+   "kind": "choice",
+   "default": "auto",
+   "tip": "What runs the brain simulation. Auto picks the fastest engine that works here: a real GPU through OpenGL compute (4.3+, any vendor), then a PyTorch GPU, then Numba, then NumPy, falling back to the next on any error. (Headless runs, validation and replays use the exact chain without OpenGL; set KICK_THE_FLY_AUTO=exact to make the game do the same.) GPU engines agree with NumPy statistically, not spike for spike; pick CPU (NumPy) for bit-exact runs. Numba and PyTorch are optional (from source only). Applies to every fly right away.",
+   "options": [
+    "auto",
+    "cpu",
+    "numba",
+    "gl",
+    "torch-cpu",
+    "torch-cuda",
+    "torch-rocm"
+   ],
+   "labels": [
+    "Auto",
+    "CPU (NumPy)",
+    "Numba (JIT)",
+    "OpenGL Compute",
+    "PyTorch (CPU)",
+    "PyTorch (CUDA)",
+    "PyTorch (ROCm)"
+   ],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "Connectome",
+   "restart": false,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "brain.process",
+   "tab": "Brain",
+   "label": "Run the brains in their own process",
+   "kind": "choice",
+   "default": "auto",
+   "tip": "Where the flies' brains run in the game. Their own process (Auto, On) lets the brains use other CPU cores and the GPU while the game draws: with many flies they keep real time where they used to slow down (one Python process shares a single interpreter lock). Same spikes either way: the brains are the same code with the same seeds. Off runs them in the game process as before 3.1.0; the Lab's spike recording and patch electrode need that, so Auto uses the separate process except when the game starts in Lab mode. Applies at the next launch.",
+   "options": [
+    "auto",
+    "on",
+    "off"
+   ],
+   "labels": [
+    "Auto",
+    "On",
+    "Off"
+   ],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "",
+   "restart": true,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "controls.mouse_sensitivity",
+   "tab": "Controls",
+   "label": "Mouse sensitivity",
+   "kind": "float",
+   "default": 1.0,
+   "tip": "How far the view turns when you move the mouse.",
+   "options": [],
+   "labels": [],
+   "lo": 0.1,
+   "hi": 5.0,
+   "step": 0.1,
+   "tag": "",
+   "restart": false,
+   "only": "3d",
+   "fmt": "{:.1f}"
+  },
+  {
+   "key": "controls.invert_y",
+   "tab": "Controls",
+   "label": "Invert Y",
+   "kind": "bool",
+   "default": false,
+   "tip": "Moving the mouse up looks down.",
+   "options": [],
+   "labels": [],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "",
+   "restart": false,
+   "only": "3d",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "controls.fov",
+   "tab": "Controls",
+   "label": "Field of view",
+   "kind": "float",
+   "default": 70.0,
+   "tip": "How wide your view of the room is, in degrees.",
+   "options": [],
+   "labels": [],
+   "lo": 50,
+   "hi": 110,
+   "step": 1,
+   "tag": "",
+   "restart": false,
+   "only": "3d",
+   "fmt": "{:.0f}°"
+  },
+  {
+   "key": "controls.loadout_preset",
+   "tab": "Controls",
+   "label": "Tool loadout",
+   "kind": "choice",
+   "default": "auto",
+   "tip": "Which tools are on the hotbar (keys 1-9, 0). Automatic is Base in Play, Lab in Lab mode and Pet in Pet mode. Hotbar order and your own loadouts are made in the editor (default key Q). The tool wheel still reaches every tool. A loadout is a convenience: it never changes what a tool does to the fly.",
+   "options": [
+    "auto",
+    "base",
+    "chaos",
+    "chemist",
+    "lab",
+    "all",
+    "pet",
+    "custom"
+   ],
+   "labels": [
+    "Automatic",
+    "Base",
+    "Chaos",
+    "Chemist",
+    "Lab",
+    "All",
+    "Pet",
+    "Custom"
+   ],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "",
+   "restart": false,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "controls.gamepad",
+   "tab": "Controls",
+   "label": "Gamepad",
+   "kind": "bool",
+   "default": true,
+   "tip": "Use a connected gamepad in the 3D game alongside keyboard and mouse: left stick walks, right stick looks, right trigger uses the tool, bumpers cycle your loadout, hold Y for the tool wheel. Rebind below.",
+   "options": [],
+   "labels": [],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "",
+   "restart": false,
+   "only": "3d",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "controls.pad_look_speed",
+   "tab": "Controls",
+   "label": "Gamepad look speed",
+   "kind": "float",
+   "default": 2.5,
+   "tip": "How fast the right stick turns your view, in radians per second at full tilt.",
+   "options": [],
+   "labels": [],
+   "lo": 0.5,
+   "hi": 6.0,
+   "step": 0.1,
+   "tag": "",
+   "restart": false,
+   "only": "3d",
+   "fmt": "{:.1f}"
+  },
+  {
+   "key": "controls.pad_deadzone",
+   "tab": "Controls",
+   "label": "Gamepad dead zone",
+   "kind": "float",
+   "default": 0.2,
+   "tip": "How far a stick must move before it counts, so a worn stick doesn't drift.",
+   "options": [],
+   "labels": [],
+   "lo": 0.05,
+   "hi": 0.5,
+   "step": 0.01,
+   "tag": "",
+   "restart": false,
+   "only": "3d",
+   "fmt": "{:.2f}"
+  },
+  {
+   "key": "controls.pad_invert_y",
+   "tab": "Controls",
+   "label": "Gamepad invert Y",
+   "kind": "bool",
+   "default": false,
+   "tip": "Pushing the right stick up looks down.",
+   "options": [],
+   "labels": [],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "",
+   "restart": false,
+   "only": "3d",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "access.palette",
+   "tab": "Accessibility",
+   "label": "Brain view colors",
+   "kind": "choice",
+   "default": "default",
+   "tip": "Colors for firing neurons in the brain view. Blue/yellow is safe for red-green color blindness. High contrast uses magenta and white.",
+   "options": [
+    "default",
+    "blue-yellow",
+    "high-contrast"
+   ],
+   "labels": [
+    "Orange/cyan",
+    "Blue/yellow",
+    "High contrast"
+   ],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "",
+   "restart": false,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "access.reduced_flashing",
+   "tab": "Accessibility",
+   "label": "Reduced flashing",
+   "kind": "bool",
+   "default": false,
+   "tip": "Turns off screen shake, explosion and hit flashes, sparkles, the scanning band and blinking lights.",
+   "options": [],
+   "labels": [],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "",
+   "restart": false,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "access.larger_text",
+   "tab": "Accessibility",
+   "label": "Larger text",
+   "kind": "bool",
+   "default": false,
+   "tip": "Bigger text in menus, popups and the HUD.",
+   "options": [],
+   "labels": [],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "",
+   "restart": false,
+   "only": "",
+   "fmt": "{:g}"
+  },
+  {
+   "key": "access.language",
+   "tab": "Accessibility",
+   "label": "Language",
+   "kind": "choice",
+   "default": "auto",
+   "tip": "Display language for menus and text. Auto uses your system language, falling back to English.",
+   "options": [
+    "auto",
+    "en",
+    "de"
+   ],
+   "labels": [
+    "Auto",
+    "English",
+    "Deutsch (Machine-translated)"
+   ],
+   "lo": 0.0,
+   "hi": 1.0,
+   "step": 0.0,
+   "tag": "",
+   "restart": false,
+   "only": "",
+   "fmt": "{:g}"
+  }
+ ],
+ "actions": [
+  [
+   "forward",
+   "Walk forward",
+   "w"
+  ],
+  [
+   "back",
+   "Walk back",
+   "s"
+  ],
+  [
+   "left",
+   "Walk left",
+   "a"
+  ],
+  [
+   "right",
+   "Walk right",
+   "d"
+  ],
+  [
+   "sprint",
+   "Sprint",
+   "left shift"
+  ],
+  [
+   "crouch",
+   "Crouch",
+   "left ctrl"
+  ],
+  [
+   "free_mouse",
+   "Free the mouse",
+   "tab"
+  ],
+  [
+   "big_view",
+   "Big brain view",
+   "b"
+  ],
+  [
+   "surgery",
+   "Brain surgery",
+   "o"
+  ],
+  [
+   "training",
+   "Training",
+   "t"
+  ],
+  [
+   "duel",
+   "1v1 duel",
+   "x"
+  ],
+  [
+   "arena",
+   "Next arena",
+   "e"
+  ],
+  [
+   "pain",
+   "Pain neurons",
+   "p"
+  ],
+  [
+   "immortal",
+   "Immortal",
+   "i"
+  ],
+  [
+   "mute",
+   "Mute",
+   "m"
+  ],
+  [
+   "screenshot",
+   "Screenshot",
+   "f12"
+  ],
+  [
+   "gif",
+   "Save GIF",
+   "g"
+  ],
+  [
+   "panel",
+   "Brain panel style",
+   "v"
+  ],
+  [
+   "menu_size",
+   "Menu size",
+   "u"
+  ],
+  [
+   "fullscreen",
+   "Fullscreen",
+   "f11"
+  ],
+  [
+   "spawn",
+   "Spawn a fly",
+   "n"
+  ],
+  [
+   "reset",
+   "Reset / respawn",
+   "r"
+  ],
+  [
+   "help",
+   "Controls help",
+   "h"
+  ],
+  [
+   "time_pause",
+   "Pause / resume time",
+   "z"
+  ],
+  [
+   "time_slower",
+   "Slower",
+   "["
+  ],
+  [
+   "time_faster",
+   "Faster",
+   "]"
+  ],
+  [
+   "time_step",
+   "Single step (paused)",
+   "."
+  ],
+  [
+   "autopilot",
+   "Autopilot / spectator",
+   "y"
+  ],
+  [
+   "photo_mode",
+   "Photo mode / free camera",
+   "f10"
+  ],
+  [
+   "stethoscope",
+   "Brain stethoscope",
+   "k"
+  ],
+  [
+   "profiler",
+   "Profiler overlay",
+   "f3"
+  ],
+  [
+   "fly_eye",
+   "Fly's-eye view",
+   "f4"
+  ],
+  [
+   "sonify",
+   "Brain sonification (opt-in audio)",
+   "f5"
+  ],
+  [
+   "timelapse",
+   "Time-lapse record",
+   "l"
+  ],
+  [
+   "recall",
+   "Recall a lost fly (outdoors)",
+   "j"
+  ],
+  [
+   "cycle_fly",
+   "Cycle focused fly",
+   "f"
+  ],
+  [
+   "loadout",
+   "Loadout editor",
+   "q"
+  ],
+  [
+   "neurodex",
+   "Neurodex",
+   "d"
+  ],
+  [
+   "killcam",
+   "Kill cam (after the fly dies)",
+   ";"
+  ],
+  [
+   "tool_wheel",
+   "Tool wheel (hold)",
+   "`"
+  ],
+  [
+   "slot1",
+   "Hotbar slot 1",
+   "1"
+  ],
+  [
+   "slot2",
+   "Hotbar slot 2",
+   "2"
+  ],
+  [
+   "slot3",
+   "Hotbar slot 3",
+   "3"
+  ],
+  [
+   "slot4",
+   "Hotbar slot 4",
+   "4"
+  ],
+  [
+   "slot5",
+   "Hotbar slot 5",
+   "5"
+  ],
+  [
+   "slot6",
+   "Hotbar slot 6",
+   "6"
+  ],
+  [
+   "slot7",
+   "Hotbar slot 7",
+   "7"
+  ],
+  [
+   "slot8",
+   "Hotbar slot 8",
+   "8"
+  ],
+  [
+   "slot9",
+   "Hotbar slot 9",
+   "9"
+  ],
+  [
+   "slot10",
+   "Hotbar slot 10",
+   "0"
+  ],
+  [
+   "page_prev",
+   "Hotbar previous page",
+   "-"
+  ],
+  [
+   "page_next",
+   "Hotbar next page",
+   "="
+  ]
+ ],
+ "pad_actions": [
+  [
+   "move_x",
+   "Walk left / right (stick)",
+   "leftx"
+  ],
+  [
+   "move_y",
+   "Walk forward / back (stick)",
+   "lefty"
+  ],
+  [
+   "look_x",
+   "Look left / right (stick)",
+   "rightx"
+  ],
+  [
+   "look_y",
+   "Look up / down (stick)",
+   "righty"
+  ],
+  [
+   "use",
+   "Use the tool",
+   "righttrigger"
+  ],
+  [
+   "tool_next",
+   "Next tool",
+   "rightshoulder"
+  ],
+  [
+   "tool_prev",
+   "Previous tool",
+   "leftshoulder"
+  ],
+  [
+   "tool_wheel",
+   "Tool wheel (hold)",
+   "y"
+  ],
+  [
+   "loadout",
+   "Loadout editor",
+   "x"
+  ],
+  [
+   "sprint",
+   "Sprint",
+   "leftstick"
+  ],
+  [
+   "crouch",
+   "Crouch / fly down",
+   "b"
+  ],
+  [
+   "up",
+   "Fly up (photo mode)",
+   "a"
+  ],
+  [
+   "menu",
+   "Menu (Esc)",
+   "start"
+  ],
+  [
+   "big_view",
+   "Big brain view",
+   "back"
+  ],
+  [
+   "neurodex",
+   "Neurodex",
+   "dpup"
+  ],
+  [
+   "killcam",
+   "Kill cam / skip it",
+   "dpdown"
+  ]
+ ],
+ "pad_axes": [
+  "leftx",
+  "lefty",
+  "rightx",
+  "righty",
+  "lefttrigger",
+  "righttrigger"
+ ],
+ "pad_buttons": [
+  "a",
+  "b",
+  "x",
+  "y",
+  "back",
+  "guide",
+  "start",
+  "leftstick",
+  "rightstick",
+  "leftshoulder",
+  "rightshoulder",
+  "dpup",
+  "dpdown",
+  "dpleft",
+  "dpright"
+ ],
+ "reserved_keys": [
+  "escape"
+ ],
+ "overlap_ok": [
+  [
+   "neurodex",
+   "right"
+  ]
+ ],
+ "first_run": {
+  "tutorial_done": false,
+  "loadout_notice": false,
+  "neuron_shapes_asked": false,
+  "whatsnew_3_0_seen": false
+ },
+ "tools": [
+  "hand",
+  "flick",
+  "swatter",
+  "bomb",
+  "zapper",
+  "torch",
+  "freeze",
+  "cleaner",
+  "alcohol",
+  "cva",
+  "sugar",
+  "fruit",
+  "spider",
+  "frog",
+  "dragonfly",
+  "mantis",
+  "decoy",
+  "laser"
+ ],
+ "max_saved_loadouts": 5,
+ "loadout": {
+  "catalog": [
+   {
+    "name": "hand",
+    "label": "HAND",
+    "category": "Touch",
+    "desc": "Grab the fly and throw it.",
+    "neurons": "Touch neurons where you grab it: head BM_* + JO-*, body SNta*, legs SNpp*, wings WG*.",
+    "tag": "CONNECTOME",
+    "lab_only": false,
+    "larva": true,
+    "larva_note": ""
+   },
+   {
+    "name": "flick",
+    "label": "FLICK",
+    "category": "Touch",
+    "desc": "Flick it away with a fingertip.",
+    "neurons": "Touch neurons near the flick (head, body, legs, wings). The flight that follows is game physics.",
+    "tag": "CONNECTOME",
+    "lab_only": false,
+    "larva": true,
+    "larva_note": ""
+   },
+   {
+    "name": "swatter",
+    "label": "SWATTER",
+    "category": "Touch",
+    "desc": "Swat it. Hard, and it remembers.",
+    "neurons": "Touch neurons of the body parts hit (a strong hit fires more of them), plus looming detectors LPLC2 and LC4 as it swings in.",
+    "tag": "CONNECTOME",
+    "lab_only": false,
+    "larva": true,
+    "larva_note": ""
+   },
+   {
+    "name": "bomb",
+    "label": "BOMB",
+    "category": "Touch",
+    "desc": "Drop a bomb with a 1.5 s fuse.",
+    "neurons": "Looming detectors LPLC2 and LC4 as it falls; touch neurons from the blast.",
+    "tag": "CONNECTOME",
+    "lab_only": false,
+    "larva": false,
+    "larva_note": "the larva has no looming detectors in this model"
+   },
+   {
+    "name": "zapper",
+    "label": "ZAPPER",
+    "category": "Touch",
+    "desc": "An electric shock through its body.",
+    "neurons": "Every touch neuron (real) plus current into a random 30% of all neurons for 40 ms (game rule).",
+    "tag": "GAME RULE",
+    "lab_only": false,
+    "larva": true,
+    "larva_note": ""
+   },
+   {
+    "name": "torch",
+    "label": "BLOWTORCH",
+    "category": "Thermal",
+    "desc": "Hold to burn it; maxes out pain.",
+    "neurons": "Every touch neuron and the heat cells TRN_VP2 at full strength; pain is a game estimate.",
+    "tag": "CONNECTOME",
+    "lab_only": false,
+    "larva": true,
+    "larva_note": ""
+   },
+   {
+    "name": "freeze",
+    "label": "FREEZE SPRAY",
+    "category": "Thermal",
+    "desc": "Hold to freeze it solid, then smash the ice.",
+    "neurons": "Cold cells TRN_VP3 and a little touch. Cooling damps the brain and the shatter are game rules.",
+    "tag": "CONNECTOME",
+    "lab_only": false,
+    "larva": true,
+    "larva_note": ""
+   },
+   {
+    "name": "cleaner",
+    "label": "BRAKE CLEANER",
+    "category": "Chemical",
+    "desc": "Hold: the solvent dissolves it.",
+    "neurons": "Smell neurons (ORN_*, 2,635) and taste neurons (leg, labellar, pharyngeal GRNs) at full strength; the growing inhibition is a game rule.",
+    "tag": "GAME RULE",
+    "lab_only": false,
+    "larva": true,
+    "larva_note": ""
+   },
+   {
+    "name": "alcohol",
+    "label": "ALCOHOL",
+    "category": "Chemical",
+    "desc": "Drop fermented fruit: sweet reward, escalating drunkenness.",
+    "neurons": "Sugar-pathway taste neurons and PAM reward neurons, and the fermentation glomeruli DM1, DM2, DP1m. The drunkenness is a game rule.",
+    "tag": "GAME RULE",
+    "lab_only": false,
+    "larva": false,
+    "larva_note": "the larval brain has no DM1/DM2/DP1m glomeruli"
+   },
+   {
+    "name": "cva",
+    "label": "cVA",
+    "category": "Chemical",
+    "desc": "Puff cVA pheromone.",
+    "neurons": "Or67d ORNs of the DA1 glomerulus, then DA1 projection neurons and the lateral horn (validated). The cloud is a game rule.",
+    "tag": "CONNECTOME",
+    "lab_only": false,
+    "larva": false,
+    "larva_note": "no DA1 glomerulus in the larval brain"
+   },
+   {
+    "name": "sugar",
+    "label": "SUGAR",
+    "category": "Reward",
+    "desc": "Drop sugar to reward it.",
+    "neurons": "Sugar-pathway taste neurons (30) and the PAM reward neurons (316), which the fly then walks over and eats. The walking and eating are game rules.",
+    "tag": "CONNECTOME",
+    "lab_only": false,
+    "larva": true,
+    "larva_note": ""
+   },
+   {
+    "name": "fruit",
+    "label": "FRUIT",
+    "category": "Reward",
+    "desc": "Drop a piece of ripe fruit, like the orchard's.",
+    "neurons": "Exactly as sugar does: sugar-pathway taste neurons and PAM reward neurons. The fruit is a game rule.",
+    "tag": "CONNECTOME",
+    "lab_only": false,
+    "larva": true,
+    "larva_note": ""
+   },
+   {
+    "name": "spider",
+    "label": "SPIDER",
+    "category": "Creatures",
+    "desc": "Drop a spider that hunts it.",
+    "neurons": "Bites hit body and leg touch neurons; looming detectors as it closes in. The hunting and the venom are game rules.",
+    "tag": "GAME RULE",
+    "lab_only": false,
+    "larva": false,
+    "larva_note": "the larva has no looming detectors in this model"
+   },
+   {
+    "name": "frog",
+    "label": "FROG",
+    "category": "Creatures",
+    "desc": "Put down a frog: a very fast tongue strike.",
+    "neurons": "Looming detectors LPLC2/LC4 (and so DNp01) as it hops closer and the tongue shoots out; a capture fires body, head and leg touch neurons. The frog's behaviour is a game rule.",
+    "tag": "GAME RULE",
+    "lab_only": false,
+    "larva": false,
+    "larva_note": "the larva has no looming detectors in this model"
+   },
+   {
+    "name": "dragonfly",
+    "label": "DRAGONFLY",
+    "category": "Creatures",
+    "desc": "Release a dragonfly that chases flying flies from above.",
+    "neurons": "Looming detectors LPLC2/LC4 as it dives; a grab fires leg, wing and body touch neurons. It only hunts a fly that is in the air. The chase is a game rule.",
+    "tag": "GAME RULE",
+    "lab_only": false,
+    "larva": false,
+    "larva_note": "the larva has no looming detectors in this model"
+   },
+   {
+    "name": "mantis",
+    "label": "MANTIS",
+    "category": "Creatures",
+    "desc": "Put down a mantis that creeps up, then strikes.",
+    "neurons": "Looming detectors LPLC2/LC4: the slow creep stays below the looming threshold, the strike does not; a capture fires body and leg touch neurons. The creep and strike are game rules.",
+    "tag": "GAME RULE",
+    "lab_only": false,
+    "larva": false,
+    "larva_note": "the larva has no looming detectors in this model"
+   },
+   {
+    "name": "decoy",
+    "label": "DECOY",
+    "category": "Creatures",
+    "desc": "Drop a decoy female to evoke courtship.",
+    "neurons": "Foreleg contact drives the 64 foreleg gustatory neurons LgLG5-8 (putative ppk23/ppk25). COURTSHIP is a game rule.",
+    "tag": "GAME RULE",
+    "lab_only": false,
+    "larva": false,
+    "larva_note": "no LgLG5-8 neurons in the larval brain"
+   },
+   {
+    "name": "laser",
+    "label": "LASER",
+    "category": "Lab",
+    "desc": "Stimulate or silence chosen cell types in real time.",
+    "neurons": "Whatever cell types you aim it at (optogenetics-style current), so it is Lab mode only.",
+    "tag": "CONNECTOME",
+    "lab_only": true,
+    "larva": false,
+    "larva_note": "its cell types are the adult's"
+   }
+  ],
+  "tool_names": [
+   "hand",
+   "flick",
+   "swatter",
+   "bomb",
+   "torch",
+   "cleaner",
+   "zapper",
+   "freeze",
+   "spider",
+   "sugar",
+   "alcohol",
+   "laser",
+   "cva",
+   "decoy",
+   "fruit",
+   "frog",
+   "dragonfly",
+   "mantis"
+  ],
+  "presets": {
+   "base": [
+    "hand",
+    "swatter",
+    "torch",
+    "freeze",
+    "sugar"
+   ],
+   "chaos": [
+    "hand",
+    "bomb",
+    "torch",
+    "cleaner",
+    "zapper",
+    "spider",
+    "alcohol",
+    "frog",
+    "mantis"
+   ],
+   "chemist": [
+    "hand",
+    "cleaner",
+    "alcohol",
+    "cva",
+    "sugar",
+    "freeze"
+   ],
+   "lab": [
+    "hand",
+    "flick",
+    "swatter",
+    "bomb",
+    "torch",
+    "cleaner",
+    "zapper",
+    "freeze",
+    "spider",
+    "sugar",
+    "alcohol",
+    "laser",
+    "cva",
+    "decoy",
+    "fruit",
+    "frog",
+    "dragonfly",
+    "mantis"
+   ],
+   "all": [
+    "hand",
+    "flick",
+    "swatter",
+    "bomb",
+    "torch",
+    "cleaner",
+    "zapper",
+    "freeze",
+    "spider",
+    "sugar",
+    "alcohol",
+    "laser",
+    "cva",
+    "decoy",
+    "fruit",
+    "frog",
+    "dragonfly",
+    "mantis"
+   ],
+   "pet": [
+    "hand",
+    "swatter",
+    "torch",
+    "freeze",
+    "sugar",
+    "fruit"
+   ]
+  },
+  "preset_labels": {
+   "auto": "Auto",
+   "base": "Base",
+   "chaos": "Chaos",
+   "chemist": "Chemist",
+   "lab": "Lab",
+   "all": "All",
+   "pet": "Pet",
+   "custom": "Custom"
+  },
+  "preset_tips": {
+   "auto": "Base in Play, Lab in Lab mode, Pet in Pet mode.",
+   "base": "Hand, swatter, blowtorch, freeze spray, sugar.",
+   "chaos": "Bomb, blowtorch, brake cleaner, zapper, spider, alcohol, frog, mantis.",
+   "chemist": "Brake cleaner, alcohol, cVA, sugar, freeze spray.",
+   "lab": "Every tool, including the laser.",
+   "all": "Every tool the mode allows (the laser only in Lab mode).",
+   "pet": "Gentle tools for a pet: hand, swatter, blowtorch, freeze spray, sugar and fruit.",
+   "custom": "Your own loadout, made in the editor."
+  },
+  "choices": [
+   "auto",
+   "base",
+   "chaos",
+   "chemist",
+   "lab",
+   "all",
+   "pet",
+   "custom"
+  ],
+  "mode_default": {
+   "play": "base",
+   "lab": "lab",
+   "pet": "pet"
+  },
+  "categories": [
+   "Touch",
+   "Thermal",
+   "Chemical",
+   "Reward",
+   "Creatures",
+   "Lab"
+  ],
+  "page_size": 10
+ }
+}

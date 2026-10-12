@@ -1,0 +1,1031 @@
+//! The HUD as the pygame game drew it: one canvas of `hud_w x hud_h` units (`ktf_ui::hud`), shown over the 3D view and scaled to the window.
+//! This module gathers the numbers (pain, reward, hits, the tool bar, the brain panel, popups) from the game's resources each frame, keeps
+//! the few things the HUD itself remembers (the smoothed pain index, its trace, peaks), and places the 3D view and the brain image to
+//! match the layout (`kick3d.compute_layout`).
+
+use bevy::asset::RenderAssetUsages;
+use bevy::image::ImageSampler;
+use bevy::prelude::*;
+use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
+use bevy::window::PrimaryWindow;
+use ktf_ui::Canvas;
+use ktf_ui::hud::*;
+use ktf_ui::layout::{Layout, compute_layout};
+
+use crate::app::{LatestSnapshot, SimLink};
+use crate::arcade::Arcade;
+use crate::brainview::{BrainView, PanelMode};
+use crate::config::Arena;
+use crate::controls::TimeControl;
+use crate::feedback::{Notes, Popup as PopupMsg, Tag};
+use crate::fly::{Fly, FlyDied, FlyHit, MAX_HEALTH, ResetFly};
+use crate::menu_ui::{MenuOpen, UserConfig};
+use crate::neurodex_play::{Dex, TOAST_MAX, TOAST_S};
+use crate::player::{MouseLook, PlayerCamera};
+use crate::sim_thread::Command;
+use crate::tools::{ActiveLoadout, LASER_TARGETS, TOOLS, ToolState};
+
+/// Where the HUD sits in the window: recomputed every frame from the window size and the settings.
+#[derive(Resource, Clone, Copy)]
+pub struct HudLayout(pub Layout);
+
+impl Default for HudLayout {
+    fn default() -> Self {
+        Self(compute_layout(1280, 720, true, 0, 1.0))
+    }
+}
+
+/// What the HUD remembers: per-fly counters and the smoothed pain (`FlySlot.pain*`, `reward`).
+#[derive(Resource, Default)]
+pub struct HudStats {
+    pub hits: u32,
+    pub kills: u32,
+    pub pain: f32,
+    pub pain_parts: [f32; 5],
+    pub pain_trace: Vec<f32>,
+    pub pain_peak: f32,
+    pub pain_max_s: f32,
+    pub reward: f32,
+    frame: u64,
+    pub help: bool,
+}
+
+/// Where the HUD's clickable parts were drawn last frame.
+#[derive(Resource, Default)]
+struct HudHitsRes(ktf_ui::hud::HudHits);
+
+#[derive(Resource)]
+struct HudCanvas {
+    canvas: Canvas,
+    image: Handle<Image>,
+    crisp: bool,
+}
+
+#[derive(Component)]
+pub struct HudNode;
+
+#[derive(Default)]
+struct PopupLive {
+    live: Vec<(f32, Vec3, String, Color)>,
+}
+
+fn new_image(w: u32, h: u32, nearest: bool) -> Image {
+    let mut img = Image::new(
+        Extent3d { width: w, height: h, depth_or_array_layers: 1 },
+        TextureDimension::D2,
+        vec![0; (w * h * 4) as usize],
+        TextureFormat::Rgba8UnormSrgb,
+        RenderAssetUsages::default(),
+    );
+    img.sampler = if nearest { ImageSampler::nearest() } else { ImageSampler::linear() };
+    img
+}
+
+fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
+    // the UI camera covers the whole window, while the 3D camera may only cover the part left of the brain panel
+    commands.spawn((
+        Camera2d,
+        IsDefaultUiCamera,
+        Camera { order: 100, clear_color: ClearColorConfig::None, ..default() },
+        bevy::camera::visibility::RenderLayers::layer(31),
+    ));
+    let image = images.add(new_image(1280, 720, true));
+    commands.spawn((
+        HudNode,
+        ImageNode::new(image.clone()),
+        Node {
+            position_type: PositionType::Absolute,
+            left: Val::Px(0.0),
+            top: Val::Px(0.0),
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            ..default()
+        },
+        GlobalZIndex(500),
+    ));
+    commands.insert_resource(HudCanvas { canvas: Canvas { linear_light: true, ..Canvas::new(1280, 720) }, image, crisp: true });
+}
+
+/// The HUD's play width and height this frame, for the panels that Python sizes with the rebound module constants `PLAY_W` and `H`
+/// (`render` sets `k2.W, k2.H, k2.PLAY_W = hud_w, hud_h, play_w` every frame): the tool wheel, the challenge panels, the autopsy card and
+/// brain surgery. 890 x 760 until the first layout (and in the tests, which compare against pictures made at that size).
+static LIVE_PLAY_W: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(890);
+static LIVE_HUD_H: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(760);
+
+pub fn live_play_w() -> i32 {
+    LIVE_PLAY_W.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+pub fn live_hud_h() -> i32 {
+    LIVE_HUD_H.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+/// The layout for this frame, and the 3D camera's viewport: with a solid brain panel the room is drawn only left of it.
+#[allow(clippy::too_many_arguments)]
+fn layout(
+    window: Single<&Window, With<PrimaryWindow>>,
+    cfg: Res<UserConfig>,
+    view: Res<BrainView>,
+    mut lay: ResMut<HudLayout>,
+    mut cam: Single<&mut Camera, With<PlayerCamera>>,
+) {
+    let (wn, hn) = (window.physical_width() as i32, window.physical_height() as i32);
+    if wn < 2 || hn < 2 {
+        return;
+    }
+    let mode = match view.mode {
+        PanelMode::Solid => 0,
+        PanelMode::SeeThrough => 1,
+        PanelMode::Faint => 2,
+        PanelMode::Hidden => 3,
+    };
+    let l = compute_layout(wn, hn, cfg.0.get_str("graphics.menu_size") != "large", mode, cfg.0.get_f32("graphics.ui_scale"));
+    lay.0 = l;
+    LIVE_PLAY_W.store(l.play_w, std::sync::atomic::Ordering::Relaxed);
+    LIVE_HUD_H.store(l.hud_h, std::sync::atomic::Ordering::Relaxed);
+    let want = if view.mode == PanelMode::Solid && !view.big {
+        let w = ((l.view_w as f32 * l.scale).round() as u32).clamp(1, wn as u32);
+        Some(bevy::camera::Viewport { physical_position: UVec2::ZERO, physical_size: UVec2::new(w, hn as u32), ..default() })
+    } else {
+        None
+    };
+    let same = match (&cam.viewport, &want) {
+        (None, None) => true,
+        (Some(a), Some(b)) => a.physical_size == b.physical_size && a.physical_position == b.physical_position,
+        _ => false,
+    };
+    if !same {
+        cam.viewport = want;
+    }
+}
+
+fn count_events(
+    mut hits: MessageReader<FlyHit>,
+    mut died: MessageReader<FlyDied>,
+    mut resets: MessageReader<ResetFly>,
+    mut st: ResMut<HudStats>,
+) {
+    st.hits += hits.read().count() as u32;
+    st.kills += died.read().count() as u32;
+    if resets.read().count() > 0 {
+        let (kills, help) = (st.kills, st.help);
+        *st = HudStats { kills, help, ..default() };
+    }
+}
+
+/// `Game.update`'s pain block, once per frame at 60 Hz: the pain index follows the sim's pain parts, the DN alarm held a little, a fly in
+/// pain pokes its punishment neurons, reward follows the dopamine level.
+fn update_stats(
+    snap: Res<LatestSnapshot>,
+    flies: Query<(&Fly, &crate::fly::Slot)>,
+    which: Res<crate::flies_play::Flies>,
+    link: Res<SimLink>,
+    mut st: ResMut<HudStats>,
+    mut others: Local<std::collections::HashMap<u32, (f32, [f32; 5])>>,
+) {
+    let Some(s) = snap.0.as_deref() else { return };
+    let Some(info) = s.info.as_deref() else { return };
+    st.frame += 1;
+    let mut parts = s.pain_parts;
+    parts[3] = parts[3].max(st.pain_parts[3] * 0.96);
+    for (cur, new) in st.pain_parts.iter_mut().zip(parts) {
+        *cur += (new - *cur) * 0.15;
+    }
+    let idx = fly_sim::groups::pain_index(&parts);
+    st.pain += (idx - st.pain) * 0.15;
+    let reward_level = info.group_names.iter().position(|n| n == "reward").map_or(1.0, |i| s.levels.get(i).copied().unwrap_or(1.0));
+    st.reward += (((reward_level - 1.0) / 0.6).clamp(0.0, 1.0) * 100.0 - st.reward) * 0.1;
+    let dead = flies.iter().find(|(_, sl)| sl.0 == which.focus).is_none_or(|(f, _)| f.dead());
+    if !dead && st.pain > 25.0 && st.frame.is_multiple_of(3) {
+        link.0.send(Command::PokeFly { slot: which.focus, region: "punish".into(), side: None, strength: st.pain / 100.0 });
+    }
+    // every other fly has its own pain, followed the same way (`slot.pain`), and pokes its own punishment neurons
+    for o in &s.others {
+        let e = others.entry(o.slot).or_insert((0.0, [0.0; 5]));
+        let mut parts = o.pain_parts;
+        parts[3] = parts[3].max(e.1[3] * 0.96);
+        for (cur, new) in e.1.iter_mut().zip(parts) {
+            *cur += (new - *cur) * 0.15;
+        }
+        e.0 += (fly_sim::groups::pain_index(&e.1) - e.0) * 0.15;
+        let alive = flies.iter().find(|(_, sl)| sl.0 == o.slot).is_some_and(|(f, _)| !f.dead());
+        if alive && e.0 > 25.0 && st.frame.is_multiple_of(3) {
+            link.0.send(Command::PokeFly { slot: o.slot, region: "punish".into(), side: None, strength: e.0 / 100.0 });
+        }
+    }
+    others.retain(|k, _| s.others.iter().any(|o| o.slot == *k));
+    if !dead {
+        st.pain_peak = st.pain_peak.max(st.pain);
+        if st.pain >= 99.0 {
+            st.pain_max_s += 1.0 / 60.0;
+        }
+    }
+    let p = st.pain;
+    st.pain_trace.push(p);
+    let n = st.pain_trace.len();
+    if n > 720 {
+        st.pain_trace.drain(0..n - 720);
+    }
+}
+
+fn pygame_state(f: &Fly, now: f32, arena: &str) -> String {
+    if f.shattered_at.is_some() {
+        "shattered".into()
+    } else if f.dissolved_at.is_some() {
+        "dissolved".into()
+    } else if f.frozen_at.is_some() {
+        "frozen solid".into()
+    } else if f.dead() {
+        "dead".into()
+    } else if f.stuck.len() >= 2 {
+        "stuck on flypaper".into()
+    } else if arena == "pool" && f.wet > 0.5 && now >= f.react.escape_until {
+        "swimming".into()
+    } else if f.wrapped {
+        "wrapped in silk".into()
+    } else if f.grabbed.is_some() {
+        "grabbed".into()
+    } else if now < f.react.escape_until {
+        "flying".into()
+    } else if now < f.react.eating_until {
+        "eating sugar".into()
+    } else if now < f.react.stun_until {
+        "stunned".into()
+    } else {
+        f.action.into()
+    }
+}
+
+const MOTOR_ROWS: [(&str, &str); 10] = [
+    ("jump", "head-touch DNs  > JUMP"),
+    ("run", "body-touch DNs  > RUN"),
+    ("kick", "leg-touch DNs   > KICK"),
+    ("walk", "DNp09 (P9)      > WALK"),
+    ("back", "MDN moonwalker  > BACK UP"),
+    ("turn_l", "DNa01/02 left   > TURN"),
+    ("turn_r", "DNa01/02 right  > TURN"),
+    ("fly", "DNg02 wing power> FLY"),
+    ("escape", "DNp01 giant fiber> DODGE"),
+    ("fire", "DNp35 object DNs> SHOOT"),
+];
+
+/// `THRESH.get(name)` for a descending-neuron row, live (the Lab's parameters change it). The two turn rows have no entry in Python's
+/// table (its key is `turn`), so they show no threshold mark and never go amber.
+fn motor_threshold(name: &str) -> Option<f32> {
+    let th = crate::reactions::thresholds();
+    match name {
+        "jump" => Some(th.jump),
+        "run" => Some(th.run),
+        "kick" => Some(th.kick),
+        "walk" => Some(th.walk),
+        "back" => Some(th.back),
+        "fly" => Some(th.fly),
+        "escape" => Some(th.escape),
+        "fire" => Some(th.fire),
+        _ => None,
+    }
+}
+
+/// Everything the HUD reads (bundled: a system takes at most 16 parameters).
+#[derive(bevy::ecs::system::SystemParam)]
+struct HudIn<'w, 's> {
+    time: Res<'w, Time<Virtual>>,
+    real: Res<'w, Time<Real>>,
+    snap: Res<'w, LatestSnapshot>,
+    st: Res<'w, HudStats>,
+    notes: Res<'w, Notes>,
+    tools: Res<'w, ToolState>,
+    loadout: Res<'w, ActiveLoadout>,
+    arena: Res<'w, Arena>,
+    cfg: Res<'w, UserConfig>,
+    view: Res<'w, BrainView>,
+    tc: Res<'w, TimeControl>,
+    look: Res<'w, MouseLook>,
+    menu: Res<'w, MenuOpen>,
+    arcade: Res<'w, Arcade>,
+    settings: Res<'w, crate::config::Settings>,
+    dex: Res<'w, Dex>,
+    tut: Res<'w, crate::tutorial_play::Tutorial>,
+    learned: Res<'w, crate::memory_play::Learned>,
+    chal: Res<'w, crate::challenges::Challenges>,
+    surgery: Res<'w, crate::surgery_play::Surgery>,
+    autopsy: Res<'w, crate::autopsy_play::AutopsyCard>,
+    wheel: Res<'w, crate::wheel_play::Wheel>,
+    inspector: Res<'w, crate::inspector_play::Inspector>,
+    fruit: Res<'w, crate::environment::Fruit>,
+    kitchen: Res<'w, crate::environment::Kitchen>,
+    weather: Res<'w, crate::weather_play::WeatherRes>,
+    lost: Query<'w, 's, &'static crate::environment::Forage>,
+    flies: Query<'w, 's, (&'static Fly, &'static crate::fly::Slot)>,
+    which: Res<'w, crate::flies_play::Flies>,
+    pet: Res<'w, crate::pet_play::PetRes>,
+    photo: Res<'w, crate::photo_play::Photo>,
+    live: Res<'w, crate::live_play::Live>,
+    mic: Res<'w, crate::mic::Mic>,
+    aim: Res<'w, crate::player::Aim>,
+    parts: Query<'w, 's, (&'static crate::fly::FlyPart, &'static Transform)>,
+    duel: Res<'w, crate::duel_play::Duel>,
+    saved: Res<'w, crate::feedback::SavedMsg>,
+}
+
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
+fn draw(
+    mut hc: ResMut<HudCanvas>,
+    lay: Res<HudLayout>,
+    i: HudIn,
+    mut incoming: MessageReader<PopupMsg>,
+    mut popups: Local<PopupLive>,
+    camera: Single<(&Camera, &GlobalTransform), With<PlayerCamera>>,
+    window: Single<&Window, With<PrimaryWindow>>,
+    mut images: ResMut<Assets<Image>>,
+    mut node: Single<&mut ImageNode, With<HudNode>>,
+    mut hits_out: ResMut<HudHitsRes>,
+    mut stamps: Local<std::collections::VecDeque<f64>>,
+    science: Res<crate::science_play::Science>,
+    mut last: Local<Option<(HudKey, HudState)>>,
+    mut prof: ResMut<crate::profiler::ProfilerStats>,
+) {
+    let t_state = std::time::Instant::now();
+    let HudIn {
+        time,
+        real,
+        snap,
+        st,
+        notes,
+        tools,
+        loadout,
+        arena,
+        cfg,
+        view,
+        tc,
+        look,
+        menu,
+        arcade,
+        settings,
+        dex,
+        tut,
+        learned,
+        chal,
+        surgery,
+        autopsy,
+        wheel,
+        inspector,
+        fruit,
+        kitchen,
+        weather,
+        lost,
+        flies,
+        which,
+        pet,
+        photo,
+        live,
+        mic,
+        aim,
+        parts,
+        duel,
+        saved,
+    } = i;
+    let l = lay.0;
+    let crisp = (l.scale.fract() == 0.0) && l.scale >= 1.0;
+    if (hc.canvas.w, hc.canvas.h) != (l.hud_w, l.hud_h) || hc.crisp != crisp {
+        hc.canvas = Canvas { linear_light: true, ..Canvas::new(l.hud_w, l.hud_h) };
+        hc.image = images.add(new_image(l.hud_w as u32, l.hud_h as u32, crisp));
+        hc.crisp = crisp;
+        node.image = hc.image.clone();
+    }
+    let now = time.elapsed_secs();
+    let rnow = real.elapsed_secs_f64();
+    // `Extras.draw_fps`: the frames of the last second (the profiler overlay, when it is up, shows its own)
+    stamps.push_back(rnow);
+    while stamps.front().is_some_and(|t| rnow - t > 1.0) {
+        stamps.pop_front();
+    }
+    let fps = (cfg.0.get_bool("graphics.show_fps") && !settings.show_profiler)
+        .then(|| if stamps.len() > 1 && rnow > stamps[0] { ((stamps.len() - 1) as f64 / (rnow - stamps[0])) as f32 } else { 0.0 });
+    // popups: world points projected to HUD units, with Python's rate limit
+    for p in incoming.read() {
+        if popups.live.last().is_some_and(|x| now - x.0 < 0.3 && x.2 != p.text) {
+            continue;
+        }
+        popups.live.push((now, p.pos, p.text.clone(), p.color));
+        if popups.live.len() > 24 {
+            popups.live.remove(0);
+        }
+    }
+    popups.live.retain(|x| now - x.0 < 0.9);
+    let sf = window.scale_factor();
+    let to_hud = |v: Vec2| (v.x * sf / l.scale, v.y * sf / l.scale);
+    let tags_on = cfg.0.tags_on();
+    let hud_popups: Vec<ktf_ui::hud::Popup> = popups
+        .live
+        .iter()
+        .filter_map(|(born, pos, word, c)| {
+            let age = (now - born) / 0.9;
+            let v = camera.0.world_to_viewport(camera.1, *pos).ok()?;
+            let (x, y) = to_hud(v);
+            let c = c.to_srgba();
+            let src = crate::reactions::popup_source(word).map(String::from);
+            Some(ktf_ui::hud::Popup {
+                x,
+                y,
+                text: word.clone(),
+                color: [(c.red * 255.0) as u8, (c.green * 255.0) as u8, (c.blue * 255.0) as u8],
+                age,
+                source: src,
+            })
+        })
+        .collect();
+    let fly = flies.iter().find(|(_, sl)| sl.0 == which.focus).map(|(f, _)| f);
+    let n_flies = flies.iter().count();
+    let focus_index = {
+        let mut slots: Vec<u32> = flies.iter().map(|(_, s)| s.0).collect();
+        slots.sort_unstable();
+        slots.iter().position(|&s| s == which.focus).unwrap_or(0)
+    };
+    let (health, dead) = fly.map_or((0.0, true), |f| (f.health, f.dead()));
+    // the hotbar: the loadout's page of ten (`Game._draw_toolbar`), keys from the rebindable slot actions
+    let slots: Vec<ToolSlot> = loadout
+        .0
+        .page_tools()
+        .iter()
+        .enumerate()
+        .filter_map(|(k, name)| {
+            TOOLS.iter().find(|t| t.0 == name).map(|t| ToolSlot {
+                name: t.0.into(),
+                label: t.1.into(),
+                key: cfg.0.key_of(&format!("slot{}", k + 1)).into(),
+            })
+        })
+        .collect();
+    let sel = TOOLS[tools.selected];
+    // the key shown in the line above the bar: its slot, or "page N" on another page of a long loadout, or "wheel" when it is on no page
+    let key_label = match loadout.0.slot_of(sel.0) {
+        Some(slot) => cfg.0.key_of(&format!("slot{}", slot + 1)).to_uppercase(),
+        None => match loadout.0.tools.iter().position(|t| t == sel.0) {
+            Some(i) => format!("PAGE {}", i / 10 + 1),
+            None => "WHEEL".into(),
+        },
+    };
+    let hint = if sel.0 == "laser" {
+        format!("{}  [{}  {}]", sel.2, LASER_TARGETS[tools.laser_target].0, if tools.laser_silence { "SILENCE" } else { "ACTIVATE" })
+    } else {
+        sel.2.to_string()
+    };
+    let panel = (view.mode != PanelMode::Hidden).then(|| {
+        let s = snap.0.as_deref();
+        let idx = |name: &str| s.and_then(|s| s.info.as_deref()).and_then(|i| i.group_names.iter().position(|n| n == name));
+        let hz = |name: &str| idx(name).and_then(|i| s.and_then(|s| s.hz.get(i).copied())).unwrap_or(0.0);
+        let lvl = |name: &str| idx(name).and_then(|i| s.and_then(|s| s.levels.get(i).copied())).unwrap_or(0.0);
+        PanelData {
+            dead: s.is_some_and(|s| s.dead),
+            calm_fx: cfg.0.get_bool("access.reduced_flashing"),
+            neurons: s.map_or(0, |s| s.neurons),
+            big_view: view.big,
+            touch: [hz("head"), hz("body"), hz("legs"), hz("wing")],
+            motor: MOTOR_ROWS
+                .iter()
+                .map(|(n, label)| MotorRow { label: (*label).into(), level: lvl(n), thresh: motor_threshold(n) })
+                .collect(),
+            whole_trace: s.map_or(vec![], |s| s.whole_trace.clone()),
+            log: notes
+                .lines
+                .iter()
+                .map(|(born, text, _)| LogLine {
+                    age: now - born,
+                    text: text.clone(),
+                    source: crate::reactions::note_source(text).map(Into::into),
+                })
+                .collect(),
+            steps_per_s: s.map_or(0.0, |s| s.steps_per_s),
+            step_ms: s.map_or(0.0, |s| s.step_ms),
+        }
+    });
+    let reward_level = {
+        let s = snap.0.as_deref();
+        s.and_then(|s| s.info.as_deref())
+            .and_then(|i| i.group_names.iter().position(|n| n == "reward"))
+            .and_then(|i| s.and_then(|s| s.levels.get(i).copied()))
+            .unwrap_or(1.0)
+    };
+    let (pain_level, pain_neurons) = snap.0.as_deref().map_or((0, 0), |s| (s.pain_level as usize, s.pain_neurons));
+    let state = HudState {
+        fly_state: fly.map_or("waiting".into(), |f| pygame_state(f, now, arena.name())),
+        hits: st.hits,
+        kills: st.kills,
+        flies: n_flies.max(1) as u32,
+        focus: focus_index as u32,
+        max_flies: crate::flies_play::MAX_FLIES as u32,
+        health,
+        max_health: MAX_HEALTH,
+        immortal: settings.immortal,
+        fly_dead: dead,
+        arena: arena.name().into(),
+        arena_status: {
+            // `Game3D.arena_status`
+            let mut out: Vec<String> = vec![];
+            let counts = fruit.0.as_ref().map(|o| {
+                let ripe = o.fruit.iter().filter(|f| f.ripe()).count();
+                (ripe, o.fruit.iter().filter(|f| f.ripe() && f.fermented).count())
+            });
+            if arena.name() == "kitchen" {
+                if let Some(k) = kitchen.0.as_ref() {
+                    out.push(format!("fruit {}", counts.map_or(0, |c| c.0)));
+                    out.push(format!("{} in the trap", k.trapped.len()));
+                    out.push(format!("cook swats {}", k.cook.swats));
+                    if matches!(k.cook.state, crate::kitchen::CookState::Windup | crate::kitchen::CookState::Swat) {
+                        out.push("SWAT INCOMING".into());
+                    }
+                }
+            } else if crate::world::is_outdoor(arena.name()) {
+                if arena.name() == "field" {
+                    out.push(format!("wind {:.0} m/s from {:.0}\u{b0}", settings.wind_speed.max(3.0), settings.wind_dir_deg));
+                }
+                let wx = &weather.0;
+                if wx.rain > 0.0 || wx.storm {
+                    out.push(format!(
+                        "{} {:.0}%{}",
+                        if wx.storm { "STORM" } else { "rain" },
+                        wx.rain * 100.0,
+                        if wx.has_gusts() { format!(", gusts {:.0} m/s", wx.wind(0.0, 0.0).0) } else { String::new() }
+                    ));
+                }
+                if let Some((ripe, ferm)) = counts {
+                    out.push(format!("fruit {ripe} ({ferm} fermented)"));
+                }
+                let n_lost = lost.iter().filter(|f| f.lost).count();
+                if n_lost > 0 {
+                    out.push(format!("{n_lost} LOST ({} recall)", cfg.0.key_of("recall").to_uppercase()));
+                }
+            }
+            out
+        },
+        surgery_on: snap.0.as_deref().is_some_and(|s| s.surgery_modes.iter().any(|&m| m != 0) || s.surgery_types.iter().any(|t| t.1 != 0)),
+        muted: settings.mute,
+        pain: st.pain,
+        pain_parts: st.pain_parts,
+        pain_trace: st.pain_trace.clone(),
+        pain_peak: st.pain_peak,
+        pain_max_s: st.pain_max_s,
+        pain_level_name: fly_sim::groups::PAIN_LEVELS[pain_level.min(2)].0.into(),
+        pain_level,
+        pain_neurons,
+        pain_connectome: false,
+        reward: st.reward,
+        reward_level,
+        memory: snap.0.as_deref().and_then(|s| s.memory.as_deref()).map_or(vec![], |m| m.scores.clone()),
+        pet: pet.pet.as_ref().map(|p| ktf_ui::hud::PetView {
+            label: if pet.label.is_empty() { "card not measured".into() } else { pet.label.clone() },
+            hunger: p.hunger as f32,
+            sleep: p.sleep_pressure as f32,
+            mood: p.mood_word().into(),
+            age_days: ((std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0.0, |d| d.as_secs_f64()) - p.born_time)
+                / 86400.0) as f32,
+            welcome: (rnow < 12.0 && !p.welcome_message.is_empty()).then(|| p.welcome_message.clone()),
+        }),
+        live: live.hud(mic.handle.is_some(), rnow as f32),
+        photo: photo.active.then(|| ktf_ui::hud::PhotoView {
+            fov: photo.fov_deg,
+            focus: photo.focus,
+            dof: photo.dof,
+            scale: cfg.0.get_i64("graphics.photo_scale").max(1) as i32,
+            toast: photo.toast.as_ref().map(|(t, at)| (t.clone(), rnow as f32 - at)),
+        }),
+        tools: slots,
+        tool_name: sel.0.into(),
+        tool_line: format!("{key_label}  {}: {hint}", sel.1),
+        page: loadout.0.page,
+        pages: loadout.0.n_pages(),
+        look: look.captured,
+        free_mouse_key: cfg.0.key_of("free_mouse").into(),
+        overlay_open: st.help || view.big || arcade.open || learned.train_open || chal.overlay || surgery.open || autopsy.report.is_some(),
+        menu_open: menu.0,
+        dead_player: duel.player_dead(),
+        saved_msg: saved.current(rnow as f32).map(str::to_string),
+        duel: duel.on.then(|| ktf_ui::hud::DuelView {
+            hp: duel.hp,
+            hp_max: crate::duel_rules::PLAYER_HP,
+            valence: duel.valence,
+            fear: duel.fear,
+            like: duel.like,
+            steer: duel.steer,
+            trigger: duel.trigger,
+            fire_thresh: crate::reactions::thresholds().fire,
+            shots: duel.stats.shots,
+            hits: duel.stats.hits,
+            deaths: duel.stats.deaths,
+            hurt: duel.hurt_flash,
+            dead_for: duel.dead_at.map(|t| (time.elapsed_secs() - t).max(0.0)),
+            calm_fx: cfg.0.get_bool("access.reduced_flashing"),
+        }),
+        // the crosshair turns amber when the aim ray touches a fly within reach (`_nearest_fly3d(eye, d, REACH, 0.25)`)
+        laser_badge: (tools.name() == "laser" && tools.laser.is_active(time.elapsed_secs_f64())).then(|| {
+            let stim = tools.laser.mode == "activate";
+            (format!("LASER: {} ({})", tools.laser.target_type, if stim { "STIM" } else { "SILENCE" }), stim)
+        }),
+        crosshair_hot: crate::tools::ray_touches(
+            parts.iter().filter(|(p, _)| flies.get(p.fly).is_ok_and(|(f, _)| !f.gone())).map(|(p, t)| {
+                (
+                    t.translation,
+                    match p.part {
+                        crate::fly::Part::Head => crate::fly::HEAD_R,
+                        crate::fly::Part::Thorax => crate::fly::THX_R,
+                        crate::fly::Part::Abdomen => crate::fly::ABD_R,
+                    },
+                )
+            }),
+            aim.eye,
+            aim.dir,
+            crate::tools::REACH,
+            0.25,
+        ),
+        hide_hud: cfg.0.get_bool("brain.autopilot") && cfg.0.get_bool("brain.autopilot_hide_hud"),
+        fps,
+        science: science.card.as_ref().map(|c| c.0.clone()),
+        tags_on,
+        panel,
+        panel_alpha: match view.mode {
+            PanelMode::Solid => 255,
+            PanelMode::SeeThrough => 150,
+            PanelMode::Faint => 70,
+            PanelMode::Hidden => 0,
+        },
+        popups: hud_popups,
+        time_label: if tc.menu_paused {
+            None
+        } else if tc.paused {
+            Some(("PAUSED  (Z resume, . step)".into(), true))
+        } else if tc.speed < 1.0 {
+            Some((format!("SLOW-MO {}x  ([ ] speed)", ktf_data::sharecode::g(tc.speed as f64)), false))
+        } else {
+            None
+        },
+        help_open: st.help,
+        toasts: {
+            let calm_fx = cfg.0.get_bool("access.reduced_flashing");
+            let rise = if calm_fx { 0.6 } else { 0.15 };
+            let n = dex.toasts.len();
+            dex.toasts[n.saturating_sub(TOAST_MAX)..]
+                .iter()
+                .map(|(t, born)| {
+                    let age = rnow as f32 - born;
+                    let a = 255.0 * ((TOAST_S - age) / 0.6).min(age / rise + if calm_fx { 0.0 } else { 0.2 }).min(1.0);
+                    (t.clone(), a.clamp(0.0, 255.0) as u32)
+                })
+                .collect()
+        },
+        toasts_more: (dex.toasts.len() > TOAST_MAX).then(|| {
+            let key = cfg.0.key_of("neurodex").to_uppercase();
+            ktf_ui::i18n::tr_args(
+                "+{n} more discovered (Neurodex: {key})",
+                &[("n", &(dex.toasts.len() - TOAST_MAX).to_string()), ("key", if key.is_empty() { "Esc" } else { &key })],
+            )
+        }),
+        notd: dex.notd.as_ref().filter(|_| !menu.0).map(|(c, _)| ktf_ui::hud::NotdView {
+            label: format!("{}{}", c.first_type(), if c.also() > 0 { format!("  (+{} related types)", c.also()) } else { String::new() }),
+            text: c.fact.text.clone(),
+            cite: c.fact.cite.clone(),
+            action: c.plan.action.into(),
+            plan_text: c.plan.text.clone(),
+            look3d: look.captured,
+        }),
+        tutorial: tutorial_view(&tut, &cfg.0, rnow as f32).filter(|_| !menu.0),
+        training: learned.train_open.then(|| training_screen(&snap, &learned, rnow as f32)),
+        challenge: if wheel.open {
+            wheel.ops.clone()
+        } else if view.big && !inspector.ops.is_empty() && autopsy.report.is_none() {
+            inspector.ops.clone()
+        } else if autopsy.report.is_some() {
+            autopsy.ops.clone()
+        } else if surgery.open {
+            surgery.ops.clone()
+        } else {
+            chal.ops.clone()
+        },
+        mouse: window.cursor_position().map_or((-1, -1), |p| ((p.x * sf / l.scale) as i32, (p.y * sf / l.scale) as i32)),
+    };
+    prof.record("hud state", t_state);
+    let t_draw = std::time::Instant::now();
+    // Nothing on the HUD changed since the last frame (a menu is up, time is paused, or the game runs faster than the brain reports):
+    // the picture on screen is still right, so it is neither drawn nor sent to the GPU again. The only thing the drawing reads besides
+    // the state is the half-second blink of the panel's 'live' dot.
+    let blink = (rnow * 2.0) as i64 % 2 != 0;
+    let larger = cfg.0.get_bool("access.larger_text");
+    let key = (blink, larger, hc.crisp, hc.canvas.w, hc.canvas.h, cfg.0.get_str("access.language").to_string(), hc.image.id());
+    if last.as_ref().is_some_and(|(k, s)| *k == key && *s == state) {
+        prof.record("hud draw", t_draw);
+        prof.record("hud copy", std::time::Instant::now());
+        return;
+    }
+    let fonts = HudFonts::new(larger);
+    let HudCanvas { canvas, image, .. } = &mut *hc;
+    canvas.clear();
+    hits_out.0 = Hud { cv: canvas, lay: l, f: &fonts }.draw(&state, rnow);
+    prof.record("hud draw", t_draw);
+    let t_copy = std::time::Instant::now();
+    if let Some(mut img) = images.get_mut(&*image) {
+        // hand the finished picture over and take the image's old buffer back for the next frame (no 8 MB copy)
+        let old = img.data.replace(std::mem::take(&mut canvas.px));
+        canvas.px =
+            old.filter(|o| o.len() == (canvas.w * canvas.h * 4) as usize).unwrap_or_else(|| vec![0; (canvas.w * canvas.h * 4) as usize]);
+    }
+    *last = Some((key, state));
+    prof.record("hud copy", t_copy);
+}
+
+/// What the T screen shows (`Game._draw_training`) from the sim thread's memory view.
+fn training_screen(snap: &LatestSnapshot, l: &crate::memory_play::Learned, now: f32) -> ktf_ui::hud::TrainingScreen {
+    use ktf_ui::hud::{TrainProgress, TrainRow, TrainingScreen};
+    let s = snap.0.as_deref();
+    let Some(m) = s.and_then(|s| s.memory.as_deref()) else {
+        return TrainingScreen { available: false, ..Default::default() };
+    };
+    let score = |n: &str| m.scores.iter().find(|r| r.0 == n).map_or((0.0, 0.0), |r| (r.1, r.2));
+    let rows = fly_sim::groups::TOOL_NAMES
+        .iter()
+        .map(|n| {
+            let (fear, like) = score(n);
+            let trials = m.log.get(*n).map_or(0, |v| v.iter().filter(|e| e.kind == "fear" || e.kind == "like").count());
+            TrainRow { name: (*n).into(), fear, like, trials }
+        })
+        .collect();
+    let log = m.log.get(l.train_scent);
+    let curve = log.map_or(vec![], |v| v.iter().filter(|e| e.kind != "naive").map(|e| (e.fear as f32, e.like as f32)).collect());
+    let last_hz = log.and_then(|v| v.iter().rev().find_map(|e| e.mbon_hz));
+    TrainingScreen {
+        available: true,
+        rows,
+        selected: l.train_scent.into(),
+        curve,
+        naive_hz: m.naive_mbon.get(l.train_scent).copied(),
+        last_hz,
+        weakened: m.weakened,
+        synapses: m.synapses,
+        speed: l.train_speed,
+        wipe_armed: l.wipe_armed_at.is_some_and(|t| now - t < 3.0),
+        path: m.path.clone(),
+        train: m.train.as_ref().map(|t| TrainProgress {
+            kind: t.kind.clone(),
+            scent: t.scent.clone(),
+            done: t.done,
+            trials: t.trials,
+            phase: t.phase.clone(),
+            steps_per_s: s.map_or(0.0, |s| s.steps_per_s),
+        }),
+    }
+}
+
+/// The overlays the HUD click handler also serves (bundled: a system takes at most 16 parameters).
+#[derive(bevy::ecs::system::SystemParam)]
+struct ClickCtx<'w> {
+    learned: ResMut<'w, crate::memory_play::Learned>,
+    snap: Res<'w, LatestSnapshot>,
+    chal: ResMut<'w, crate::challenges::Challenges>,
+    virt: Res<'w, Time<Virtual>>,
+    surgery: Res<'w, crate::surgery_play::Surgery>,
+    autopsy: Res<'w, crate::autopsy_play::AutopsyCard>,
+    reset: MessageWriter<'w, ResetFly>,
+    sfx: MessageWriter<'w, crate::feedback::Sfx>,
+    tools: ResMut<'w, ToolState>,
+    loadout: ResMut<'w, ActiveLoadout>,
+    view: ResMut<'w, BrainView>,
+    duel: Res<'w, crate::duel_play::Duel>,
+    arcade: Res<'w, Arcade>,
+    saved: ResMut<'w, crate::feedback::SavedMsg>,
+}
+
+/// What the HUD's picture depends on besides its state: the blink phase, text size, pixel mode, size, language, and which image it is.
+type HudKey = (bool, bool, bool, i32, i32, String, AssetId<Image>);
+
+/// Clicks on the HUD itself (the Neuron of the Day card), with the mouse free.
+#[allow(clippy::too_many_arguments)]
+fn hud_clicks(
+    buttons: Res<ButtonInput<MouseButton>>,
+    mut look: ResMut<MouseLook>,
+    menu: Res<MenuOpen>,
+    window: Single<&Window, With<PrimaryWindow>>,
+    lay: Res<HudLayout>,
+    hits: Res<HudHitsRes>,
+    mut dex: ResMut<Dex>,
+    mut cfg: ResMut<UserConfig>,
+    link: Res<SimLink>,
+    mut notes: ResMut<Notes>,
+    real: Res<Time<Real>>,
+    mut tut: ResMut<crate::tutorial_play::Tutorial>,
+    cx: ClickCtx,
+    mut science: ResMut<crate::science_play::Science>,
+    mut hud_stats: ResMut<HudStats>,
+) {
+    let ClickCtx {
+        mut learned,
+        snap,
+        mut chal,
+        virt,
+        surgery,
+        autopsy,
+        mut reset,
+        mut sfx,
+        mut tools,
+        mut loadout,
+        mut view,
+        duel,
+        arcade,
+        mut saved,
+    } = cx;
+    if !buttons.just_pressed(MouseButton::Left) || look.captured || menu.0 {
+        return;
+    }
+    let Some(p) = window.cursor_position() else { return };
+    let k = window.scale_factor() / lay.0.scale;
+    let pos = ((p.x * k) as i32, (p.y * k) as i32);
+    let at = |r: Option<ktf_ui::Rect>| r.is_some_and(|r| r.contains(pos));
+    let now = real.elapsed_secs();
+    if science.card.is_some() && at(hits.0.science) {
+        science.card = None;
+        return;
+    }
+    if crate::autopsy_play::click(&autopsy, pos, &mut reset, &mut notes, &mut sfx, virt.elapsed_secs()) {
+        return;
+    }
+    if surgery.open {
+        let modes = snap.0.as_deref().map(|s| s.surgery_modes.clone()).unwrap_or_default();
+        crate::surgery_play::click(&surgery, pos, &link, &mut notes, &mut sfx, virt.elapsed_secs(), &modes);
+        return;
+    }
+    if chal.is_active() && crate::challenges::click(&mut chal, pos, &link, virt.elapsed_secs()) {
+        return;
+    }
+    if learned.train_open {
+        let busy = snap.0.as_deref().and_then(|s| s.memory.as_deref()).is_some_and(|m| m.train.is_some());
+        if let Some((_, what, arg)) = hits.0.train.iter().find(|(r, ..)| r.contains(pos)).cloned() {
+            match what.as_str() {
+                "select" if !busy => {
+                    if let Some(a) = arg {
+                        learned.train_scent = crate::tools::name_static(&a);
+                    }
+                }
+                "fear" | "like" | "test" if !busy => {
+                    link.0.send(Command::Train { kind: what.clone(), scent: learned.train_scent.into(), trials: 10 });
+                    notes.push(now, format!("TRAINING {what} on {}", learned.train_scent), Tag::GameRule);
+                }
+                "speed" => {
+                    learned.train_speed = if learned.train_speed < 1.5 {
+                        2.0
+                    } else if learned.train_speed < 2.5 {
+                        3.0
+                    } else {
+                        1.0
+                    }
+                }
+                "stop" => {
+                    link.0.send(Command::StopTrain);
+                }
+                "wipe" if !busy => {
+                    if learned.wipe_armed_at.is_some_and(|t| now - t < 3.0) {
+                        link.0.send(Command::WipeMemory);
+                        learned.wipe_armed_at = None;
+                        notes.push(now, "MEMORY   wiped", Tag::GameRule);
+                    } else {
+                        learned.wipe_armed_at = Some(now);
+                    }
+                }
+                _ => {}
+            }
+        }
+        return;
+    }
+    // a click in the room: the mouse goes back to the game (`handle3d`: not while dead or over a panel, not on the hotbar); then the hotbar,
+    // then the brain picture in the panel opens the big view
+    let overlay =
+        hud_stats.help || view.big || arcade.open || learned.train_open || chal.overlay || surgery.open || autopsy.report.is_some();
+    let on_tools = hits.0.tools.iter().any(|r| r.contains(pos)) || hits.0.pages.iter().any(|(r, _)| r.contains(pos));
+    let on_card =
+        at(hits.0.tutorial_next) || at(hits.0.tutorial_skip) || at(hits.0.notd_try) || at(hits.0.notd_off) || at(hits.0.notd_close);
+    if !overlay && !on_card {
+        if !duel.player_dead() && pos.0 < lay.0.play_w && !on_tools {
+            look.captured = true;
+            return;
+        }
+        if let Some((_, d)) = hits.0.pages.iter().find(|(r, _)| r.contains(pos)) {
+            if loadout.0.turn_page(*d) {
+                tools.page = loadout.0.page;
+                saved.set(format!("Hotbar page {}/{}", loadout.0.page + 1, loadout.0.n_pages()), now);
+            }
+            return;
+        }
+        if let Some(k) = hits.0.tools.iter().position(|r| r.contains(pos)) {
+            if let Some(name) = loadout.0.slot_tool(k) {
+                tools.selected = crate::tools::tool_index(name);
+            }
+            return;
+        }
+        if at(hits.0.view) {
+            view.big = true;
+            return;
+        }
+    }
+    let _ = &mut hud_stats;
+    if tut.active && at(hits.0.tutorial_next) {
+        tut.request = Some("next");
+    } else if tut.active && at(hits.0.tutorial_skip) {
+        tut.request = Some("skip");
+    } else if at(hits.0.notd_try) {
+        if let Some((c, _)) = dex.notd.take() {
+            notes.push(now, crate::neurodex_play::apply(&c, &link), Tag::GameRule);
+        }
+    } else if at(hits.0.notd_off) {
+        dex.notd = None;
+        cfg.set_and_save("brain.neuron_of_day", serde_json::json!(false));
+        notes.push(now, "NEURON OF THE DAY off (Settings > Brain turns it back on)", Tag::GameRule);
+    } else if at(hits.0.notd_close) {
+        dex.notd = None;
+    }
+}
+
+/// The tutorial card's text for the current step (`Tutorial._text`).
+fn tutorial_view(t: &crate::tutorial_play::Tutorial, cfg: &ktf_data::config::Config, now: f32) -> Option<ktf_ui::hud::TutorialView> {
+    use ktf_ui::i18n::{tr, tr_args};
+    if !t.active {
+        return None;
+    }
+    let step = t.step();
+    let (title, body) = match step {
+        "move" => (
+            tr("Move around"),
+            format!(
+                "{} {}",
+                tr_args(
+                    "Walk with {f}{l}{b}{r}.",
+                    &[
+                        ("f", &cfg.key_of("forward").to_uppercase()),
+                        ("l", &cfg.key_of("left").to_uppercase()),
+                        ("b", &cfg.key_of("back").to_uppercase()),
+                        ("r", &cfg.key_of("right").to_uppercase())
+                    ]
+                ),
+                tr("Click the room first to look around.")
+            ),
+        ),
+        "tool" => {
+            (tr("Use a tool"), tr("Click on the fly with the tool in your hand. The hand grabs and throws it, a gentle way to start."))
+        }
+        "brain" => (
+            tr("Watch its brain"),
+            tr(
+                "The panel is the fly's real brain, a simulation of the MaleCNS connectome. Neurons that fire glow. What you just did fired its touch neurons, and the neurons that react to them light up a moment later.",
+            ),
+        ),
+        "sugar" => (
+            tr("Sugar is a reward"),
+            tr(
+                "Sugar is in your hand. Click near the fly to drop some: it fires the taste neurons and the PAM reward neurons, then the fly walks over and eats.",
+            ),
+        ),
+        _ => (
+            tr("Choose your tools"),
+            tr_args(
+                "Press {key} to open the loadout editor: pick which tools are on the hotbar and in what order. Esc closes it. Hold {wheel} for the tool wheel, which reaches every tool.",
+                &[
+                    ("key", &ktf_ui::pages::loadout::key_label(cfg, "loadout")),
+                    ("wheel", &ktf_ui::pages::loadout::key_label(cfg, "tool_wheel")),
+                ],
+            ),
+        ),
+    };
+    let mut step_line = tr_args("Step {i} of {n}", &[("i", &(t.i + 1).to_string()), ("n", &crate::tutorial_play::STEPS.len().to_string())]);
+    if t.replay {
+        step_line += &format!("  ·  {}", tr("replay"));
+    }
+    let grow = if cfg.get_bool("access.reduced_flashing") { 0 } else { (1.0 + 1.5 * (1.0 + (now * 2.0).sin()) / 2.0) as i32 };
+    Some(ktf_ui::hud::TutorialView {
+        step_line,
+        title,
+        body,
+        next_label: format!("{}  (Enter)", tr("Next")),
+        skip_label: format!("{}  (Backspace)", tr("Skip tutorial")),
+        accent: ktf_ui::pages::loadout::select_color(cfg),
+        outline_panel: (step == "brain").then_some(grow),
+    })
+}
+
+fn keys(act: Res<crate::actions::Actions>, keys: Res<ButtonInput<KeyCode>>, mut st: ResMut<HudStats>) {
+    if act.just("help") {
+        st.help = !st.help;
+    }
+    if keys.just_pressed(KeyCode::Escape) && st.help {
+        st.help = false;
+    }
+}
+
+pub struct HudCanvasPlugin;
+
+impl Plugin for HudCanvasPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<HudLayout>()
+            .init_resource::<HudStats>()
+            .init_resource::<HudHitsRes>()
+            .add_systems(Startup, setup)
+            .add_systems(PreUpdate, layout.after(bevy::input::InputSystems))
+            .add_systems(FixedUpdate, update_stats)
+            .add_systems(Update, (keys, count_events, hud_clicks, draw).chain());
+    }
+}

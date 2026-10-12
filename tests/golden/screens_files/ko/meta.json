@@ -1,0 +1,35 @@
+{
+ "signature": {
+  "kind": "knockout",
+  "version": 1,
+  "seeds": [
+   4000,
+   4001
+  ],
+  "controls": 1,
+  "amp": 0.5,
+  "pre": 400,
+  "stim": 400,
+  "top": 4,
+  "behaviors": [
+   "looming_escape",
+   "sugar_feeding"
+  ],
+  "batch_size": 2,
+  "types": null,
+  "backend": "auto"
+ },
+ "created": "2026-10-10 18:47:09",
+ "tag": "MODEL PREDICTION",
+ "engines": [
+  [
+   "cpu",
+   "CPU (NumPy)"
+  ]
+ ],
+ "outputs": [
+  "knockout_screen.csv",
+  "knockout_screen.parquet"
+ ],
+ "parquet_note": null
+}

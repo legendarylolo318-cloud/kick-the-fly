@@ -1,0 +1,17 @@
+{
+ "kind": "protocol",
+ "payload": {
+  "protocol": {
+   "assay": "looming",
+   "name": "shared-loom",
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "surgery": {
+    "LC4": -1
+   }
+  }
+ }
+}

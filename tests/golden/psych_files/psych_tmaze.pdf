@@ -1,0 +1,76 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 792 612] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>
+endobj
+4 0 obj
+<< /Length 1626 >>
+stream
+1 1 1 rg 0 0 792 612 re f
+0.85 0.85 0.85 RG 0.75 w
+80 90.0 m 742 90.0 l S
+80 178.4 m 742 178.4 l S
+80 266.8 m 742 266.8 l S
+80 355.2 m 742 355.2 l S
+80 443.6 m 742 443.6 l S
+80 532.0 m 742 532.0 l S
+0.3 0.3 0.3 RG 1.5 w
+80.0 90 m 80.0 84 l S
+742.0 90 m 742.0 84 l S
+80 532 m 80 90 l 742 90 l S
+0.145 0.388 0.921 RG 2.5 w
+80.0 487.8 m
+742.0 532.0 l
+S
+0.114 0.306 0.847 RG 1.5 w
+80.0 444.5 m 80.0 531.1 l S
+76.0 531.1 m 84.0 531.1 l S
+76.0 444.5 m 84.0 444.5 l S
+742.0 532.0 m 742.0 532.0 l S
+738.0 532.0 m 746.0 532.0 l S
+738.0 532.0 m 746.0 532.0 l S
+0.145 0.388 0.921 rg 1 1 1 RG 1.5 w
+84.0 487.8 m 84.0 490.0 82.2 491.8 80.0 491.8 c 77.8 491.8 76.0 490.0 76.0 487.8 c 76.0 485.6 77.8 483.8 80.0 483.8 c 82.2 483.8 84.0 485.6 84.0 487.8 c B
+746.0 532.0 m 746.0 534.2 744.2 536.0 742.0 536.0 c 739.8 536.0 738.0 534.2 738.0 532.0 c 738.0 529.8 739.8 528.0 742.0 528.0 c 744.2 528.0 746.0 529.8 746.0 532.0 c B
+BT
+/F1 16 Tf 0.1 0.1 0.1 rg
+80 570 Td (Memory performance index vs conditioning pairings) Tj
+/F1 10 Tf 0.3 0.3 0.3 rg
+0 -18 Td (n = 2 flies per point, mean +/- 95% CI) Tj
+/F1 12 Tf 0.15 0.15 0.15 rg
+351.0 54 Td (Conditioning cycles \(CS+ / shock pairings\)) Tj
+/F1 9 Tf 0.4 0.4 0.4 rg
+50 87.0 Td (0.00) Tj 0 0 Td
+50 175.4 Td (0.20) Tj 0 0 Td
+50 263.8 Td (0.40) Tj 0 0 Td
+50 352.2 Td (0.60) Tj 0 0 Td
+50 440.6 Td (0.80) Tj 0 0 Td
+50 529.0 Td (1.00) Tj 0 0 Td
+72.0 72 Td (1) Tj 0 0 Td
+734.0 72 Td (2) Tj 0 0 Td
+/F1 8 Tf 0.5 0.5 0.5 rg
+80 28 Td (Kick the Fly v3.1.1 | Target: Memory performance index vs conditioning pairings | Seeds: 1000..1001 \(n=2\) | Default LIF sim \(dt=5ms, tau=20ms\) | Generated: GOLDEN) Tj
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000001919 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1989
+%%EOF

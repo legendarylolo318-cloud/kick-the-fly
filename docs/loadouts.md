@@ -71,4 +71,4 @@ and its look differ. It is in the Pet preset so a pet can be fed the orchard's f
 Replays (`.ktfreplay`, headless) record a `tool` event with the tool in use; it is informational, playing it back does nothing and
 older versions skip it, so tool choices replay correctly. `fly.loadout` (a `Loadout`: `.tools`, `.page_tools()`), `fly.set_loadout("chaos")` or a
 list of tool names, and `fly.use_tool("sugar")` (the tool's documented sensory neurons, driven once through `Brain.poke`) are in the Python
-API ([api.md](api.md)); `Fly(mode="lab")` allows the laser.
+API (`api.md` on the `python-legacy` branch); `Fly(mode="lab")` allows the laser.

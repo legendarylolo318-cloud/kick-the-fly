@@ -8,18 +8,82 @@ experiments (including the ones it fails), assays, classic behavior rigs, a virt
 ![Kick the Fly in the open field: swatting and torching the fly while its live brain lights up on the right](docs/demo.gif)
 
 *The open field in first person: a swat and the blowtorch fire the fly's real touch and heat neurons, and the panel on the right shows its whole
-brain responding. Recorded with the in-game video recorder (Shift+R).*
+brain responding.*
+
+**Version 4.0 is a new engine.** The game was rewritten from Python/pygame to Rust and [Bevy](https://bevyengine.org/): same game, same
+brain model (the Rust simulator reproduces the Python one spike for spike), a native program with no Python inside. The original Python game
+(3.1.1) is kept on the [`python-legacy`](https://github.com/legendarylolo318-cloud/kick-the-fly/tree/python-legacy) branch and the tag
+`python-3.1.1`. What 4.0 does not have yet is listed under [What is different in 4.0](#what-is-different-in-40).
 
 ## Download
 
 | | |
 |---|---|
-| **Windows** | **[KickTheFly.exe](https://github.com/legendarylolo318-cloud/kick-the-fly/releases/latest/download/KickTheFly.exe)** (about 90 MB). Double-click it: nothing to install, the whole brain is inside. It isn't code-signed, so SmartScreen may warn: **More info**, then **Run anyway**. |
-| **Linux** | **[KickTheFly-x86_64.AppImage](https://github.com/legendarylolo318-cloud/kick-the-fly/releases/latest/download/KickTheFly-x86_64.AppImage)** (about 110 MB). `chmod +x` it and run it. Built on Ubuntu 22.04; Wayland or X11; no FUSE? add `--appimage-extract-and-run`. A Flatpak manifest is in `packaging/flatpak/`. |
-| **From source** | Any OS with Python 3.11+: [docs/running-from-source.md](docs/running-from-source.md). That's how you get the Numba and PyTorch GPU backends, the Python API and NWB export (the downloads already carry the OpenGL GPU backend). |
+| **Windows** | **[KickTheFly.exe](https://github.com/legendarylolo318-cloud/kick-the-fly/releases/latest/download/KickTheFly.exe)**. Double-click it: nothing to install, the whole brain is inside. Windows 10 or 11, 64-bit, a GPU with DirectX 12 or Vulkan. |
+| **Linux** | **[KickTheFly-x86_64.AppImage](https://github.com/legendarylolo318-cloud/kick-the-fly/releases/latest/download/KickTheFly-x86_64.AppImage)**. `chmod +x` it and run it. Needs a Vulkan driver (`vulkan-icd-loader` plus your GPU's driver). On a tiling Wayland compositor start it with `--fullscreen`. |
+| **From source** | Any OS with Rust: see [Build from source](#build-from-source) below. |
 
-Each release lists `SHA256SUMS`. The 3D game needs OpenGL 3.3; without it the game says why and starts the 2D version (`--2d`). Run
-`--selftest` (or Settings > Help) to check an install; it explains how to fix whatever it finds and changes nothing.
+Each release lists `SHA256SUMS`. Run the program with `--selftest` (or Settings > Help) to check an install; it explains how to fix whatever
+it finds and changes nothing. Settings, saves, share codes and the pet from the Python game are read as they are.
+
+## What is different in 4.0
+
+- **Not in 4.0 (they are in the Python version):** the 2D game (`--2d` is accepted and ignored), the larva brain, the Numba / PyTorch / OpenGL
+  compute backends (4.0 has one multi-threaded CPU backend), the Python API, NWB and TIFF export, GIF / video / time-lapse recording,
+  replays, and a few command-line analyses. The full list, with what was checked and how, is [PORTING.md](PORTING.md).
+- **Works a little differently:** the brain panel and the big brain view are a 3D cloud of every neuron instead of a flat picture; photo mode's
+  blur is Bevy's; pictures are the window's size; two Graphics settings (resolution scale, screenshot resolution) have no effect yet.
+- **New:** a native Wayland and X11 window, a profiler overlay with GPU pass times (F3).
+- **Speed, measured:** one brain step takes about 0.6 ms (the Python NumPy backend: roughly 2 ms), and the brain runs on its own thread, so
+  several flies no longer slow the picture down as much. The picture itself is *not* faster than the Python game's at the moment: the HUD
+  is drawn in software and is the bottleneck (see [Performance](#performance)).
+
+## Build from source
+
+Rust 1.95 or newer through `rustup`, and a Vulkan driver.
+
+| OS | Install |
+|---|---|
+| **Arch Linux** | `sudo pacman -S rustup vulkan-icd-loader && rustup default stable`, plus `nvidia-utils`, `vulkan-radeon` or `vulkan-intel` |
+| Debian / Ubuntu | `sudo apt install build-essential pkg-config libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev libx11-dev`, then [rustup.rs](https://rustup.rs) |
+| Windows | [rustup.rs](https://rustup.rs) with the MSVC build tools (`x86_64-pc-windows-msvc`) |
+
+**The brain pack.** The connectome is `data/kick_brain.npz` (37 MB, not in git: it is built from the public MaleCNS v1.0 download with the Python
+game's dev tool on the `python-legacy` branch, or taken out of a release's AppImage). It is found from the working directory upward, next to the program, or at
+`$KICK_THE_FLY_PACK`; `--pack FILE` overrides. Without it a synthetic random network runs, which is not the fly.
+`cargo build --release --features bundle-pack` compiles the pack into the program.
+
+```bash
+cargo run --release -p kick_the_fly -- --fullscreen   # the game (--fullscreen: tiling compositors open half-size windows otherwise)
+cargo run -p kick_the_fly --features dev              # fast rebuilds: Bevy linked dynamically (never for release)
+cargo test --workspace --release                      # unit tests and the goldens against the Python reference
+cargo fmt --check && cargo clippy --workspace --all-targets --release
+./build_appimage.sh                                   # dist/KickTheFly-x86_64.AppImage
+```
+
+A release build links everything with fat LTO: about ten minutes, and the test suite links some sixty such binaries (on a machine with less
+than 32 GB of memory add `-j 3`, or set `CARGO_PROFILE_RELEASE_LTO=off` as CI does). `H` in the game lists the keys; Esc opens the menu.
+`KICK_THE_FLY_HOME=<dir>` puts settings, saves and pictures under one folder.
+
+**Command line.**
+
+| Flag | What it does |
+|---|---|
+| `--pack FILE`, `--synthetic N`, `--seed S` | which brain, and the noise seed |
+| `--arena NAME`, `--flies N`, `--rain F --storm --day S` | start in an arena (room fan flypaper pool lamp escaperoom field orchard thermo kitchen), with N flies, with weather |
+| `--fullscreen`, `--autopilot` | borderless fullscreen; spectator mode (hands off, the big brain view up and turning) |
+| `--smoke SECONDS` | no window: run the brain thread and report steps per second |
+| `--selftest [--out FILE.json]`, `--bugreport [--out DIR]` | check this install; print and write what a bug report would contain (nothing is sent) |
+| `--shot FILE [--shot-frames N]`, `--cam x,y,z,tx,ty,tz`, `--menu SCREEN`, `--tool NAME`, `--photo DOF,FOCUS` | screenshot harness |
+| `--headless --validate [--seeds 1000-1009 --workers N --out FILE --strict]` | the 21 validation tests, no window |
+| `--headless --protocol FILE [--out DIR --bundle ZIP]`, `--headless --rerun-bundle ZIP --out DIR` | run a protocol and bundle it; rerun a bundle and judge whether it matches |
+| `--headless --rig NAME`, `--rig-assay NAME`, `--minipaper ID` (or `list`) | a behavior rig, its pre-registered assay, a mini-paper |
+| `--headless --activation-screen`, `--knockout-screen [BEHAVIORS]` | the resumable whole-brain screens |
+
+**Layout.** `crates/fly_sim` (the simulator and every engine: pure Rust, no Bevy), `crates/ktf_data` (config, stores, saves, recorder, bundles,
+protocols, pet, streamer rules), `crates/ktf_ui` (the software-drawn menu pages and HUD), `crates/game` (the Bevy app: render thread, simulation
+thread, one plugin per feature). Every part is checked against the Python game 3.1.1 (the `python-legacy` branch): golden data from it is in
+`tests/golden/`, page pictures in `tests/ui_reference/`, the scripts that made them in `tests/reference_tools/`. Open issues: `docs/dev/BUGS.md`.
 
 ## New in 3.0
 
@@ -41,11 +105,11 @@ Each release lists `SHA256SUMS`. The 3D game needs OpenGL 3.3; without it the ga
 **What did not change: the simulation.** `--validate` gives the same results as 2.13 (21 tests, **12 PASS / 9 FAIL**), and no weight, time
 constant or threshold was tuned to make anything pass. Old saves, settings, pet files, replays and protocols keep working. Everything new is
 tagged **CONNECTOME**, **GAME RULE** or **MODEL PREDICTION**. The whole release: [docs/changelog.md](docs/changelog.md); how it was checked, the
-decisions and the known limits: [docs/3.0-review.md](docs/3.0-review.md).
+decisions and the known limits are in the 3.0 review on the `python-legacy` branch.
 
 ## Play
 
-First person in a 3D living room (or `--2d` for the original game). Walk up and use a tool, or walk into the fly to kick it.
+First person in a 3D living room. Walk up and use a tool, or walk into the fly to kick it.
 
 - **Hits fire real sensory neurons**: head bristles and Johnston's organ, body touch, leg proprioceptors, wing sensors; the blowtorch fires heat
   sensors, the freeze spray cold sensors, the brake cleaner smell and taste neurons, the zapper every touch neuron.
@@ -54,21 +118,21 @@ First person in a 3D living room (or `--2d` for the original game). Walk up and 
 - **It learns** with its real mushroom body: pair a smell with pain or sugar and dopamine reshapes the actual Kenyon-cell-to-output synapses.
 - **Ten arenas**: the room, fan, flypaper, pool, lamp, a thermal gradient, an escape room, the kitchen, and outdoors an open field with wind and
   sun and an orchard where flies fly to fruit and feed.
-- **Up to 16 flies** on the plain backend (more with Numba or a GPU), each a complete independent brain; they notice each other only through
+- **Up to 16 flies**, each a complete independent brain; they notice each other only through
   their real looming and touch neurons.
 - **Brain surgery, a neuron inspector, a 1v1 duel** in which the fly aims with LC10 and shoots with DNp35, **challenges**, a **Pet mode** with
-  one persistent fly, slow motion, save states, screenshots, GIFs and video.
+  one persistent fly, slow motion, save states and screenshots.
 
 Controls (all rebindable, gamepad included), settings, loadouts, challenges and file locations: **[docs/playing.md](docs/playing.md)**.
 
 | | |
 |---|---|
-| ![first person in the 3D room, the fly on the rug and its brain panel on the right](docs/room3d.png) | ![swatting the fly in first person; touch neurons and descending neurons light up in the brain panel](docs/swat3d.png) |
+| ![first person in the 3D room: the swatter has just hit the fly, its brain panel on the right](docs/room3d.png) | ![swatting the fly in first person; touch neurons and descending neurons light up in the brain panel](docs/swat3d.png) |
 | **The room**, first person, with the live brain on the right. | **Swatting**: the touch neurons fire, then the leg-touch descending neurons kick. |
-| ![the fly flying over the open field](docs/field.png) | ![a fly feeding on a fruit inside an orchard tree's crown](docs/orchard.png) |
-| **The open field**: wind drives its real antennal wind neurons. | **The orchard**: flies fly to fruit, land and feed. |
-| ![big brain view lit up while the fly is torched](docs/brain.png) | ![the fly shooting at you in the 1v1 duel](docs/duel.png) |
-| **The big brain view** under the blowtorch: the heat-sensing neurons and everything downstream. | **The 1v1 duel**: it aims through LC10 and its steering neurons, and shoots through DNp35. |
+| ![swatting the fly in the open field](docs/field.png) | ![the orchard arena with its fruit trees](docs/orchard.png) |
+| **The open field**: wind drives its real antennal wind neurons. | **The orchard**: fruit trees; flies fly to the fruit, land and feed. |
+| ![big brain view lit up while the fly is torched](docs/brain.png) | ![the blowtorch on the fly in the open field, pain at 84 of 100](docs/torch3d.png) |
+| **The big brain view** under the blowtorch: the heat-sensing neurons and everything downstream. | **The blowtorch**: heat and touch neurons fire, the pain estimate climbs, the fly chars. |
 | ![a spider wrapping the fly in silk](docs/spider.png) | ![the brain autopsy after the fly died under the blowtorch](docs/autopsy.png) |
 | **A spider** bites (body and leg touch neurons) and wraps it. | **Autopsy**: every brain region's last 2 s alive against its calm baseline. |
 
@@ -87,18 +151,7 @@ transmitter sign flips), neural clamp, diff mode, classroom lectures, the 3.0 to
 | ![the Lab tools menu](docs/lab.png) | ![the validation dashboard with PASS and FAIL results](docs/validation.png) |
 | **Lab mode**, with the simulation engine shown top right. | **Validation**: which published fly results it reproduces, with numbers, and which it doesn't. |
 
-From a source checkout the brain is also a Python library ([docs/api.md](docs/api.md), with a [notebook](docs/api_example.ipynb)):
-
-```python
-from kickthefly import Fly
-
-fly = Fly(seed=1000)
-rec = fly.record({"giant fiber": "dnp01"})
-fly.step(2.0)
-fly.drive("loom")           # LPLC2 + LC4, like optogenetic activation
-fly.step(2.0)
-print(rec.rates(0, 2), rec.rates(2, 4))
-```
+The Python library (`from kickthefly import Fly`) belongs to the Python version, on the `python-legacy` branch; 4.0 has no scripting API yet.
 
 ## Validation
 
@@ -139,21 +192,30 @@ The complete list: **[docs/connectome-and-game-rules.md](docs/connectome-and-gam
 
 ## Performance
 
-One fly keeps real time (200 brain steps/s) on any backend. With many flies Numba scales best on the CPU and PyTorch GPU backends run them
-batched; the OpenGL `gl` backend runs on any vendor's GPU and steps a process's flies together. NumPy, Numba and torch-cpu give spike-for-spike
-identical results; GPU backends agree statistically. **Auto** (the default, new in 3.1.0) picks the fastest engine that works in the game: a real GPU through
-OpenGL compute, then a PyTorch GPU, then Numba, then NumPy, with a fallback to the next on any error; Settings > Brain shows the engine in use and lets you
-pick another. Validation, protocols, bundles and replays keep the exact (non-gl) chain. The exe and AppImage carry the `gl` backend (ModernGL and the EGL
-context are bundled), so a machine with an OpenGL 4.3 GPU gets it without installing anything. Tables and methods: [docs/performance.md](docs/performance.md).
+The brain runs on its own thread at a fixed 200 steps a second whatever the picture does. Measured on a laptop (i7-13620H, RTX 4060 Laptop,
+Linux, 1920x1080, the room, no frame cap):
+
+| | 4.0 (Rust) | 3.1.1 (Python, NumPy, 1280x760) |
+|---|---|---|
+| one brain step, 166,700 neurons | about 0.6 ms | roughly 2 ms |
+| frame, 1 fly | about 13 ms (77 fps) | about 4.5 ms (225 fps) |
+| brain steps per second, 4 flies | 200 (real time) | 200 (real time) |
+
+The two frame times are not like for like (the Python game was measured in a smaller, off-screen window), but they say what is true today:
+4.0's picture is limited by its software-drawn HUD (about 3 ms of every frame at 1080p), not by the GPU, whose 3D pass takes a quarter of a
+millisecond. The default cap is 60 frames a second (Settings > Graphics), which both versions hold. F3 shows where a frame's time goes.
 
 ## Repository
 
 ```
-kick_the_fly.py      launcher: python kick_the_fly.py ... (python -m kickthefly runs the same game)
-kickthefly/          the package: core/ (settings, saves, paths, version), sim/ (connectome, brain pack, LIF simulator),
-                     game/ (2D game, 3D room, tools, arenas, rigs), ui/ (menus), lab/ (validation, assays, protocols, Lab pages), data/
-tests/ protocols/ docs/ packaging/ tools/
-data/                not in git: the connectome download and the brain pack (built from source, bundled in the exe and AppImage)
+crates/fly_sim/      the LIF connectome simulator and every analysis engine (pure Rust, golden-tested against the Python reference)
+crates/ktf_data/     config.toml, saves, share codes, protocols, bundles and per-OS folders, compatible with the Python game's files
+crates/ktf_ui/       the menu pages and the HUD (drawn in software, compared with pictures of the Python game)
+crates/game/         the Bevy game
+tests/golden/  tests/python_files/  tests/ui_reference/    reference outputs, real files and page pictures from the Python game
+tests/reference_tools/   the scripts that made them (they run inside a checkout of the python-legacy branch)
+docs/                the manual (written for 3.x; where 4.0 differs, PORTING.md says so) and docs/dev/BUGS.md (open issues)
+data/                not in git: the brain pack (bundled in the exe and AppImage)
 ```
 
 Contributing (layout, tests, screenshots, translations): [CONTRIBUTING.md](CONTRIBUTING.md). History: [CHANGELOG.md](CHANGELOG.md). If you use Kick the

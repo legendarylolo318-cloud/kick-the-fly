@@ -1,0 +1,12 @@
+{
+ "kind": "surgery",
+ "payload": {
+  "groups": {
+   "Silence loom detectors": -1
+  },
+  "types": {
+   "DNp01": 1,
+   "LC4": -1
+  }
+ }
+}

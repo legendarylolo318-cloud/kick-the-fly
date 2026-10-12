@@ -56,7 +56,7 @@ determinism and value ranges on the larval brain, not that a tool reaches the ri
 
 Adult flies run in the real games, stepped in lockstep from one thread, frame by frame (`game.update`, then 3 brain steps: the game's own
 real-time pace): `Game3D` (no window, no renderer) in every arena, and the 2D `Game` in the indoor arenas in the full run. The larva has no
-windowed game yet ([larva.md](larva.md)), so it runs at brain level: the tool's documented stimuli through `Brain.poke`, the same call the
+windowed game yet (`larva.md` on the `python-legacy` branch), so it runs at brain level: the tool's documented stimuli through `Brain.poke`, the same call the
 game's tools make. Every tool also gets a brain-level run on both brains; that leg is the recorded and replayed one.
 
 ## Also covered
@@ -94,7 +94,7 @@ every palette and at larger text. Where a fly goes in the olfactory arena is a M
 
 Every pull request runs `--selftest` and the quick playthrough (`tests.yml`, "selftest and playthrough"); a release also needs the full
 playthrough and the self-test to pass (`release.yml`); the nightly workflow runs the full playthrough with the full validation and publishes
-the history ([ci.md](ci.md)). The larva pack isn't built on CI (it is built locally from Data S1, see [larva.md](larva.md)), so CI runs the adult brain and
+the history ([ci.md](ci.md)). The larva pack isn't built on CI (it is built locally from Data S1, see `larva.md` on the `python-legacy` branch), so CI runs the adult brain and
 the bot records the larva combos as skipped when its pack is missing.
 
 ## What a full run looked like (2.13, NumPy CPU backend, 24-core desktop)

@@ -1,0 +1,54 @@
+[package]
+name = "kick_the_fly"
+description = "Kick the Fly: the Bevy game around the fly_sim connectome simulation."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "kick_the_fly"
+path = "src/lib.rs"
+
+[[bin]]
+name = "kick_the_fly"
+path = "src/main.rs"
+
+[features]
+# `cargo run --features dev` links Bevy dynamically for fast rebuilds. Never enabled in release builds or by default.
+dev = ["bevy/dynamic_linking"]
+# The brain pack (data/kick_brain.npz, 39 MB) is compiled into the program, so the Windows release is one file. Needs the pack at build time.
+bundle-pack = []
+
+[dependencies]
+fly_sim.workspace = true
+ktf_data.workspace = true
+ktf_ui.workspace = true
+arboard.workspace = true
+bevy = { workspace = true, features = ["3d", "ui", "audio", "wav", "x11", "wayland", "multi_threaded", "bevy_dev_tools", "png", "bevy_gilrs"] }
+avian3d.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+bytemuck.workspace = true
+cpal.workspace = true
+sha2.workspace = true
+fs4 = "=1.1.0"
+wgpu = { version = "=29.0.4", default-features = false }
+rustls = { version = "=0.23.45", default-features = false, features = ["ring", "std", "tls12"] }
+webpki-roots = "=1.0.9"
+ureq = { version = "=3.4.2", default-features = false, features = ["rustls"] }
+md-5 = "=0.11.0"
+base64 = "=0.23.1"
+
+[dev-dependencies]
+png.workspace = true
+# system names in panics while testing
+bevy = { workspace = true, features = ["debug"] }
+
+# PulseAudio's native protocol (served by PipeWire too) first, ALSA as the fallback: so the microphone works on PipeWire, PulseAudio and
+# plain ALSA. Windows uses WASAPI through cpal's default host.
+[target.'cfg(target_os = "linux")'.dependencies]
+cpal = { workspace = true, features = ["pulseaudio"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "=0.61.2", features = ["Win32_System_Console", "Win32_Foundation", "Win32_System_SystemInformation"] }

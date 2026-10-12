@@ -35,7 +35,7 @@ T-maze is `mb_conditioning`, the larva pair are the larva tests, and the Buridan
 - **Where the model fails the paper, the mini-paper says so and why**, from `docs/validation.md`.
 - A result that differs from the validation's recorded outcome (a miss where the test passes, a pass where it fails) is flagged "Unexpected" and
   points back to the Full run.
-- **The larva paper** needs the larva brain pack, which is built locally from a download (docs/larva.md). Without it the page shows the recorded
+- **The larva paper** needs the larva brain pack, which is built locally from a download (`docs/larva.md` on the `python-legacy` branch). Without it the page shows the recorded
   validation numbers, marked *recorded, not run now*; with it, it runs live.
 
 ## The six papers, and how much of each was read

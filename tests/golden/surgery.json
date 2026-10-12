@@ -1,0 +1,268 @@
+[
+ {
+  "label": "Giant fiber escape neuron (DNp01)",
+  "n": 2,
+  "sha": "931c13477d08fd5ad0741bd095218457ea8aaf60f175328f6532bcb49c1a49cd",
+  "first": [
+   0,
+   6
+  ]
+ },
+ {
+  "label": "Looming detectors (LPLC2, LC4)",
+  "n": 387,
+  "sha": "010b22b5941c5cd05fcf1e20271d1e5d97348f65a1edb4c29c24393bad9e8377",
+  "first": [
+   1398,
+   1899,
+   2195,
+   2228,
+   2642
+  ]
+ },
+ {
+  "label": "Touch neurons",
+  "n": 5088,
+  "sha": "ba477166c309a4874695d785bcd82f68e84f5be4e0a144edcb6a6e3529ad9d29",
+  "first": [
+   6718,
+   13664,
+   14091,
+   14584,
+   14921
+  ]
+ },
+ {
+  "label": "Pain relay: ascending neurons",
+  "n": 1846,
+  "sha": "362b3684251dce52fdf3f2299aad7851eb87ab08d02364f2ffff7831f1bd4d73",
+  "first": [
+   56,
+   58,
+   74,
+   136,
+   149
+  ]
+ },
+ {
+  "label": "Heat and cold sensors",
+  "n": 14,
+  "sha": "1b17b6765dc69bc0d7f642701c56e8c6c81de04dbc41c1a8c63f6e3aed4df520",
+  "first": [
+   6775,
+   22982,
+   24320,
+   52455,
+   81605
+  ]
+ },
+ {
+  "label": "Smell neurons (ORNs)",
+  "n": 2635,
+  "sha": "73d9a439258028946d18d856e69e1b6abb5a8c5b0fd90b62fda95b0c64b3e291",
+  "first": [
+   1062,
+   7438,
+   14657,
+   14713,
+   15480
+  ]
+ },
+ {
+  "label": "Mushroom bodies: Kenyon cells",
+  "n": 4064,
+  "sha": "a04f1263086c7bb1322612f4185b3f21c9f2b76013a5a8874213fd9ab00c47e7",
+  "first": [
+   1740,
+   2971,
+   3986,
+   4714,
+   6846
+  ]
+ },
+ {
+  "label": "Reward dopamine neurons (PAM)",
+  "n": 316,
+  "sha": "6933312e438cd8e8d6ea5d17c2438061bc59f804751bd55c64044646069a87fd",
+  "first": [
+   16636,
+   17636,
+   20526,
+   23857,
+   24929
+  ]
+ },
+ {
+  "label": "Punishment dopamine neurons (PPL1)",
+  "n": 16,
+  "sha": "231b3032f19cccd88229ec76c1aa7172dad8f8cd52beda03027b1ffe26f6a24c",
+  "first": [
+   1235,
+   1509,
+   1636,
+   1774,
+   2714
+  ]
+ },
+ {
+  "label": "Moonwalker neurons (MDN)",
+  "n": 4,
+  "sha": "32977bd9ec97db3f4d8af30ae77074e0e73f914b5c5afad2fe42e7eff6ef09a8",
+  "first": [
+   706,
+   1196,
+   1240,
+   2194
+  ]
+ },
+ {
+  "label": "Walking neurons (DNp09)",
+  "n": 2,
+  "sha": "0cc698c5f0ddb13e36dffaf9632f4b90ff54f687657dcaeff8a8ea6ae1cb68be",
+  "first": [
+   725,
+   1087
+  ]
+ },
+ {
+  "label": "Flight power neurons (DNg02)",
+  "n": 29,
+  "sha": "a7e215c7625176cd1fa8bf78a1421f9fc679aa36197a4dd66f290ca1633cca37",
+  "first": [
+   6703,
+   7470,
+   8894,
+   9350,
+   9850
+  ]
+ },
+ {
+  "label": "Central complex (compass, steering)",
+  "n": 2810,
+  "sha": "ba478a6a7ea9d57d9a1ec70eab596d696b7d23d8b1708ffe0b403a4a29a362ad",
+  "first": [
+   34,
+   85,
+   299,
+   365,
+   417
+  ]
+ },
+ {
+  "label": "Optic lobes and photoreceptors",
+  "n": 105267,
+  "sha": "6d4c78764eb487dac7ad9e367369513481d6d4aa1bb1c2007798c8f86c6da6c9",
+  "first": [
+   1,
+   2,
+   4,
+   5,
+   7
+  ]
+ },
+ {
+  "label": "Left visual hemifield (LC10, LPLC2, LC4, LPTC)",
+  "n": 2344,
+  "sha": "2324e9f3a24986c098996d04b3e16d01d3b616594ec78aa812951cc4d5df9acc",
+  "first": [
+   4,
+   26,
+   60,
+   145,
+   163
+  ]
+ },
+ {
+  "label": "Right visual hemifield (LC10, LPLC2, LC4, LPTC)",
+  "n": 2372,
+  "sha": "5f2147c3c622f08cd084fb87ca2222dccc4c920e17f9d2ccfa14ee707161f924",
+  "first": [
+   8,
+   10,
+   11,
+   17,
+   28
+  ]
+ },
+ {
+  "label": "Left hemisphere (all left neurons)",
+  "n": 79187,
+  "sha": "6dc7d299e6df17b91c387c3ad218958a9787e6a81795c872ebde6bf23bbf3e3f",
+  "first": [
+   1,
+   4,
+   5,
+   6,
+   7
+  ]
+ },
+ {
+  "label": "Right hemisphere (all right neurons)",
+  "n": 81471,
+  "sha": "226f4ad81559a22b6241a4a54490eb75ac76bbcbbe08d03c9b6580d6d496016e",
+  "first": [
+   0,
+   2,
+   3,
+   8,
+   9
+  ]
+ },
+ {
+  "label": "Every neuron",
+  "n": 166700,
+  "sha": "56ad9117e85cc8dbc597fba834efaa649b24c497176121d3e9ff474d7a40ff28",
+  "first": [
+   0,
+   1,
+   2,
+   3,
+   4
+  ]
+ },
+ {
+  "label": "Song command neuron (pIP10)",
+  "n": 2,
+  "sha": "902e84a53515ac78f5fda97947dd7ebb9f65d8f62d07cdea56656e0a0048e621",
+  "first": [
+   1032,
+   132077
+  ]
+ },
+ {
+  "label": "Courtship neurons P1 (pC1, pMP-e/pMP4)",
+  "n": 86,
+  "sha": "a955c595ee6ba715fc9558651722f119b9ff0a8af9b8d3de71f90d724efffc06",
+  "first": [
+   3057,
+   4807,
+   4919,
+   5745,
+   6497
+  ]
+ },
+ {
+  "label": "Aggression neurons TK-FruM (AVLP727m)",
+  "n": 5,
+  "sha": "64419883c88de42cec3c4a846660a1259c056ce06429cb0a5b6531ff6c74df7b",
+  "first": [
+   8017,
+   8196,
+   36409,
+   134363,
+   136053
+  ]
+ },
+ {
+  "label": "Sleep neurons: dorsal fan-shaped body (FB6, FB7)",
+  "n": 140,
+  "sha": "e4dbcc58d0a8637d943298df5235fb897aa394f92629961ca585cbc110770e27",
+  "first": [
+   417,
+   477,
+   1002,
+   1107,
+   2102
+  ]
+ }
+]

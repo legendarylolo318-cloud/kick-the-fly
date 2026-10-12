@@ -1,5 +1,38 @@
 # Changelog
 
+## 4.0.0 (2026-10-12), review pass
+
+- **The 1v1 duel (X) is back.** It had not been ported: the fly now gets a blaster, aims through its LC10 / DNa02 neurons, shoots through DNp35,
+  and you have 100 HP, die, and respawn on R. Its mushroom body learns your smell and can learn to fear you. The card, the red edge and the
+  YOU DIED screen are Python's. Save states keep a duel.
+- **The fly's behaviour was audited against the Python game** ([PORTING.md](PORTING.md), "Brain-driven or rule: audit"). Fixed: looming, light
+  and sugar pokes had lost Python's `recruit` share (weaker pulses); every fly now feels its own pain and the smell of your tool in its own
+  brain (it was the focused fly's brain for all); the kitchen's vinegar trap read the focused fly's neurons for every fly; CO2 / HEAT / COLD
+  readouts were missing; the lamp's phototaxis also ran in the escape room, and a flight to the lamp or a fruit did not lift the body off.
+- **GUI:** clicking the room gives the mouse back to the game (it did nothing before; only Tab did); the hotbar, its page arrows and the
+  panel's brain picture are clickable; the right and middle buttons use the tool (right + hand removes a decoy); hotbar keys work with the
+  mouse free; the crosshair turns amber over a fly; the laser's badge; camera shake after hits and blasts (it was never drawn); the
+  one-line toasts (V, U, time, hotbar page, duel); U cycles the menu size; the panel's thresholds follow Lab > Parameters; log chips follow
+  Python's table (FOCUS, SPAWNED, TIME... carry none); the tool wheel, challenge panels, autopsy card and surgery use the real play width.
+- **Speed:** the science-card watcher no longer holds a resource every menu system also uses. Uncapped frame at 1080p is about 12 ms again
+  (it was 13 ms), HUD drawing about 2.5 ms.
+
+## 4.0.0 (2026-10-12)
+
+The game is rewritten in Rust on Bevy 0.19 (`crates/`); the Python game is kept unchanged in `legacy-python/` and on the branch
+`python-legacy`. [PORTING.md](PORTING.md) lists every feature with how it was checked against the Python version.
+
+- **Same model.** The Rust LIF simulator reproduces NumPy's spikes bit for bit on the real pack (Linux and Windows); the 21 validation
+  tests give the published results (12 PASS / 9 FAIL). No weight, time constant or threshold changed.
+- **Ported:** the 3D game (ten arenas, 18 tools, up to 16 flies, learning, surgery, inspector with search and path tracing, autopsy, kill cam,
+  challenges, arcade, Pet mode, photo mode, microphone and Streamer mode, gamepad, science cards), the whole Lab, save states, share codes,
+  protocols and bundles, the headless command line. Files written by 3.x load unchanged.
+- **Not ported:** the 2D game, the larva, Numba / PyTorch / OpenGL backends and float64, the Python API, NWB / TIFF export, GIF / video /
+  time-lapse, replays, `graphics.resolution_scale`, `graphics.photo_scale`, gamepad rebinding in the menu.
+- **Platform notes:** bit-exact with the Python goldens on Linux; on Windows the duel engine agrees to nine digits and the wind compass's
+  circular correlation differs (C library rounding of `sin` / `cos`).
+- **Performance:** one brain step about 0.6 ms (NumPy: roughly 2 ms); frame about 13 ms at 1080p uncapped, limited by the software HUD.
+
 ## 3.1.1 (2026-10-06)
 
 - **Windows: the gl engine works.** On Windows ModernGL's WGL context is exactly the version asked for (3.3 by default),

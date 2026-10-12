@@ -1,0 +1,193 @@
+#!/usr/bin/env python3
+"""Dump real files and the settings schema of the Python game for the Rust port's persistence tests.
+
+    python legacy-python/make_persistence_fixtures.py [--out tests/python_files] [--schema crates/ktf_data/data/schema.json]
+
+Writes:
+  * schema.json: SETTINGS, ACTIONS, PAD_ACTIONS, RESERVED_KEYS, OVERLAP_OK, tool names and limits (what the Rust Config is built from),
+  * share/<name>.txt + share/<name>.json: one real code per kind (and a .ktfshare file) with the payload it decodes to,
+  * share/refused.json: damaged / wrong codes with the reason text Python gives,
+  * config/*.toml: config.toml files written by `Config.to_toml()` (defaults, changed values) and a few hand-made ones (schema 1,
+    unknown keys, out-of-range values), each with `<name>.expect.json` = the values Python loads from it.
+"""
+import argparse
+import json
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from kickthefly.core import config as C  # noqa: E402
+from kickthefly.core import loadout as lo  # noqa: E402
+from kickthefly.core import sharecode as sc  # noqa: E402
+
+
+def schema() -> dict:
+    from kickthefly.game import kick_the_fly as k2
+
+    return {
+        "toolbar": [list(t) for t in k2.TOOLS],
+        "schema_version": C.SCHEMA_VERSION,
+        "settings": [{"key": s.key, "tab": s.tab, "label": s.label, "kind": s.kind, "default": s.default, "tip": s.tip,
+                      "options": list(s.options), "labels": list(s.labels), "lo": s.lo, "hi": s.hi, "step": s.step,
+                      "tag": s.tag, "restart": s.restart, "only": s.only, "fmt": s.fmt} for s in C.SETTINGS],
+        "actions": [list(a) for a in C.ACTIONS],
+        "pad_actions": [list(a) for a in C.PAD_ACTIONS],
+        "pad_axes": list(C.PAD_AXES), "pad_buttons": list(C.PAD_BUTTONS),
+        "reserved_keys": sorted(C.RESERVED_KEYS),
+        "overlap_ok": [sorted(p) for p in C.OVERLAP_OK],
+        "first_run": C.FIRST_RUN_DEFAULTS,
+        "tools": list(lo.BY_NAME), "max_saved_loadouts": lo.MAX_SAVED,
+        "loadout": {
+            "catalog": [{"name": t.name, "label": t.label, "category": t.category, "desc": t.desc, "neurons": t.neurons, "tag": t.tag,
+                         "lab_only": t.lab_only, "larva": t.larva, "larva_note": t.larva_note} for t in lo.CATALOG],
+            "tool_names": list(lo.TOOL_NAMES), "presets": {k: list(v) for k, v in lo.PRESETS.items()},
+            "preset_labels": lo.PRESET_LABELS, "preset_tips": lo.PRESET_TIPS, "choices": list(lo.CHOICES),
+            "mode_default": lo.MODE_DEFAULT, "categories": list(lo.CATEGORIES), "page_size": lo.PAGE_SIZE,
+        },
+    }
+
+
+def dump_cfg(cfg: C.Config) -> dict:
+    return {"values": cfg.values, "keys": cfg.keys, "pad": cfg.pad, "loadout": cfg.loadout, "first_run": cfg.first_run,
+            "migrated_from": cfg.migrated_from, "warnings": cfg.warnings}
+
+
+def stores(out: Path) -> None:
+    """neurodex.json, contraptions.json, lesion_loadouts.json and the fly memory, written by the Python modules."""
+    import os
+    import shutil
+    import tempfile
+
+    home = tempfile.mkdtemp(prefix="ktf-fixture-")
+    os.environ["KICK_THE_FLY_HOME"] = home
+    from kickthefly.core import neurodex, paths
+    from kickthefly.game import contraption, lesion_battle
+
+    paths.reset_cache()
+    out.mkdir(parents=True, exist_ok=True)
+    prog = neurodex.Progress(Path(home) / "neurodex.json")
+    prog.mark("adult", "LC4", 3.5, "stimulated", "2026-01-02T03:04:05")
+    prog.mark("adult", "DNp01", 1.25, "play", "2026-01-03T03:04:05")
+    prog.mark("larva", "Ka", 0.0, "rest", "2026-02-03T03:04:05")
+    prog.save()
+    shutil.copy(Path(home) / "neurodex.json", out / "neurodex.json")
+    (out / "neurodex_hand.json").write_text(json.dumps({"version": 1, "brains": {
+        "adult": {"types": {"A": {"t": "x", "x": "bad", "how": "nonsense"}, "B": "notadict", "C": {"t": "y", "x": 2}}},
+        "odd": 5}}))
+    (out / "neurodex_newer.json").write_text(json.dumps({"version": 9, "brains": {"adult": {"types": {}}}}))
+    build = contraption.Build.from_json(json.loads((out.parent / "share" / "contraption.json").read_text())["payload"])
+    contraption.save_slot(2, build)
+    contraption.save_slot(5, build)
+    shutil.copy(contraption.saved_path(), out / "contraptions.json")
+    for name, picks in {"quiet": {"LC4": -1}, "loud": {"DNp01": 1, "LC4": -1}}.items():
+        lesion_battle.save_loadout(lesion_battle.Loadout(name, picks))
+    shutil.copy(lesion_battle.saved_path(), out / "lesion_loadouts.json")
+    mem = Path(__file__).resolve().parent / "tests" / "fixtures" / "fly-memory-v2.5.0.npz"
+    shutil.copy(mem, out / "fly-memory.npz")
+    (out / "training-log.json").write_text(json.dumps({"naive_mbon": {"swatter": 12.5}, "trials": {
+        "swatter": [[1700000000.0, "punish", 0.1234, 0.0, 11.25], [1700000100.0, "test", 0.5, 0.01, None]]}}, indent=1))
+    shutil.rmtree(home, ignore_errors=True)
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    root = Path(__file__).resolve().parent.parent
+    ap.add_argument("--out", default=str(root / "tests" / "python_files"))
+    ap.add_argument("--schema", default=str(root / "crates" / "ktf_data" / "data" / "schema.json"))
+    a = ap.parse_args()
+    out, sch = Path(a.out), Path(a.schema)
+    sch.parent.mkdir(parents=True, exist_ok=True)
+    sch.write_text(json.dumps(schema(), indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
+
+    # --- share codes
+    share = out / "share"
+    share.mkdir(parents=True, exist_ok=True)
+    tools = list(lo.BY_NAME)[:6]
+    payloads = {
+        "surgery": {"groups": {"Silence loom detectors": -1}, "types": {"LC4": -1, "DNp01": 1}},
+        "loadout": {"name": "My kit", "tools": tools},
+        "lab": {"params": {"syn_gain": 5.5, "noise_std": 0.07}},
+        "challenge": {"challenge": "tmaze", "seed": 42, "arena": "room", "surgery": {"types": {"LC4": -1}},
+                      "params": {"bias": 0.25}},
+        "protocol": {"protocol": {"name": "shared-loom", "assay": "looming", "seeds": [1, 2, 3], "surgery": {"LC4": -1}}},
+        "contraption": {"name": "Domino run", "parts": [{"k": "marble", "x": -100, "y": 200}, {"k": "ramp", "x": 0, "y": 100, "a": 20},
+                                                         {"k": "domino", "x": 80, "y": 60}, {"k": "fly", "x": 150, "y": 40}]},
+        "unicode": None,
+    }
+    payloads["unicode"] = None
+    del payloads["unicode"]
+    for kind, p in payloads.items():
+        text = sc.encode(kind, p)
+        (share / f"{kind}.txt").write_text(text + "\n", encoding="ascii")
+        (share / f"{kind}.json").write_text(json.dumps({"kind": kind, "payload": p}, sort_keys=True, indent=1) + "\n")
+    big = {"name": "x", "tools": list(lo.BY_NAME)}
+    big_p = {"protocol": {"name": "big", "notes": " ".join(f"word{i}" for i in range(900)), "assay": "looming"}}
+    text = sc.encode("protocol", big_p, limit=None)
+    (share / "big.ktfshare").write_text(text + "\n", encoding="ascii")
+    (share / "big.json").write_text(json.dumps({"kind": "protocol", "payload": big_p}, sort_keys=True, indent=1) + "\n")
+    good = sc.encode("loadout", payloads["loadout"])
+    bad = {}
+    for name, t in {"empty": "", "not_a_code": "hello world", "newer": good.replace("KTF1", "KTF9", 1),
+                    "unknown_kind": good.replace("-LDT-", "-ZZZ-", 1), "short": "KTF1-LDT-0A",
+                    "bad_char": good[:12] + "!" + good[13:], "checksum": good[:-1] + ("0" if good[-1] != "0" else "1"),
+                    "kind_mismatch": good.replace("-LDT-", "-SRG-", 1)}.items():
+        try:
+            sc.decode(t)
+            bad[name] = {"text": t, "error": None}
+        except sc.ShareError as e:
+            bad[name] = {"text": t, "error": str(e)}
+    (share / "refused.json").write_text(json.dumps(bad, indent=1) + "\n")
+    # tolerant input forms Python accepts: lowercase, spaces/newlines, O/I/L confusables
+    (share / "messy.txt").write_text(payloads_text := sc.encode("lab", payloads["lab"]).lower().replace("-", "- \n") + "\n")
+
+    # --- config.toml
+    cfgdir = out / "config"
+    cfgdir.mkdir(parents=True, exist_ok=True)
+    cfg = C.Config(cfgdir / "defaults.toml")
+    cfg.save()
+    cfg2 = C.Config(cfgdir / "changed.toml")
+    for k, v in {"graphics.fullscreen": True, "graphics.fps_cap": 144, "audio.master": 0.35, "brain.mode": "lab",
+                 "brain.seed": 1234, "controls.fov": 95.0, "controls.invert_y": True, "access.language": "de"}.items():
+        if k in C.BY_KEY:
+            cfg2.set(k, v)
+    cfg2.bind("big_view", "n")
+    cfg2.bind("sprint", "left alt")
+    cfg2.bind_pad("use", "lefttrigger")
+    cfg2.custom_loadout(tools[:4])
+    cfg2.save_loadout("Kit one", tools[:3])
+    cfg2.save_loadout("Kit \"two\"", tools[1:5])
+    cfg2.first_run["tutorial_done"] = True
+    cfg2.save()
+    hand = {
+        "schema1.toml": 'schema_version = 1\n[graphics]\nfullscreen = true\n[brain]\nscience_popups = true\n',
+        "unknown_and_range.toml": ('schema_version = 3\nfuture_thing = 1\n[graphics]\nfps_cap = 77\nresolution_scale = 9.0\nnew_key = "x"\n'
+                                   '[audio]\nmaster = -4\n[keys]\nforward = "UP"\nsprint = "escape"\nfoo = "bar"\n[future]\nx = 1\n'),
+        "double_bound.toml": 'schema_version = 3\n[keys]\nforward = "q"\nback = "q"\n',
+        "wrong_types.toml": 'schema_version = 3\n[graphics]\nfullscreen = "yes"\nshow_fps = 3\n[brain]\nseed = 2.6\n[controls]\nfov = "wide"\n',
+    }
+    for n, t in hand.items():
+        (cfgdir / n).write_text(t, encoding="utf-8")
+    for p in sorted(cfgdir.glob("*.toml")):
+        c = C.Config.load(p)
+        (cfgdir / (p.stem + ".expect.json")).write_text(json.dumps(dump_cfg(c), indent=1, sort_keys=True) + "\n")
+    stores(out / "stores")
+    # loadout behaviour: every preset in every mode/brain, and the editing operations, for the Rust port to reproduce
+    cases = []
+    for preset in lo.CHOICES:
+        for mode in ("play", "lab", "pet"):
+            for larva in (False, True):
+                l = lo.build(preset, ["swatter", "laser", "bomb", "nope", "swatter", "frog", "mantis", "dragonfly", "fruit", "cva", "decoy", "alcohol"],
+                             lab=mode == "lab", larva=larva, mode=mode)
+                cases.append(dict(preset=preset, mode=mode, larva=larva, tools=l.tools, pages=l.n_pages, name=l.preset))
+    l = lo.Loadout(list(lo.TOOL_NAMES), lab=True)
+    ops = [dict(op="start", tools=list(l.tools), page=l.page)]
+    for op, arg in (("turn_page", 1), ("turn_page", 1), ("turn_page", -1), ("unequip", "swatter"), ("move", ("torch", 1)), ("show", "mantis"),
+                    ("equip", "swatter"), ("move", ("hand", 5)), ("unequip", "hand"), ("neighbor", ("mantis", 1)), ("neighbor", ("zzz", -1))):
+        r = getattr(l, op)(*arg) if isinstance(arg, tuple) else getattr(l, op)(arg)
+        ops.append(dict(op=op, arg=arg, result=r, tools=list(l.tools), page=l.page))
+    (out / "loadout.json").write_text(json.dumps(dict(builds=cases, ops=ops), indent=0))
+    print("wrote", sch, "and", out)
+
+
+if __name__ == "__main__":
+    main()

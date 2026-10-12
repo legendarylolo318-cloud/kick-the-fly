@@ -1,0 +1,160 @@
+{
+ "result": {
+  "kind": "minipaper",
+  "paper": "hampel_2015",
+  "title": "From antennal touch to grooming (Hampel et al. 2015)",
+  "citation": "Hampel S, Franconville R, Simpson JH, Seeds AM (2015) A neural command circuit for grooming movement control. eLife 4:e08758",
+  "doi": "10.7554/eLife.08758",
+  "read": "full text (open access, PMC4599031), read through a page summary, and the abstract",
+  "seeds": [
+   0,
+   1,
+   2,
+   3
+  ],
+  "full": false,
+  "source": "live",
+  "unavailable": "",
+  "seconds": 0.0,
+  "questions": [
+   {
+    "test": "antenna_grooming_circuit",
+    "prompt": "You drive the 335 JO-C/E antennal mechanosensory neurons for 2 s. What do the grooming command neurons aDN1/aDN2 do, compared with 335 random other sensory neurons?",
+    "expected": "up",
+    "verdict": {
+     "reproduced": true,
+     "basis": "effect size and direction only: n = 4 is too few flies for the validation's p < 0.01 (the smallest one-sided Wilcoxon p at n = 4 is 0.0625)",
+     "measured": {
+      "drive_ratio_mean": 4.234043778801842,
+      "drive_ratio_sd": 0.5584972837153068,
+      "control_ratio_mean": 0.7834677419354837,
+      "control_ratio_sd": 0.43889061471490104,
+      "readout_base_hz": 3.8125,
+      "readout_driven_hz": 15.96875,
+      "p_value": 0.0625,
+      "n": 4
+     },
+     "n": 4
+    },
+    "pairs": [
+     {
+      "seed": 0,
+      "drive": 4.642857142857142,
+      "control": 0.8928571428571428
+     },
+     {
+      "seed": 1,
+      "drive": 4.129032258064516,
+      "control": 0.4838709677419355
+     },
+     {
+      "seed": 2,
+      "drive": 4.678571428571428,
+      "control": 1.357142857142857
+     },
+     {
+      "seed": 3,
+      "drive": 3.4857142857142858,
+      "control": 0.4000000000000001
+     }
+    ],
+    "note": "The upstream half of the grooming circuit, antennal touch to the descending command neurons, reproduces strongly."
+   },
+   {
+    "test": "adn_grooming_motor",
+    "prompt": "You drive aDN1/aDN2 for 2 s. What do the front-leg motor neurons do, compared with 4 random descending neurons?",
+    "expected": "up",
+    "verdict": {
+     "reproduced": false,
+     "basis": "effect size and direction only: n = 4 is too few flies for the validation's p < 0.01 (the smallest one-sided Wilcoxon p at n = 4 is 0.0625)",
+     "measured": {
+      "drive_ratio_mean": 1.1347982338878635,
+      "drive_ratio_sd": 0.059396788245423916,
+      "control_ratio_mean": 0.9279955781524972,
+      "control_ratio_sd": 0.040390531699275825,
+      "readout_base_hz": 3.3277777777777775,
+      "readout_driven_hz": 3.769444444444445,
+      "p_value": 0.0625,
+      "n": 4
+     },
+     "n": 4
+    },
+    "pairs": [
+     {
+      "seed": 0,
+      "drive": 1.0806451612903227,
+      "control": 0.9225806451612902
+     },
+     {
+      "seed": 1,
+      "drive": 1.1081382385730212,
+      "control": 0.9609810479375698
+     },
+     {
+      "seed": 2,
+      "drive": 1.2180722891566265,
+      "control": 0.955421686746988
+     },
+     {
+      "seed": 3,
+      "drive": 1.1323372465314834,
+      "control": 0.8729989327641409
+     }
+    ],
+    "note": "The motor half of the circuit does not reproduce: the front-leg motor neurons rise only to about x1.13 against x0.95 (consistent in direction, far below 1.5x). The model has no legs, so nothing it does can be a grooming movement; the signal is lost in the nerve cord's interneurons, which the dataset contains but the LIF model drives with a coarse sign rule (docs/validation.md)."
+   }
+  ],
+  "created": "2026-10-10 18:29:48"
+ },
+ "comparison": [
+  {
+   "test": "antenna_grooming_circuit",
+   "question": "You drive the 335 JO-C/E antennal mechanosensory neurons for 2 s. What do the grooming command neurons aDN1/aDN2 do, compared with 335 random other sensory neurons?",
+   "your_hypothesis": "aDN1/aDN2 fire much more (at least 1.5x calm)",
+   "paper_direction": "aDN1/aDN2 fire much more (at least 1.5x calm)",
+   "model_reproduces_paper": true,
+   "you_matched_the_paper": true,
+   "you_matched_the_model": true,
+   "basis": "effect size and direction only: n = 4 is too few flies for the validation's p < 0.01 (the smallest one-sided Wilcoxon p at n = 4 is 0.0625)",
+   "note": "The upstream half of the grooming circuit, antennal touch to the descending command neurons, reproduces strongly.",
+   "measured": {
+    "drive_ratio_mean": 4.234043778801842,
+    "drive_ratio_sd": 0.5584972837153068,
+    "control_ratio_mean": 0.7834677419354837,
+    "control_ratio_sd": 0.43889061471490104,
+    "readout_base_hz": 3.8125,
+    "readout_driven_hz": 15.96875,
+    "p_value": 0.0625,
+    "n": 4
+   }
+  },
+  {
+   "test": "adn_grooming_motor",
+   "question": "You drive aDN1/aDN2 for 2 s. What do the front-leg motor neurons do, compared with 4 random descending neurons?",
+   "your_hypothesis": "a small rise, well below 1.5x",
+   "paper_direction": "front-leg motor neurons fire much more (at least 1.5x calm)",
+   "model_reproduces_paper": false,
+   "you_matched_the_paper": false,
+   "you_matched_the_model": true,
+   "basis": "effect size and direction only: n = 4 is too few flies for the validation's p < 0.01 (the smallest one-sided Wilcoxon p at n = 4 is 0.0625)",
+   "note": "The motor half of the circuit does not reproduce: the front-leg motor neurons rise only to about x1.13 against x0.95 (consistent in direction, far below 1.5x). The model has no legs, so nothing it does can be a grooming movement; the signal is lost in the nerve cord's interneurons, which the dataset contains but the LIF model drives with a coarse sign rule (docs/validation.md).",
+   "measured": {
+    "drive_ratio_mean": 1.1347982338878635,
+    "drive_ratio_sd": 0.059396788245423916,
+    "control_ratio_mean": 0.9279955781524972,
+    "control_ratio_sd": 0.040390531699275825,
+    "readout_base_hz": 3.3277777777777775,
+    "readout_driven_hz": 3.769444444444445,
+    "p_value": 0.0625,
+    "n": 4
+   }
+  }
+ ],
+ "hypotheses": {
+  "looming_escape": "up",
+  "mb_conditioning": "none",
+  "sugar_feeding": "up",
+  "antenna_grooming_circuit": "up",
+  "adn_grooming_motor": "small"
+ }
+}

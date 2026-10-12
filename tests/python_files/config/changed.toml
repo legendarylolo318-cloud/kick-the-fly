@@ -1,0 +1,178 @@
+# Kick the Fly 3.1.1 settings. Edit in the game (Esc > Settings) or by hand.
+schema_version = 3
+
+[graphics]
+fullscreen = true
+resolution_scale = 1.0
+fps_cap = 144
+show_fps = false
+vsync = false
+backend = "auto"
+brain_view = "auto"
+panel_mode = "solid"
+menu_size = "crisp"
+ui_scale = 1.0
+photo_scale = 2
+clean_capture = true
+photo_dof = 0.0
+photo_focus = 1.8
+timelapse_speedup = 5
+timelapse_format = "mp4"
+timelapse_target = "brain"
+
+[audio]
+master = 0.35
+buzz = 1.0
+sfx = 1.0
+mute = false
+stethoscope_enabled = false
+stethoscope_vol = 0.5
+stethoscope_target = "mushroom_body"
+sonify = false
+sonify_vol = 0.4
+sonify_song = true
+
+[stream]
+allow_sonify = false
+allow_tool = true
+allow_arena = false
+allow_surgery = false
+window_s = 20.0
+cooldown_s = 30.0
+min_votes = 2
+
+[brain]
+mode = "lab"
+brain = "adult"
+individuality = "subtle"
+pet_real_stakes = false
+pain_level = 0
+immortal = false
+sim_speed = 1.0
+seed = 1234
+real_vs_rule = "auto"
+science_popups = false
+neurodex = true
+killcam = true
+neuron_of_day = true
+neuron_shapes = false
+mic_sensitivity = 1.0
+imaging_indicator = "gcamp6s"
+imaging_fps = 20
+imaging_f0_tau_s = 30
+autopilot = false
+autopilot_orbit = true
+autopilot_hide_hud = true
+arena = "room"
+song_buzz = true
+lunge = true
+day_night = 0
+mirror_weights = false
+dtype = "float32"
+backend = "auto"
+process = "auto"
+
+[controls]
+mouse_sensitivity = 1.0
+invert_y = true
+fov = 95.0
+loadout_preset = "auto"
+gamepad = true
+pad_look_speed = 2.5
+pad_deadzone = 0.2
+pad_invert_y = false
+
+[access]
+palette = "default"
+reduced_flashing = false
+larger_text = false
+language = "de"
+
+[keys]
+forward = "w"
+back = "s"
+left = "a"
+right = "d"
+sprint = "left alt"
+crouch = "left ctrl"
+free_mouse = "tab"
+big_view = "n"
+surgery = "o"
+training = "t"
+duel = "x"
+arena = "e"
+pain = "p"
+immortal = "i"
+mute = "m"
+screenshot = "f12"
+gif = "g"
+panel = "v"
+menu_size = "u"
+fullscreen = "f11"
+spawn = "b"
+reset = "r"
+help = "h"
+time_pause = "z"
+time_slower = "["
+time_faster = "]"
+time_step = "."
+autopilot = "y"
+photo_mode = "f10"
+stethoscope = "k"
+profiler = "f3"
+fly_eye = "f4"
+sonify = "f5"
+timelapse = "l"
+recall = "j"
+cycle_fly = "f"
+loadout = "q"
+neurodex = "d"
+killcam = ";"
+tool_wheel = "`"
+slot1 = "1"
+slot2 = "2"
+slot3 = "3"
+slot4 = "4"
+slot5 = "5"
+slot6 = "6"
+slot7 = "7"
+slot8 = "8"
+slot9 = "9"
+slot10 = "0"
+page_prev = "-"
+page_next = "="
+
+[gamepad]
+move_x = "leftx"
+move_y = "lefty"
+look_x = "rightx"
+look_y = "righty"
+use = "lefttrigger"
+tool_next = "rightshoulder"
+tool_prev = "leftshoulder"
+tool_wheel = "y"
+loadout = "x"
+sprint = "leftstick"
+crouch = "b"
+up = "a"
+menu = "start"
+big_view = "back"
+neurodex = "dpup"
+killcam = "dpdown"
+
+[loadout]
+custom = ["hand", "flick", "swatter", "bomb"]
+
+[[loadout.saved]]
+name = "Kit one"
+tools = ["hand", "flick", "swatter"]
+
+[[loadout.saved]]
+name = "Kit \"two\""
+tools = ["flick", "swatter", "bomb", "zapper"]
+
+[first_run]
+tutorial_done = true
+loadout_notice = false
+neuron_shapes_asked = false
+whatsnew_3_0_seen = false

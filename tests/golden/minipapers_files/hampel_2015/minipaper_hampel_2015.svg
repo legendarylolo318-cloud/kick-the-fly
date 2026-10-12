@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="560" height="340" font-family="sans-serif" font-size="11">
+<text x="10" y="22">antenna_grooming_circuit</text>
+<line x1="150" y1="130.0" x2="540" y2="130.0" stroke="#888"/>
+<line x1="260" y1="114.4" x2="440" y2="48.8" stroke="#999"/>
+<circle cx="260" cy="114.4" r="4" fill="#6b7a8f"/><circle cx="440" cy="48.8" r="4" fill="#d9822b"/>
+<line x1="260" y1="121.5" x2="440" y2="57.8" stroke="#999"/>
+<circle cx="260" cy="121.5" r="4" fill="#6b7a8f"/><circle cx="440" cy="57.8" r="4" fill="#d9822b"/>
+<line x1="260" y1="106.3" x2="440" y2="48.2" stroke="#999"/>
+<circle cx="260" cy="106.3" r="4" fill="#6b7a8f"/><circle cx="440" cy="48.2" r="4" fill="#d9822b"/>
+<line x1="260" y1="123.0" x2="440" y2="69.0" stroke="#999"/>
+<circle cx="260" cy="123.0" r="4" fill="#6b7a8f"/><circle cx="440" cy="69.0" r="4" fill="#d9822b"/>
+<text x="240" y="150">control</text><text x="426" y="150">drive</text>
+<text x="10" y="182">adn_grooming_motor</text>
+<line x1="150" y1="290.0" x2="540" y2="290.0" stroke="#888"/>
+<line x1="260" y1="228.0" x2="440" y2="217.4" stroke="#999"/>
+<circle cx="260" cy="228.0" r="4" fill="#6b7a8f"/><circle cx="440" cy="217.4" r="4" fill="#d9822b"/>
+<line x1="260" y1="225.5" x2="440" y2="215.6" stroke="#999"/>
+<circle cx="260" cy="225.5" r="4" fill="#6b7a8f"/><circle cx="440" cy="215.6" r="4" fill="#d9822b"/>
+<line x1="260" y1="225.8" x2="440" y2="208.2" stroke="#999"/>
+<circle cx="260" cy="225.8" r="4" fill="#6b7a8f"/><circle cx="440" cy="208.2" r="4" fill="#d9822b"/>
+<line x1="260" y1="231.4" x2="440" y2="213.9" stroke="#999"/>
+<circle cx="260" cy="231.4" r="4" fill="#6b7a8f"/><circle cx="440" cy="213.9" r="4" fill="#d9822b"/>
+<text x="240" y="310">control</text><text x="426" y="310">drive</text>
+</svg>

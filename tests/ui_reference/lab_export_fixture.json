@@ -1,0 +1,1 @@
+{"nwb": "NWB export needs pynwb (ModuleNotFoundError: No module named 'pynwb'). Install it with: pip install pynwb"}

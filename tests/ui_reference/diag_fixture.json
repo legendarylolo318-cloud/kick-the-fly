@@ -1,0 +1,91 @@
+{
+ "selftest": {
+  "running": false,
+  "checks": [
+   {
+    "id": "build",
+    "name": "App and Python",
+    "status": "PASS",
+    "detail": "Kick the Fly 3.1.1, Python 3.12.3, source, Ubuntu 24.04, kernel 6.8.0",
+    "fix": ""
+   },
+   {
+    "id": "brainpack_adult",
+    "name": "Adult brain pack",
+    "status": "PASS",
+    "detail": "kick_brain.npz: SHA-256 a65baf8602b48c62..., 36.8 MB, no published checksum next to it; file integrity checked",
+    "fix": ""
+   },
+   {
+    "id": "backend_gl",
+    "name": "Backend gl",
+    "status": "WARN",
+    "detail": "total firing differs by 6.3% from the CPU reference, population rates correlate at r=0.874; 3,120 steps/s, device: NVIDIA GeForce RTX 4060",
+    "fix": "GPU kernels add inputs in another order, so small differences are normal, but this is larger than expected. Results may not be comparable with CPU runs; use CPU (NumPy) for science."
+   },
+   {
+    "id": "audio",
+    "name": "Audio device",
+    "status": "FAIL",
+    "detail": "no audio device could be opened (ALSA: cannot find card '0')",
+    "fix": "The game plays silently. Check your system's sound output or that another program isn't holding it."
+   },
+   {
+    "id": "ffmpeg",
+    "name": "ffmpeg on PATH",
+    "status": "PASS",
+    "detail": "found /usr/bin/ffmpeg",
+    "fix": ""
+   },
+   {
+    "id": "memory",
+    "name": "Free memory vs per-fly estimate",
+    "status": "PASS",
+    "detail": "11,435 MB available; one fly needs about 350 MB on top of ~1.5 GB for the game, so about 28 flies fit",
+    "fix": ""
+   },
+   {
+    "id": "smoke",
+    "name": "10-second smoke protocol",
+    "status": "PASS",
+    "detail": "10 s of simulated time ran; looming detectors 17.0 Hz, giant fiber 17.8 Hz",
+    "fix": ""
+   }
+  ],
+  "counts": {
+   "PASS": 5,
+   "WARN": 1,
+   "FAIL": 1
+  }
+ },
+ "items": [
+  {
+   "id": "summary",
+   "title": "Summary",
+   "text": "Kick the Fly 3.1.1\nOS: Test Linux 1.0, kernel 6.8.0\nPython: 3.12.3  frozen: False  AppImage: False\nCompute backend: cpu (CPU (NumPy))\nMode: 3d\nDisplay: wayland XDG_SESSION_TYPE=wayland\nGPU: Test GPU  GL: 4.6",
+   "long": false,
+   "include": true
+  },
+  {
+   "id": "selftest",
+   "title": "Self-test (JSON)",
+   "text": "{\n \"format\": \"kick-the-fly-selftest\",\n \"created\": \"2026-10-09 12:00:00\",\n \"app_version\": \"3.1.1\",\n \"counts\": {\n  \"PASS\": 5,\n  \"WARN\": 1,\n  \"FAIL\": 1\n },\n \"exit_code\": 1,\n \"checks\": [\n  {\n   \"id\": \"build\",\n   \"name\": \"App and Python\",\n   \"status\": \"PASS\",\n   \"detail\": \"Kick the Fly 3.1.1, Python 3.12.3, source, Ubuntu 24.04, kernel 6.8.0\",\n   \"fix\": \"\",\n   \"seconds\": 0.1,\n   \"data\": {}\n  },\n  {\n   \"id\": \"brainpack_adult\",\n   \"name\": \"Adult brain pack\",\n   \"status\": \"PASS\",\n   \"detail\": \"kick_brain.npz: SHA-256 a65baf8602b48c62..., 36.8 MB, no published checksum next to it; file integrity checked\",\n   \"fix\": \"\",\n   \"seconds\": 0.1,\n   \"data\": {}\n  },\n  {\n   \"id\": \"backend_gl\",\n   \"name\": \"Backend gl\",\n   \"status\": \"WARN\",\n   \"detail\": \"total firing differs by 6.3% from the CPU reference, population rates correlate at r=0.874; 3,120 steps/s, device: NVIDIA GeForce RTX 4060\",\n   \"fix\": \"GPU kernels add inputs in another order, so small differences are normal, but this is larger than expected. Results may not be comparable with CPU runs; use CPU (NumPy) for science.\",\n   \"seconds\": 0.1,\n   \"data\": {}\n  },\n  {\n   \"id\": \"audio\",\n   \"name\": \"Audio device\",\n   \"status\": \"FAIL\",\n   \"detail\": \"no audio device could be opened (ALSA: cannot find card '0')\",\n   \"fix\": \"The game plays silently. Check your system's sound output or that another program isn't holding it.\",\n   \"seconds\": 0.1,\n   \"data\": {}\n  }\n ]\n}",
+   "long": true,
+   "include": true
+  },
+  {
+   "id": "log",
+   "title": "Last 500 log lines",
+   "text": "12:00:00 INFO frame 0 ok, brain 200.0 steps/s, 0 spikes in the window\n12:00:01 INFO frame 1 ok, brain 200.0 steps/s, 7 spikes in the window\n12:00:02 INFO frame 2 ok, brain 200.0 steps/s, 14 spikes in the window\n12:00:03 INFO frame 3 ok, brain 200.0 steps/s, 21 spikes in the window\n12:00:04 INFO frame 4 ok, brain 200.0 steps/s, 28 spikes in the window\n12:00:05 INFO frame 5 ok, brain 200.0 steps/s, 35 spikes in the window\n12:00:06 INFO frame 6 ok, brain 200.0 steps/s, 42 spikes in the window\n12:00:07 INFO frame 7 ok, brain 200.0 steps/s, 49 spikes in the window\n12:00:08 INFO frame 8 ok, brain 200.0 steps/s, 56 spikes in the window\n12:00:09 INFO frame 9 ok, brain 200.0 steps/s, 63 spikes in the window\n12:00:10 INFO frame 10 ok, brain 200.0 steps/s, 70 spikes in the window\n12:00:11 INFO frame 11 ok, brain 200.0 steps/s, 77 spikes in the window\n12:00:12 INFO frame 12 ok, brain 200.0 steps/s, 84 spikes in the window\n12:00:13 INFO frame 13 ok, brain 200.0 steps/s, 91 spikes in the window\n12:00:14 INFO frame 14 ok, brain 200.0 steps/s, 98 spikes in the window\n12:00:15 INFO frame 15 ok, brain 200.0 steps/s, 105 spikes in the window\n12:00:16 INFO frame 16 ok, brain 200.0 steps/s, 112 spikes in the window\n12:00:17 INFO frame 17 ok, brain 200.0 steps/s, 119 spikes in the window\n12:00:18 INFO frame 18 ok, brain 200.0 steps/s, 126 spikes in the window\n12:00:19 INFO frame 19 ok, brain 200.0 steps/s, 133 spikes in the window\n12:00:20 INFO frame 20 ok, brain 200.0 steps/s, 140 spikes in the window\n12:00:21 INFO frame 21 ok, brain 200.0 steps/s, 147 spikes in the window\n12:00:22 INFO frame 22 ok, brain 200.0 steps/s, 154 spikes in the window\n12:00:23 INFO frame 23 ok, brain 200.0 steps/s, 161 spikes in the window\n12:00:24 INFO frame 24 ok, brain 200.0 steps/s, 168 spikes in the window\n12:00:25 INFO frame 25 ok, brain 200.0 steps/s, 175 spikes in the window\n12:00:26 INFO frame 26 ok, brain 200.0 steps/s, 182 spikes in the window\n12:00:27 INFO frame 27 ok, brain 200.0 steps/s, 189 spikes in the window\n12:00:28 INFO frame 28 ok, brain 200.0 steps/s, 196 spikes in the window\n12:00:29 INFO frame 29 ok, brain 200.0 steps/s, 203 spikes in the window\n12:00:30 INFO frame 30 ok, brain 200.0 steps/s, 210 spikes in the window\n12:00:31 INFO frame 31 ok, brain 200.0 steps/s, 217 spikes in the window\n12:00:32 INFO frame 32 ok, brain 200.0 steps/s, 224 spikes in the window\n12:00:33 INFO frame 33 ok, brain 200.0 steps/s, 231 spikes in the window\n12:00:34 INFO frame 34 ok, brain 200.0 steps/s, 238 spikes in the window\n12:00:35 INFO frame 35 ok, brain 200.0 steps/s, 245 spikes in the window\n12:00:36 INFO frame 36 ok, brain 200.0 steps/s, 252 spikes in the window\n12:00:37 INFO frame 37 ok, brain 200.0 steps/s, 259 spikes in the window\n12:00:38 INFO frame 38 ok, brain 200.0 steps/s, 266 spikes in the window\n12:00:39 INFO frame 39 ok, brain 200.0 steps/s, 273 spikes in the window\n12:00:40 INFO frame 40 ok, brain 200.0 steps/s, 280 spikes in the window\n12:00:41 INFO frame 41 ok, brain 200.0 steps/s, 287 spikes in the window\n12:00:42 INFO frame 42 ok, brain 200.0 steps/s, 294 spikes in the window\n12:00:43 INFO frame 43 ok, brain 200.0 steps/s, 301 spikes in the window\n12:00:44 INFO frame 44 ok, brain 200.0 steps/s, 308 spikes in the window\n12:00:45 INFO frame 45 ok, brain 200.0 steps/s, 315 spikes in the window\n12:00:46 INFO frame 46 ok, brain 200.0 steps/s, 322 spikes in the window\n12:00:47 INFO frame 47 ok, brain 200.0 steps/s, 329 spikes in the window\n12:00:48 INFO frame 48 ok, brain 200.0 steps/s, 336 spikes in the window\n12:00:49 INFO frame 49 ok, brain 200.0 steps/s, 343 spikes in the window\n12:00:50 INFO frame 50 ok, brain 200.0 steps/s, 350 spikes in the window\n12:00:51 INFO frame 51 ok, brain 200.0 steps/s, 357 spikes in the window\n12:00:52 INFO frame 52 ok, brain 200.0 steps/s, 364 spikes in the window\n12:00:53 INFO frame 53 ok, brain 200.0 steps/s, 371 spikes in the window\n12:00:54 INFO frame 54 ok, brain 200.0 steps/s, 378 spikes in the window\n12:00:55 INFO frame 55 ok, brain 200.0 steps/s, 385 spikes in the window\n12:00:56 INFO frame 56 ok, brain 200.0 steps/s, 392 spikes in the window\n12:00:57 INFO frame 57 ok, brain 200.0 steps/s, 399 spikes in the window\n12:00:58 INFO frame 58 ok, brain 200.0 steps/s, 406 spikes in the window\n12:00:59 INFO frame 59 ok, brain 200.0 steps/s, 413 spikes in the window\n",
+   "long": true,
+   "include": true
+  },
+  {
+   "id": "crash",
+   "title": "Crash report",
+   "text": "",
+   "long": true,
+   "include": false
+  }
+ ]
+}

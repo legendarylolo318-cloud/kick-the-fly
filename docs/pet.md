@@ -1,6 +1,6 @@
 # Pet Mode (Long-Lived Companion Fly)
 
-Kick the Fly 2.11 introduces **Pet Mode** in `Esc > Mode`, allowing a single fly to persist across real days as a virtual companion. In the windowed game the pet is always an adult (the larva brain is headless-only in 2.11, see [larva.md](larva.md)).
+Kick the Fly 2.11 introduces **Pet Mode** in `Esc > Mode`, allowing a single fly to persist across real days as a virtual companion. In the windowed game the pet is always an adult (the larva brain is headless-only in 2.11, see `larva.md` on the `python-legacy` branch).
 
 ---
 

@@ -1,0 +1,1443 @@
+//! The Rust menus against screenshots of the pygame menus (`tests/ui_reference/*.png`, made by `legacy-python/make_ui_reference.py`).
+//! Shapes and text positions must agree; the only differences allowed are anti-aliasing of glyph edges (pygame hints text, we do not) and
+//! the host-supplied ENGINE lines of Settings > Brain.
+
+use std::path::PathBuf;
+
+use ktf_data::config::Config;
+use ktf_ui::UiEvent;
+use ktf_ui::menu::PageHost;
+use ktf_ui::{Canvas, Menu};
+
+const BG: [u8; 3] = [60, 70, 80];
+
+fn reference(name: &str) -> (Vec<u8>, u32, u32) {
+    let p = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/ui_reference").join(name);
+    let dec = png::Decoder::new(std::io::BufReader::new(std::fs::File::open(&p).unwrap_or_else(|e| panic!("{p:?}: {e}"))));
+    let mut r = dec.read_info().unwrap();
+    let mut buf = vec![0; r.output_buffer_size().unwrap()];
+    let info = r.next_frame(&mut buf).unwrap();
+    assert_eq!(info.color_type, png::ColorType::Rgb);
+    (buf[..info.buffer_size()].to_vec(), info.width, info.height)
+}
+
+/// The game state the reference screenshots were made with (`make_ui_reference.py`): nothing changed, a three-tool loadout.
+struct Mock;
+impl PageHost for Mock {
+    fn query(&self, key: &str) -> serde_json::Value {
+        match key {
+            "surgery_payload" => serde_json::json!({"groups": {}, "types": {}}),
+            "loadout_tools" => serde_json::json!(["hand", "swatter", "torch", "freeze", "sugar"]),
+            "selected_tool" => serde_json::json!("hand"),
+            "lab_modified" => serde_json::json!({}),
+            _ => serde_json::Value::Null,
+        }
+    }
+    fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+        serde_json::Value::Null
+    }
+}
+
+fn draw(screen: &str, tab: &str, three_d: bool, mutate: impl Fn(&mut Config)) -> Vec<u8> {
+    draw_with(screen, tab, three_d, mutate, |_, _| {})
+}
+
+/// `drive` clicks through the menu before the frame that is compared (it gets the menu, its config and a way to draw).
+fn draw_with(
+    screen: &str,
+    tab: &str,
+    three_d: bool,
+    mutate: impl Fn(&mut Config),
+    drive: impl Fn(&mut Menu, &mut dyn FnMut(&mut Menu, Option<UiEvent>)),
+) -> Vec<u8> {
+    let mut cfg = Config::new(None);
+    mutate(&mut cfg);
+    let mut m = Menu::new("3.1.1");
+    ktf_ui::pages::install(&mut m);
+    m.show(screen);
+    m.tab = tab.into();
+    let mut cv = Canvas::new(1280, 720);
+    let mut host = Mock;
+    let mut frame = |m: &mut Menu, ev: Option<UiEvent>| {
+        if let Some(ev) = ev {
+            m.handle(&ev, &mut cfg, three_d, &mut host);
+        }
+        cv.clear();
+        m.draw(&mut cv, &mut cfg, three_d, (-1, -1), 0.0, &mut host);
+    };
+    frame(&mut m, None);
+    drive(&mut m, &mut frame);
+    cv.to_rgb_over(BG)
+}
+
+fn click(m: &mut Menu, frame: &mut dyn FnMut(&mut Menu, Option<UiEvent>), id: &str) {
+    let pos = m.center_of(id).unwrap_or_else(|| panic!("no widget {id}"));
+    frame(m, Some(UiEvent::MouseDown { pos }));
+    frame(m, Some(UiEvent::MouseUp { pos }));
+}
+
+/// Share of pixels that differ clearly (any channel by more than 60) and the largest such share in any 80-px band of rows.
+fn compare(name: &str, ours: &[u8], max_share: f64) {
+    compare_size(name, ours, max_share, (1280, 720));
+}
+
+fn compare_size(name: &str, ours: &[u8], max_share: f64, size: (u32, u32)) {
+    let (theirs, w, h) = reference(name);
+    assert_eq!((w, h), size);
+    if let Ok(dir) = std::env::var("KTF_DUMP_ALL") {
+        let file = std::fs::File::create(format!("{dir}/rust_{name}")).unwrap();
+        let mut enc = png::Encoder::new(std::io::BufWriter::new(file), w, h);
+        enc.set_color(png::ColorType::Rgb);
+        enc.set_depth(png::BitDepth::Eight);
+        enc.write_header().unwrap().write_image_data(ours).unwrap();
+    }
+    let mut bad = 0usize;
+    let mut bands = vec![0usize; (h as usize).div_ceil(80)];
+    for (i, (a, b)) in ours.as_chunks::<3>().0.iter().zip(theirs.as_chunks::<3>().0.iter()).enumerate() {
+        if a.iter().zip(b).any(|(x, y)| (*x as i32 - *y as i32).abs() > 60) {
+            bad += 1;
+            bands[i / w as usize / 80] += 1;
+        }
+    }
+    let share = bad as f64 / (w * h) as f64;
+    eprintln!("{name}: {:.3}% differ", share * 100.0);
+    assert!(
+        share < max_share,
+        "{name}: {:.3}% of pixels differ clearly (limit {:.3}%); per 80-row band: {bands:?}",
+        share * 100.0,
+        max_share * 100.0
+    );
+}
+
+#[test]
+fn pause_and_quit_dialog() {
+    compare("pause.png", &draw("pause", "Graphics", true, |_| {}), 0.003);
+    compare("confirm_quit.png", &draw("confirm_quit", "Graphics", true, |_| {}), 0.003);
+    compare(
+        "pause_lab.png",
+        &draw("pause", "Graphics", true, |c| {
+            c.set("brain.mode", &serde_json::json!("lab")).unwrap();
+        }),
+        0.003,
+    );
+}
+
+#[test]
+fn every_settings_tab() {
+    // The Graphics tab has a Linux-only row ('Display backend'), and the pygame pictures were made on Linux: elsewhere the rows below it
+    // sit one row higher, as they did in the Python game on Windows. Only Linux can compare that tab pixel by pixel.
+    let linux = cfg!(target_os = "linux");
+    for tab in ["Graphics", "Audio", "Brain", "Controls", "Accessibility", "Help"] {
+        if tab == "Graphics" && !linux {
+            continue;
+        }
+        compare(&format!("settings_{}.png", tab.to_lowercase()), &draw("settings", tab, true, |_| {}), 0.009);
+    }
+    compare("settings_controls_2d.png", &draw("settings", "Controls", false, |_| {}), 0.009);
+    if !linux {
+        return;
+    }
+    compare(
+        "settings_graphics_big.png",
+        &draw("settings", "Graphics", true, |c| {
+            c.set("access.larger_text", &serde_json::json!(true)).unwrap();
+        }),
+        0.009,
+    );
+}
+
+#[test]
+fn whatsnew_page() {
+    compare("page_whatsnew.png", &draw("whatsnew", "Graphics", true, |_| {}), 0.009);
+}
+
+#[test]
+fn share_page_tabs() {
+    compare("page_share_surgery.png", &draw("share", "Graphics", true, |_| {}), 0.009);
+    compare("page_share_loadout.png", &draw_with("share", "Graphics", true, |_| {}, |m, f| click(m, f, "share-kind:loadout")), 0.009);
+    compare("page_share_import.png", &draw_with("share", "Graphics", true, |_| {}, |m, f| click(m, f, "share-tab:import")), 0.009);
+}
+
+#[test]
+fn loadout_editor_page() {
+    compare("page_loadout_base.png", &draw("loadout", "Graphics", true, |_| {}), 0.009);
+    compare(
+        "page_loadout_all.png",
+        &draw("loadout", "Graphics", true, |c| {
+            c.set("controls.loadout_preset", &serde_json::json!("all")).unwrap();
+        }),
+        0.009,
+    );
+}
+
+/// The Neurodex panel on the real pack: the type table and a deterministic progress, as `make_ui_reference.py:dex_host_parts` builds them.
+fn dex_shot(selected: &str, only_found: bool) -> Option<Vec<u8>> {
+    use fly_sim::neurodex::{RawCsr, TypeTable};
+    use ktf_ui::pages::neurodex::{NeurodexPage, NeurodexShared};
+    let path = fly_sim::pack::find_default()?;
+    let pack = fly_sim::Pack::load(&path).unwrap();
+    let mut npz = fly_sim::npy::Npz::read(std::io::BufReader::new(std::fs::File::open(&path).unwrap())).unwrap();
+    let (indptr, indices, data) = (
+        npz.take("indptr").unwrap().into_i32().unwrap(),
+        npz.take("indices").unwrap().into_i32().unwrap(),
+        npz.take("data").unwrap().into_i16().unwrap(),
+    );
+    let tab = TypeTable::build(&pack.labels, "adult", Some(RawCsr { indptr: &indptr, indices: &indices, data: &data }));
+    let mut shared = NeurodexShared::new(Default::default());
+    let names: Vec<String> = tab.names.iter().take(400).cloned().chain(["DNp01".to_string(), "LPLC2".to_string()]).collect();
+    for (i, n) in names.iter().enumerate() {
+        shared.progress.mark("adult", n, 2.5 + (i % 7) as f64 * 0.5, if i % 3 == 0 { "stimulated" } else { "play" }, "2026-01-02T03:04:05");
+    }
+    shared.table = Some(std::sync::Arc::new(tab));
+    shared.state = "ready".into();
+    shared.today = ktf_data::notd::toordinal(2026, 10, 9);
+    let shared = std::sync::Arc::new(std::sync::Mutex::new(shared));
+    let mut cfg = Config::new(None);
+    let mut m = Menu::new("3.1.1");
+    ktf_ui::pages::install_with(&mut m, shared);
+    m.page_mut::<NeurodexPage>("neurodex").unwrap().select(selected, only_found);
+    m.show("neurodex");
+    let mut cv = Canvas::new(1280, 720);
+    m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut Mock);
+    Some(cv.to_rgb_over(BG))
+}
+
+#[test]
+fn neurodex_panel() {
+    let Some(a) = dex_shot("DNp01", true) else { return };
+    compare("page_neurodex.png", &a, 0.012);
+    compare("page_neurodex_unknown.png", &dex_shot("DNp02", false).unwrap(), 0.012);
+}
+
+/// The self-test, bug report and crash pages (`make_ui_reference.py` writes the fixture both sides draw).
+struct DiagMock(serde_json::Value);
+impl PageHost for DiagMock {
+    fn query(&self, key: &str) -> serde_json::Value {
+        match key {
+            "selftest" => self.0["selftest"].clone(),
+            "crash_paths" => {
+                serde_json::json!(["/home/user/.local/state/kick-the-fly/KickTheFly-crash.txt", "/opt/kick/KickTheFly-crash.txt"])
+            }
+            _ => serde_json::Value::Null,
+        }
+    }
+    fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+        serde_json::Value::Null
+    }
+}
+
+fn diag_fixture() -> serde_json::Value {
+    let p = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/ui_reference/diag_fixture.json");
+    serde_json::from_slice(&std::fs::read(p).unwrap()).unwrap()
+}
+
+fn diag_items(fx: &serde_json::Value) -> Vec<ktf_data::diag::Item> {
+    fx["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|i| ktf_data::diag::Item {
+            id: ["summary", "selftest", "log", "crash"].into_iter().find(|n| *n == i["id"].as_str().unwrap()).unwrap(),
+            title: i["title"].as_str().unwrap().into(),
+            text: i["text"].as_str().unwrap().into(),
+            long: i["long"].as_bool().unwrap(),
+            include: i["include"].as_bool().unwrap(),
+        })
+        .collect()
+}
+
+fn diag_shot(screen: &str, size: (i32, i32), prep: impl Fn(&mut Menu)) -> Vec<u8> {
+    let fx = diag_fixture();
+    let mut host = DiagMock(fx);
+    let mut cfg = Config::new(None);
+    let mut m = Menu::new("3.1.1");
+    ktf_ui::pages::install(&mut m);
+    m.register_page("crash", Box::new(ktf_ui::pages::diag::CrashPage));
+    prep(&mut m);
+    m.show(screen);
+    let mut cv = Canvas::new(size.0, size.1);
+    m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut host);
+    cv.to_rgb_over(BG)
+}
+
+#[test]
+fn selftest_page() {
+    compare("page_selftest.png", &diag_shot("selftest", (1280, 720), |_| {}), 0.009);
+}
+
+#[test]
+fn bugreport_page() {
+    let fx = diag_fixture();
+    let note = "The fly froze when I used the bomb";
+    for (name, sel, note, saved) in [
+        ("page_bugreport_summary.png", 0, note, None),
+        ("page_bugreport_log.png", 2, note, None),
+        ("page_bugreport_copied.png", 4, note, None),
+        (
+            "page_bugreport_saved.png",
+            3,
+            "",
+            Some("/home/user/.local/state/kick-the-fly/bugreports/kickthefly-bugreport-20261009-120000.txt"),
+        ),
+    ] {
+        let shot = diag_shot("bugreport", (1280, 720), |m| {
+            m.page_mut::<ktf_ui::pages::diag::BugReportPage>("bugreport").unwrap().preset(diag_items(&fx), sel, note, saved);
+        });
+        compare(name, &shot, 0.012);
+    }
+}
+
+#[test]
+fn crash_page() {
+    compare_size("page_crash.png", &diag_shot("crash", (900, 620), |_| {}), 0.009, (900, 620));
+}
+
+#[test]
+fn challenges_page() {
+    struct H(serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            if key == "challenge_scores" { self.0.clone() } else { serde_json::Value::Null }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    for (name, scores) in [
+        (
+            "page_challenges.png",
+            serde_json::json!({"tmaze": 8, "sneak": 1.4, "sweet": 35, "reverse_surgery": 2, "puppeteer": 4, "predict": 7}),
+        ),
+        ("page_challenges_new.png", serde_json::json!({})),
+    ] {
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        m.show("challenges");
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(scores));
+        compare(name, &cv.to_rgb_over(BG), 0.012);
+    }
+}
+
+#[test]
+fn arcade_page() {
+    use ktf_ui::pages::arcade::ArcadePage;
+    struct H(serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            if key == "arcade" { self.0.clone() } else { serde_json::Value::Null }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    let fx: serde_json::Value = serde_json::from_slice(
+        &std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/ui_reference/arcade_fixture.json")).unwrap(),
+    )
+    .unwrap();
+    for (name, tab, scroll) in [
+        ("page_arcade_tournament_top.png", 0u8, 0),
+        ("page_arcade_tournament_replay.png", 0, 330),
+        ("page_arcade_tournament_end.png", 0, 560),
+        ("page_arcade_race_top.png", 1, 0),
+        ("page_arcade_race_lanes.png", 1, 100),
+    ] {
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        m.show("arcade");
+        m.page_mut::<ArcadePage>("arcade").unwrap().preset(tab, Some(2003), Some((2, 0)), Some(3002));
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(fx.clone())); // the first frame learns the content height the scroll clamps to
+        m.set_scroll(if tab == 0 { "arcade_tournament" } else { "arcade_race" }, scroll);
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(fx.clone()));
+        if let Ok(dir) = std::env::var("KTF_DUMP") {
+            let rgb = cv.to_rgb_over(BG);
+            let file = std::fs::File::create(format!("{dir}/rust_{name}")).unwrap();
+            let mut enc = png::Encoder::new(std::io::BufWriter::new(file), 1280, 720);
+            enc.set_color(png::ColorType::Rgb);
+            enc.set_depth(png::BitDepth::Eight);
+            enc.write_header().unwrap().write_image_data(&rgb).unwrap();
+        }
+        compare(name, &cv.to_rgb_over(BG), 0.012);
+    }
+}
+
+#[test]
+fn arcade_battle_tab() {
+    use ktf_ui::pages::arcade::ArcadePage;
+    struct H(serde_json::Value, serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            match key {
+                "arcade" => self.0.clone(),
+                "arcade_sizes" => self.1["sizes"].clone(),
+                "lesion_saved" => self.1["saved"].clone(),
+                _ => serde_json::Value::Null,
+            }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    let read = |f: &str| -> serde_json::Value {
+        serde_json::from_slice(&std::fs::read(format!("{}/../../tests/ui_reference/{f}", env!("CARGO_MANIFEST_DIR"))).unwrap()).unwrap()
+    };
+    let mut arcade = read("arcade_fixture.json");
+    let bt = read("arcade_battle_fixture.json");
+    arcade["battle"] = bt["result"].clone();
+    let a: &[(&str, i8)] = &[("DNp35", -1), ("MDN", 1)];
+    let b: &[(&str, i8)] = &[("LC10a", 1)];
+    let none: &[(&str, i8)] = &[];
+    #[allow(clippy::type_complexity)]
+    let cases: [(&str, u8, [&[(&str, i8)]; 2], &str, u32, f64, Option<(&str, bool)>); 5] = [
+        ("setup1", 0, [a, none], "DN", 1, 20.0, None),
+        (
+            "setup2",
+            2,
+            [&[("DNp35", -1)], &[("LC10a", 1), ("LC10b", -1), ("LPLC2", 1)]],
+            "LC",
+            1,
+            20.0,
+            Some(("the budget is 3 picks: take one out first", true)),
+        ),
+        ("pass", 1, [a, none], "", 1, 20.0, None),
+        ("ready", 3, [a, b], "", 3, 25.0, None),
+        ("result", 5, [a, b], "", 1, 20.0, None),
+    ];
+    for (name, phase, picks, search, rounds, secs, msg) in cases {
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        m.show("arcade");
+        m.page_mut::<ArcadePage>("arcade").unwrap().preset_battle(phase, picks, search, rounds, secs, msg);
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(arcade.clone(), bt.clone()));
+        if let Ok(dir) = std::env::var("KTF_DUMP") {
+            let rgb = cv.to_rgb_over(BG);
+            let file = std::fs::File::create(format!("{dir}/rust_battle_{name}.png")).unwrap();
+            let mut enc = png::Encoder::new(std::io::BufWriter::new(file), 1280, 720);
+            enc.set_color(png::ColorType::Rgb);
+            enc.set_depth(png::BitDepth::Eight);
+            enc.write_header().unwrap().write_image_data(&rgb).unwrap();
+        }
+        compare(&format!("page_arcade_battle_{name}.png"), &cv.to_rgb_over(BG), 0.012);
+    }
+}
+
+#[test]
+fn lab_pages() {
+    use ktf_ui::canvas::Rect;
+    use ktf_ui::menu::{Ctx, Page};
+    struct Stub;
+    impl Page for Stub {
+        fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+            self
+        }
+        fn draw(&mut self, _: &mut Menu, _: &mut Canvas, _: Rect, _: &mut Ctx) {}
+        fn custom(&mut self, _: &mut Menu, _: &str, _: Option<&str>, _: &mut Ctx) {}
+    }
+    struct H(serde_json::Value, bool);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            match key {
+                "lab_pages" => self.0["pages"].clone(),
+                "lab_params" => {
+                    if self.1 {
+                        self.0["params"].clone()
+                    } else {
+                        serde_json::json!({})
+                    }
+                }
+                "lab_engine" => serde_json::json!("CPU (NumPy) · CPU"),
+                _ => serde_json::Value::Null,
+            }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    let fx: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/ui_reference/lab_fixture.json")).unwrap())
+            .unwrap();
+    for (name, screen, modified, scroll) in [
+        ("page_lab_hub.png", "lab", false, 0),
+        ("page_lab_hub_modified.png", "lab", true, 0),
+        ("page_lab_params.png", "lab_params", true, 0),
+        ("page_lab_params_scrolled.png", "lab_params", true, 600),
+        ("page_lab_assumptions.png", "lab_assumptions", false, 0),
+        ("page_lab_assumptions_scrolled.png", "lab_assumptions", false, 700),
+    ] {
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        for p in fx["pages"].as_array().unwrap() {
+            let n = p[1].as_str().unwrap();
+            if !m.has_page(n) {
+                m.register_page(n, Box::new(Stub));
+            }
+        }
+        m.show(screen);
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(fx.clone(), modified));
+        m.set_scroll(screen, scroll);
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(fx.clone(), modified));
+        if let Ok(dir) = std::env::var("KTF_DUMP") {
+            let rgb = cv.to_rgb_over(BG);
+            let file = std::fs::File::create(format!("{dir}/rust_{name}")).unwrap();
+            let mut enc = png::Encoder::new(std::io::BufWriter::new(file), 1280, 720);
+            enc.set_color(png::ColorType::Rgb);
+            enc.set_depth(png::BitDepth::Eight);
+            enc.write_header().unwrap().write_image_data(&rgb).unwrap();
+        }
+        // a page of small text on dark cards: edges differ by glyph anti-aliasing (PORTING.md, 'Cannot be matched exactly')
+        compare(name, &cv.to_rgb_over(BG), if screen == "lab_assumptions" { 0.02 } else { 0.012 });
+    }
+}
+
+#[test]
+fn lab_validation_page() {
+    struct H(serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            if key == "validation_results" {
+                serde_json::json!({"results": self.0, "source": "from this build", "job": null})
+            } else if key == "lab_params" {
+                serde_json::json!({})
+            } else {
+                serde_json::Value::Null
+            }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    let published: serde_json::Value = serde_json::from_slice(
+        &std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../../docs/results/3.0-release/validate_after.json")).unwrap(),
+    )
+    .unwrap();
+    for (name, scroll) in [("page_lab_validation.png", 0), ("page_lab_validation_scrolled.png", 700)] {
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        m.show("lab_validation");
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(published.clone()));
+        m.set_scroll("lab_validation", scroll);
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(published.clone()));
+        compare(name, &cv.to_rgb_over(BG), 0.02);
+    }
+}
+
+#[test]
+fn lab_assays_page() {
+    use ktf_ui::pages::lab::LabAssays;
+    struct H(serde_json::Value, Option<String>);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            match key {
+                "assay_state" => {
+                    let result = self.1.as_ref().map_or(serde_json::Value::Null, |k| {
+                        let mut r = self.0["results"][k].clone();
+                        r["label"] = serde_json::json!(match r["kind"].as_str().unwrap_or("") {
+                            "tmaze" => "T-maze conditioning",
+                            "looming" => "Looming escape",
+                            _ => "Sugar response",
+                        });
+                        r
+                    });
+                    serde_json::json!({"job": null, "result": result, "options": self.0["options"], "kinds": self.0["kinds"], "base_seed": 1000})
+                }
+                _ => serde_json::Value::Null,
+            }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    let fx: serde_json::Value = serde_json::from_slice(
+        &std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/ui_reference/lab_assays_fixture.json")).unwrap(),
+    )
+    .unwrap();
+    for (name, kind, result, flies, surgery_i) in [
+        ("page_lab_assays_empty.png", "tmaze", None, 6, 0),
+        ("page_lab_assays_tmaze.png", "tmaze", Some("tmaze"), 6, 0),
+        ("page_lab_assays_looming_surgery.png", "looming", Some("looming_surgery"), 6, 7),
+        ("page_lab_assays_sugar.png", "sugar", Some("sugar"), 2, 0),
+    ] {
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        m.show("lab_assays");
+        m.page_mut::<LabAssays>("lab_assays").unwrap().set_view(kind, flies, surgery_i, false);
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(fx.clone(), result.map(String::from)));
+        if let Ok(dir) = std::env::var("KTF_DUMP") {
+            let rgb = cv.to_rgb_over(BG);
+            let file = std::fs::File::create(format!("{dir}/rust_{name}")).unwrap();
+            let mut enc = png::Encoder::new(std::io::BufWriter::new(file), 1280, 720);
+            enc.set_color(png::ColorType::Rgb);
+            enc.set_depth(png::BitDepth::Eight);
+            enc.write_header().unwrap().write_image_data(&rgb).unwrap();
+        }
+        compare(name, &cv.to_rgb_over(BG), 0.02);
+    }
+}
+
+#[test]
+fn lab_asymmetry_and_benchmark_pages() {
+    struct H(serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            if key == "benchmark_state" { serde_json::json!({"results": self.0, "status": null}) } else { serde_json::Value::Null }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    let bench: serde_json::Value = serde_json::from_slice(
+        &std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/ui_reference/lab_benchmark_fixture.json")).unwrap(),
+    )
+    .unwrap();
+    for (name, screen, mirror) in [
+        ("page_lab_asymmetry.png", "lab_asymmetry", false),
+        ("page_lab_asymmetry_mirror.png", "lab_asymmetry", true),
+        ("page_lab_benchmark.png", "lab_benchmark", false),
+    ] {
+        let mut cfg = Config::new(None);
+        if mirror {
+            cfg.set("brain.mirror_weights", &serde_json::json!(true)).unwrap();
+        }
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        m.show(screen);
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(bench.clone()));
+        compare(name, &cv.to_rgb_over(BG), 0.02);
+    }
+}
+
+#[test]
+fn lab_day4_pages() {
+    struct H(serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            if key == "lab.day4_state" { self.0.clone() } else { serde_json::Value::Null }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    let load = |n: &str| -> serde_json::Value {
+        serde_json::from_slice(&std::fs::read(format!("{}/../../tests/golden/{n}.json", env!("CARGO_MANIFEST_DIR"))).unwrap()).unwrap()
+    };
+    let (net, sleep, sens) = (load("netsci"), load("sleepdep"), load("sensitivity"));
+    let empty =
+        serde_json::json!({"job": null, "error": "", "msg": "", "net": {}, "cached": {"adult": false}, "sleep": null, "sens": null});
+    for (name, screen, state) in [
+        ("page_lab_netsci_empty.png", "lab_netsci", empty.clone()),
+        (
+            "page_lab_netsci.png",
+            "lab_netsci",
+            serde_json::json!({"job": null, "error": "", "msg": "", "net": {"adult": net}, "cached": {"adult": true}, "sleep": null, "sens": null}),
+        ),
+        ("page_lab_sleepdep_empty.png", "lab_sleepdep", empty.clone()),
+        (
+            "page_lab_sleepdep.png",
+            "lab_sleepdep",
+            serde_json::json!({"job": null, "error": "", "msg": "", "net": {}, "cached": {}, "sleep": sleep, "sens": null}),
+        ),
+        ("page_lab_sensitivity_empty.png", "lab_sensitivity", empty.clone()),
+        (
+            "page_lab_sensitivity.png",
+            "lab_sensitivity",
+            serde_json::json!({"job": null, "error": "", "msg": "", "net": {}, "cached": {}, "sleep": null, "sens": sens}),
+        ),
+    ] {
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        m.show(screen);
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(state));
+        if let Ok(dir) = std::env::var("KTF_DUMP") {
+            let rgb = cv.to_rgb_over(BG);
+            let file = std::fs::File::create(format!("{dir}/rust_{name}")).unwrap();
+            let mut enc = png::Encoder::new(std::io::BufWriter::new(file), 1280, 720);
+            enc.set_color(png::ColorType::Rgb);
+            enc.set_depth(png::BitDepth::Eight);
+            enc.write_header().unwrap().write_image_data(&rgb).unwrap();
+        }
+        compare(name, &cv.to_rgb_over(BG), 0.02);
+    }
+}
+
+#[test]
+fn lab_wiring_page() {
+    use ktf_ui::pages::wiring::LabWiring;
+    struct H(serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            if key == "lab.wiring_state" { self.0.clone() } else { serde_json::Value::Null }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    let load = |p: &str| -> serde_json::Value {
+        serde_json::from_slice(&std::fs::read(format!("{}/../../{p}", env!("CARGO_MANIFEST_DIR"))).unwrap()).unwrap()
+    };
+    let rob = load("tests/golden/robustness.json");
+    let stats = load("tests/ui_reference/lab_wiring_fixture.json");
+    let state = |live_min: i64, sweep: &serde_json::Value, flips: &serde_json::Value| {
+        serde_json::json!({
+            "job": null, "error": "", "msg": "", "busy": "",
+            "live": {"identity": live_min <= 1, "label": format!("drop <{live_min} synapses"), "min_synapses": live_min, "flips": 0, "inhibition_scale": 1.0},
+            "stats": stats, "sweep": sweep, "flips": flips,
+        })
+    };
+    let null = serde_json::Value::Null;
+    for (name, signflip, conf, st) in [
+        ("page_lab_wiring_threshold.png", false, 0.5, state(1, &null, &null)),
+        ("page_lab_wiring_sweep.png", false, 0.5, state(5, &rob["sweep"], &null)),
+        ("page_lab_wiring_signflip.png", true, 0.7, state(1, &null, &null)),
+        ("page_lab_wiring_flips.png", true, 0.7, state(1, &null, &rob["flips"])),
+    ] {
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        m.show("lab_wiring");
+        m.page_mut::<LabWiring>("lab_wiring").unwrap().set_view(signflip, 5, conf);
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(st));
+        if let Ok(dir) = std::env::var("KTF_DUMP") {
+            let rgb = cv.to_rgb_over(BG);
+            let file = std::fs::File::create(format!("{dir}/rust_{name}")).unwrap();
+            let mut enc = png::Encoder::new(std::io::BufWriter::new(file), 1280, 720);
+            enc.set_color(png::ColorType::Rgb);
+            enc.set_depth(png::BitDepth::Eight);
+            enc.write_header().unwrap().write_image_data(&rgb).unwrap();
+        }
+        compare(name, &cv.to_rgb_over(BG), 0.02);
+    }
+}
+
+#[test]
+fn lab_critical_page() {
+    struct H(serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            if key == "lab.critical_state" { self.0.clone() } else { serde_json::Value::Null }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    let text =
+        std::fs::read_to_string(format!("{}/../../tests/golden/critical.json", env!("CARGO_MANIFEST_DIR"))).unwrap().replace("NaN", "null");
+    let golden: serde_json::Value = serde_json::from_str(&text).unwrap();
+    for (name, results, ops) in [
+        ("page_lab_critical_empty.png", serde_json::json!({}), serde_json::json!([])),
+        ("page_lab_critical.png", serde_json::json!({"looming_escape": golden["behavior"]}), serde_json::json!(["LC4"])),
+    ] {
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        m.show("lab_critical");
+        let mut cv = Canvas::new(1280, 720);
+        let st = serde_json::json!({"job": null, "error": "", "results": results, "type_ops": ops});
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(st));
+        compare(name, &cv.to_rgb_over(BG), 0.02);
+    }
+}
+
+#[test]
+fn lab_clamp_page() {
+    use ktf_ui::pages::clamp::LabClamp;
+    struct H(serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            if key == "lab.clamp_state" { self.0.clone() } else { serde_json::Value::Null }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    let gold: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(format!("{}/../../tests/golden/clamp.json", env!("CARGO_MANIFEST_DIR"))).unwrap()).unwrap();
+    for (name, result, scen, modi) in [
+        ("page_lab_clamp_empty.png", serde_json::Value::Null, "looming", "lesion_gf"),
+        ("page_lab_clamp.png", gold["thresh"].clone(), "looming", "thresh_10"),
+    ] {
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        m.show("lab_clamp");
+        m.page_mut::<LabClamp>("lab_clamp").unwrap().set_view(scen, modi);
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(serde_json::json!({"job": null, "error": "", "result": result})));
+        compare(name, &cv.to_rgb_over(BG), 0.02);
+    }
+}
+
+#[test]
+fn lab_diff_page() {
+    use ktf_ui::pages::diff::LabDiff;
+    struct H(serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            if key == "lab.diff_state" { self.0.clone() } else { serde_json::Value::Null }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    let gold: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(format!("{}/../../tests/golden/diff.json", env!("CARGO_MANIFEST_DIR"))).unwrap()).unwrap();
+    for (name, result, scen, modi) in [
+        ("page_lab_diff_empty.png", serde_json::Value::Null, "looming", "lesion_loom"),
+        ("page_lab_diff.png", gold["looming"].clone(), "looming", "hemi_vis"),
+    ] {
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        m.show("lab_diff");
+        m.page_mut::<LabDiff>("lab_diff").unwrap().set_view(scen, modi);
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(serde_json::json!({"job": null, "error": "", "result": result})));
+        compare(name, &cv.to_rgb_over(BG), 0.02);
+    }
+}
+
+#[test]
+fn lab_laser_page() {
+    struct H(serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            if key == "lab.laser_state" { self.0.clone() } else { serde_json::Value::Null }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    for (name, st) in [
+        (
+            "page_lab_laser.png",
+            serde_json::json!({"target": "dnp01", "mode": "activate", "intensity": 1.0, "trigger": "hold", "pulse_ms": 200.0,
+                               "current": 0.48, "has_tool": true, "equipped": false}),
+        ),
+        (
+            "page_lab_laser_pulse.png",
+            serde_json::json!({"target": "MDN", "mode": "silence", "intensity": 1.5, "trigger": "pulse", "pulse_ms": 300.0,
+                               "current": -3.6, "has_tool": true, "equipped": true}),
+        ),
+    ] {
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        m.show("lab_laser");
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(st));
+        compare(name, &cv.to_rgb_over(BG), 0.02);
+    }
+}
+
+#[test]
+fn lab_psych_page() {
+    use ktf_ui::pages::psych::LabPsych;
+    struct H(serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            if key == "lab.psych_state" { self.0.clone() } else { serde_json::Value::Null }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    let text =
+        std::fs::read_to_string(format!("{}/../../tests/golden/psych.json", env!("CARGO_MANIFEST_DIR"))).unwrap().replace("NaN", "null");
+    let gold: serde_json::Value = serde_json::from_str(&text).unwrap();
+    for (name, result, target, flies) in
+        [("page_lab_psych_empty.png", serde_json::Value::Null, "looming", 3), ("page_lab_psych.png", gold["tmaze"].clone(), "tmaze", 2)]
+    {
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        m.show("lab_psych");
+        m.page_mut::<LabPsych>("lab_psych").unwrap().set_view(target, flies);
+        let mut cv = Canvas::new(1280, 720);
+        let st = serde_json::json!({"job": null, "error": "", "result": result, "msg": "", "base_seed": 1000});
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(st));
+        compare(name, &cv.to_rgb_over(BG), 0.02);
+    }
+}
+
+#[test]
+fn lab_classroom_page() {
+    use ktf_ui::pages::classroom::LabClassroom;
+    struct H(serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            if key == "lab.class_state" { self.0.clone() } else { serde_json::Value::Null }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    for (name, lecture, step, status) in [
+        ("page_lab_classroom.png", "looming", 0, None),
+        ("page_lab_classroom_step.png", "tmaze", 1, Some("Stimulus delivered to 30 neurons (odor_a)")),
+        ("page_lab_classroom_last.png", "gf_lesion", 3, None),
+    ] {
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        m.show("lab_classroom");
+        m.page_mut::<LabClassroom>("lab_classroom").unwrap().set_view(lecture, step);
+        let mut cv = Canvas::new(1280, 720);
+        let st = serde_json::json!({"seq": u64::from(status.is_some()), "status": status.unwrap_or("")});
+        // the first draw takes the status the way the game's state would deliver it
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(st.clone()));
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(st));
+        compare(name, &cv.to_rgb_over(BG), 0.02);
+    }
+}
+
+#[test]
+fn lab_autopsy_page() {
+    use ktf_ui::pages::autopsy_lab::LabAutopsy;
+    struct H(serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            if key == "lab.autopsy_state" { self.0.clone() } else { serde_json::Value::Null }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    let root = env!("CARGO_MANIFEST_DIR");
+    let fails: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(format!("{root}/../../tests/ui_reference/lab_autopsy_fixture.json")).unwrap()).unwrap();
+    let text = std::fs::read_to_string(format!("{root}/../../tests/golden/autopsy.json")).unwrap().replace("NaN", "null");
+    let gold: serde_json::Value = serde_json::from_str(&text).unwrap();
+    for (name, sel, done) in [
+        ("page_lab_autopsy_empty.png", "mdn_backward", serde_json::json!({})),
+        ("page_lab_autopsy.png", "grooming_hierarchy", gold.clone()),
+        ("page_lab_autopsy_scrolled.png", "mdn_backward", gold.clone()),
+    ] {
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        m.show("lab_autopsy");
+        m.page_mut::<LabAutopsy>("lab_autopsy").unwrap().set_sel(sel);
+        let mut cv = Canvas::new(1280, 720);
+        let st = serde_json::json!({"fails": fails, "error": "", "done": done, "job": null});
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(st));
+        compare(name, &cv.to_rgb_over(BG), 0.02);
+    }
+}
+
+#[test]
+fn lab_genetics_page() {
+    struct H(serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            if key == "lab.genetics_state" { self.0.clone() } else { serde_json::Value::Null }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    let fx: serde_json::Value = serde_json::from_slice(
+        &std::fs::read(format!("{}/../../tests/ui_reference/lab_genetics_fixture.json", env!("CARGO_MANIFEST_DIR"))).unwrap(),
+    )
+    .unwrap();
+    let mk = |query: &str, selected: Option<&str>, ops: serde_json::Value, note: &str| {
+        serde_json::json!({
+            "error": "", "coverage": fx["coverage"], "query": query, "results": fx[query], "selected": selected,
+            "describe": if selected.is_some() { fx["describe"]["SS00727"].clone() } else { serde_json::Value::Null },
+            "type_ops": ops, "note": note,
+        })
+    };
+    for (name, st) in [
+        ("page_lab_genetics.png", mk("DNp01", Some("SS00727"), serde_json::json!({}), "")),
+        ("page_lab_genetics_ops.png", mk("LC10", None, serde_json::json!({"DNp01": -1}), "line SS00727: silenced")),
+        ("page_lab_genetics_empty.png", mk("zzz", None, serde_json::json!({}), "")),
+    ] {
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        m.show("lab_genetics");
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(st));
+        compare(name, &cv.to_rgb_over(BG), 0.02);
+    }
+}
+
+#[test]
+fn lab_thermo_page() {
+    struct H(serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            if key == "lab.thermo_state" { self.0.clone() } else { serde_json::Value::Null }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    for (name, st) in [
+        (
+            "page_lab_thermo.png",
+            serde_json::json!({"expressions": [], "steady": false, "arena_source": false, "temperature_c": 22.0, "status": null, "arena": null,
+                               "note": "", "target": "type:DNp01", "effector": 0}),
+        ),
+        (
+            "page_lab_thermo_expr.png",
+            serde_json::json!({"expressions": [{"effector": "trpa1", "target": "type:DNp01", "strength": 1.0},
+                                               {"effector": "shibire", "target": "line:SS00727", "strength": 1.0}],
+                               "steady": true, "arena_source": true, "temperature_c": 30.5, "status": null, "arena": [],
+                               "note": "added; it applies to every fly on the next frames", "target": "prefix:KC", "effector": 1}),
+        ),
+    ] {
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        m.show("lab_thermo");
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(st));
+        compare(name, &cv.to_rgb_over(BG), 0.02);
+    }
+}
+
+#[test]
+fn lab_assays_thermo_and_sleep_results() {
+    use ktf_ui::pages::lab::LabAssays;
+    struct H(serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            if key == "assay_state" { self.0.clone() } else { serde_json::Value::Null }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    let load = |n: &str| -> serde_json::Value {
+        serde_json::from_slice(&std::fs::read(format!("{}/../../tests/ui_reference/{n}", env!("CARGO_MANIFEST_DIR"))).unwrap()).unwrap()
+    };
+    let (fx, mut ext) = (load("lab_assays_fixture.json"), load("lab_assays_ext_fixture.json"));
+    let ext2 = load("lab_assays_ext2_fixture.json");
+    for k in ["orchard", "predator_escape"] {
+        ext[k] = ext2[k].clone();
+    }
+    for (name, kind) in [
+        ("page_lab_assays_thermo.png", "thermo_escape"),
+        ("page_lab_assays_sleep.png", "sleep_deprivation"),
+        ("page_lab_assays_orchard.png", "orchard"),
+        ("page_lab_assays_predator.png", "predator_escape"),
+    ] {
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        m.show("lab_assays");
+        m.page_mut::<LabAssays>("lab_assays").unwrap().set_view(kind, 6, 0, false);
+        let mut cv = Canvas::new(1280, 720);
+        let st = serde_json::json!({"job": null, "result": ext[kind], "options": fx["options"], "kinds": fx["kinds"], "base_seed": 1000});
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(st));
+        compare(name, &cv.to_rgb_over(BG), 0.02);
+    }
+}
+
+#[test]
+fn lab_pharm_page() {
+    struct H(serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            if key == "lab.pharm_state" { self.0.clone() } else { serde_json::Value::Null }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    let root = env!("CARGO_MANIFEST_DIR");
+    let fx: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(format!("{root}/../../tests/ui_reference/lab_pharm_fixture.json")).unwrap()).unwrap();
+    let gold: serde_json::Value = serde_json::from_slice(&std::fs::read(format!("{root}/../../tests/golden/pharm.json")).unwrap()).unwrap();
+    for (name, st) in [
+        (
+            "page_lab_pharm.png",
+            serde_json::json!({"drug": "picrotoxin", "dose": 0.5, "low": true, "cut": 0.7, "affected": fx["picrotoxin:0.5:True:0.7"], "applied": false,
+                               "has_nt": false, "live_label": "", "busy": "", "dr": null, "dr_running": false, "report": null,
+                               "report_running": false, "report_note": null, "error": ""}),
+        ),
+        (
+            "page_lab_pharm_agonist.png",
+            serde_json::json!({"drug": "gabaa_agonist", "dose": 1.0, "low": false, "cut": 0.9, "affected": fx["gabaa_agonist:1.0:False:0.9"],
+                               "applied": true, "has_nt": true,
+                               "live_label": "gaba synapses x2 (confidence >= 0.9 only)", "busy": "", "dr": gold["dose_response"],
+                               "dr_running": false, "report": null, "report_running": false, "report_note": null, "error": ""}),
+        ),
+    ] {
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        m.show("lab_pharm");
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(st));
+        compare(name, &cv.to_rgb_over(BG), 0.02);
+    }
+}
+
+#[test]
+fn lab_patch_page() {
+    struct H(serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            if key == "lab.patch_state" { self.0.clone() } else { serde_json::Value::Null }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    let root = env!("CARGO_MANIFEST_DIR");
+    let fx: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(format!("{root}/../../tests/ui_reference/lab_patch_fixture.json")).unwrap()).unwrap();
+    let base = |mode: u64, live: bool, row: bool| {
+        serde_json::json!({"type": "DNp01", "index": 0, "mode": mode, "amp": 0.1, "dur": 500, "repeats": 1, "hold": 0.0,
+                           "live": live, "row": if row { fx["row"].clone() } else { serde_json::Value::Null },
+                           "desc": fx["desc"], "error": "", "note": "", "window": {"v": [], "spikes": [], "current": []},
+                           "recording": null, "curve": null, "job": null, "nwb": "needs pynwb"})
+    };
+    let mut rec = base(1, false, true);
+    rec["recording"] = fx["rec"].clone();
+    rec["curve"] = fx["curve"].clone();
+    let mut live = base(0, true, true);
+    live["window"] = fx["win"].clone();
+    for (name, st) in
+        [("page_lab_patch_empty.png", base(0, false, false)), ("page_lab_patch_rec.png", rec), ("page_lab_patch_live.png", live)]
+    {
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        m.show("lab_patch");
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(st));
+        compare(name, &cv.to_rgb_over(BG), 0.02);
+    }
+}
+
+#[test]
+fn lab_imaging_page() {
+    struct H(serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            if key == "lab.imaging_state" { self.0.clone() } else { serde_json::Value::Null }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    let root = env!("CARGO_MANIFEST_DIR");
+    let fx: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(format!("{root}/../../tests/ui_reference/lab_imaging_fixture.json")).unwrap()).unwrap();
+    let inds = serde_json::json!([
+        {"key": "gcamp6s", "name": "GCaMP6s (slow, sensitive)"},
+        {"key": "gcamp6f", "name": "GCaMP6f (fast)"},
+        {"key": "jgcamp8m", "name": "jGCaMP8m (fast, sensitive)"}]);
+    let chen = "Chen et al. 2013, Nature 499:295 (doi:10.1038/nature12354), Supplementary Table 3";
+    let st = |on: bool, ind: &str, roi: &str, noise: bool, source: &str, verified: &str, view: serde_json::Value, msg: &str| {
+        serde_json::json!({"on": on, "indicator": ind, "indicators": inds, "fps": 20.0, "f0": 100.0, "noise": noise, "roi_mode": roi,
+                           "keep": false, "reduced": false, "error": "", "frames": false, "source": source, "verified": verified,
+                           "msg": msg, "nwb": "needs pynwb", "view": view})
+    };
+    let v6s = "Verified in the paper's Supplementary Table 3 (mouse V1 in vivo, cell-attached, 1 action potential): rise time to peak 179 +- 23 ms, half-decay 550 +- 52 ms; this game uses the means. (The main text gives a 100-150 ms rise time for resolving single spikes.) Mouse cortex, not fly neurons.";
+    let v6f = "Verified in the paper's Supplementary Table 3 (mouse V1 in vivo, cell-attached, 1 action potential): rise time to peak 45 +- 4 ms, half-decay 142 +- 11 ms; this game uses the means. (The main text gives a 50-75 ms rise time for resolving single spikes.) Mouse cortex, not fly neurons.";
+    let v8 = "Both numbers are stated in the paper's text (a figure legend). They describe a fly's response to a visual stimulus, not a single-spike impulse response, and a two-exponential kernel cannot have a 58 ms half-rise and a 137 ms half-decay at once, so this game uses 58 ms as the kernel's time to peak (a simplification). The same paper reports much faster kinetics in cultured neurons (half-rise 2 ms).";
+    let z = "Zhang et al. 2023, Nature 615:884 (doi:10.1038/s41586-023-05828-9), Drosophila in-vivo visual responses: half-rise 58 +- 6 ms, half-decay 137 +- 21 ms";
+    let empty = serde_json::json!({"names": [], "t": [], "dff": [], "true_dff": [], "frames": 0});
+    let mk = |k: &str| serde_json::json!({"names": fx[k]["names"], "t": fx[k]["t"], "dff": fx[k]["dff"], "true_dff": fx[k]["true_dff"], "frames": 1});
+    for (name, state) in [
+        ("page_lab_imaging_off.png", st(false, "gcamp6s", "regions", true, chen, v6s, empty, "")),
+        ("page_lab_imaging_on.png", st(true, "gcamp6f", "regions", true, chen, v6f, mk("on"), "")),
+        (
+            "page_lab_imaging_custom.png",
+            st(true, "jgcamp8m", "type:DNp01;prefix:KC", false, z, v8, mk("custom"), "saved to 20260101-120000-imaging"),
+        ),
+    ] {
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        m.show("lab_imaging");
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(state));
+        compare(name, &cv.to_rgb_over(BG), 0.02);
+    }
+}
+
+#[test]
+fn lab_minipapers_page() {
+    use std::collections::BTreeMap;
+    struct H(serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            if key == "lab.minipapers_state" { self.0.clone() } else { serde_json::Value::Null }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    let root = env!("CARGO_MANIFEST_DIR");
+    let gold: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(format!("{root}/../../tests/golden/minipapers.json")).unwrap()).unwrap();
+    let ans = |pairs: &[(&str, &str)]| -> BTreeMap<String, String> { pairs.iter().map(|(a, b)| (a.to_string(), b.to_string())).collect() };
+    let hampel = ans(&[("antenna_grooming_circuit", "up"), ("adn_grooming_motor", "small")]);
+    #[allow(clippy::type_complexity)]
+    let cases: Vec<(&str, Option<&str>, usize, BTreeMap<String, String>, Option<&str>)> = vec![
+        ("page_lab_minipapers_list.png", None, 0, ans(&[]), None),
+        ("page_lab_minipapers_read.png", Some("von_reyn_2014"), 0, ans(&[]), None),
+        ("page_lab_minipapers_hyp.png", Some("hampel_2015"), 1, ans(&[("antenna_grooming_circuit", "up")]), None),
+        ("page_lab_minipapers_run.png", Some("von_reyn_2014"), 2, ans(&[("looming_escape", "up")]), Some("von_reyn_2014")),
+        ("page_lab_minipapers_plot.png", Some("hampel_2015"), 3, hampel.clone(), Some("hampel_2015")),
+        ("page_lab_minipapers_cmp.png", Some("hampel_2015"), 4, hampel, Some("hampel_2015")),
+        (
+            "page_lab_minipapers_cmp_larva.png",
+            Some("ohyama_2015"),
+            4,
+            ans(&[("larva_noci_to_goro_rolling", "up"), ("larva_chordotonal_to_basin", "same")]),
+            Some("ohyama_2015"),
+        ),
+    ];
+    for (name, paper, step, answers, result) in cases {
+        let mut results = serde_json::Map::new();
+        if let Some(r) = result {
+            results.insert(r.to_string(), gold[r]["result"].clone());
+        }
+        let st = serde_json::json!({"results": results, "job": null, "error": "", "adult": true});
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        m.page_mut::<ktf_ui::pages::minipapers::LabMinipapers>("lab_minipapers").unwrap().set_view(paper, step, answers, false);
+        m.show("lab_minipapers");
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(st));
+        compare(name, &cv.to_rgb_over(BG), 0.02);
+    }
+}
+
+#[test]
+fn lab_screen_pages() {
+    struct H(String, serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            if key == self.0 { self.1.clone() } else { serde_json::Value::Null }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    use ktf_ui::pages::screens::LabScreen;
+    let root = env!("CARGO_MANIFEST_DIR");
+    let text = std::fs::read_to_string(format!("{root}/../../tests/golden/screens.json")).unwrap().replace("NaN", "null");
+    let gold: serde_json::Value = serde_json::from_str(&text).unwrap();
+    let ko_sel = "looming_escape|LC4+LPLC2";
+    #[allow(clippy::type_complexity)]
+    let cases: Vec<(&str, &str, Option<&str>, Option<&str>, bool, serde_json::Value)> = vec![
+        ("page_lab_activation.png", "activation", None, None, true, serde_json::json!({})),
+        ("page_lab_activation_sel.png", "activation", Some("DNp09"), Some("type"), false, serde_json::json!({"DNp09": 1})),
+        ("page_lab_activation_empty.png", "activation", None, None, true, serde_json::json!({})),
+        ("page_lab_knockout.png", "knockout", None, None, true, serde_json::json!({})),
+        ("page_lab_knockout_sel.png", "knockout", Some(ko_sel), Some("drop_share"), true, serde_json::json!({})),
+    ];
+    for (name, kind, sel, sort, desc, ops) in cases {
+        let res =
+            if name.contains("empty") { serde_json::Value::Null } else { gold[if kind == "activation" { "act" } else { "ko" }].clone() };
+        let st = serde_json::json!({"res": res, "job": null, "error": "", "type_ops": ops});
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        let page = if kind == "activation" { "lab_activation" } else { "lab_knockout" };
+        m.page_mut::<LabScreen>(page).unwrap().set_view(sel, sort, desc, "");
+        m.show(page);
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(format!("lab.screen_{kind}_state"), st));
+        compare(name, &cv.to_rgb_over(BG), 0.02);
+    }
+}
+
+#[test]
+fn lab_rig_pages() {
+    struct H(serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            if key == "lab.rigs_state" { self.0.clone() } else { serde_json::Value::Null }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    use ktf_ui::pages::rigs::RigScene;
+    let root = env!("CARGO_MANIFEST_DIR");
+    let text = std::fs::read_to_string(format!("{root}/../../tests/ui_reference/lab_rigs_fixture.json")).unwrap().replace("NaN", "null");
+    let fx: serde_json::Value = serde_json::from_str(&text).unwrap();
+    let mut results = serde_json::Map::new();
+    for (k, v) in fx.as_object().unwrap() {
+        let mut v = v.clone();
+        v["_id"] = serde_json::json!(1);
+        results.insert(k.clone(), v);
+    }
+    let params = |rig: &str| -> serde_json::Value {
+        let mut p = fly_sim::rigs::scene_defaults(rig);
+        for (k, v) in fx[rig]["params"].as_object().unwrap() {
+            p[k] = v.clone();
+        }
+        p
+    };
+    let cases: [(&str, &str, f64, bool); 6] = [
+        ("page_lab_rigs_hub.png", "lab_rigs", 0.0, true),
+        ("page_lab_rig_tethered.png", "lab_rig_tethered", 5.0, true),
+        ("page_lab_rig_ball.png", "lab_rig_ball", 6.0, true),
+        ("page_lab_rig_buridan.png", "lab_rig_buridan", 12.0, true),
+        ("page_lab_rig_fourfield.png", "lab_rig_fourfield", 12.0, true),
+        ("page_lab_rig_empty.png", "lab_rig_buridan", 0.0, false),
+    ];
+    for (name, page, t, with_res) in cases {
+        let st = serde_json::json!({"results": if with_res { serde_json::Value::Object(results.clone()) } else { serde_json::json!({}) },
+                                    "job": null, "error": ""});
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        if let Some(rig) = page.strip_prefix("lab_rig_") {
+            let p = if with_res { params(rig) } else { fly_sim::rigs::scene_defaults(rig) };
+            m.page_mut::<RigScene>(page).unwrap().set_view(p, t, false, 1);
+        }
+        m.show(page);
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(st));
+        compare(name, &cv.to_rgb_over(BG), 0.02);
+    }
+}
+
+#[test]
+fn lab_export_page() {
+    struct H(serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            if key == "lab.export_state" { self.0.clone() } else { serde_json::Value::Null }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    let root = env!("CARGO_MANIFEST_DIR");
+    let fx: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(format!("{root}/../../tests/ui_reference/lab_export_fixture.json")).unwrap()).unwrap();
+    let mut options: Vec<serde_json::Value> =
+        ktf_data::recorder::RECORD_GROUPS.iter().map(|(l, s)| serde_json::json!({"label": l, "spec": s})).collect();
+    for (name, last, insp, bundle) in [
+        ("page_lab_export.png", "", false, serde_json::json!({"msg": "", "path": null})),
+        (
+            "page_lab_export_last.png",
+            "/home/user/.local/share/kickthefly/exports/20260101-120000-recording",
+            true,
+            serde_json::json!({"msg": "Bundled the last live recording (a record: it can't be rerun, and says why).", "path": "/home/user/exports/bundles/x.zip"}),
+        ),
+    ] {
+        if insp {
+            options.push(serde_json::json!({"label": "Inspected type DNp01", "spec": "type:DNp01"}));
+        }
+        let st = serde_json::json!({"options": options, "recording": null, "message": "", "last_export": last,
+                                    "exports_dir": "/home/logan/.local/share/kickthefly/exports", "nwb": fx["nwb"], "bundle": bundle});
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        m.show("lab_export");
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(st));
+        compare(name, &cv.to_rgb_over(BG), 0.02);
+    }
+}
+
+#[test]
+fn lab_protocols_page() {
+    struct H(serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            if key == "lab.protocols_state" { self.0.clone() } else { serde_json::Value::Null }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    let files: Vec<serde_json::Value> = ktf_data::protocol::bundled()
+        .iter()
+        .map(|(name, text)| match ktf_data::protocol::load_text(text, name) {
+            Ok(p) => {
+                let (desc, runnable) = ktf_data::protocol::summary(&p);
+                serde_json::json!({"name": name, "desc": desc, "error": false, "runnable": runnable})
+            }
+            Err(e) => serde_json::json!({"name": name, "desc": format!("ProtocolError: {e}"), "error": true, "runnable": false}),
+        })
+        .collect();
+    for (name, scroll) in [("page_lab_protocols.png", 0), ("page_lab_protocols_scrolled.png", 600)] {
+        let st = serde_json::json!({"files": files, "job": null, "folder": null, "error": "", "user_dir": "/home/logan/.local/share/kickthefly/protocols",
+                                    "bundle": {"msg": "", "path": null}});
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        m.show("lab_protocols");
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(st.clone()));
+        m.set_scroll("lab_protocols", scroll);
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(st));
+        compare(name, &cv.to_rgb_over(BG), 0.02);
+    }
+}
+
+#[test]
+fn live_inputs_page() {
+    struct H(serde_json::Value);
+    impl PageHost for H {
+        fn query(&self, key: &str) -> serde_json::Value {
+            if key == "lab.live_state" { self.0.clone() } else { serde_json::Value::Null }
+        }
+        fn command(&mut self, _: &str, _: serde_json::Value) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+    let bins: Vec<f64> = (0..24).map(|i| (0.04 + 0.6 * (1.0 - (i as f64 - 7.0).abs() / 4.0).max(0.0)).min(1.0)).collect();
+    let base = serde_json::json!({
+        "mic_on": false, "mic_error": "", "mic_ok": true, "mic_why": "an input device exists (test)", "peak_hz": 0.0, "bins": vec![0.0; 24],
+        "drive_a": 0.0, "drive_b": 0.0, "max_current": 0.5, "stream_on": false, "stream_error": "", "channel": "mychannel", "chat": null,
+        "lab_locked": false, "net_ok": true, "net_why": "", "lab_lock_text": ""
+    });
+    let on = serde_json::json!({
+        "mic_on": true, "mic_error": "", "mic_ok": true, "mic_why": "", "peak_hz": 83.0, "bins": bins, "drive_a": 0.12, "drive_b": 0.4,
+        "max_current": 0.5, "stream_on": true, "stream_error": "", "channel": "mychannel",
+        "chat": {"state": "live", "desc": "irc.chat.twitch.tv:6697 #mychannel (read-only, anonymous)", "commands": 12},
+        "lab_locked": false, "net_ok": true, "net_why": "", "lab_lock_text": ""
+    });
+    for (name, st) in [("page_live_inputs.png", base), ("page_live_inputs_on.png", on)] {
+        let mut cfg = Config::new(None);
+        let mut m = Menu::new("3.1.1");
+        ktf_ui::pages::install(&mut m);
+        m.show("live_inputs");
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(st.clone()));
+        let mut cv = Canvas::new(1280, 720);
+        m.draw(&mut cv, &mut cfg, true, (-1, -1), 0.0, &mut H(st));
+        if let Ok(dir) = std::env::var("KTF_DUMP") {
+            let rgb = cv.to_rgb_over(BG);
+            let file = std::fs::File::create(format!("{dir}/rust_{name}")).unwrap();
+            let mut enc = png::Encoder::new(std::io::BufWriter::new(file), 1280, 720);
+            enc.set_color(png::ColorType::Rgb);
+            enc.set_depth(png::BitDepth::Eight);
+            enc.write_header().unwrap().write_image_data(&rgb).unwrap();
+        }
+        compare(name, &cv.to_rgb_over(BG), 0.02);
+    }
+}

@@ -1,0 +1,8 @@
+schema_version = 3
+[graphics]
+fullscreen = "yes"
+show_fps = 3
+[brain]
+seed = 2.6
+[controls]
+fov = "wide"
