@@ -608,7 +608,7 @@ fn step(
         let Ok((_, mut f)) = flies.get_mut(e) else { continue };
         let Some(live) = preds.list.iter().find(|l| l.id == id) else { continue };
         for (region, side, strength) in predators::capture_touch(kind) {
-            link.0.send(Command::Poke { region: (*region).into(), side: *side, strength: *strength });
+            link.0.send(Command::PokeFly { slot: f.slot, region: (*region).into(), side: *side, strength: *strength });
         }
         f.last_hit = at;
         f.hurt = 1.0;
@@ -763,9 +763,9 @@ fn spider_step(
                     f.venom = (f.venom + 0.3).min(1.0);
                     f.last_hit = sp.p;
                     f.hurt = 1.0;
-                    link.0.send(Command::Poke { region: "body".into(), side: None, strength: 0.9 });
-                    link.0.send(Command::Poke { region: "legs".into(), side: Some('L'), strength: 0.6 });
-                    link.0.send(Command::Poke { region: "legs".into(), side: Some('R'), strength: 0.6 });
+                    link.0.send(Command::PokeFly { slot: f.slot, region: "body".into(), side: None, strength: 0.9 });
+                    link.0.send(Command::PokeFly { slot: f.slot, region: "legs".into(), side: Some('L'), strength: 0.6 });
+                    link.0.send(Command::PokeFly { slot: f.slot, region: "legs".into(), side: Some('R'), strength: 0.6 });
                     dmg.write(FlyDamage { fly: e, amount: 16.0, source: "a spider" });
                     sfx.write(Sfx::new("chomp"));
                     popups.write(Popup::new(sp.p + Vec3::Y * 0.3, ["CHOMP!", "BITE!", "SLURP!"][f.rng.index(3)], (230, 120, 120)));

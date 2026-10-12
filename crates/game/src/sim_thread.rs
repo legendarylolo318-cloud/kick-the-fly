@@ -622,6 +622,13 @@ pub enum Command {
         side: Option<char>,
         strength: f32,
     },
+    /// `Brain.poke(region, None, strength, recruit=...)` on one fly's brain (sugar on the `sweet` taste neurons).
+    PokeFlyRecruit {
+        slot: u32,
+        region: String,
+        strength: f32,
+        recruit: f32,
+    },
     KillFly(u32),
     ReviveFly(u32),
     /// A Lab model parameter (`noise_std`, `bias`, `target_rate_hz`, `ext_gain`, `gain_adapt`) on every fly's brain.
@@ -889,6 +896,11 @@ fn run(
                 Ok(Command::PokeFly { slot, region, side, strength }) => {
                     if let Some(b) = multi.brain_of(&mut brain, slot) {
                         b.poke(&region, side, strength);
+                    }
+                }
+                Ok(Command::PokeFlyRecruit { slot, region, strength, recruit }) => {
+                    if let Some(b) = multi.brain_of(&mut brain, slot) {
+                        b.poke_recruit(&region, None, strength, Some(recruit));
                     }
                 }
                 Ok(Command::SetWiring { wiring, counts }) => {
@@ -1281,6 +1293,7 @@ fn apply(
         | Command::RemoveFly(_)
         | Command::FocusFly(_)
         | Command::PokeFly { .. }
+        | Command::PokeFlyRecruit { .. }
         | Command::KillFly(_)
         | Command::SetModelParam { .. }
         | Command::ReviveFly(_) => false,

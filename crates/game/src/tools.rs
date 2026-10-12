@@ -194,6 +194,22 @@ pub struct Bomb {
 pub struct Treat {
     pub kind: &'static str,
     pub left: f32,
+    /// It has come to rest on something and stays there (`sugars3[..]["landed"]`); flies only walk to a landed treat.
+    pub landed: bool,
+    radius: f32,
+    born: f32,
+}
+
+/// Has a thrown treat landed? On the floor at once (`_sugar3d`: `p.y <= 0.035`), or once it lies still on something higher (a table).
+pub fn treat_landed(y: f32, radius: f32, age: f32, speed: f32) -> bool {
+    y <= radius + 0.01 || (age > 0.25 && speed < 0.2)
+}
+
+impl Treat {
+    /// A full treat (a ball of this radius) that was let go at `now`.
+    pub fn new(kind: &'static str, radius: f32, now: f32) -> Self {
+        Self { kind, left: 1.0, landed: false, radius, born: now }
+    }
 }
 
 #[derive(Component)]
@@ -529,9 +545,9 @@ fn use_tools(
                                     ("wing", Some('L')),
                                     ("wing", Some('R')),
                                 ] {
-                                    link.0.send(Command::Poke { region: region.into(), side, strength: 1.0 });
+                                    link.0.send(Command::PokeFly { slot: f.slot, region: region.into(), side, strength: 1.0 });
                                 }
-                                link.0.send(Command::Poke { region: "all".into(), side: None, strength: 0.0 });
+                                link.0.send(Command::PokeFly { slot: f.slot, region: "all".into(), side: None, strength: 0.0 });
                                 f.stun(now, 1.0);
                                 ff.dmg.write(FlyDamage { fly: e, amount: 16.0, source: "the zapper" });
                                 fb.popups.write(Popup::new(
@@ -557,7 +573,7 @@ fn use_tools(
                         _ => (0.04, Color::srgb(0.9, 0.7, 0.2)),
                     };
                     commands.spawn((
-                        Treat { kind: name_static(name), left: 1.0 },
+                        Treat::new(name_static(name), r, now),
                         RigidBody::Dynamic,
                         Collider::sphere(r),
                         Restitution::new(0.1),
@@ -583,7 +599,12 @@ fn use_tools(
                     if let Ok((_, t, _)) = parts.get(f.parts[Part::Head.index()]) {
                         let dist = (t.translation - tip).length();
                         if dist < 2.5 {
-                            link.0.send(Command::Poke { region: "scent:cva".into(), side: None, strength: 0.8 * (1.0 - dist / 2.5) });
+                            link.0.send(Command::PokeFly {
+                                slot: f.slot,
+                                region: "scent:cva".into(),
+                                side: None,
+                                strength: 0.8 * (1.0 - dist / 2.5),
+                            });
                         }
                     }
                 }
@@ -765,7 +786,7 @@ fn continuous(
                         ("wing", Some('R')),
                         ("heat", None),
                     ] {
-                        link.0.send(Command::Poke { region: region.into(), side, strength: 1.0 });
+                        link.0.send(Command::PokeFly { slot: f.slot, region: region.into(), side, strength: 1.0 });
                     }
                     ff.dmg.write(FlyDamage { fly: e, amount: 0.35, source: "the blowtorch" });
                     if f.rng.chance(0.02) {
@@ -789,11 +810,11 @@ fn continuous(
                         continue;
                     }
                     if name == "cleaner" {
-                        link.0.send(Command::Poke { region: "smell".into(), side: None, strength: 1.0 });
-                        link.0.send(Command::Poke { region: "taste".into(), side: None, strength: 0.8 });
+                        link.0.send(Command::PokeFly { slot: f.slot, region: "smell".into(), side: None, strength: 1.0 });
+                        link.0.send(Command::PokeFly { slot: f.slot, region: "taste".into(), side: None, strength: 0.8 });
                         ff.dmg.write(FlyDamage { fly: e, amount: 0.12, source: "brake cleaner" });
                     } else {
-                        link.0.send(Command::Poke { region: "cold".into(), side: None, strength: 1.0 });
+                        link.0.send(Command::PokeFly { slot: f.slot, region: "cold".into(), side: None, strength: 1.0 });
                         for (region, side) in [
                             ("head", None),
                             ("body", None),
@@ -802,7 +823,7 @@ fn continuous(
                             ("wing", Some('L')),
                             ("wing", Some('R')),
                         ] {
-                            link.0.send(Command::Poke { region: region.into(), side, strength: 0.35 });
+                            link.0.send(Command::PokeFly { slot: f.slot, region: region.into(), side, strength: 0.35 });
                         }
                         ff.dmg.write(FlyDamage { fly: e, amount: 0.1, source: "freezing" });
                     }
@@ -984,7 +1005,13 @@ fn treats(
     mut pet: ResMut<crate::pet_play::PetRes>,
 ) {
     let now = virt.elapsed_secs();
-    for (_, t, tf, _) in treats.iter() {
+    for (e, mut t, tf, v) in &mut treats {
+        // `_sugar3d`: a treat stays where it first touches the floor. Here it is a physics ball, which would roll on for seconds and
+        // keep the fly waiting; so it is pinned as soon as it reaches the floor (or has come to rest on something higher up).
+        if !t.landed && treat_landed(tf.translation.y, t.radius, now - t.born, v.0.length()) {
+            t.landed = true;
+            commands.entity(e).insert((RigidBody::Static, LinearVelocity::ZERO, AngularVelocity::ZERO));
+        }
         scents.0.push(ScentSource {
             pos: tf.translation,
             scent: if t.kind == "alcohol" { "alcohol" } else { "sugar" },
@@ -1004,8 +1031,8 @@ fn treats(
                 .length()
                 .total_cmp(&Vec2::new(b.2.translation.x - thx.x, b.2.translation.z - thx.z).length())
         });
-        let Some((te, _, tt, tv)) = nearest else { continue };
-        let landed = tv.0.length() < 0.2;
+        let Some((te, tr, tt, _)) = nearest else { continue };
+        let landed = tr.landed;
         let dxz = Vec2::new(tt.translation.x - head.x, tt.translation.z - head.z);
         let on_floor = thx.y < STAND3 + 0.2 && now >= f.react.escape_until;
         if dxz.length() > 0.2 {
@@ -1043,8 +1070,15 @@ fn treats(
         // pet mode: hunger scales the sugar taste and the PAM reward drive (`core/pet.py` couplings)
         let sugar = treat.kind != "alcohol";
         let (tg, rg) = if sugar { (pet.sugar_gain(), pet.pam_gain()) } else { (1.0, 1.0) };
-        link.0.send(Command::Poke { region: "taste".into(), side: None, strength: 0.5 * tg });
-        link.0.send(Command::Poke { region: "reward".into(), side: None, strength: if sugar { 0.4 } else { 0.6 } * rg });
+        link.0.send(Command::PokeFly { slot: f.slot, region: "taste".into(), side: None, strength: 0.5 * tg });
+        // the sugar-pathway taste neurons (`assays.py`), 60 % of them at a time: sugar 0.5, alcohol 0.6
+        link.0.send(Command::PokeFlyRecruit {
+            slot: f.slot,
+            region: "sweet".into(),
+            strength: if sugar { 0.5 * tg } else { 0.6 },
+            recruit: 0.6,
+        });
+        link.0.send(Command::PokeFly { slot: f.slot, region: "reward".into(), side: None, strength: if sugar { 0.4 } else { 0.6 } * rg });
         if sugar {
             pet.feed_frame();
         }
@@ -1086,7 +1120,7 @@ fn decoys_and_puffs(
         if let Some(d) = near
             && (d.translation - head).length() < 0.4
         {
-            link.0.send(Command::Poke { region: "pheromone:foreleg".into(), side: None, strength: 0.6 });
+            link.0.send(Command::PokeFly { slot: f.slot, region: "pheromone:foreleg".into(), side: None, strength: 0.6 });
             if now >= f.react.song_ready - 100.0 + 0.0 && f.rng.chance(0.03) {
                 fb.notes.push(now, "COURTSHIP   foreleg contact (rule): drives the putative ppk23/ppk25 GRNs", Tag::GameRule);
                 fb.popups.write(Popup::new(head + Vec3::Y * 0.4, "COURTSHIP", (255, 180, 220)));
@@ -1200,7 +1234,7 @@ fn slow_effects(
                 for (region, side) in
                     [("head", None), ("body", None), ("legs", Some('L')), ("legs", Some('R')), ("wing", Some('L')), ("wing", Some('R'))]
                 {
-                    link.0.send(Command::Poke { region: region.into(), side, strength: s });
+                    link.0.send(Command::PokeFly { slot: f.slot, region: region.into(), side, strength: s });
                 }
             }
         }
@@ -1241,5 +1275,21 @@ impl Plugin for ToolsPlugin {
             .add_message::<SpawnPredator>()
             .add_systems(Update, (sync_loadout, select).chain())
             .add_systems(FixedUpdate, (use_tools, continuous, bombs, treats, decoys_and_puffs, kick, slow_effects).chain());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_treat_lands_where_it_touches_the_floor() {
+        // thrown at 4.2 m/s: still fast when it reaches the floor, and it must count as landed there (it used to roll on and the fly waited)
+        assert!(treat_landed(0.04, 0.035, 0.4, 4.0));
+        assert!(!treat_landed(0.9, 0.035, 0.1, 4.0));
+        // at rest on a table
+        assert!(treat_landed(0.8, 0.035, 1.0, 0.05));
+        // the top of its arc is not a landing
+        assert!(!treat_landed(1.6, 0.035, 0.2, 0.1));
     }
 }

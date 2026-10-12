@@ -269,7 +269,7 @@ fn run(
                 Payload::Wind => c.wind_until = now + 4.0,
                 Payload::Sugar => {
                     commands.spawn((
-                        crate::tools::Treat { kind: "sugar", left: 1.0 },
+                        crate::tools::Treat::new("sugar", 0.035, now),
                         RigidBody::Dynamic,
                         Collider::sphere(0.035),
                         Friction::new(1.0),

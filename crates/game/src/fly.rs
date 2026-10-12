@@ -66,6 +66,8 @@ pub struct Slot(pub u32);
 #[derive(Component)]
 pub struct Fly {
     pub parts: [Entity; 3],
+    /// The brain this body listens to (the same number as its [`Slot`]): what touches this fly pokes that brain.
+    pub slot: u32,
     pub yaw: f32,
     pub yaw_target: f32,
     pub react: ReactState,
@@ -311,6 +313,7 @@ pub fn spawn_fly(
     commands.entity(root).insert((
         Fly {
             parts,
+            slot,
             yaw,
             yaw_target: yaw,
             react: ReactState::default(),
