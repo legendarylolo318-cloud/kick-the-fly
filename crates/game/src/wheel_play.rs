@@ -7,7 +7,6 @@ use ktf_ui::hud::{FontSel, Op};
 
 use crate::actions::Actions;
 use crate::arcade::Arcade;
-use crate::config::Settings;
 use crate::hud_canvas::{HudLayout, HudStats};
 use crate::menu_ui::{MenuInputSet, MenuOpen, UserConfig};
 use crate::player::MouseLook;
@@ -33,6 +32,13 @@ pub fn pick(v: Vec2, n: usize) -> Option<usize> {
     Some(((ang / std::f32::consts::TAU * n as f32).round_ties_even() as usize) % n)
 }
 
+/// `Game.wheel_move`: the mouse moves the wheel's pointer by its own pixels (not by the look sensitivity, which is radians a pixel:
+/// multiplied by that, the pointer never left the dead centre and no tool could be picked), kept inside the ring.
+pub fn moved(v: Vec2, delta: Vec2) -> Vec2 {
+    let v = v + delta;
+    if v.length() > WHEEL_R { v.normalize() * WHEEL_R } else { v }
+}
+
 fn tools_for(cfg: &UserConfig) -> Vec<String> {
     ktf_data::loadout::available_tools(cfg.0.get_str("brain.mode") == "lab", false)
 }
@@ -46,7 +52,7 @@ fn control(
     arcade: Res<Arcade>,
     hud: Res<HudStats>,
     motion: Res<AccumulatedMouseMotion>,
-    settings: Res<Settings>,
+    mut mouse: ResMut<ButtonInput<MouseButton>>,
     cfg: Res<UserConfig>,
     mut tools: ResMut<ToolState>,
     mut loadout: ResMut<ActiveLoadout>,
@@ -66,12 +72,13 @@ fn control(
         keys.clear_just_pressed(KeyCode::Escape);
         return;
     }
-    let sens = settings.mouse_sensitivity;
-    w.vec += Vec2::new(motion.delta.x * sens, motion.delta.y * sens * if settings.invert_y { -1.0 } else { 1.0 });
-    if w.vec.length() > WHEEL_R {
-        w.vec = w.vec.normalize() * WHEEL_R;
+    w.vec = moved(w.vec, motion.delta);
+    // letting the key go picks; so does a click (`wheel_event`: MOUSEBUTTONDOWN closes the wheel and applies)
+    let clicked = mouse.just_pressed(MouseButton::Left);
+    if clicked {
+        mouse.clear_just_pressed(MouseButton::Left); // the click chose a tool; it must not also use it
     }
-    if !act.held("tool_wheel") {
+    if !act.held("tool_wheel") || clicked {
         let list = tools_for(&cfg);
         if let Some(i) = pick(w.vec, list.len())
             && let Some(t) = TOOLS.iter().position(|t| t.0 == list[i])
@@ -222,5 +229,22 @@ mod tests {
         let share = bad as f64 / (1280.0 * 760.0);
         eprintln!("wheel: {:.3}% differ", share * 100.0);
         assert!(share < 0.012, "{:.3}% differ", share * 100.0);
+    }
+    /// The bug: the pointer was moved by mouse pixels times the look sensitivity (0.0024), so it never left the middle.
+    #[test]
+    fn a_hand_width_of_mouse_travel_points_at_a_tool() {
+        use super::{moved, pick};
+        use bevy::math::Vec2;
+        let mut v = Vec2::ZERO;
+        assert_eq!(pick(v, 18), None);
+        // 60 pixels to the right, in a few steps: the tool a quarter of the way round (4 or 5 of 18)
+        for _ in 0..6 {
+            v = moved(v, Vec2::new(10.0, 0.0));
+        }
+        assert!(matches!(pick(v, 18), Some(4 | 5)), "{:?}", pick(v, 18));
+        // straight up is the first tool, and the pointer stays inside the ring
+        let up = moved(Vec2::ZERO, Vec2::new(0.0, -900.0));
+        assert_eq!(pick(up, 18), Some(0));
+        assert!((up.length() - 150.0).abs() < 1e-3);
     }
 }
