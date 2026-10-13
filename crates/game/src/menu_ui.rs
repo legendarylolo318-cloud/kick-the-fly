@@ -77,7 +77,8 @@ fn new_image(w: u32, h: u32, nearest: bool) -> Image {
         TextureDimension::D2,
         vec![0; (w * h * 4) as usize],
         TextureFormat::Rgba8UnormSrgb,
-        RenderAssetUsages::default(),
+        // only the renderer needs the pixels: they are moved to it each frame the menu is open, not copied (see `hud_canvas::new_image`)
+        RenderAssetUsages::RENDER_WORLD,
     );
     img.sampler = if nearest { bevy::image::ImageSampler::nearest() } else { bevy::image::ImageSampler::linear() };
     img
@@ -553,11 +554,9 @@ fn draw(
         menu.close();
     }
     if let Some(mut img) = images.get_mut(&*image) {
-        // as the HUD does: hand the finished picture over and take the image's old buffer back (it is cleared and redrawn next frame),
-        // instead of copying the whole canvas every frame the menu is open
-        let old = img.data.replace(std::mem::take(&mut canvas.px));
-        canvas.px =
-            old.filter(|o| o.len() == (canvas.w * canvas.h * 4) as usize).unwrap_or_else(|| vec![0; (canvas.w * canvas.h * 4) as usize]);
+        // hand the finished picture to the renderer (moved, not copied: `new_image`) and start the next frame on a fresh canvas
+        img.data = Some(std::mem::take(&mut canvas.px));
+        canvas.px = vec![0; (canvas.w * canvas.h * 4) as usize];
     }
     *v = Visibility::Visible;
 }

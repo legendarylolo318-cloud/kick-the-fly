@@ -54,12 +54,87 @@ pub struct HudStats {
 #[derive(Resource, Default)]
 struct HudHitsRes(ktf_ui::hud::HudHits);
 
+/// The HUD's picture on screen: its size in HUD units and the image it is shown through. The pixels are drawn by [`HudWorker`].
 #[derive(Resource)]
 struct HudCanvas {
-    canvas: Canvas,
+    w: i32,
+    h: i32,
     image: Handle<Image>,
     crisp: bool,
 }
+
+/// One HUD picture to draw.
+struct HudJob {
+    key: HudKey,
+    state: HudState,
+    lay: Layout,
+    larger_text: bool,
+    rnow: f64,
+}
+
+/// A drawn HUD picture: its pixels, where its clickable parts are, and how long the drawing took.
+struct HudDone {
+    key: HudKey,
+    px: Vec<u8>,
+    hits: HudHits,
+    draw_ms: f32,
+}
+
+/// The HUD is drawn in software, a whole window of pixels at a time (2560 x 1440 is 14.7 MB). Doing that in the frame loop cost more
+/// than everything else in a frame together, so it happens on a thread of its own: the frame loop only gathers the numbers
+/// ([`HudState`]), sends them when they changed, and shows the finished picture when it comes back (a frame or so later). At most one
+/// picture is in the works; what changes meanwhile is drawn next.
+#[derive(Resource)]
+struct HudWorker {
+    jobs: std::sync::mpsc::Sender<HudJob>,
+    done: std::sync::Mutex<std::sync::mpsc::Receiver<HudDone>>,
+    busy: bool,
+    /// When the last picture was asked for (real seconds).
+    asked_at: f64,
+}
+
+/// The most HUD pictures drawn per second. Each one is a whole window of pixels sent to the GPU (about 3 ms of the render thread at
+/// 2560 x 1440), and with the FPS counter on the HUD changes every frame, so at a high frame rate the HUD alone held the frame rate
+/// down. 60 a second is what the Python game drew at; the 3D view is not held to it.
+pub const HUD_HZ: f64 = 60.0;
+
+/// Whether a new HUD picture may be asked for at `now`, when the last was asked for at `asked_at` (real seconds).
+fn hud_due(now: f64, asked_at: f64) -> bool {
+    // a little early rather than a frame late: frames do not land exactly on the 60 Hz grid
+    now - asked_at >= 0.95 / HUD_HZ || now < asked_at
+}
+
+impl Default for HudWorker {
+    fn default() -> Self {
+        let (jobs, job_rx) = std::sync::mpsc::channel::<HudJob>();
+        let (done_tx, done) = std::sync::mpsc::channel();
+        std::thread::Builder::new()
+            .name(HUD_THREAD.into())
+            .spawn(move || {
+                let mut fonts: Option<(bool, HudFonts)> = None;
+                // ends when the game drops its end of either channel
+                while let Ok(job) = job_rx.recv() {
+                    let t0 = std::time::Instant::now();
+                    // a fresh canvas each time: the finished pixels are handed to the renderer for good (no copy back)
+                    let mut canvas = Canvas { linear_light: true, ..Canvas::new(job.lay.hud_w, job.lay.hud_h) };
+                    if fonts.as_ref().map(|f| f.0) != Some(job.larger_text) {
+                        fonts = Some((job.larger_text, HudFonts::new(job.larger_text)));
+                    }
+                    let Some((_, f)) = fonts.as_ref() else { continue };
+                    let hits = Hud { cv: &mut canvas, lay: job.lay, f }.draw(&job.state, job.rnow);
+                    let done = HudDone { key: job.key, px: canvas.px, hits, draw_ms: t0.elapsed().as_secs_f32() * 1000.0 };
+                    if done_tx.send(done).is_err() {
+                        break;
+                    }
+                }
+            })
+            .expect("could not start the HUD thread");
+        Self { jobs, done: std::sync::Mutex::new(done), busy: false, asked_at: f64::NEG_INFINITY }
+    }
+}
+
+/// The name of the thread the HUD is drawn on (a panic there is a crash: `crash::install_panic_hook`).
+pub const HUD_THREAD: &str = "hud-draw";
 
 #[derive(Component)]
 pub struct HudNode;
@@ -75,7 +150,9 @@ fn new_image(w: u32, h: u32, nearest: bool) -> Image {
         TextureDimension::D2,
         vec![0; (w * h * 4) as usize],
         TextureFormat::Rgba8UnormSrgb,
-        RenderAssetUsages::default(),
+        // only the renderer needs the pixels: they are moved to it when the picture changes, where the default (keep a copy for the
+        // game too) made a copy of the whole picture on every change
+        RenderAssetUsages::RENDER_WORLD,
     );
     img.sampler = if nearest { ImageSampler::nearest() } else { ImageSampler::linear() };
     img
@@ -103,7 +180,7 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
         },
         GlobalZIndex(500),
     ));
-    commands.insert_resource(HudCanvas { canvas: Canvas { linear_light: true, ..Canvas::new(1280, 720) }, image, crisp: true });
+    commands.insert_resource(HudCanvas { w: 1280, h: 720, image, crisp: true });
 }
 
 /// The HUD's play width and height this frame, for the panels that Python sizes with the rebound module constants `PLAY_W` and `H`
@@ -344,6 +421,7 @@ fn draw(
     science: Res<crate::science_play::Science>,
     mut last: Local<Option<(HudKey, HudState)>>,
     mut prof: ResMut<crate::profiler::ProfilerStats>,
+    mut worker: ResMut<HudWorker>,
 ) {
     let t_state = std::time::Instant::now();
     let HudIn {
@@ -387,8 +465,8 @@ fn draw(
     } = i;
     let l = lay.0;
     let crisp = (l.scale.fract() == 0.0) && l.scale >= 1.0;
-    if (hc.canvas.w, hc.canvas.h) != (l.hud_w, l.hud_h) || hc.crisp != crisp {
-        hc.canvas = Canvas { linear_light: true, ..Canvas::new(l.hud_w, l.hud_h) };
+    if (hc.w, hc.h) != (l.hud_w, l.hud_h) || hc.crisp != crisp {
+        (hc.w, hc.h) = (l.hud_w, l.hud_h);
         hc.image = images.add(new_image(l.hud_w as u32, l.hud_h as u32, crisp));
         hc.crisp = crisp;
         node.image = hc.image.clone();
@@ -704,32 +782,45 @@ fn draw(
         mouse: window.cursor_position().map_or((-1, -1), |p| ((p.x * sf / l.scale) as i32, (p.y * sf / l.scale) as i32)),
     };
     prof.record("hud state", t_state);
-    let t_draw = std::time::Instant::now();
-    // Nothing on the HUD changed since the last frame (a menu is up, time is paused, or the game runs faster than the brain reports):
-    // the picture on screen is still right, so it is neither drawn nor sent to the GPU again. The only thing the drawing reads besides
-    // the state is the half-second blink of the panel's 'live' dot.
     let blink = (rnow * 2.0) as i64 % 2 != 0;
     let larger = cfg.0.get_bool("access.larger_text");
-    let key = (blink, larger, hc.crisp, hc.canvas.w, hc.canvas.h, cfg.0.get_str("access.language").to_string(), hc.image.id());
-    if last.as_ref().is_some_and(|(k, s)| *k == key && *s == state) {
-        prof.record("hud draw", t_draw);
-        prof.record("hud copy", std::time::Instant::now());
+    let key = (blink, larger, hc.crisp, hc.w, hc.h, cfg.0.get_str("access.language").to_string(), hc.image.id());
+    // A picture the HUD thread finished: show it, unless the window was resized meanwhile (it was drawn for the old image).
+    let finished = worker.done.lock().unwrap_or_else(std::sync::PoisonError::into_inner).try_recv();
+    match finished {
+        Ok(done) => {
+            worker.busy = false;
+            prof.record_ms("hud draw", done.draw_ms);
+            if picture_fits(&done.key, &key, done.px.len())
+                && let Some(mut img) = images.get_mut(&hc.image)
+            {
+                // the pixels are handed to the renderer, not copied (`new_image`)
+                img.data = Some(done.px);
+                hits_out.0 = done.hits;
+            }
+        }
+        // the thread is gone (it panicked: the crash report is on its way); stop waiting for it
+        Err(std::sync::mpsc::TryRecvError::Disconnected) => worker.busy = false,
+        Err(std::sync::mpsc::TryRecvError::Empty) => {}
+    }
+    // Nothing on the HUD changed since the last picture was asked for (a menu is up, time is paused, or the game runs faster than the
+    // brain reports): the picture on screen is still right, so it is neither drawn nor sent to the GPU again. The only thing the drawing
+    // reads besides the state is the half-second blink of the panel's 'live' dot.
+    if worker.busy || !hud_due(rnow, worker.asked_at) || last.as_ref().is_some_and(|(k, s)| *k == key && *s == state) {
         return;
     }
-    let fonts = HudFonts::new(larger);
-    let HudCanvas { canvas, image, .. } = &mut *hc;
-    canvas.clear();
-    hits_out.0 = Hud { cv: canvas, lay: l, f: &fonts }.draw(&state, rnow);
-    prof.record("hud draw", t_draw);
-    let t_copy = std::time::Instant::now();
-    if let Some(mut img) = images.get_mut(&*image) {
-        // hand the finished picture over and take the image's old buffer back for the next frame (no 8 MB copy)
-        let old = img.data.replace(std::mem::take(&mut canvas.px));
-        canvas.px =
-            old.filter(|o| o.len() == (canvas.w * canvas.h * 4) as usize).unwrap_or_else(|| vec![0; (canvas.w * canvas.h * 4) as usize]);
+    let job = HudJob { key: key.clone(), state: state.clone(), lay: l, larger_text: larger, rnow };
+    if worker.jobs.send(job).is_ok() {
+        worker.busy = true;
+        worker.asked_at = rnow;
+        *last = Some((key, state));
     }
-    *last = Some((key, state));
-    prof.record("hud copy", t_copy);
+}
+
+/// Whether a finished picture (drawn for `drawn`) can be shown now (`now`): the same image, of the same size. A picture drawn before the
+/// window was resized is dropped; the blink, text size and language may have moved on (the next picture follows them).
+fn picture_fits(drawn: &HudKey, now: &HudKey, pixels: usize) -> bool {
+    (drawn.2, drawn.3, drawn.4, drawn.6) == (now.2, now.3, now.4, now.6) && pixels == (now.3.max(0) as usize) * (now.4.max(0) as usize) * 4
 }
 
 /// What the T screen shows (`Game._draw_training`) from the sim thread's memory view.
@@ -1023,9 +1114,59 @@ impl Plugin for HudCanvasPlugin {
         app.init_resource::<HudLayout>()
             .init_resource::<HudStats>()
             .init_resource::<HudHitsRes>()
+            .init_resource::<HudWorker>()
             .add_systems(Startup, setup)
             .add_systems(PreUpdate, layout.after(bevy::input::InputSystems))
             .add_systems(FixedUpdate, update_stats)
             .add_systems(Update, (keys, count_events, hud_clicks, draw).chain());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn key(w: i32, h: i32, blink: bool) -> HudKey {
+        (blink, false, true, w, h, "en".into(), Handle::<Image>::default().id())
+    }
+
+    #[test]
+    fn the_hud_thread_draws_a_picture_of_the_asked_size_and_reports_its_buttons() {
+        let worker = HudWorker::default();
+        let lay = compute_layout(1280, 760, true, 0, 1.0);
+        let job = HudJob { key: key(lay.hud_w, lay.hud_h, false), state: HudState::default(), lay, larger_text: false, rnow: 1.0 };
+        worker.jobs.send(job).unwrap();
+        let done = worker.done.lock().unwrap().recv_timeout(std::time::Duration::from_secs(30)).expect("the HUD thread answers");
+        assert_eq!(done.px.len(), (lay.hud_w * lay.hud_h * 4) as usize);
+        assert!(done.px.iter().any(|&b| b != 0), "something was drawn");
+        // the same picture as drawing it here, so moving the drawing to a thread changed nothing on screen
+        let mut canvas = Canvas { linear_light: true, ..Canvas::new(lay.hud_w, lay.hud_h) };
+        let hits = Hud { cv: &mut canvas, lay, f: &HudFonts::new(false) }.draw(&HudState::default(), 1.0);
+        assert!(done.px == canvas.px && done.hits == hits);
+    }
+
+    #[test]
+    fn the_hud_is_drawn_at_most_60_times_a_second() {
+        assert!(hud_due(0.0, f64::NEG_INFINITY), "the first picture is drawn at once");
+        assert!(!hud_due(10.005, 10.0), "5 ms after the last one (a 200 fps frame): not yet");
+        assert!(hud_due(10.0 + 1.0 / 60.0, 10.0), "a sixtieth of a second later: due");
+        // at 180 fps (5.6 ms frames) that is every third frame: 60 pictures a second, not 180
+        let (mut asked, mut pictures) = (f64::NEG_INFINITY, 0);
+        for frame in 0..180 {
+            let now = f64::from(frame) / 180.0;
+            if hud_due(now, asked) {
+                asked = now;
+                pictures += 1;
+            }
+        }
+        assert_eq!(pictures, 60);
+    }
+
+    #[test]
+    fn a_picture_drawn_before_a_resize_is_not_shown() {
+        let now = key(1920, 1080, false);
+        assert!(picture_fits(&key(1920, 1080, true), &now, 1920 * 1080 * 4), "only the blink moved on: still the right picture");
+        assert!(!picture_fits(&key(1280, 720, false), &now, 1280 * 720 * 4), "drawn for the old size");
+        assert!(!picture_fits(&now, &now, 16), "the wrong number of pixels never reaches the image");
     }
 }

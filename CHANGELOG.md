@@ -13,7 +13,17 @@ Windows. **Not yet run on Linux**: the Wayland / X11 pointer path is unchanged i
   `--selftest` (`gpu::backends`). `WGPU_BACKEND` can still name another backend, but DX12 in it is dropped: a forced DX12 run crashed the
   Windows graphics kernel (dxgkrnl) on the test machine. The adapter, backend and driver in use are written to the log at startup, with a
   warning when it is an integrated or software adapter.
-- **Speed.** The brain view copied its 166,700 activity values to the GPU buffer one byte at a time into a new allocation every frame; it
+- **The HUD no longer holds the frame rate down.** Measured with Bevy's per-system trace at 2560 x 1440 with the cap off: of an 11.6 ms
+  frame, 3.6 ms was Bevy copying the HUD's whole picture (14.7 MB) to the renderer every time it changed, 2.3 ms was drawing it, and
+  1.1 ms was the upload; the graphics card was idle because the frame loop was busy with that. Now the HUD is drawn on a thread of its
+  own (`hud_canvas::HudWorker`: the frame loop gathers the numbers and shows the finished picture a frame or so later; a test checks the
+  pixels are the same), its picture is handed to the renderer instead of copied (`RenderAssetUsages::RENDER_WORLD`, also for the menu),
+  and it is drawn at most 60 times a second (what the Python game drew at; with the FPS counter on it changed every frame). The same
+  trace afterwards: 8.4 ms a frame, the frame loop's own work down from 6.0 to 3.6 ms and the copy from 4.1 to 0.5 ms. What limits the
+  frame now is the render thread (about 8 ms traced), a quarter of it the lamp's six shadow views. Without the trace, the release build
+  on the test machine (RX 9070 XT, 2560 x 1440 borderless, cap and VSync off) went from a steady 100 frames a second to 173-181, the
+  display's 180 Hz; a HUD picture takes 3 to 4 ms on its thread. Nothing here is specific to Windows.
+- **Speed, smaller things.** The brain view copied its 166,700 activity values to the GPU buffer one byte at a time into a new allocation every frame; it
   is one copy into the existing buffer now. Idle particle clouds are no longer uploaded every frame, and live ones reuse their buffer. An
   open menu no longer copies its whole picture every frame (it swaps buffers, as the HUD does). The window opens in the configured VSync
   mode instead of switching to it a few frames in. Behind another window the game draws at most 30 frames a second.

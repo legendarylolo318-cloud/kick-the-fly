@@ -129,7 +129,7 @@ pub fn install_panic_hook(windowed: bool) {
         default(info);
         let thread = std::thread::current();
         let name = thread.name().unwrap_or("");
-        if name != "main" && name != "fly-sim" && !name.contains("Compute Task Pool") {
+        if name != "main" && name != "fly-sim" && name != crate::hud_canvas::HUD_THREAD && !name.contains("Compute Task Pool") {
             return;
         }
         let msg = info
