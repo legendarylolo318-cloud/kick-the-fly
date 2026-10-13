@@ -9,6 +9,13 @@ Windows. **Not yet run on Linux**: the Wayland / X11 pointer path is unchanged i
   window is focused and not minimized; alt-tab, minimizing and every menu give it back, and the click that returns to the window captures
   without using the tool in your hand. Windows confines the pointer to the window (winit has no lock there; asking for one was an error
   first). The game starts with the mouse free: the first click in the room takes it. Wayland and macOS still lock; X11 still confines.
+- **Mouse, two more.** Coming back to the window (alt-tab) takes the mouse again by itself if you were looking around, a moment after
+  the focus returns and never while a button is down, so the click that brings the window back still fires no tool. Where the pointer
+  is only confined (Windows, X11) it kept moving unseen and turned up in a corner when a menu opened; it is put in the middle of the
+  window when it is given back.
+- **The brain picture is sharp.** It was rendered at most 2400 pixels wide, so the big view (B) on a 2560 or 3840 wide screen was
+  drawn smaller and stretched; and its size was cut off instead of rounded, so with a display scale such as 125 % the panel could be
+  rendered one pixel short and resampled. It is rendered at exactly the size it is shown (`brainview::panel_pixels`).
 - **Graphics backend.** Windows and Linux draw with Vulkan and never with DirectX 12, in the game window, the crash window and
   `--selftest` (`gpu::backends`). `WGPU_BACKEND` can still name another backend, but DX12 in it is dropped: a forced DX12 run crashed the
   Windows graphics kernel (dxgkrnl) on the test machine. The adapter, backend and driver in use are written to the log at startup, with a

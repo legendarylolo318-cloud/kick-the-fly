@@ -471,7 +471,7 @@ fn layout(
         }
     };
     node.1.color = Color::srgba(1.0, 1.0, 1.0, alpha);
-    let (pw, ph) = (((w * sf) as u32).clamp(64, 2400), ((h * sf) as u32).clamp(64, 2400));
+    let (pw, ph) = panel_pixels(w * sf, h * sf);
     if let Some(img) = images.get(&panel.0)
         && (img.width() != pw || img.height() != ph)
         && let Some(mut img) = images.get_mut(&panel.0)
@@ -479,6 +479,16 @@ fn layout(
         img.resize(Extent3d { width: pw, height: ph, depth_or_array_layers: 1 });
     }
 }
+
+/// The size the brain picture is rendered at for a rectangle of `w x h` physical pixels: exactly that size, so one rendered pixel is one
+/// screen pixel. (It was capped at 2400: on a 2560 or 3840 wide screen the big view was rendered smaller and stretched, which blurred
+/// it and squeezed it sideways.) The cap that remains is the largest texture every supported GPU takes.
+pub fn panel_pixels(w: f32, h: f32) -> (u32, u32) {
+    ((w.round() as u32).clamp(64, MAX_PANEL_PX), (h.round() as u32).clamp(64, MAX_PANEL_PX))
+}
+
+/// wgpu's default limit for a 2D texture's side.
+const MAX_PANEL_PX: u32 = 8192;
 
 pub struct BrainViewPlugin;
 
@@ -493,6 +503,17 @@ impl Plugin for BrainViewPlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_brain_picture_is_rendered_at_the_size_it_is_shown() {
+        assert_eq!(panel_pixels(2560.0, 1440.0), (2560, 1440), "the big view on a 1440p screen: not capped at 2400 and stretched");
+        assert_eq!(panel_pixels(3840.0, 2160.0), (3840, 2160));
+        // 356 HUD units at a display scale of 125 % come back from f32 as 355.99997: one pixel short blurred the whole panel
+        let (k, sf) = (1.0f32 / 1.25, 1.25f32);
+        assert_eq!(panel_pixels(356.0 * k * sf, 193.0 * k * sf), (356, 193));
+        assert_eq!(panel_pixels(355.99997, 193.00002), (356, 193));
+        assert_eq!(panel_pixels(1.0, 100_000.0), (64, 8192), "never smaller than 64 or larger than a GPU texture");
+    }
 
     #[test]
     fn wheel_zoom_is_clipped_like_python() {

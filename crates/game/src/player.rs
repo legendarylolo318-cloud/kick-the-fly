@@ -197,31 +197,84 @@ pub fn update_camera(
 /// The cursor is held only while the game wants the mouse AND no menu is open AND the window is focused and not minimized; in every
 /// other case it is released and visible. The game starts with the mouse free (`MouseLook::default`), so nothing is grabbed until the
 /// player clicks into the room.
+#[allow(clippy::too_many_arguments)]
 fn cursor(
     act: Res<crate::actions::Actions>,
     menu: Res<crate::menu_ui::MenuOpen>,
+    time: Res<Time<Real>>,
+    buttons: Res<ButtonInput<MouseButton>>,
     mut look: ResMut<MouseLook>,
-    window: Single<&Window, With<PrimaryWindow>>,
+    mut window: Single<&mut Window, With<PrimaryWindow>>,
     mut opts: Single<&mut CursorOptions, With<PrimaryWindow>>,
-    mut was_focused: Local<Option<bool>>,
+    mut mem: Local<CursorMemory>,
 ) {
     if act.just("free_mouse") {
         look.captured = !look.captured;
     }
-    let focused = window.focused;
-    // Focus lost (alt-tab, clicked another window, minimized): the game gives the mouse back and does not take it again by itself. The
-    // click that returns to the window then goes through the 'click the room' path, which captures without using a tool, so the
-    // refocusing click never fires the tool in your hand.
-    if *was_focused == Some(true) && !focused {
+    let (focused, now) = (window.focused, time.elapsed_secs_f64());
+    // Focus lost (alt-tab, clicked another window, minimized): the game gives the mouse back at once, and remembers whether you were
+    // looking around.
+    if mem.was_focused == Some(true) && !focused {
+        mem.resume = look.captured;
+        mem.resume_at = None;
         look.captured = false;
     }
-    *was_focused = Some(focused);
+    // Focus back: if you were looking around, the game takes the mouse again a moment later, by itself (alt-tab back needs no click).
+    // Not at once: when a click brought the window back, that click must reach 'click the room' first, which captures without using
+    // the tool in your hand; taking the mouse before it would make the same click fire the tool.
+    if mem.was_focused == Some(false) && focused && std::mem::take(&mut mem.resume) {
+        mem.resume_at = Some(now + REFOCUS_GRACE_S);
+    }
+    mem.was_focused = Some(focused);
+    if let Some(at) = mem.resume_at
+        && let Some(take) = refocus_step(now, at, focused, look.captured, menu.0, buttons.get_pressed().next().is_some())
+    {
+        mem.resume_at = None;
+        if take {
+            look.captured = true;
+        }
+    }
     let shown = window.physical_width() > 0 && window.physical_height() > 0; // a minimized window is 0 x 0 on Windows
-    let (grab, visible) =
-        if holds_cursor(look.captured, menu.0, focused, shown) { (hold_mode(), false) } else { (CursorGrabMode::None, true) };
+    let hold = holds_cursor(look.captured, menu.0, focused, shown);
+    // A confined pointer (Windows, X11) kept moving, unseen, while you looked around, and usually ended in a corner of the window.
+    // When it is given back with the window still in front (a menu, Tab), put it in the middle, where a locked pointer would be.
+    if mem.held && !hold && focused && shown && hold_mode() == CursorGrabMode::Confined {
+        let middle = Vec2::new(window.width(), window.height()) / 2.0;
+        window.set_cursor_position(Some(middle));
+    }
+    mem.held = hold;
+    let (grab, visible) = if hold { (hold_mode(), false) } else { (CursorGrabMode::None, true) };
     if opts.grab_mode != grab || opts.visible != visible {
         opts.grab_mode = grab;
         opts.visible = visible;
+    }
+}
+
+/// What [`cursor`] remembers between frames.
+#[derive(Default)]
+struct CursorMemory {
+    was_focused: Option<bool>,
+    /// The pointer was held last frame.
+    held: bool,
+    /// You were looking around when the window lost focus.
+    resume: bool,
+    /// When to take the mouse back after the focus returned (real seconds).
+    resume_at: Option<f64>,
+}
+
+/// How long after the window is focused again the game takes the mouse back.
+const REFOCUS_GRACE_S: f64 = 0.15;
+
+/// The mouse after the focus came back, with the mouse to be taken again at `at`: `None` to keep waiting, `Some(true)` to take it now,
+/// `Some(false)` to drop the plan (the focus went again, the player already clicked into the room, or a menu opened). It is never
+/// taken while a mouse button is down, so no press is ever turned into a tool use.
+pub fn refocus_step(now: f64, at: f64, focused: bool, captured: bool, menu_open: bool, button_down: bool) -> Option<bool> {
+    if !focused || captured || menu_open {
+        Some(false)
+    } else if now >= at && !button_down {
+        Some(true)
+    } else {
+        None
     }
 }
 
@@ -270,6 +323,19 @@ mod tests {
         assert!(!holds_cursor(true, true, true, true), "a menu is open");
         assert!(!holds_cursor(true, false, false, true), "the window lost focus (alt-tab)");
         assert!(!holds_cursor(true, false, true, false), "the window is minimized");
+    }
+
+    #[test]
+    fn coming_back_to_the_window_takes_the_mouse_again_but_never_under_a_click() {
+        // alt-tab back: nothing pressed, the mouse is taken once the grace is over
+        assert_eq!(refocus_step(10.0, 10.15, true, false, false, false), None, "not yet");
+        assert_eq!(refocus_step(10.2, 10.15, true, false, false, false), Some(true));
+        // a click brought the window back and is still down: wait, so that press is never a tool use
+        assert_eq!(refocus_step(10.2, 10.15, true, false, false, true), None);
+        // that click already captured the mouse ('click the room'), a menu opened, or the focus went again: nothing left to do
+        assert_eq!(refocus_step(10.2, 10.15, true, true, false, false), Some(false));
+        assert_eq!(refocus_step(10.2, 10.15, true, false, true, false), Some(false));
+        assert_eq!(refocus_step(10.2, 10.15, false, false, false, false), Some(false));
     }
 
     #[test]
