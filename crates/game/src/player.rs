@@ -51,18 +51,13 @@ impl Default for Aim {
 #[derive(Resource, Debug, Clone, Copy)]
 pub struct CameraOverride(pub Vec3, pub Vec3);
 
-/// Whether the mouse is captured by the game (looking) or free (menus, the brain panel).
-#[derive(Resource, Debug, Clone, Copy)]
+/// Whether the mouse is captured by the game (looking) or free (menus, the brain panel). Free at launch: the first click in the room
+/// captures it (see `cursor`).
+#[derive(Resource, Debug, Clone, Copy, Default)]
 pub struct MouseLook {
     pub captured: bool,
     /// The tool wheel is open: the mouse points at a tool instead of turning the view.
     pub wheel: bool,
-}
-
-impl Default for MouseLook {
-    fn default() -> Self {
-        Self { captured: true, wheel: false }
-    }
 }
 
 /// Push a horizontal point out of the furniture boxes along the shallowest axis (the walking body slides along them).
@@ -196,18 +191,51 @@ pub fn update_camera(
     }
 }
 
-fn cursor(act: Res<crate::actions::Actions>, mut look: ResMut<MouseLook>, mut opts: Single<&mut CursorOptions, With<PrimaryWindow>>) {
+/// The ONE system that owns the OS cursor (grab mode and visibility). Everything else only says what the game wants, through
+/// [`MouseLook::captured`] (menus, the wheel, challenges clear it; a click in the room or closing a menu sets it) and `MenuOpen`.
+///
+/// The cursor is held only while the game wants the mouse AND no menu is open AND the window is focused and not minimized; in every
+/// other case it is released and visible. The game starts with the mouse free (`MouseLook::default`), so nothing is grabbed until the
+/// player clicks into the room.
+fn cursor(
+    act: Res<crate::actions::Actions>,
+    menu: Res<crate::menu_ui::MenuOpen>,
+    mut look: ResMut<MouseLook>,
+    window: Single<&Window, With<PrimaryWindow>>,
+    mut opts: Single<&mut CursorOptions, With<PrimaryWindow>>,
+    mut was_focused: Local<Option<bool>>,
+) {
     if act.just("free_mouse") {
         look.captured = !look.captured;
     }
-    // X11 (and XWayland) cannot lock the pointer in place, only keep it inside the window: asking for a lock there logged
-    // 'Unable to grab cursor' and left the pointer free to leave the window. The look uses raw mouse motion either way.
-    let hold = if on_x11() { CursorGrabMode::Confined } else { CursorGrabMode::Locked };
-    let (grab, visible) = if look.captured { (hold, false) } else { (CursorGrabMode::None, true) };
+    let focused = window.focused;
+    // Focus lost (alt-tab, clicked another window, minimized): the game gives the mouse back and does not take it again by itself. The
+    // click that returns to the window then goes through the 'click the room' path, which captures without using a tool, so the
+    // refocusing click never fires the tool in your hand.
+    if *was_focused == Some(true) && !focused {
+        look.captured = false;
+    }
+    *was_focused = Some(focused);
+    let shown = window.physical_width() > 0 && window.physical_height() > 0; // a minimized window is 0 x 0 on Windows
+    let (grab, visible) =
+        if holds_cursor(look.captured, menu.0, focused, shown) { (hold_mode(), false) } else { (CursorGrabMode::None, true) };
     if opts.grab_mode != grab || opts.visible != visible {
         opts.grab_mode = grab;
         opts.visible = visible;
     }
+}
+
+/// Whether the game holds (grabs and hides) the pointer: only while it wants the mouse for looking, no menu is open, and its window is
+/// focused and on screen.
+pub fn holds_cursor(captured: bool, menu_open: bool, focused: bool, shown: bool) -> bool {
+    captured && !menu_open && focused && shown
+}
+
+/// How the pointer is held while looking around. Windows (winit has no `Locked` there) and X11/XWayland can only keep the pointer inside
+/// the window (`Confined`); asking for `Locked` on them was an error that left the pointer free. The look reads raw mouse motion, so it
+/// does not matter that a confined pointer can sit on the window's edge. Wayland, macOS: a real lock.
+fn hold_mode() -> CursorGrabMode {
+    if cfg!(target_os = "windows") || on_x11() { CursorGrabMode::Confined } else { CursorGrabMode::Locked }
 }
 
 /// Linux without a Wayland session variable: winit opens an X11 window.
@@ -223,5 +251,33 @@ impl Plugin for PlayerPlugin {
             .init_resource::<MouseLook>()
             .add_systems(Startup, spawn_player)
             .add_systems(Update, (cursor, walk, update_camera).chain());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_mouse_is_free_at_launch() {
+        assert!(!MouseLook::default().captured, "nothing is grabbed until the player clicks into the room");
+    }
+
+    #[test]
+    fn the_pointer_is_held_only_in_focused_gameplay() {
+        assert!(holds_cursor(true, false, true, true), "looking around in the focused window");
+        assert!(!holds_cursor(false, false, true, true), "the mouse was freed (Tab, a panel, a challenge)");
+        assert!(!holds_cursor(true, true, true, true), "a menu is open");
+        assert!(!holds_cursor(true, false, false, true), "the window lost focus (alt-tab)");
+        assert!(!holds_cursor(true, false, true, false), "the window is minimized");
+    }
+
+    #[test]
+    fn windows_confines_the_pointer_because_it_cannot_lock_it() {
+        if cfg!(target_os = "windows") {
+            assert_eq!(hold_mode(), CursorGrabMode::Confined, "winit has no Locked on Windows");
+        } else if !on_x11() {
+            assert_eq!(hold_mode(), CursorGrabMode::Locked, "Wayland and macOS lock the pointer in place");
+        }
     }
 }

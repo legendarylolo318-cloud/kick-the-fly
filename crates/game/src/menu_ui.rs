@@ -553,7 +553,11 @@ fn draw(
         menu.close();
     }
     if let Some(mut img) = images.get_mut(&*image) {
-        img.data = Some(canvas.px.clone());
+        // as the HUD does: hand the finished picture over and take the image's old buffer back (it is cleared and redrawn next frame),
+        // instead of copying the whole canvas every frame the menu is open
+        let old = img.data.replace(std::mem::take(&mut canvas.px));
+        canvas.px =
+            old.filter(|o| o.len() == (canvas.w * canvas.h * 4) as usize).unwrap_or_else(|| vec![0; (canvas.w * canvas.h * 4) as usize]);
     }
     *v = Visibility::Visible;
 }

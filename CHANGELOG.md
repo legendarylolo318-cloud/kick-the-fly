@@ -1,5 +1,30 @@
 # Changelog
 
+## Unreleased (branch `rust-4.1`), Windows pass
+
+Tested on Windows 11 with an RX 9070 XT (Vulkan). Checked: `cargo fmt`, `clippy -D warnings`, the workspace tests and the goldens on
+Windows. **Not yet run on Linux**: the Wayland / X11 pointer path is unchanged in code but needs the checklist below before a release.
+
+- **Mouse.** One system owns the pointer (`player.rs:cursor`). It is held only while the game wants the mouse, no menu is open and the
+  window is focused and not minimized; alt-tab, minimizing and every menu give it back, and the click that returns to the window captures
+  without using the tool in your hand. Windows confines the pointer to the window (winit has no lock there; asking for one was an error
+  first). The game starts with the mouse free: the first click in the room takes it. Wayland and macOS still lock; X11 still confines.
+- **Graphics backend.** Windows and Linux draw with Vulkan and never with DirectX 12, in the game window, the crash window and
+  `--selftest` (`gpu::backends`). `WGPU_BACKEND` can still name another backend, but DX12 in it is dropped: a forced DX12 run crashed the
+  Windows graphics kernel (dxgkrnl) on the test machine. The adapter, backend and driver in use are written to the log at startup, with a
+  warning when it is an integrated or software adapter.
+- **Speed.** The brain view copied its 166,700 activity values to the GPU buffer one byte at a time into a new allocation every frame; it
+  is one copy into the existing buffer now. Idle particle clouds are no longer uploaded every frame, and live ones reuse their buffer. An
+  open menu no longer copies its whole picture every frame (it swaps buffers, as the HUD does). The window opens in the configured VSync
+  mode instead of switching to it a few frames in. Behind another window the game draws at most 30 frames a second.
+- **Profiler (F3):** the sim line shows the time of one brain step next to the steps per second.
+- **Not changed, on purpose:** `panic = "abort"` (`--selftest` and asset tasks catch panics); the default FPS cap of 60.
+
+Manual checklist (both systems): the mouse is free at launch and "click the room" captures it; Tab frees and captures; Esc, the loadout
+and every menu free it and closing them captures again; alt-tab away frees it and coming back takes one click that fires no tool;
+minimizing frees it; clicks on the hotbar, the panel and menus never fire a tool; F3 shows about 200 steps/s. Linux: the same under
+Hyprland (pointer lock: the pointer must not leave the window while looking) and under X11 (confined).
+
 ## 4.0.0 (2026-10-12), review pass
 
 - **The 1v1 duel (X) is back.** It had not been ported: the fly now gets a blaster, aims through its LC10 / DNa02 neurons, shoots through DNp35,

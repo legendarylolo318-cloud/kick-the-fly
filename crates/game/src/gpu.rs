@@ -17,6 +17,37 @@ use bevy::render::render_resource::{AsBindGroup, ShaderType};
 use bevy::render::storage::ShaderBuffer;
 use bevy::shader::ShaderRef;
 
+/// The graphics backends this program may use, everywhere it touches the GPU (the game window, the crash window, the self-test).
+///
+/// Windows and Linux: Vulkan, never DirectX 12, so both platforms run the same renderer path (on a hybrid Intel + AMD Windows machine
+/// the DX12 path crashed the graphics kernel, dxgkrnl, in testing). `WGPU_BACKEND` may still name another backend, but DX12 in it is
+/// dropped. macOS keeps wgpu's default (Metal).
+pub fn backends() -> bevy::render::settings::Backends {
+    use bevy::render::settings::Backends;
+    allowed_backends(Backends::from_env(), cfg!(any(target_os = "windows", target_os = "linux")))
+}
+
+/// [`backends`] for what `WGPU_BACKEND` asked for (`None`: not set) on a Vulkan platform (Windows, Linux) or another one.
+fn allowed_backends(asked: Option<bevy::render::settings::Backends>, vulkan_platform: bool) -> bevy::render::settings::Backends {
+    use bevy::render::settings::Backends;
+    if vulkan_platform {
+        asked.map(|b| b - Backends::DX12).filter(|b| !b.is_empty()).unwrap_or(Backends::VULKAN)
+    } else {
+        asked.unwrap_or(Backends::all())
+    }
+}
+
+/// How the renderer is created: [`backends`], and the discrete GPU rather than the integrated one or a software adapter (unless
+/// `WGPU_POWER_PREF` / `WGPU_ADAPTER_NAME` say otherwise). The adapter that was chosen is logged at startup (`crash::record_gpu`).
+pub fn wgpu_settings() -> bevy::render::settings::WgpuSettings {
+    use bevy::render::settings::{PowerPreference, WgpuSettings};
+    WgpuSettings {
+        backends: Some(backends()),
+        power_preference: PowerPreference::from_env().unwrap_or(PowerPreference::HighPerformance),
+        ..default()
+    }
+}
+
 /// A mesh of `n` camera-facing quads. Each vertex's position is `(corner.x, corner.y, quad index)`; the material's shader turns that into
 /// a billboard. The mesh has no real extent, so entities using it must carry `NoFrustumCulling`.
 pub fn quad_mesh(n: usize) -> Mesh {
@@ -127,11 +158,22 @@ pub fn flush_particles(
 ) {
     for mut c in &mut clouds {
         let n = c.points.len();
+        // an idle cloud that was already empty last frame: nothing to upload, and no change flag raised on the buffer or material
+        if n == 0 && materials.get(&c.material).is_some_and(|m| m.params.count == 0) {
+            continue;
+        }
         if let Some(mut b) = buffers.get_mut(&c.buffer) {
             let bytes: &[u8] = bytemuck::cast_slice(&c.points);
-            let mut data = vec![0u8; c.capacity * std::mem::size_of::<GpuPoint>()];
-            data[..bytes.len()].copy_from_slice(bytes);
-            b.data = Some(data);
+            let size = c.capacity * std::mem::size_of::<GpuPoint>();
+            // reuse the buffer's allocation; points past `count` are never read by the shader
+            match &mut b.data {
+                Some(d) if d.len() == size => d[..bytes.len()].copy_from_slice(bytes),
+                other => {
+                    let mut data = vec![0u8; size];
+                    data[..bytes.len()].copy_from_slice(bytes);
+                    *other = Some(data);
+                }
+            }
         }
         if let Some(mut m) = materials.get_mut(&c.material) {
             m.params.count = n as u32;
@@ -250,5 +292,17 @@ mod tests {
         assert!(pos[8..12].iter().all(|p| p[2] == 2.0), "the third quad is index 2");
         assert_eq!(m.indices().unwrap().len(), 18);
         assert_eq!(std::mem::size_of::<GpuPoint>(), 32, "two vec4s, std430-compatible");
+    }
+
+    #[test]
+    fn windows_and_linux_draw_with_vulkan_and_never_with_dx12() {
+        use bevy::render::settings::Backends;
+        assert_eq!(allowed_backends(None, true), Backends::VULKAN, "the default");
+        assert_eq!(allowed_backends(Some(Backends::DX12), true), Backends::VULKAN, "asking for DX12 alone gets Vulkan");
+        assert_eq!(allowed_backends(Some(Backends::DX12 | Backends::GL), true), Backends::GL, "DX12 is dropped, the rest is kept");
+        assert_eq!(allowed_backends(Some(Backends::GL), true), Backends::GL, "another backend can still be asked for");
+        assert!(!allowed_backends(Some(Backends::all()), true).contains(Backends::DX12));
+        // elsewhere (macOS: Metal) wgpu's own choice stands
+        assert_eq!(allowed_backends(None, false), Backends::all());
     }
 }

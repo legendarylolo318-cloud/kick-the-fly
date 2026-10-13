@@ -312,7 +312,12 @@ fn update_activity(
         eprintln!("brainview: mean activity {mean:.4}, mean rate {rmean:.5}, spikes {}", s.spikes.len());
     }
     if let Some(mut b) = buffers.get_mut(&cloud.activity) {
-        b.data = Some(v.activity.iter().flat_map(|f| f.to_le_bytes()).collect());
+        // one memcpy into the buffer's existing allocation (it was a per-frame byte-by-byte rebuild of ~560 KB)
+        let bytes: &[u8] = bytemuck::cast_slice(&v.activity);
+        match &mut b.data {
+            Some(d) if d.len() == bytes.len() => d.copy_from_slice(bytes),
+            other => *other = Some(bytes.to_vec()),
+        }
     }
     if let Some(mut m) = materials.get_mut(&cloud.material) {
         m.params.gain = 0.7 * v.mode.gain();

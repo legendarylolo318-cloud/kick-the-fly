@@ -109,6 +109,14 @@ fn record_gpu(info: Option<Res<bevy::render::renderer::RenderAdapterInfo>>, mut 
         diag::set_info("gpu_name", i.name.clone());
         diag::set_info("gpu_backend", format!("{:?}", i.backend));
         diag::set_info("gpu_driver", format!("{} {}", i.driver, i.driver_info).trim().to_string());
+        let kind = format!("{:?}", i.device_type);
+        bevy::log::info!("graphics: {} via {:?} ({kind}), driver {} {}", i.name, i.backend, i.driver, i.driver_info);
+        if kind == "Cpu" || kind == "IntegratedGpu" {
+            bevy::log::warn!(
+                "graphics: rendering on a {kind} adapter ({}); set WGPU_ADAPTER_NAME to the name of the graphics card to use",
+                i.name
+            );
+        }
     }
 }
 
@@ -299,10 +307,14 @@ fn frame(
 pub fn run_crash_screen(files: Vec<PathBuf>) -> ExitCode {
     *crash_paths().lock().unwrap() = files;
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window { title: "Kick the Fly".into(), resolution: SIZE.into(), resizable: false, ..default() }),
-            ..default()
-        }))
+        .add_plugins(
+            DefaultPlugins
+                .set(WindowPlugin {
+                    primary_window: Some(Window { title: "Kick the Fly".into(), resolution: SIZE.into(), resizable: false, ..default() }),
+                    ..default()
+                })
+                .set(bevy::render::RenderPlugin { render_creation: crate::gpu::wgpu_settings().into(), ..default() }),
+        )
         .add_systems(Startup, setup)
         .add_systems(Update, frame.run_if(resource_exists::<CrashUi>))
         .run();
