@@ -153,3 +153,22 @@ Regenerate the list with the script in `REVIEW_PROMPT.md` (section SETTINGS AUDI
     labels overlap exactly as in Python.
 
 (the user may add more below)
+
+## Windows pass of 2026-10-13 (desktop: Core Ultra 7 270K Plus, RX 9070 XT, Windows 11, 2560 x 1440 at 180 Hz, branch rust-4.1)
+
+7. **GPU, answered.** The symptom was a steady 100 frames a second with the graphics card at about 6 %. The adapter and backend were right
+   (RX 9070 XT, Vulkan). Bevy's per-system trace showed the frame loop spending about 6 of 11.6 ms on the software HUD: 3.6 ms copying its
+   picture (14.7 MB) to the render world on every change, 2.3 ms drawing it. **Fixed**: the HUD is drawn on its own thread, its picture is
+   moved to the renderer instead of copied, and it is drawn at most 60 times a second. 173-181 frames a second afterwards. What limits
+   the frame now is the render thread; a quarter of that is the lamp's six shadow views (not changed: it is how the room looks).
+14. **DirectX 12 crashed the machine.** A run forced to DX12 (`WGPU_BACKEND=dx12`) ended in a Windows bugcheck (0x7E, dxgkrnl.sys).
+    **Fixed** by never using DX12: Windows and Linux draw with Vulkan in the game, the crash window and `--selftest` (`gpu::backends`).
+15. **Mouse** (Windows, also X11): the pointer was asked to lock where the system can only confine it; nothing gave it back on alt-tab or
+    minimize; it turned up in a corner when a menu opened. **Fixed** (`player.rs:cursor`, the one owner of the pointer). The game starts
+    with the mouse free. Not yet tried on Hyprland: pointer lock there is the same code as before, but run the checklist in CHANGELOG.md.
+16. **The brain picture was soft**: capped at 2400 pixels wide (stretched on a 2560 or 3840 wide screen) and one pixel short with a
+    display scale such as 125 %. **Fixed** (`brainview::panel_pixels`). Not yet looked at on screen by a person.
+17. **Three things ran with the frames drawn, not the 60 Hz step** (three times as fast at 180 frames a second): Pet mode's clock and its
+    sleep poke to the brain, the puppeteer's looming poke, the immortal fly's healing. **Fixed.** Everything else that acts on the fly was
+    already on the fixed schedule. Open: these three have no test of their own (they need a whole app with a fly in it).
+18. Open: one run showed the HUD thread taking 18 ms a picture instead of 3-4 (frame rate unaffected); not reproduced, not explained.

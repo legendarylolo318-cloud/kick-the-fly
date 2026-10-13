@@ -70,7 +70,7 @@ fn update(
     snap: Res<LatestSnapshot>,
     lab: Res<crate::share_play::LabState>,
     link: Res<SimLink>,
-    time: Res<Time<Real>>,
+    time: Res<Time>,
     flies: Query<(Entity, &crate::fly::Fly, &Slot)>,
     mut dmg: MessageWriter<FlyDamage>,
 ) {
@@ -119,7 +119,9 @@ fn update(
         p.real_stakes = real;
         p.rates = rates(&lab);
         if alive {
-            // Python advances 0.016 s per frame (its 60 Hz frame at 0.016), so the pet's clock runs with frames, not wall time
+            // Python advances 0.016 s per frame (its 60 Hz frame at 0.016), so the pet's clock runs with frames, not wall time. Those
+            // are the 60 Hz steps of the fixed schedule here (`PetPlugin`), never the frames drawn: at 180 frames a second the pet aged,
+            // starved and grew sleepy three times as fast, and its brain was poked with the sleep drive three times as often.
             let mut r = || std::mem::replace(&mut roll, 1.0);
             p.update_live(0.016, false, f64::from(reward), f64::from(punish), &mut r, now);
             drive = p.dfb_sleep_drive();
@@ -179,6 +181,7 @@ pub struct PetPlugin;
 
 impl Plugin for PetPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<PetRes>().add_systems(Update, update).add_systems(Last, save_on_exit);
+        // on the fixed 60 Hz schedule, as everything else that acts on the fly's brain: the same pet at any frame rate
+        app.init_resource::<PetRes>().add_systems(FixedUpdate, update).add_systems(Last, save_on_exit);
     }
 }

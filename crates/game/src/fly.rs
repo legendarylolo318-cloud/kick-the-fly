@@ -1012,6 +1012,8 @@ impl Plugin for FlyPlugin {
             .add_systems(Startup, spawn_primary_fly)
             .add_systems(FixedUpdate, (brain_reactions, control).chain())
             .add_systems(FixedPostUpdate, impacts.after(PhysicsSystems::Writeback))
-            .add_systems(Update, (apply_hits_and_damage, immortal_regen, debug_dump, reset_fly));
+            // the immortal fly heals 0.1 a 60 Hz step (Python: a frame), not 0.1 a frame drawn (three times as fast at 180 frames a second)
+            .add_systems(FixedUpdate, immortal_regen.after(control))
+            .add_systems(Update, (apply_hits_and_damage, debug_dump, reset_fly));
     }
 }

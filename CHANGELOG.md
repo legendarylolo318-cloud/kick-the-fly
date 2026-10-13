@@ -9,6 +9,14 @@ Windows. **Not yet run on Linux**: the Wayland / X11 pointer path is unchanged i
   window is focused and not minimized; alt-tab, minimizing and every menu give it back, and the click that returns to the window captures
   without using the tool in your hand. Windows confines the pointer to the window (winit has no lock there; asking for one was an error
   first). The game starts with the mouse free: the first click in the room takes it. Wayland and macOS still lock; X11 still confines.
+- **The same fly at any frame rate.** Everything that drives the fly already ran on the fixed 60 Hz schedule (senses, reactions,
+  control, tools, arenas, learning: checked again, one system at a time), with three exceptions that ran once per frame drawn and so ran
+  three times as fast at 180 frames a second as at 60. Pet mode: the pet's clock (hunger, age, sleep pressure) and the sleep-drive
+  poke it sends to the brain. The puppeteer's looming shadow: one poke of the looming neurons a frame. The immortal fly's healing. All
+  three are on the 60 Hz step now (`pet_play`, `arcade::puppeteer_tick`, `fly::immortal_regen`). The simulator itself is untouched: no
+  weight, threshold, time constant or stimulus strength changed. Side effect: the pet's clock stops while a menu pauses the game.
+- **Gamepad.** With the mouse free at launch a pad had no way to 'click the room' unless the pointer happened to be over it. The
+  first stick push or trigger pull takes the view (once).
 - **Mouse, two more.** Coming back to the window (alt-tab) takes the mouse again by itself if you were looking around, a moment after
   the focus returns and never while a button is down, so the click that brings the window back still fires no tool. Where the pointer
   is only confined (Windows, X11) it kept moving unseen and turned up in a corner when a menu opened; it is put in the middle of the

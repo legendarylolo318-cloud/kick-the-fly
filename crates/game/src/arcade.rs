@@ -49,6 +49,8 @@ struct PuppetRun {
     started: f32,
     latched: Option<(usize, bool)>,
     loom_until: f32,
+    /// When the next looming poke is due (virtual seconds): one a 60 Hz step.
+    loom_next: f32,
     prev_laser: bool,
     won_at: Option<f32>,
     stars: u32,
@@ -646,6 +648,7 @@ fn start_level(
         started: now,
         latched: None,
         loom_until: 0.0,
+        loom_next: 0.0,
         prev_laser: false,
         won_at: None,
         stars: 0,
@@ -694,8 +697,11 @@ fn puppeteer_tick(
             run.loom_until = now + puppeteer::LOOM_FOR_S;
             run.tracker.loom_fired(now);
         }
-        if now < run.loom_until {
+        // one poke a 60 Hz step while the shadow is up (Python: one a frame at its 60 frames a second), not one a frame drawn: at 180
+        // frames a second the fly was shown three times the looming stimulus
+        if now < run.loom_until && now >= run.loom_next {
             link.0.send(Command::Poke { region: "loom".into(), side: None, strength: 1.0 });
+            run.loom_next = (run.loom_next + 1.0 / 60.0).max(now);
         }
         run.tracker.tick(now);
         if run.tracker.done {

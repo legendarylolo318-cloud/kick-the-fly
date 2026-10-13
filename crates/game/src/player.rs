@@ -203,6 +203,7 @@ fn cursor(
     menu: Res<crate::menu_ui::MenuOpen>,
     time: Res<Time<Real>>,
     buttons: Res<ButtonInput<MouseButton>>,
+    pad: Option<Res<crate::gamepad::Pad>>,
     mut look: ResMut<MouseLook>,
     mut window: Single<&mut Window, With<PrimaryWindow>>,
     mut opts: Single<&mut CursorOptions, With<PrimaryWindow>>,
@@ -212,6 +213,12 @@ fn cursor(
         look.captured = !look.captured;
     }
     let (focused, now) = (window.focused, time.elapsed_secs_f64());
+    // The game starts with the mouse free and 'click the room' takes it, which needs a mouse. On a gamepad the first push of a stick or
+    // pull of the trigger takes the view instead (once: after that the pad's player frees and takes it as the keyboard's does).
+    if pad_takes_view(mem.ever_captured, pad.is_some_and(|p| p.in_use()), menu.0, focused) {
+        look.captured = true;
+    }
+    mem.ever_captured |= look.captured;
     // Focus lost (alt-tab, clicked another window, minimized): the game gives the mouse back at once, and remembers whether you were
     // looking around.
     if mem.was_focused == Some(true) && !focused {
@@ -254,12 +261,20 @@ fn cursor(
 #[derive(Default)]
 struct CursorMemory {
     was_focused: Option<bool>,
+    /// The game has had the mouse at least once since it started.
+    ever_captured: bool,
     /// The pointer was held last frame.
     held: bool,
     /// You were looking around when the window lost focus.
     resume: bool,
     /// When to take the mouse back after the focus returned (real seconds).
     resume_at: Option<f64>,
+}
+
+/// Whether a gamepad takes the view: only the first time (nobody has had the mouse yet), while it is being played on, with no menu open
+/// and the window in front.
+pub fn pad_takes_view(ever_captured: bool, pad_in_use: bool, menu_open: bool, focused: bool) -> bool {
+    !ever_captured && pad_in_use && !menu_open && focused
 }
 
 /// How long after the window is focused again the game takes the mouse back.
@@ -323,6 +338,15 @@ mod tests {
         assert!(!holds_cursor(true, true, true, true), "a menu is open");
         assert!(!holds_cursor(true, false, false, true), "the window lost focus (alt-tab)");
         assert!(!holds_cursor(true, false, true, false), "the window is minimized");
+    }
+
+    #[test]
+    fn a_gamepad_takes_the_view_at_launch_without_a_mouse_click() {
+        assert!(pad_takes_view(false, true, false, true), "the first stick push or trigger pull");
+        assert!(!pad_takes_view(false, false, false, true), "an idle pad lying on the desk does nothing");
+        assert!(!pad_takes_view(true, true, false, true), "only once: later the mouse is freed and taken on purpose");
+        assert!(!pad_takes_view(false, true, true, true), "not under a menu");
+        assert!(!pad_takes_view(false, true, false, false), "not behind another window");
     }
 
     #[test]
