@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/fly_sim", "crates/ktf_data", "crates/ktf_ui", "crates/game"]
 
 [workspace.package]
-version = "4.0.0"
+version = "4.1.0"
 edition = "2024"
 license = "MIT"
 rust-version = "1.95"
