@@ -49,7 +49,7 @@ bevy = { workspace = true, features = ["debug"] }
 # PulseAudio's native protocol (served by PipeWire too) first, ALSA as the fallback: so the microphone works on PipeWire, PulseAudio and
 # plain ALSA. Windows uses WASAPI through cpal's default host.
 [target.'cfg(target_os = "linux")'.dependencies]
-libc = "=0.2.190"
+libc.workspace = true
 cpal = { workspace = true, features = ["pulseaudio"] }
 
 [target.'cfg(windows)'.dependencies]

@@ -20,6 +20,8 @@ avian3d = { version = "=0.7.0", default-features = false, features = ["3d", "f32
 cpal = { version = "=0.18.2" }
 bytemuck = "=1.25.2"
 rayon = "=1.12.0"
+# Linux only: the sim threads lower their own priority (setpriority on their thread id)
+libc = "=0.2.190"
 zip = { version = "=8.6.0", default-features = false, features = ["deflate"] }
 sha2 = "=0.11.0"
 serde = { version = "=1.0.229", features = ["derive"] }

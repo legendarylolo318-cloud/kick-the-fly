@@ -4,6 +4,7 @@
 //! [`Mailbox`] (reading never waits for a step). The sim thread paces itself against the wall clock: if it falls more than 40 steps
 //! behind it drops the backlog instead of racing, exactly as the Python loop does, and counts what it dropped.
 
+use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
 use std::sync::{Arc, Mutex, PoisonError};
@@ -722,8 +723,8 @@ impl Drop for SimHandle {
 
 /// The sim's own rayon pool. With the global pool (one thread per core) the brain's worker threads and Bevy's own task threads fight for
 /// the same cores: measured with 10 flies on a 24-core CPU the game fell to 44 fps while the sim ran flat out. The sim gets about two
-/// fifths of the cores, at a lower priority than the game's threads (Linux), so the frame always wins and the brains take what is left.
-/// `KTF_SIM_THREADS=n` overrides the size; `RAYON_NUM_THREADS` is still honoured as the upper bound.
+/// fifths of the cores (at least 2), at a lower priority than the game's threads (Linux), so the frame always wins and the brains take what
+/// is left. `KTF_SIM_THREADS=n` sets the size (1 up to the core count).
 fn sim_pool() -> Option<rayon::ThreadPool> {
     let cores = thread::available_parallelism().map_or(4, |n| n.get());
     let n = std::env::var("KTF_SIM_THREADS")
@@ -866,20 +867,35 @@ fn run(
     let mut dex = DexState { tracker: None, table: None, enabled: true };
     publish(&mailbox, &brain, &multi, &source, &state, steps_per_s, dropped, driving, &info, &mem);
 
+    let mut queue: VecDeque<Command> = VecDeque::new();
     while !stop.load(Ordering::Relaxed) {
         let before = (state.speed, state.paused);
-        loop {
+        // the commands waiting now; the new flies among them are built and warmed up first, side by side
+        let disconnected = loop {
             match rx.try_recv() {
+                Ok(c) => queue.push_back(c),
+                Err(TryRecvError::Empty) => break false,
+                Err(TryRecvError::Disconnected) => break true,
+            }
+        };
+        let mut warmed = prewarm(&queue, &spawn_weights, &spawn_labels, cfg.warmup, &multi);
+        loop {
+            let next = match queue.pop_front() {
+                Some(c) => Ok(c),
+                None if disconnected => Err(TryRecvError::Disconnected),
+                None => Err(TryRecvError::Empty),
+            };
+            match next {
                 Ok(Command::Shutdown) | Err(TryRecvError::Disconnected) => {
                     mem.save_if_dirty(&mut brain);
                     return;
                 }
                 Ok(Command::SpawnFly { slot, seed, sigma }) => {
                     if slot != multi.focus && !multi.extras.iter().any(|e| e.0 == slot) {
-                        let mut sim = LifSim::new(spawn_weights.clone(), LifParams::default(), seed);
-                        sim.set_individuality(fly_sim::lif::Individuality::compute(seed, spawn_weights.n(), sigma));
-                        let mut b = Brain::new(sim, spawn_labels.clone());
-                        b.warmup(cfg.warmup);
+                        let mut b = match warmed.iter().position(|w| w.0 == (slot, seed, sigma.to_bits())) {
+                            Some(i) => warmed.swap_remove(i).1,
+                            None => new_fly_brain(&spawn_weights, &spawn_labels, seed, sigma, cfg.warmup),
+                        };
                         b.steps = brain.steps; // one clock: a focus change must not make the step counter jump
                         multi.extras.push((slot, b));
                         multi.seeds.push((slot, seed));
@@ -1167,6 +1183,11 @@ fn run(
         if (state.speed, state.paused) != before {
             t0 = Instant::now(); // re-anchor the clock when the speed changes, as Brain._loop does
             done = 0;
+            // and the steps/s window: a paused brain reports 0, not its last running rate
+            (rate_t, rate_steps) = (Instant::now(), brain.steps);
+            if state.paused {
+                steps_per_s = 0.0;
+            }
             publish(&mailbox, &brain, &multi, &source, &state, steps_per_s, dropped, driving, &info, &mem);
         }
         if state.pending_steps > 0 {
@@ -1242,17 +1263,54 @@ fn run(
     mem.save_if_dirty(&mut brain);
 }
 
+/// A new fly's brain, warmed up (`SpawnFly`).
+fn new_fly_brain(weights: &Arc<Weights>, labels: &Arc<Labels>, seed: u64, sigma: f64, warmup: usize) -> Brain {
+    let mut sim = LifSim::new(weights.clone(), LifParams::default(), seed);
+    sim.set_individuality(fly_sim::lif::Individuality::compute(seed, weights.n(), sigma));
+    let mut b = Brain::new(sim, labels.clone());
+    b.warmup(warmup);
+    b
+}
+
+/// The brains of the flies the queued `SpawnFly` commands will add, built and warmed up in parallel: spawning many flies at once
+/// (N held down, a save with many flies) used to stop every brain for 600 steps per new fly, one after another. Only the spawns before
+/// a wiring change are made here (they use the weights in force now); the result is the same brain `SpawnFly` would build itself,
+/// keyed by (slot, seed, sigma bits).
+fn prewarm(
+    queue: &VecDeque<Command>,
+    weights: &Arc<Weights>,
+    labels: &Arc<Labels>,
+    warmup: usize,
+    multi: &Multi,
+) -> Vec<((u32, u64, u64), Brain)> {
+    use rayon::prelude::*;
+    let mut todo: Vec<(u32, u64, f64)> = Vec::new();
+    for c in queue {
+        match c {
+            Command::SetWiring { .. } => break,
+            Command::SpawnFly { slot, seed, sigma }
+                if *slot != multi.focus && !multi.extras.iter().any(|e| e.0 == *slot) && !todo.iter().any(|t| t.0 == *slot) =>
+            {
+                todo.push((*slot, *seed, *sigma));
+            }
+            _ => {}
+        }
+    }
+    if todo.len() < 2 {
+        return Vec::new();
+    }
+    todo.into_par_iter()
+        .map(|(slot, seed, sigma)| ((slot, seed, sigma.to_bits()), new_fly_brain(weights, labels, seed, sigma, warmup)))
+        .collect()
+}
+
 /// One tick of every fly's brain. The brains share nothing (each has its own state and noise), so they step side by side on the rayon
-/// pool instead of one after the other; each step already splits its neurons over the same pool, which balances the two levels.
+/// pool instead of one after the other; each step already splits its neurons over the same pool, which balances the two levels. The
+/// spikes are the same as stepping them in turn (`tests::parallel_brains_match_serial`).
 fn step_brains(brain: &mut Brain, extras: &mut [(u32, Brain)]) {
     use rayon::prelude::*;
-    // KTF_SERIAL_SIM=1: the old one-after-the-other order, for comparing frame times
-    static SERIAL: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-    if extras.is_empty() || *SERIAL.get_or_init(|| std::env::var_os("KTF_SERIAL_SIM").is_some()) {
+    if extras.is_empty() {
         brain.step();
-        for (_, b) in extras.iter_mut() {
-            b.step();
-        }
         return;
     }
     rayon::join(
@@ -2108,6 +2166,49 @@ mod tests {
         h.steth.store(0, Ordering::Relaxed);
         thread::sleep(Duration::from_millis(300));
         assert_eq!(h.steth.load(Ordering::Relaxed), 0, "off again");
+    }
+
+    /// Every brain's spikes, step by step, for flies stepped by `step_brains` on a pool of `threads` (the weights' blocks follow the pool, as
+    /// in the game) or one after the other.
+    fn spike_trains(threads: usize, parallel: bool) -> Vec<Vec<u32>> {
+        let pool = rayon::ThreadPoolBuilder::new().num_threads(threads).build().unwrap();
+        pool.install(|| {
+            let src = Source::Synthetic { n: 4000 };
+            let (w, labels, _) = load(&SimConfig { source: src, seed: 1, warmup: 0, publish_every: 1, memory_dir: None }).unwrap();
+            let new = |seed: u64, sigma: f64| {
+                let mut sim = LifSim::new(w.clone(), LifParams::default(), seed);
+                sim.set_individuality(fly_sim::lif::Individuality::compute(seed, w.n(), sigma));
+                let mut b = Brain::new(sim, labels.clone());
+                let rows = b.rows_of("type:LPLC2").unwrap();
+                b.drive(&rows, STIMULUS_AMP);
+                b
+            };
+            let mut brain = new(7, 0.0);
+            let mut extras: Vec<(u32, Brain)> = (1..6).map(|i| (i, new(1000 + u64::from(i), 0.05))).collect();
+            let mut out = Vec::new();
+            for _ in 0..150 {
+                if parallel {
+                    step_brains(&mut brain, &mut extras);
+                } else {
+                    brain.step();
+                    for (_, b) in &mut extras {
+                        b.step();
+                    }
+                }
+                out.push(brain.sim.spikes().to_vec());
+                out.extend(extras.iter().map(|(_, b)| b.sim.spikes().to_vec()));
+            }
+            out
+        })
+    }
+
+    #[test]
+    fn parallel_brains_match_serial() {
+        let reference = spike_trains(1, false);
+        assert!(reference.iter().map(Vec::len).sum::<usize>() > 1000, "the driven brains spike");
+        for threads in [1, 2, 5, 16] {
+            assert!(spike_trains(threads, true) == reference, "the spikes differ with step_brains on {threads} threads");
+        }
     }
 
     #[test]

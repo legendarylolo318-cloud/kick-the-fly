@@ -1632,7 +1632,7 @@ pub const HELP3D: [(&str, &str); 27] = [
     ("V", "brain panel: solid, see-through, faint, hidden"),
     ("U", "menu size: crisp (whole-pixel scaling) or large"),
     ("F11", "fullscreen"),
-    ("N", "spawn another fly, each with its own brain (16; one per CPU core, up to 32, on Numba)"),
+    ("N", "spawn another fly, each with its own brain (up to 64; past about ten the brains run slower than real time)"),
     ("F", "cycle focused fly (in photo mode: autofocus)"),
     ("R", "reset to a single fresh fly"),
     ("Z  [  ]  .", "pause time, slower, faster, single step"),

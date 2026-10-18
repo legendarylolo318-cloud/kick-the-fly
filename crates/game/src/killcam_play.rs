@@ -17,6 +17,8 @@ use crate::killcam::{self, Buffer, MIN_RISE_HZ, Player, Replay, TOP_N};
 #[derive(Resource, Default)]
 pub struct KillCam {
     buffer: Option<Buffer>,
+    /// The fly whose brain the buffer holds: a focus change starts a new recording, so a replay never splices two brains together.
+    slot: u32,
     pub player: Option<Player>,
     pub summary: Vec<String>,
     was_big: bool,
@@ -54,8 +56,9 @@ fn record(snap: Res<LatestSnapshot>, mut kc: ResMut<KillCam>) {
         return;
     }
     let n = s.rates.len();
-    if kc.buffer.as_ref().is_none_or(|b| b.n() != n) {
+    if kc.buffer.as_ref().is_none_or(|b| b.n() != n) || kc.slot != s.focus {
         kc.buffer = Some(Buffer::new(n));
+        kc.slot = s.focus;
     }
     if let Some(b) = kc.buffer.as_mut()
         && b.due(s.step)
@@ -66,7 +69,7 @@ fn record(snap: Res<LatestSnapshot>, mut kc: ResMut<KillCam>) {
 
 fn on_death(
     mut died: MessageReader<FlyDied>,
-    slots: Query<&crate::fly::Slot>,
+    bodies: Query<(&crate::fly::Fly, &crate::fly::Slot)>,
     flies: Res<crate::flies_play::Flies>,
     mut kc: ResMut<KillCam>,
     snap: Res<LatestSnapshot>,
@@ -75,9 +78,11 @@ fn on_death(
     mut notes: ResMut<Notes>,
     time: Res<Time<Real>>,
 ) {
-    // the replay is the focused brain's last seconds: another fly's death does not take over the screen
-    let focused_died = died.read().any(|d| slots.get(d.fly).is_ok_and(|s| s.0 == flies.focus));
-    if !focused_died || !settings.killcam || kc.player.is_some() {
+    // the replay is the focused brain's last seconds, and like the death screen it waits for the last fly: while another fly lives the
+    // focus moves on to it (`flies_play::follow_nearest`) and play goes on
+    let focused_died = died.read().fold(false, |acc, d| acc | bodies.get(d.fly).is_ok_and(|(_, s)| s.0 == flies.focus));
+    let all_dead = bodies.iter().all(|(f, _)| f.dead());
+    if !focused_died || !all_dead || !settings.killcam || kc.player.is_some() {
         return;
     }
     let Some(replay) = kc.buffer.as_ref().and_then(Buffer::freeze) else { return };
