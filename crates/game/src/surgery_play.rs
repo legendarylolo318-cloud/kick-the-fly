@@ -41,8 +41,6 @@ fn build(s: &mut Surgery, counts: &[u32], modes: &[i8], types: &[(String, i8)]) 
         "topleft",
     );
     let mut y = panel.y + 76;
-    // the rows share the room above CLEAR ALL and the footer (26 px each when it fits, never under 22, the buttons' height)
-    let pitch = ((panel.bottom() - 44 - y) / ENTRIES.len() as i32).clamp(22, 26);
     let mut hits = vec![];
     for (k, (label, _)) in ENTRIES.iter().enumerate() {
         let n = counts.get(k).copied().unwrap_or(0);
@@ -75,7 +73,7 @@ fn build(s: &mut Surgery, counts: &[u32], modes: &[i8], types: &[(String, i8)]) 
             ops.push(Op::Hit { rect: r, id: format!("row:{k}:{m}") });
             hits.push((r, format!("row:{k}:{m}")));
         }
-        y += pitch;
+        y += 26;
     }
     let active: Vec<String> =
         types.iter().filter(|t| t.1 != 0).map(|(t, m)| format!("{t} {}", if *m < 0 { "off" } else { "on" })).collect();
@@ -147,7 +145,7 @@ pub fn click(
     if !s.open {
         return false;
     }
-    // the last box drawn is on top: CLEAR ALL wins over a row it covers in a short window
+    // the last box drawn is on top: CLEAR ALL wins over the last row, which runs under it (as in the Python game's layout)
     let Some((_, id)) = s.hits.iter().rev().find(|(r, _)| r.contains(pos)) else { return true };
     if id == "clear" {
         link.0.send(Command::SurgeryClear);

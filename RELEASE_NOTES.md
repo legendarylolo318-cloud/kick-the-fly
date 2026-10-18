@@ -15,8 +15,8 @@ spikes as stepping them one after another (checked on the real brain pack, on 1,
 **Clicks and screens**
 
 - Clicking **Resume** in the pause menu could leave the game frozen behind the closed menu until Esc was pressed twice. Fixed.
-- Brain surgery: **CLEAR ALL** switched on the "Sleep neurons" row hidden under it instead of clearing. The rows now fit, and the
-  button works.
+- Brain surgery: **CLEAR ALL** switched on the "Sleep neurons" row hidden under it instead of clearing. The button now clears; the
+  last row is still clickable just above it.
 - **Esc** closes the help card and the big brain view first, as in 3.x, before the pause menu opens.
 - Leaving Pet mode puts the pet away (its panel and its needs kept going in Play mode).
 - The window can no longer be made smaller than 640 x 400 (the HUD became unreadable), and on Linux it now carries its app id, so the
