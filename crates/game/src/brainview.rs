@@ -357,6 +357,20 @@ fn key_toasts(
 /// The big view's mouse, as in Python (`kick3d.py` MOUSEWHEEL, `kick_the_fly.py` `big_drag`): with the mouse free, the wheel zooms, a drag
 /// turns and tilts (0.4 degrees a HUD pixel), Shift+drag or a middle-button drag shifts the picture with the pointer; 1 / 2 / 3 / 0 pick
 /// the front / side / top / reset camera. Autopilot with 'brain orbit' turns it by 12 degrees a second.
+/// Esc closes the big view before the pause menu would open (`menu_first`: "Esc closes an overlay first"); the kill cam keeps it (Enter
+/// skips the replay).
+fn big_view_escape(
+    mut keys: ResMut<ButtonInput<KeyCode>>,
+    mut view: ResMut<BrainView>,
+    menu: Res<crate::menu_ui::MenuOpen>,
+    kc: Option<Res<crate::killcam_play::KillCam>>,
+) {
+    if view.big && !menu.0 && kc.is_none_or(|k| k.player.is_none()) && keys.just_pressed(KeyCode::Escape) {
+        view.big = false;
+        keys.clear_just_pressed(KeyCode::Escape);
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn control(
     act: Res<crate::actions::Actions>,
@@ -481,6 +495,7 @@ impl Plugin for BrainViewPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<BrainView>()
             .add_systems(Startup, setup)
+            .add_systems(PreUpdate, big_view_escape.before(crate::menu_ui::MenuInputSet).after(bevy::input::InputSystems))
             .add_systems(Update, (control, key_toasts.after(control), build_cloud, update_activity, layout).chain());
     }
 }

@@ -1007,12 +1007,18 @@ fn tutorial_view(t: &crate::tutorial_play::Tutorial, cfg: &ktf_data::config::Con
     })
 }
 
-fn keys(act: Res<crate::actions::Actions>, keys: Res<ButtonInput<KeyCode>>, mut st: ResMut<HudStats>) {
+fn keys(act: Res<crate::actions::Actions>, mut st: ResMut<HudStats>) {
     if act.just("help") {
         st.help = !st.help;
     }
-    if keys.just_pressed(KeyCode::Escape) && st.help {
+}
+
+/// Esc closes the help card before the pause menu would open on top of it (the menu reads Esc first, in `PreUpdate`, and would leave the
+/// card open behind it).
+fn help_escape(mut keys: ResMut<ButtonInput<KeyCode>>, mut st: ResMut<HudStats>, menu: Res<MenuOpen>) {
+    if st.help && !menu.0 && keys.just_pressed(KeyCode::Escape) {
         st.help = false;
+        keys.clear_just_pressed(KeyCode::Escape);
     }
 }
 
@@ -1025,6 +1031,7 @@ impl Plugin for HudCanvasPlugin {
             .init_resource::<HudHitsRes>()
             .add_systems(Startup, setup)
             .add_systems(PreUpdate, layout.after(bevy::input::InputSystems))
+            .add_systems(PreUpdate, help_escape.before(crate::menu_ui::MenuInputSet).after(bevy::input::InputSystems))
             .add_systems(FixedUpdate, update_stats)
             .add_systems(Update, (keys, count_events, hud_clicks, draw).chain());
     }

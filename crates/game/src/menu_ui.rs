@@ -363,10 +363,15 @@ fn input(
         let (_, fx) = ui.menu.handle(&ev, &mut cfg.0, three_d, &mut host);
         effects.extend(fx);
     }
-    for fx in effects {
+    // an effect can queue more (Resume closes the menu, which queues "closed"): they run this frame too, or they would wait for the
+    // next input event and a click on Resume would leave the game paused behind a closed menu
+    let mut effects = std::collections::VecDeque::from(effects);
+    while let Some(fx) = effects.pop_front() {
         match fx {
             Effect::Action(a) => match a.as_str() {
                 "resume" => ui.menu.close(),
+                // a button that left the menu itself (the arcade, a challenge) has already set what it needs
+                "closed" if !open.0 => {}
                 "closed" => {
                     open.0 = false;
                     tc.menu_paused = false;
@@ -465,6 +470,7 @@ fn input(
                 cfg.0.save(env!("CARGO_PKG_VERSION"));
             }
         }
+        effects.extend(ui.menu.take_effects());
     }
     screen.0 = ui.menu.screen.clone().unwrap_or_default();
     if was_open || ui.menu.is_open() {

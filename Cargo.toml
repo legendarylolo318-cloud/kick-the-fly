@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/fly_sim", "crates/ktf_data", "crates/ktf_ui", "crates/game"]
 
 [workspace.package]
-version = "4.0.0"
+version = "4.1.0"
 edition = "2024"
 license = "MIT"
 rust-version = "1.95"
@@ -20,6 +20,8 @@ avian3d = { version = "=0.7.0", default-features = false, features = ["3d", "f32
 cpal = { version = "=0.18.2" }
 bytemuck = "=1.25.2"
 rayon = "=1.12.0"
+# Linux only: the sim threads lower their own priority (setpriority on their thread id)
+libc = "=0.2.190"
 zip = { version = "=8.6.0", default-features = false, features = ["deflate"] }
 sha2 = "=0.11.0"
 serde = { version = "=1.0.229", features = ["derive"] }
@@ -40,6 +42,13 @@ fly_sim = { path = "crates/fly_sim" }
 lto = "fat"
 codegen-units = 1
 opt-level = 3
+
+# `cargo build --profile fast-release`: for testing changes. Thin LTO and 16 codegen units use every core, so it links in a fraction of the time;
+# the binary is a little slower than `release`, which stays the shipping profile (and the one to measure for numbers).
+[profile.fast-release]
+inherits = "release"
+lto = "thin"
+codegen-units = 16
 
 # Dev builds: our own crates at opt-level 1, dependencies (Bevy, rayon) at 3, so the game and the sim are usable without --release.
 [profile.dev]

@@ -75,6 +75,10 @@ fn update(
     mut dmg: MessageWriter<FlyDamage>,
 ) {
     let want = cfg.0.get_str("brain.mode") == "pet";
+    // leaving Pet mode puts the pet away (saved): its needs stop ticking and its panel goes
+    if !want && let Some(mut p) = res.pet.take() {
+        p.save(now_s());
+    }
     if want && res.pet.is_none() {
         let now = now_s();
         let mut p = Pet::new(pet_dir(), now);

@@ -452,6 +452,11 @@ impl Menu {
         self.fx.push(Effect::Action("closed".into()));
     }
 
+    /// The effects queued outside `handle` (`close`, `action`, `save_config`), for the host to run now.
+    pub fn take_effects(&mut self) -> Vec<Effect> {
+        std::mem::take(&mut self.fx)
+    }
+
     pub fn flash(&mut self, text: &str, color: Color, seconds: f64) {
         self.message = Some((text.into(), self.now + seconds, color));
     }
