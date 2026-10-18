@@ -720,6 +720,29 @@ impl Drop for SimHandle {
     }
 }
 
+/// The sim's own rayon pool. With the global pool (one thread per core) the brain's worker threads and Bevy's own task threads fight for
+/// the same cores: measured with 10 flies on a 24-core CPU the game fell to 44 fps while the sim ran flat out. The sim gets about two
+/// fifths of the cores, at a lower priority than the game's threads (Linux), so the frame always wins and the brains take what is left.
+/// `KTF_SIM_THREADS=n` overrides the size; `RAYON_NUM_THREADS` is still honoured as the upper bound.
+fn sim_pool() -> Option<rayon::ThreadPool> {
+    let cores = thread::available_parallelism().map_or(4, |n| n.get());
+    let n = std::env::var("KTF_SIM_THREADS")
+        .ok()
+        .and_then(|v| v.parse::<usize>().ok())
+        .unwrap_or((cores * 2 / 5).max(2))
+        .clamp(1, cores.max(1));
+    rayon::ThreadPoolBuilder::new().num_threads(n).thread_name(|i| format!("fly-sim-{i}")).start_handler(|_| lower_priority()).build().ok()
+}
+
+/// This thread yields to the game's threads when the cores are busy (a nice value; Linux only, silently skipped elsewhere).
+fn lower_priority() {
+    #[cfg(target_os = "linux")]
+    // SAFETY: setpriority on this thread's own tid, with plain integers; a failure (no permission) changes nothing.
+    unsafe {
+        libc::setpriority(libc::PRIO_PROCESS, libc::gettid() as libc::id_t, 10);
+    }
+}
+
 /// Start the sim thread. Returns at once; loading and warming up happen on the thread, reported through the snapshots' phase.
 pub fn spawn(cfg: SimConfig) -> SimHandle {
     let (tx, rx) = mpsc::channel();
@@ -732,7 +755,11 @@ pub fn spawn(cfg: SimConfig) -> SimHandle {
         let (mailbox, stop, shared, steth) = (mailbox.clone(), stop.clone(), shared.clone(), steth.clone());
         thread::Builder::new()
             .name("fly-sim".into())
-            .spawn(move || run(cfg, rx, mailbox, stop, shared, ev_tx, steth))
+            .spawn(move || match sim_pool() {
+                // the brain's rayon work runs in its own pool, so it never competes with Bevy's task pools for the same threads
+                Some(pool) => pool.install(|| run(cfg, rx, mailbox, stop, shared, ev_tx, steth)),
+                None => run(cfg, rx, mailbox, stop, shared, ev_tx, steth),
+            })
             .expect("could not start the sim thread")
     };
     SimHandle { events: Mutex::new(ev_rx), shared, tx, mailbox, stop, join: Some(join), steth }
@@ -1144,11 +1171,8 @@ fn run(
         }
         if state.pending_steps > 0 {
             for _ in 0..state.pending_steps {
-                brain.step();
+                step_brains(&mut brain, &mut multi.extras);
                 rec_after_step(&mut recording, &mut brain, multi.focus, &labels_for_mirror);
-                for (_, b) in &mut multi.extras {
-                    b.step();
-                }
                 if let Some(e) = electrode.as_mut() {
                     e.push(&mut brain, &mut patch_view);
                 }
@@ -1181,11 +1205,8 @@ fn run(
             thread::sleep(wait.saturating_sub(Duration::from_micros(100)));
             continue;
         }
-        brain.step();
+        step_brains(&mut brain, &mut multi.extras);
         rec_after_step(&mut recording, &mut brain, multi.focus, &labels_for_mirror);
-        for (_, b) in &mut multi.extras {
-            b.step();
-        }
         done += 1;
         if brain.steps.is_multiple_of(10) {
             thermo.tick(&mut brain, multi.focus, &mut multi.extras);
@@ -1219,6 +1240,31 @@ fn run(
         }
     }
     mem.save_if_dirty(&mut brain);
+}
+
+/// One tick of every fly's brain. The brains share nothing (each has its own state and noise), so they step side by side on the rayon
+/// pool instead of one after the other; each step already splits its neurons over the same pool, which balances the two levels.
+fn step_brains(brain: &mut Brain, extras: &mut [(u32, Brain)]) {
+    use rayon::prelude::*;
+    // KTF_SERIAL_SIM=1: the old one-after-the-other order, for comparing frame times
+    static SERIAL: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    if extras.is_empty() || *SERIAL.get_or_init(|| std::env::var_os("KTF_SERIAL_SIM").is_some()) {
+        brain.step();
+        for (_, b) in extras.iter_mut() {
+            b.step();
+        }
+        return;
+    }
+    rayon::join(
+        || {
+            brain.step();
+        },
+        || {
+            extras.par_iter_mut().for_each(|(_, b)| {
+                b.step();
+            })
+        },
+    );
 }
 
 /// The other flies' brains. The focused fly's brain is the loop's `brain` (everything single-brain keeps working on it); a focus change

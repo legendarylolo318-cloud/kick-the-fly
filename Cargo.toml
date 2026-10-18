@@ -41,6 +41,13 @@ lto = "fat"
 codegen-units = 1
 opt-level = 3
 
+# `cargo build --profile fast-release`: for testing changes. Thin LTO and 16 codegen units use every core, so it links in a fraction of the time;
+# the binary is a little slower than `release`, which stays the shipping profile (and the one to measure for numbers).
+[profile.fast-release]
+inherits = "release"
+lto = "thin"
+codegen-units = 16
+
 # Dev builds: our own crates at opt-level 1, dependencies (Bevy, rayon) at 3, so the game and the sim are usable without --release.
 [profile.dev]
 opt-level = 1

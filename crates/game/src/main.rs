@@ -302,7 +302,16 @@ fn main() -> ExitCode {
     };
     app.add_plugins(
         DefaultPlugins
-            .set(WindowPlugin { primary_window: Some(Window { title: "Kick the Fly".into(), mode, ..default() }), ..default() })
+            .set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "Kick the Fly".into(),
+                    mode,
+                    // below this the HUD would shrink to unreadable text and its buttons to a few pixels
+                    resize_constraints: bevy::window::WindowResizeConstraints { min_width: 640.0, min_height: 400.0, ..default() },
+                    ..default()
+                }),
+                ..default()
+            })
             .set(bevy::log::LogPlugin { custom_layer: kick_the_fly::crash::log_layer, ..default() }),
     )
     .add_plugins((SimPlugin { config }, kick_the_fly::GamePlugin));

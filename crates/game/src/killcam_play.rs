@@ -66,6 +66,8 @@ fn record(snap: Res<LatestSnapshot>, mut kc: ResMut<KillCam>) {
 
 fn on_death(
     mut died: MessageReader<FlyDied>,
+    slots: Query<&crate::fly::Slot>,
+    flies: Res<crate::flies_play::Flies>,
     mut kc: ResMut<KillCam>,
     snap: Res<LatestSnapshot>,
     settings: Res<Settings>,
@@ -73,7 +75,9 @@ fn on_death(
     mut notes: ResMut<Notes>,
     time: Res<Time<Real>>,
 ) {
-    if died.read().next().is_none() || !settings.killcam || kc.player.is_some() {
+    // the replay is the focused brain's last seconds: another fly's death does not take over the screen
+    let focused_died = died.read().any(|d| slots.get(d.fly).is_ok_and(|s| s.0 == flies.focus));
+    if !focused_died || !settings.killcam || kc.player.is_some() {
         return;
     }
     let Some(replay) = kc.buffer.as_ref().and_then(Buffer::freeze) else { return };

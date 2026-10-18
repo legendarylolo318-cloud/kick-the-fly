@@ -116,7 +116,12 @@ fn survey(
     if std::env::var_os("KTF_DEBUG").is_some() && time.elapsed_secs() - *last_print >= 2.0 {
         *last_print = time.elapsed_secs();
         let mean = stats.frame_ms.iter().sum::<f32>() / stats.frame_ms.len().max(1) as f32;
-        eprintln!("profiler: frame {mean:.2} ms ({:.0} fps)   cpu: {}", 1000.0 / mean.max(1e-3), stats.cpu_line());
+        let sim = snap.0.as_deref().map_or(0.0, |s| s.steps_per_s);
+        eprintln!(
+            "profiler: frame {mean:.2} ms ({:.0} fps)   sim {sim:.0} steps/s of 200   cpu: {}",
+            1000.0 / mean.max(1e-3),
+            stats.cpu_line()
+        );
     }
     if !settings.show_profiler {
         return;
