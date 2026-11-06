@@ -332,7 +332,8 @@ impl Brain {
 
     /// `Brain.poke` with Python's own double-precision strength (the share of neurons recruited depends on it).
     pub fn poke64(&mut self, region: &str, side: Option<char>, strength: f64) {
-        if self.dead() {
+        // a NaN or infinite strength (a distance divided by zero in a caller) would poison these neurons' voltages for good
+        if self.dead() || !strength.is_finite() {
             return;
         }
         let step = self.steps;
@@ -345,7 +346,7 @@ impl Brain {
     }
 
     pub fn poke_recruit64(&mut self, region: &str, side: Option<char>, strength: f64, recruit: Option<f64>) {
-        if self.dead() {
+        if self.dead() || !strength.is_finite() || recruit.is_some_and(|r| !r.is_finite()) {
             return;
         }
         let step = self.steps;

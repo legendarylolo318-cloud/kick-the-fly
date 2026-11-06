@@ -223,6 +223,10 @@ impl LifSim {
     /// `lab.apply_to_sim` for one model parameter (`noise_std`, `bias`, `target_rate_hz`, `ext_gain`, `gain_adapt`): the noise bank is
     /// pre-scaled at construction, so a new `noise_std` scales it by the ratio (or refills it when it was off). False for any other name.
     pub fn set_model_param(&mut self, name: &str, v: f64) -> bool {
+        // a non-finite value would reach the gain (target_rate_hz, gain_adapt) or every neuron's drive and never leave
+        if !v.is_finite() {
+            return false;
+        }
         match name {
             "noise_std" => {
                 let old = self.p.noise_std;
@@ -414,6 +418,9 @@ impl LifSim {
                     if refr[local] > 0 {
                         vv = v_reset;
                         refr[local] -= 1;
+                    } else if !vv.is_finite() {
+                        // NaN or -inf (a bad sensory value) would never cross threshold or decay again: the neuron resets instead
+                        vv = v_reset;
                     }
                     rate[local] *= decay;
                     if vv >= v_thresh {
@@ -528,5 +535,24 @@ mod tests {
         };
         assert_eq!(run(None), run(Individuality::compute(9, 2000, 0.0)));
         assert_ne!(run(None), run(Individuality::compute(9, 2000, 0.15)));
+    }
+
+    #[test]
+    fn nan_input_or_parameter_never_sticks() {
+        let mut s = sim(5);
+        let mut bad = vec![0.0f32; s.n];
+        bad[7] = f32::NAN;
+        bad[8] = f32::NEG_INFINITY;
+        s.step(Some(&bad));
+        for _ in 0..5 {
+            s.step(None);
+        }
+        assert!(s.v.iter().all(|v| v.is_finite()), "voltages recover from a NaN/inf input");
+        assert!(!s.set_model_param("target_rate_hz", f64::NAN));
+        assert!(!s.set_model_param("gain_adapt", f64::INFINITY));
+        for _ in 0..20 {
+            s.step(None);
+        }
+        assert!(s.gain.is_finite());
     }
 }
