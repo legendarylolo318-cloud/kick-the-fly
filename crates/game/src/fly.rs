@@ -874,7 +874,11 @@ fn apply_hits_and_damage(
         if f.health <= 0.0 {
             f.dead_at = Some(now);
             f.grabbed = None;
-            link.0.send(Command::KillFly(slots.get(d.fly).map_or(0, |s| s.0)));
+            let slot = slots.get(d.fly).map_or(0, |s| s.0);
+            link.0.send(Command::KillFly(slot));
+            if std::env::var_os("KTF_DEBUG").is_some() {
+                eprintln!("died:    slot {slot} ({})", d.source);
+            }
             sfx.write(Sfx::new("death"));
             notes.push(now, "DIED     brain drive cut, activity fading", Tag::GameRule);
             if let Ok(t) = transforms.get(f.parts[Part::Head.index()]) {

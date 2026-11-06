@@ -8,4 +8,4 @@ Icon=io.github.legendarylolo318_cloud.KickTheFly
 Categories=Game;Simulation;Science;Biology;
 Keywords=fly;connectome;neuroscience;brain;drosophila;
 Terminal=false
-StartupWMClass=Kick the Fly
+StartupWMClass=io.github.legendarylolo318_cloud.KickTheFly

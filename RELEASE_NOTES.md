@@ -1,3 +1,51 @@
+# Kick the Fly 4.1.0: many flies, fixed death screen, a smoother picture
+
+**The simulation is unchanged**: the same brains fire the same spikes. Stepping the flies' brains side by side gives exactly the same
+spikes as stepping them one after another (checked on the real brain pack, on 1, 2, 5 and 16 threads).
+
+**Several flies, and when one dies**
+
+- Up to **64 flies** (was 16). Past about ten flies the brains run slower than real time, but the picture keeps its frame rate.
+- When a fly dies while others live, the brain panel, the stats and the focus move to a living fly at once. The death screen (the brain
+  autopsy) and the kill cam now come only with the **last** death, and they show the fly you were following. Before, the first death
+  could put up the restart screen while other flies were still alive.
+- F skips dead flies, and spawning many flies at once no longer stops every brain for several seconds per new fly (the new brains warm up
+  side by side).
+
+**Clicks and screens**
+
+- Clicking **Resume** in the pause menu could leave the game frozen behind the closed menu until Esc was pressed twice. Fixed.
+- Brain surgery: **CLEAR ALL** switched on the "Sleep neurons" row hidden under it instead of clearing. The button now clears; the
+  last row is still clickable just above it.
+- **Esc** closes the help card and the big brain view first, as in 3.x, before the pause menu opens.
+- Leaving Pet mode puts the pet away (its panel and its needs kept going in Play mode).
+- The window can no longer be made smaller than 640 x 400 (the HUD became unreadable), and on Linux it now carries its app id, so the
+  dock shows the right icon and window rules can match it.
+
+**Performance**
+
+The brains now run on their own pool of threads (about two fifths of your cores, at a lower priority on Linux), so they no longer fight
+the picture for the CPU. Measured on a 24-thread Core Ultra 7 with an RX 9070 XT, FPS cap off, on a test build (not the shipping build;
+first-pass numbers, one machine):
+
+| flies | frames/s before -> after | brain steps/s (200 = real time) | CPU used (of 2400%) |
+|---|---|---|---|
+| 1 | 162 -> 173 | 200 -> 200 | 512% -> 371% |
+| 10 | 77 -> 112 | 143 -> 200 | 1715% -> 983% |
+| 50 | 69 -> 101 | 29 -> 51 | 1744% -> 1096% |
+
+With 64 flies (same test build) the game held 60 fps (FPS cap 60) with the brains at about 37 steps/s, in about 4 GB of memory.
+
+The FPS cap stays at 60 by default; **Settings > Graphics > FPS cap = 0 uncaps it**. `KTF_SIM_THREADS=n` sets the brain pool's size.
+
+**Known**
+
+- The numbers above were not re-measured on the shipping build or on a second machine.
+- The menus and click fixes were play-tested on Linux through X11 (on Wayland only launching and keyboard focus were checked); the Windows build passes CI's tests and a launch test but was
+  not played by hand.
+
+---
+
 # Kick the Fly 4.0.0: a new engine
 
 Kick the Fly was rewritten from Python to Rust on the Bevy engine. It is the same game with the same fly brain: all 166,700 neurons of the

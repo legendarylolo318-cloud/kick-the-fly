@@ -4,7 +4,7 @@
 //! HUD, the brain views and every single-brain feature (surgery, memory, challenges) follow it. N spawns a fly, F cycles the focus, J calls
 //! lost flies back, and the focus follows the fly nearest to you unless something needs it to stay (a challenge, an open panel, 5 s after F).
 //!
-//! GAME RULE: the cap (16 flies; every brain is stepped every 5 ms, so more flies slow the simulation down), the spawn spots, recall, and the
+//! GAME RULE: the cap (64 flies; every brain is stepped every 5 ms, so past about ten flies the brains run slower than real time, the frame rate does not), the spawn spots, recall, and the
 //! bump between two flies (a soft push-apart and, for a real hit, a touch poke on both brains).
 
 use avian3d::prelude::LinearVelocity;
@@ -20,7 +20,7 @@ use crate::player::Player;
 use crate::sim_thread::Command;
 use crate::world::STAND3;
 
-pub const MAX_FLIES: usize = 16;
+pub const MAX_FLIES: usize = 64;
 
 #[derive(Resource, Default)]
 pub struct Flies {
@@ -92,7 +92,11 @@ fn spawn_and_cycle(
         }
     }
     if actions.just("cycle_fly") && count > 1 {
-        let mut slots: Vec<u32> = bodies.iter().map(|(_, s)| s.0).collect();
+        // dead flies are skipped (their brain is silent); only when every fly is dead does the cycle visit the corpses
+        let mut slots: Vec<u32> = bodies.iter().filter(|(f, _)| !f.dead() && !f.gone()).map(|(_, s)| s.0).collect();
+        if slots.is_empty() {
+            slots = bodies.iter().map(|(_, s)| s.0).collect();
+        }
         slots.sort_unstable();
         let i = slots.iter().position(|&s| s == flies.focus).unwrap_or(0);
         let next = slots[(i + 1) % slots.len()];
@@ -121,13 +125,19 @@ fn follow_nearest(
     mut last_debug: Local<f32>,
 ) {
     let now = virt.elapsed_secs();
+    // the fly in front died while others live: the focus moves on at once, whatever else would hold it, so no panel, card or kill cam
+    // stays bound to a corpse (the death screen waits for the last fly)
+    let focus_lost = bodies.iter().find(|(_, s)| s.0 == flies.focus).is_none_or(|(f, _)| f.dead() || f.gone());
+    let any_alive = bodies.iter().any(|(f, _)| !f.dead() && !f.gone());
     let blocked = if bodies.iter().count() < 2 {
         Some("one fly")
+    } else if focus_lost && any_alive {
+        None
     } else if arcade.open {
         Some("arcade open")
     } else if now < flies.manual_until {
         Some("chosen with F")
-    } else if bodies.iter().all(|(f, _)| f.dead()) {
+    } else if !any_alive {
         Some("all dead")
     } else if snap.0.as_deref().is_some_and(|s| s.challenge.is_some()) {
         Some("challenge")
@@ -148,6 +158,9 @@ fn follow_nearest(
     let Ok(me) = player.single().map(|t| t.translation) else { return };
     let mut best: Option<(f32, u32)> = None;
     for (f, slot) in &bodies {
+        if f.dead() || f.gone() {
+            continue;
+        }
         let Ok(t) = parts.get(f.parts[Part::Thorax.index()]) else { continue };
         let d = t.translation.distance(me);
         if debug {

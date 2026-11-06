@@ -302,7 +302,15 @@ fn main() -> ExitCode {
     } else {
         bevy::window::WindowMode::Windowed
     };
-    let mut window = Window { title: "Kick the Fly".into(), mode, ..default() };
+    let mut window = Window {
+        title: "Kick the Fly".into(),
+        // the Wayland app id / X11 WM_CLASS: the desktop file's name, so the dock shows its icon and window rules can match
+        name: Some("io.github.legendarylolo318_cloud.KickTheFly".into()),
+        mode,
+        // below this the HUD would shrink to unreadable text and its buttons to a few pixels
+        resize_constraints: bevy::window::WindowResizeConstraints { min_width: 640.0, min_height: 400.0, ..default() },
+        ..default()
+    };
     kick_the_fly::window_state::apply_saved(&mut window, saved_window);
     app.add_plugins(
         DefaultPlugins

@@ -222,7 +222,8 @@ fn update(
     virt: Res<Time<Virtual>>,
     mut resets: MessageReader<ResetFly>,
     hud: Res<HudStats>,
-    flies: Query<&Fly>,
+    flies: Query<(&Fly, &crate::fly::Slot)>,
+    focus: Res<crate::flies_play::Flies>,
     cfg: Res<crate::menu_ui::UserConfig>,
     mut fonts: Local<Option<HudFonts>>,
 ) {
@@ -233,16 +234,29 @@ fn update(
         card.ops.clear();
         card.hits.clear();
     }
-    let dead_at = flies.iter().next().and_then(|f| f.dead_at);
+    // the card is the focused fly's, and the death screen waits for the last fly: with others alive the report is dropped (the focus has
+    // moved on to a living fly, `flies_play::follow_nearest`), so play continues and the next last death makes its own
+    let me = flies.iter().find(|(_, s)| s.0 == focus.focus).map(|(f, _)| f);
+    let all_dead = flies.iter().all(|(f, _)| f.dead());
+    let dead_at = me.and_then(|f| f.dead_at);
+    // a fly spawned or revived while the card is up ends the death screen
+    if !flies.is_empty() && !all_dead && card.report.is_some() {
+        card.report = None;
+        card.ops.clear();
+        card.hits.clear();
+    }
     for e in &events.0 {
         if let SimEvent::Autopsy(a) = e {
+            if !all_dead {
+                continue;
+            }
             let died = dead_at.unwrap_or(now);
             card.died_at = died;
             card.report = Some(Report {
                 a: (**a).clone(),
                 alive_s: (died - card.born).max(0.0),
                 hits: hud.hits,
-                by: flies.iter().next().map_or("", |f| f.damage_src).to_string(),
+                by: me.map_or("", |f| f.damage_src).to_string(),
                 pain_peak: hud.pain_peak,
                 pain_max_s: hud.pain_max_s,
                 died_at: died,

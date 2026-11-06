@@ -145,7 +145,8 @@ pub fn click(
     if !s.open {
         return false;
     }
-    let Some((_, id)) = s.hits.iter().find(|(r, _)| r.contains(pos)) else { return true };
+    // the last box drawn is on top: CLEAR ALL wins over the last row, which runs under it (as in the Python game's layout)
+    let Some((_, id)) = s.hits.iter().rev().find(|(r, _)| r.contains(pos)) else { return true };
     if id == "clear" {
         link.0.send(Command::SurgeryClear);
         notes.push(now, "SURGERY  cleared", Tag::GameRule);

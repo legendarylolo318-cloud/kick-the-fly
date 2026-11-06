@@ -13,12 +13,14 @@ if [ ! -f data/kick_brain.npz ]; then
     exit 1
 fi
 
-cargo build --release -p kick_the_fly
+# PROFILE=fast-release builds in about a minute with every core (a test AppImage); the default is the shipping profile
+PROFILE=${PROFILE:-release}
+cargo build --profile "$PROFILE" -p kick_the_fly
 
 APPDIR=build/AppDir
 rm -rf "$APPDIR" dist/KickTheFly-x86_64.AppImage
 mkdir -p "$APPDIR/usr/bin" "$APPDIR/usr/share/kick-the-fly" "$APPDIR/usr/share/applications" "$APPDIR/usr/share/icons/hicolor/256x256/apps" "$APPDIR/usr/share/metainfo" dist
-install -m755 target/release/kick_the_fly "$APPDIR/usr/bin/kick_the_fly"
+install -m755 "target/$PROFILE/kick_the_fly" "$APPDIR/usr/bin/kick_the_fly"
 install -m644 data/kick_brain.npz "$APPDIR/usr/share/kick-the-fly/kick_brain.npz"
 install -m644 packaging/linux/$APP_ID.desktop "$APPDIR/usr/share/applications/$APP_ID.desktop"
 install -m644 packaging/linux/$APP_ID.png "$APPDIR/usr/share/icons/hicolor/256x256/apps/$APP_ID.png"
