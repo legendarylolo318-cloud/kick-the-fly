@@ -26,7 +26,9 @@ struct Palette {
 
 fn palette(cfg: &Config) -> Palette {
     match cfg.get_str("access.palette") {
-        "blue-yellow" => Palette { select: [255, 224, 70], real: [70, 130, 240], rule: [255, 224, 70], ok: [70, 130, 240] },
+        "blue-yellow" | "viridis" | "cividis" => {
+            Palette { select: [255, 224, 70], real: [70, 130, 240], rule: [255, 224, 70], ok: [70, 130, 240] }
+        }
         "high-contrast" => Palette { select: [255, 255, 255], real: [255, 255, 255], rule: [255, 60, 220], ok: [255, 255, 255] },
         _ => Palette { select: [255, 176, 64], real: [60, 170, 220], rule: [220, 150, 50], ok: [90, 200, 120] },
     }

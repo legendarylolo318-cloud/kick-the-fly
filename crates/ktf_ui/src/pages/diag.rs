@@ -17,9 +17,9 @@ use crate::theme::*;
 /// `help_ui.STATUS_COLORS` per accessibility palette.
 pub fn status_color(palette: &str, status: &str) -> Color {
     match (palette, status) {
-        ("blue-yellow", "PASS") => [70, 130, 240],
-        ("blue-yellow", "WARN") => [255, 224, 70],
-        ("blue-yellow", "FAIL") => [255, 255, 255],
+        ("blue-yellow" | "viridis" | "cividis", "PASS") => [70, 130, 240],
+        ("blue-yellow" | "viridis" | "cividis", "WARN") => [255, 224, 70],
+        ("blue-yellow" | "viridis" | "cividis", "FAIL") => [255, 255, 255],
         ("high-contrast", "PASS") => [255, 255, 255],
         ("high-contrast", "WARN") => [255, 60, 220],
         ("high-contrast", "FAIL") => [255, 60, 60],

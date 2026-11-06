@@ -606,7 +606,7 @@ const PARAM_LABELS: [&str; 6] =
 /// `sensitivity.PALETTES`: (pass, fail, pass text, fail text).
 fn palette(name: &str) -> ([u8; 3], [u8; 3], [u8; 3], [u8; 3]) {
     match name {
-        "blue-yellow" => ([30, 100, 200], [240, 190, 20], [255, 255, 255], [20, 20, 20]),
+        "blue-yellow" | "viridis" | "cividis" => ([30, 100, 200], [240, 190, 20], [255, 255, 255], [20, 20, 20]),
         "high-contrast" => ([255, 255, 255], [0, 0, 0], [0, 0, 0], [255, 255, 255]),
         _ => ([46, 125, 50], [183, 28, 28], [255, 255, 255], [255, 255, 255]),
     }

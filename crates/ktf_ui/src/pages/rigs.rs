@@ -55,7 +55,7 @@ fn tagline(rig: &str) -> &'static str {
 
 fn series(palette: &str) -> (Color, Color) {
     match palette {
-        "blue-yellow" => ([30, 100, 200], [240, 190, 20]),
+        "blue-yellow" | "viridis" | "cividis" => ([30, 100, 200], [240, 190, 20]),
         "high-contrast" => ([255, 255, 255], [255, 200, 0]),
         _ => ([57, 135, 229], [217, 89, 38]),
     }

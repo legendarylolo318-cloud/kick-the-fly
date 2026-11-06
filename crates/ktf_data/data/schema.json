@@ -1558,16 +1558,20 @@
    "label": "Brain view colors",
    "kind": "choice",
    "default": "default",
-   "tip": "Colors for firing neurons in the brain view. Blue/yellow is safe for red-green color blindness. High contrast uses magenta and white.",
+   "tip": "Colors for firing neurons in the brain view. Blue/yellow is safe for red-green color blindness. High contrast uses magenta and white. Viridis and cividis are perceptually even and safe for every common kind of color blindness.",
    "options": [
     "default",
     "blue-yellow",
-    "high-contrast"
+    "high-contrast",
+    "viridis",
+    "cividis"
    ],
    "labels": [
     "Orange/cyan",
     "Blue/yellow",
-    "High contrast"
+    "High contrast",
+    "Viridis (color-blind safe)",
+    "Cividis (color-blind safe)"
    ],
    "lo": 0.0,
    "hi": 1.0,

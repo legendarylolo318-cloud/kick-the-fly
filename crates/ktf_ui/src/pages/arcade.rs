@@ -69,7 +69,7 @@ impl Default for ArcadePage {
 
 fn series(palette: &str) -> [[u8; 3]; 2] {
     match palette {
-        "blue-yellow" => [[30, 100, 200], [240, 190, 20]],
+        "blue-yellow" | "viridis" | "cividis" => [[30, 100, 200], [240, 190, 20]],
         "high-contrast" => [[255, 255, 255], [255, 200, 0]],
         _ => [[57, 135, 229], [217, 89, 38]],
     }

@@ -582,10 +582,12 @@ pub fn export_csv(res: &Recording, path: &std::path::Path) -> std::io::Result<()
 }
 
 /// The imaging palettes (`LUTS`): black, a dim colour, the colour, near white. `access.palette` picks one.
-pub const LUTS: [(&str, [[u8; 3]; 4]); 3] = [
+pub const LUTS: [(&str, [[u8; 3]; 4]); 5] = [
     ("default", [[0, 0, 0], [0, 70, 10], [40, 255, 60], [230, 255, 230]]),
     ("blue-yellow", [[0, 0, 0], [20, 40, 140], [255, 220, 40], [255, 255, 220]]),
     ("high-contrast", [[0, 0, 0], [90, 90, 90], [255, 31, 217], [255, 255, 255]]),
+    ("viridis", [[0, 0, 0], [68, 1, 84], [33, 145, 140], [253, 231, 37]]),
+    ("cividis", [[0, 0, 0], [0, 32, 77], [124, 123, 120], [253, 234, 69]]),
 ];
 
 /// `apply_lut` for one brightness in 0..1.
