@@ -99,6 +99,15 @@ pub struct Pad {
     /// The trigger is acting as the left mouse button, Start as Esc.
     using: bool,
     esc: bool,
+    /// The right stick is pushed.
+    looking: bool,
+}
+
+impl Pad {
+    /// Someone is playing on the pad right now: a stick is pushed or the trigger is down.
+    pub fn in_use(&self) -> bool {
+        self.connected && (self.looking || self.using || ["forward", "back", "left", "right"].iter().any(|a| self.held.contains(a)))
+    }
 }
 
 fn value(pads: &Query<&Gamepad>, binding: &str) -> f32 {
@@ -164,7 +173,8 @@ fn read(
     }
     // the right stick is the mouse (it also points at the tool wheel while that is open)
     let (lx, ly) = stick(val("look_x"), val("look_y"), dz);
-    if lx != 0.0 || ly != 0.0 {
+    pad.looking = lx != 0.0 || ly != 0.0;
+    if pad.looking {
         motion.delta += look_pixels(
             lx,
             ly,

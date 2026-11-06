@@ -276,6 +276,7 @@ fn main() -> ExitCode {
     app.insert_resource(kick_the_fly::sim_thread::PackPath(pack_path));
     let mut full = args.fullscreen;
     let saved_window;
+    let vsync;
     {
         // the player's settings: the same config.toml the Python game wrote (missing or damaged files fall back to defaults)
         let mut cfg = ktf_data::config::Config::load(&ktf_data::paths::get().config_file());
@@ -289,6 +290,7 @@ fn main() -> ExitCode {
         app.insert_resource(kick_the_fly::config::Settings::from_config(&cfg));
         full |= cfg.get_bool("graphics.fullscreen");
         saved_window = cfg.window;
+        vsync = cfg.get_bool("graphics.vsync");
         let set = |k: &str| std::env::var_os(k).is_some_and(|v| !v.is_empty());
         if kick_the_fly::config::force_x11(cfg.get_str("graphics.backend"), set("WAYLAND_DISPLAY"), set("DISPLAY")) {
             // Settings > Graphics > Display backend = x11: before the window system is chosen, and before any thread exists
@@ -302,11 +304,14 @@ fn main() -> ExitCode {
     } else {
         bevy::window::WindowMode::Windowed
     };
+    // no VSync by default (the cap in Settings is the pacer); `framerate::vsync` follows the setting live afterwards
+    let present_mode = if vsync { bevy::window::PresentMode::AutoVsync } else { bevy::window::PresentMode::AutoNoVsync };
     let mut window = Window {
         title: "Kick the Fly".into(),
         // the Wayland app id / X11 WM_CLASS: the desktop file's name, so the dock shows its icon and window rules can match
         name: Some("io.github.legendarylolo318_cloud.KickTheFly".into()),
         mode,
+        present_mode,
         // below this the HUD would shrink to unreadable text and its buttons to a few pixels
         resize_constraints: bevy::window::WindowResizeConstraints { min_width: 640.0, min_height: 400.0, ..default() },
         ..default()
@@ -315,6 +320,7 @@ fn main() -> ExitCode {
     app.add_plugins(
         DefaultPlugins
             .set(WindowPlugin { primary_window: Some(window), ..default() })
+            .set(bevy::render::RenderPlugin { render_creation: kick_the_fly::gpu::wgpu_settings().into(), ..default() })
             .set(bevy::log::LogPlugin { custom_layer: kick_the_fly::crash::log_layer, ..default() }),
     )
     .add_plugins((SimPlugin { config }, kick_the_fly::GamePlugin));

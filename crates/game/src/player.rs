@@ -51,18 +51,13 @@ impl Default for Aim {
 #[derive(Resource, Debug, Clone, Copy)]
 pub struct CameraOverride(pub Vec3, pub Vec3);
 
-/// Whether the mouse is captured by the game (looking) or free (menus, the brain panel).
-#[derive(Resource, Debug, Clone, Copy)]
+/// Whether the mouse is captured by the game (looking) or free (menus, the brain panel). Free at launch: the first click in the room
+/// captures it (see `cursor`).
+#[derive(Resource, Debug, Clone, Copy, Default)]
 pub struct MouseLook {
     pub captured: bool,
     /// The tool wheel is open: the mouse points at a tool instead of turning the view.
     pub wheel: bool,
-}
-
-impl Default for MouseLook {
-    fn default() -> Self {
-        Self { captured: true, wheel: false }
-    }
 }
 
 /// Push a horizontal point out of the furniture boxes along the shallowest axis (the walking body slides along them).
@@ -196,18 +191,119 @@ pub fn update_camera(
     }
 }
 
-fn cursor(act: Res<crate::actions::Actions>, mut look: ResMut<MouseLook>, mut opts: Single<&mut CursorOptions, With<PrimaryWindow>>) {
+/// The ONE system that owns the OS cursor (grab mode and visibility). Everything else only says what the game wants, through
+/// [`MouseLook::captured`] (menus, the wheel, challenges clear it; a click in the room or closing a menu sets it) and `MenuOpen`.
+///
+/// The cursor is held only while the game wants the mouse AND no menu is open AND the window is focused and not minimized; in every
+/// other case it is released and visible. The game starts with the mouse free (`MouseLook::default`), so nothing is grabbed until the
+/// player clicks into the room.
+#[allow(clippy::too_many_arguments)]
+fn cursor(
+    act: Res<crate::actions::Actions>,
+    menu: Res<crate::menu_ui::MenuOpen>,
+    time: Res<Time<Real>>,
+    buttons: Res<ButtonInput<MouseButton>>,
+    pad: Option<Res<crate::gamepad::Pad>>,
+    mut look: ResMut<MouseLook>,
+    mut window: Single<&mut Window, With<PrimaryWindow>>,
+    mut opts: Single<&mut CursorOptions, With<PrimaryWindow>>,
+    mut mem: Local<CursorMemory>,
+) {
     if act.just("free_mouse") {
         look.captured = !look.captured;
     }
-    // X11 (and XWayland) cannot lock the pointer in place, only keep it inside the window: asking for a lock there logged
-    // 'Unable to grab cursor' and left the pointer free to leave the window. The look uses raw mouse motion either way.
-    let hold = if on_x11() { CursorGrabMode::Confined } else { CursorGrabMode::Locked };
-    let (grab, visible) = if look.captured { (hold, false) } else { (CursorGrabMode::None, true) };
+    let (focused, now) = (window.focused, time.elapsed_secs_f64());
+    // The game starts with the mouse free and 'click the room' takes it, which needs a mouse. On a gamepad the first push of a stick or
+    // pull of the trigger takes the view instead (once: after that the pad's player frees and takes it as the keyboard's does).
+    if pad_takes_view(mem.ever_captured, pad.is_some_and(|p| p.in_use()), menu.0, focused) {
+        look.captured = true;
+    }
+    mem.ever_captured |= look.captured;
+    // Focus lost (alt-tab, clicked another window, minimized): the game gives the mouse back at once, and remembers whether you were
+    // looking around.
+    if mem.was_focused == Some(true) && !focused {
+        mem.resume = look.captured;
+        mem.resume_at = None;
+        look.captured = false;
+    }
+    // Focus back: if you were looking around, the game takes the mouse again a moment later, by itself (alt-tab back needs no click).
+    // Not at once: when a click brought the window back, that click must reach 'click the room' first, which captures without using
+    // the tool in your hand; taking the mouse before it would make the same click fire the tool.
+    if mem.was_focused == Some(false) && focused && std::mem::take(&mut mem.resume) {
+        mem.resume_at = Some(now + REFOCUS_GRACE_S);
+    }
+    mem.was_focused = Some(focused);
+    if let Some(at) = mem.resume_at
+        && let Some(take) = refocus_step(now, at, focused, look.captured, menu.0, buttons.get_pressed().next().is_some())
+    {
+        mem.resume_at = None;
+        if take {
+            look.captured = true;
+        }
+    }
+    let shown = window.physical_width() > 0 && window.physical_height() > 0; // a minimized window is 0 x 0 on Windows
+    let hold = holds_cursor(look.captured, menu.0, focused, shown);
+    // A confined pointer (Windows, X11) kept moving, unseen, while you looked around, and usually ended in a corner of the window.
+    // When it is given back with the window still in front (a menu, Tab), put it in the middle, where a locked pointer would be.
+    if mem.held && !hold && focused && shown && hold_mode() == CursorGrabMode::Confined {
+        let middle = Vec2::new(window.width(), window.height()) / 2.0;
+        window.set_cursor_position(Some(middle));
+    }
+    mem.held = hold;
+    let (grab, visible) = if hold { (hold_mode(), false) } else { (CursorGrabMode::None, true) };
     if opts.grab_mode != grab || opts.visible != visible {
         opts.grab_mode = grab;
         opts.visible = visible;
     }
+}
+
+/// What [`cursor`] remembers between frames.
+#[derive(Default)]
+struct CursorMemory {
+    was_focused: Option<bool>,
+    /// The game has had the mouse at least once since it started.
+    ever_captured: bool,
+    /// The pointer was held last frame.
+    held: bool,
+    /// You were looking around when the window lost focus.
+    resume: bool,
+    /// When to take the mouse back after the focus returned (real seconds).
+    resume_at: Option<f64>,
+}
+
+/// Whether a gamepad takes the view: only the first time (nobody has had the mouse yet), while it is being played on, with no menu open
+/// and the window in front.
+pub fn pad_takes_view(ever_captured: bool, pad_in_use: bool, menu_open: bool, focused: bool) -> bool {
+    !ever_captured && pad_in_use && !menu_open && focused
+}
+
+/// How long after the window is focused again the game takes the mouse back.
+const REFOCUS_GRACE_S: f64 = 0.15;
+
+/// The mouse after the focus came back, with the mouse to be taken again at `at`: `None` to keep waiting, `Some(true)` to take it now,
+/// `Some(false)` to drop the plan (the focus went again, the player already clicked into the room, or a menu opened). It is never
+/// taken while a mouse button is down, so no press is ever turned into a tool use.
+pub fn refocus_step(now: f64, at: f64, focused: bool, captured: bool, menu_open: bool, button_down: bool) -> Option<bool> {
+    if !focused || captured || menu_open {
+        Some(false)
+    } else if now >= at && !button_down {
+        Some(true)
+    } else {
+        None
+    }
+}
+
+/// Whether the game holds (grabs and hides) the pointer: only while it wants the mouse for looking, no menu is open, and its window is
+/// focused and on screen.
+pub fn holds_cursor(captured: bool, menu_open: bool, focused: bool, shown: bool) -> bool {
+    captured && !menu_open && focused && shown
+}
+
+/// How the pointer is held while looking around. Windows (winit has no `Locked` there) and X11/XWayland can only keep the pointer inside
+/// the window (`Confined`); asking for `Locked` on them was an error that left the pointer free. The look reads raw mouse motion, so it
+/// does not matter that a confined pointer can sit on the window's edge. Wayland, macOS: a real lock.
+fn hold_mode() -> CursorGrabMode {
+    if cfg!(target_os = "windows") || on_x11() { CursorGrabMode::Confined } else { CursorGrabMode::Locked }
 }
 
 /// Linux without a Wayland session variable: winit opens an X11 window.
@@ -223,5 +319,55 @@ impl Plugin for PlayerPlugin {
             .init_resource::<MouseLook>()
             .add_systems(Startup, spawn_player)
             .add_systems(Update, (cursor, walk, update_camera).chain());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_mouse_is_free_at_launch() {
+        assert!(!MouseLook::default().captured, "nothing is grabbed until the player clicks into the room");
+    }
+
+    #[test]
+    fn the_pointer_is_held_only_in_focused_gameplay() {
+        assert!(holds_cursor(true, false, true, true), "looking around in the focused window");
+        assert!(!holds_cursor(false, false, true, true), "the mouse was freed (Tab, a panel, a challenge)");
+        assert!(!holds_cursor(true, true, true, true), "a menu is open");
+        assert!(!holds_cursor(true, false, false, true), "the window lost focus (alt-tab)");
+        assert!(!holds_cursor(true, false, true, false), "the window is minimized");
+    }
+
+    #[test]
+    fn a_gamepad_takes_the_view_at_launch_without_a_mouse_click() {
+        assert!(pad_takes_view(false, true, false, true), "the first stick push or trigger pull");
+        assert!(!pad_takes_view(false, false, false, true), "an idle pad lying on the desk does nothing");
+        assert!(!pad_takes_view(true, true, false, true), "only once: later the mouse is freed and taken on purpose");
+        assert!(!pad_takes_view(false, true, true, true), "not under a menu");
+        assert!(!pad_takes_view(false, true, false, false), "not behind another window");
+    }
+
+    #[test]
+    fn coming_back_to_the_window_takes_the_mouse_again_but_never_under_a_click() {
+        // alt-tab back: nothing pressed, the mouse is taken once the grace is over
+        assert_eq!(refocus_step(10.0, 10.15, true, false, false, false), None, "not yet");
+        assert_eq!(refocus_step(10.2, 10.15, true, false, false, false), Some(true));
+        // a click brought the window back and is still down: wait, so that press is never a tool use
+        assert_eq!(refocus_step(10.2, 10.15, true, false, false, true), None);
+        // that click already captured the mouse ('click the room'), a menu opened, or the focus went again: nothing left to do
+        assert_eq!(refocus_step(10.2, 10.15, true, true, false, false), Some(false));
+        assert_eq!(refocus_step(10.2, 10.15, true, false, true, false), Some(false));
+        assert_eq!(refocus_step(10.2, 10.15, false, false, false, false), Some(false));
+    }
+
+    #[test]
+    fn windows_confines_the_pointer_because_it_cannot_lock_it() {
+        if cfg!(target_os = "windows") {
+            assert_eq!(hold_mode(), CursorGrabMode::Confined, "winit has no Locked on Windows");
+        } else if !on_x11() {
+            assert_eq!(hold_mode(), CursorGrabMode::Locked, "Wayland and macOS lock the pointer in place");
+        }
     }
 }

@@ -272,9 +272,12 @@ fn check_backend(ctx: &Ctx) -> Check {
 
 // --- graphics --------------------------------------------------------------------------------------------------------------------
 fn check_graphics() -> Vec<Check> {
-    let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle());
+    // only the backends the game itself may use (`gpu::backends`: never DX12), so the self-test does not even load the others
+    let mut descriptor = wgpu::InstanceDescriptor::new_without_display_handle();
+    descriptor.backends = crate::gpu::backends();
+    let instance = wgpu::Instance::new(descriptor);
     let adapters: Vec<wgpu::AdapterInfo> =
-        bevy::tasks::block_on(instance.enumerate_adapters(wgpu::Backends::all())).iter().map(|a| a.get_info()).collect();
+        bevy::tasks::block_on(instance.enumerate_adapters(crate::gpu::backends())).iter().map(|a| a.get_info()).collect();
     let desc = |i: &wgpu::AdapterInfo| {
         format!(
             "{} ({:?}, {:?}{})",
@@ -287,8 +290,8 @@ fn check_graphics() -> Vec<Check> {
     let hw: Vec<&wgpu::AdapterInfo> = adapters.iter().filter(|i| !matches!(i.device_type, wgpu::DeviceType::Cpu)).collect();
     let data = json!({"adapters": adapters.iter().map(desc).collect::<Vec<_>>()});
     if adapters.is_empty() {
-        return vec![Check::new("gpu", "Graphics adapter", Status::Fail, "no Vulkan, DirectX 12 or Metal adapter was found")
-            .fix("Kick the Fly draws with wgpu and needs a GPU driver for Vulkan (Linux), DirectX 12 (Windows) or Metal (macOS). Install your GPU's driver through your OS (on Linux: vulkan-icd-loader and the driver's Vulkan package); this program never does it.")
+        return vec![Check::new("gpu", "Graphics adapter", Status::Fail, "no Vulkan or Metal adapter was found")
+            .fix("Kick the Fly draws with wgpu and needs a GPU driver for Vulkan (Linux and Windows) or Metal (macOS). Install your GPU's driver through your OS (on Linux: vulkan-icd-loader and the driver's Vulkan package); this program never does it.")
             .data(data)];
     }
     if hw.is_empty() {

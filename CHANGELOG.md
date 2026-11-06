@@ -7,6 +7,56 @@
 - Fixed: C opened rename and built the contraption at once; NaN/inf pokes, sensory input or Lab parameters stuck neurons or the gain.
 - `KTF_BENCH` per-frame CSV logger.
 
+### Also in 4.2.0: the Windows and frame-rate pass (was branch `rust-4.1`)
+
+Tested on Windows 11 with an RX 9070 XT (Vulkan). Checked: `cargo fmt`, `clippy -D warnings`, the workspace tests and the goldens on
+Windows. **Not yet run on Linux**: the Wayland / X11 pointer path is unchanged in code but needs the checklist below before a release.
+
+- **Mouse.** One system owns the pointer (`player.rs:cursor`). It is held only while the game wants the mouse, no menu is open and the
+  window is focused and not minimized; alt-tab, minimizing and every menu give it back, and the click that returns to the window captures
+  without using the tool in your hand. Windows confines the pointer to the window (winit has no lock there; asking for one was an error
+  first). The game starts with the mouse free: the first click in the room takes it. Wayland and macOS still lock; X11 still confines.
+- **The same fly at any frame rate.** Everything that drives the fly already ran on the fixed 60 Hz schedule (senses, reactions,
+  control, tools, arenas, learning: checked again, one system at a time), with three exceptions that ran once per frame drawn and so ran
+  three times as fast at 180 frames a second as at 60. Pet mode: the pet's clock (hunger, age, sleep pressure) and the sleep-drive
+  poke it sends to the brain. The puppeteer's looming shadow: one poke of the looming neurons a frame. The immortal fly's healing. All
+  three are on the 60 Hz step now (`pet_play`, `arcade::puppeteer_tick`, `fly::immortal_regen`). The simulator itself is untouched: no
+  weight, threshold, time constant or stimulus strength changed. Side effect: the pet's clock stops while a menu pauses the game.
+- **Gamepad.** With the mouse free at launch a pad had no way to 'click the room' unless the pointer happened to be over it. The
+  first stick push or trigger pull takes the view (once).
+- **Mouse, two more.** Coming back to the window (alt-tab) takes the mouse again by itself if you were looking around, a moment after
+  the focus returns and never while a button is down, so the click that brings the window back still fires no tool. Where the pointer
+  is only confined (Windows, X11) it kept moving unseen and turned up in a corner when a menu opened; it is put in the middle of the
+  window when it is given back.
+- **The brain picture is sharp.** It was rendered at most 2400 pixels wide, so the big view (B) on a 2560 or 3840 wide screen was
+  drawn smaller and stretched; and its size was cut off instead of rounded, so with a display scale such as 125 % the panel could be
+  rendered one pixel short and resampled. It is rendered at exactly the size it is shown (`brainview::panel_pixels`).
+- **Graphics backend.** Windows and Linux draw with Vulkan and never with DirectX 12, in the game window, the crash window and
+  `--selftest` (`gpu::backends`). `WGPU_BACKEND` can still name another backend, but DX12 in it is dropped: a forced DX12 run crashed the
+  Windows graphics kernel (dxgkrnl) on the test machine. The adapter, backend and driver in use are written to the log at startup, with a
+  warning when it is an integrated or software adapter.
+- **The HUD no longer holds the frame rate down.** Measured with Bevy's per-system trace at 2560 x 1440 with the cap off: of an 11.6 ms
+  frame, 3.6 ms was Bevy copying the HUD's whole picture (14.7 MB) to the renderer every time it changed, 2.3 ms was drawing it, and
+  1.1 ms was the upload; the graphics card was idle because the frame loop was busy with that. Now the HUD is drawn on a thread of its
+  own (`hud_canvas::HudWorker`: the frame loop gathers the numbers and shows the finished picture a frame or so later; a test checks the
+  pixels are the same), its picture is handed to the renderer instead of copied (`RenderAssetUsages::RENDER_WORLD`, also for the menu),
+  and it is drawn at most 60 times a second (what the Python game drew at; with the FPS counter on it changed every frame). The same
+  trace afterwards: 8.4 ms a frame, the frame loop's own work down from 6.0 to 3.6 ms and the copy from 4.1 to 0.5 ms. What limits the
+  frame now is the render thread (about 8 ms traced), a quarter of it the lamp's six shadow views. Without the trace, the release build
+  on the test machine (RX 9070 XT, 2560 x 1440 borderless, cap and VSync off) went from a steady 100 frames a second to 173-181, the
+  display's 180 Hz; a HUD picture takes 3 to 4 ms on its thread. Nothing here is specific to Windows.
+- **Speed, smaller things.** The brain view copied its 166,700 activity values to the GPU buffer one byte at a time into a new allocation every frame; it
+  is one copy into the existing buffer now. Idle particle clouds are no longer uploaded every frame, and live ones reuse their buffer. An
+  open menu no longer copies its whole picture every frame (it swaps buffers, as the HUD does). The window opens in the configured VSync
+  mode instead of switching to it a few frames in. Behind another window the game draws at most 30 frames a second.
+- **Profiler (F3):** the sim line shows the time of one brain step next to the steps per second.
+- **Not changed, on purpose:** `panic = "abort"` (`--selftest` and asset tasks catch panics); the default FPS cap of 60.
+
+Manual checklist (both systems): the mouse is free at launch and "click the room" captures it; Tab frees and captures; Esc, the loadout
+and every menu free it and closing them captures again; alt-tab away frees it and coming back takes one click that fires no tool;
+minimizing frees it; clicks on the hotbar, the panel and menus never fire a tool; F3 shows about 200 steps/s. Linux: the same under
+Hyprland (pointer lock: the pointer must not leave the window while looking) and under X11 (confined).
+
 ## 4.0.0 (2026-10-12), review pass
 
 - **The 1v1 duel (X) is back.** It had not been ported: the fly now gets a blaster, aims through its LC10 / DNa02 neurons, shoots through DNp35,

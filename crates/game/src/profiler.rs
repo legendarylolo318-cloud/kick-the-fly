@@ -34,7 +34,11 @@ pub struct ProfilerStats {
 impl ProfilerStats {
     /// A part of the frame took the time since `t0`.
     pub fn record(&mut self, name: &'static str, t0: std::time::Instant) {
-        let ms = t0.elapsed().as_secs_f32() * 1000.0;
+        self.record_ms(name, t0.elapsed().as_secs_f32() * 1000.0);
+    }
+
+    /// A part of the frame took `ms` (measured elsewhere: the HUD is drawn on its own thread).
+    pub fn record_ms(&mut self, name: &'static str, ms: f32) {
         match self.cpu.iter_mut().find(|c| c.0 == name) {
             Some(c) => c.1 += (ms - c.1) * 0.05,
             None => self.cpu.push((name, ms)),
@@ -167,8 +171,8 @@ fn show(
     if let Some(sn) = snap.0.as_deref() {
         let age_ms = sn.published_at.map_or(0.0, |t| t.elapsed().as_secs_f32() * 1000.0);
         s += &format!(
-            "sim     {:5.1} steps/s of 200   x{:.2}   dropped {}   lag {:5.1} ms\n",
-            sn.steps_per_s, sn.speed, sn.steps_dropped, age_ms
+            "sim     {:5.1} steps/s of 200   tick {:4.2} ms of 5.00   x{:.2}   dropped {}   lag {:5.1} ms\n",
+            sn.steps_per_s, sn.step_ms, sn.speed, sn.steps_dropped, age_ms
         );
         s += &format!("brain   {} neurons, {} spiking, {} lit\n", sn.neurons, sn.active_count, sn.active_count);
     } else {

@@ -20,6 +20,21 @@
   gain controller the whole brain, for the rest of the session. Such values are now refused, and a neuron whose voltage becomes NaN resets.
 - What's New said "press N" for names (N spawns a fly); it says C now.
 
+**Smoother picture, steadier fly**
+
+- **The HUD no longer holds the frame rate down.** It is drawn on its own thread and handed to the renderer instead of being copied
+  every frame (it was a 14.7 MB copy at 2560 x 1440), at most 60 times a second. On the test machine (RX 9070 XT, 2560 x 1440, cap and
+  VSync off) the release build went from a steady 100 frames a second to 173-181.
+- **The same fly at any frame rate.** Pet mode's clock, the puppeteer's looming shadow and the immortal fly's healing ran once per frame
+  drawn (three times as fast at 180 fps as at 60); they are on the 60 Hz step now. The simulator itself is untouched.
+- **The brain picture is sharp** on wide and scaled screens: it is rendered at exactly the size it is shown.
+- **Mouse.** One system owns the pointer: alt-tab, minimizing and menus give it back, and the click that brings the window back fires no
+  tool. The game starts with the mouse free; the first click in the room (or a gamepad stick) takes it.
+- **Vulkan only on Windows and Linux**, never DirectX 12 (a forced DX12 run crashed the Windows graphics kernel on the test machine). The
+  adapter in use is logged at startup.
+- Smaller speed-ups: the brain view's activity upload is one copy into the existing buffer, idle particle clouds are not re-uploaded,
+  open menus swap buffers instead of copying, and behind another window the game draws at most 30 frames a second.
+
 `KTF_BENCH=file.csv` (with `KTF_BENCH_SECS=N`) logs per-frame times, sim step time and entity/asset counts, for performance checks.
 
 ---
