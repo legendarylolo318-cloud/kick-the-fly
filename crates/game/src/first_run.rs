@@ -1,5 +1,5 @@
 //! What a launch shows first (`Game.show_first_run_notices`): one of the loadout notice (a config migrated from before 2.13), the tutorial, What's
-//! New (once after an upgrade), the question about downloading real neuron shapes, or else the Neuron of the Day card. Decided once, from the run
+//! New (once after each version change, `last_version` in config.toml), the question about downloading real neuron shapes, or else the Neuron of the Day card. Decided once, from the run
 //! loop (never from setup, so tests and headless runs never see it), and written to `config.toml`'s `[first_run]` flags when shown.
 
 use bevy::prelude::*;
@@ -38,7 +38,9 @@ fn decide(real: Res<Time<Real>>, mut cfg: ResMut<UserConfig>, mut fr: ResMut<Fir
         Launch::LoadoutNotice
     } else if !flag(&cfg, "tutorial_done") {
         Launch::Tutorial
-    } else if !flag(&cfg, "whatsnew_3_0_seen") {
+    } else if !flag(&cfg, "whatsnew_3_0_seen") || cfg.0.last_version.as_deref() != Some(env!("CARGO_PKG_VERSION")) {
+        // once per version change: the last-seen version is compared against this build's
+        cfg.0.last_version = Some(env!("CARGO_PKG_VERSION").into());
         set(&mut cfg, "whatsnew_3_0_seen");
         Launch::WhatsNew
     } else if !flag(&cfg, "neuron_shapes_asked") && !cfg.0.get_bool("brain.neuron_shapes") {

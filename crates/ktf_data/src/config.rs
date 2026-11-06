@@ -165,6 +165,15 @@ fn allowed_overlap(actions: &[&str]) -> bool {
     schema().overlap_ok.iter().any(|pair| actions.iter().all(|a| pair.iter().any(|p| p == a)))
 }
 
+/// The windowed-mode size and position the player left the window at (`[window]`). Not a menu setting: the game keeps it current.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WindowGeom {
+    pub width: u32,
+    pub height: u32,
+    /// Top-left corner on the desktop; None when the window system doesn't tell (Wayland).
+    pub pos: Option<(i32, i32)>,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct SavedLoadout {
     pub name: String,
@@ -184,6 +193,11 @@ pub struct Config {
     pub saved_loadouts: Vec<SavedLoadout>,
     pub first_run: BTreeMap<String, bool>,
     pub migrated_from: Option<i64>,
+    pub window: Option<WindowGeom>,
+    /// Show the names the player gave the flies over them (`[names] tags`, default on; only written when off).
+    pub name_tags: bool,
+    /// The version whose What's New the player has been shown (`last_version`; a fresh install starts at the current one).
+    pub last_version: Option<String>,
     /// key → the saved value a command-line flag is overriding
     session: BTreeMap<String, Value>,
 }
@@ -208,6 +222,9 @@ impl Config {
             saved_loadouts: vec![],
             first_run: sc.first_run.clone(),
             migrated_from: None,
+            window: None,
+            name_tags: true,
+            last_version: None,
             session: BTreeMap::new(),
         }
     }
@@ -415,6 +432,7 @@ impl Config {
         if !path.exists() {
             // a fresh install has no "what's new": the tutorial is its welcome
             cfg.first_run.insert("whatsnew_3_0_seen".into(), true);
+            cfg.last_version = Some(env!("CARGO_PKG_VERSION").into());
             return cfg;
         }
         let parsed = std::fs::read(path)
@@ -511,6 +529,18 @@ impl Config {
                 }
             }
         }
+        if let Some(w) = data.get("window").and_then(|w| w.as_object()) {
+            let dim = |k: &str| w.get(k).and_then(|v| v.as_u64()).filter(|v| (200..=16384).contains(v)).map(|v| v as u32);
+            let coord = |k: &str| w.get(k).and_then(|v| v.as_i64()).filter(|v| v.abs() <= 100_000).map(|v| v as i32);
+            if let (Some(width), Some(height)) = (dim("width"), dim("height")) {
+                let pos = coord("x").zip(coord("y"));
+                self.window = Some(WindowGeom { width, height, pos });
+            }
+        }
+        if let Some(b) = data.get("names").and_then(|n| n.get("tags")).and_then(|b| b.as_bool()) {
+            self.name_tags = b;
+        }
+        self.last_version = data.get("last_version").and_then(|v| v.as_str()).map(String::from);
         let schema_v = data.get("schema_version").and_then(|v| v.as_i64()).unwrap_or(1);
         self.load_loadout(data, schema_v);
         if schema_v < 2 && self.values.get("brain.science_popups") == Some(&Value::Bool(true)) {
@@ -569,8 +599,11 @@ impl Config {
         let mut out = vec![
             format!("# Kick the Fly {version} settings. Edit in the game (Esc > Settings) or by hand."),
             format!("schema_version = {SCHEMA_VERSION}"),
-            String::new(),
         ];
+        if let Some(v) = &self.last_version {
+            out.push(format!("last_version = {}", toml_str(v)));
+        }
+        out.push(String::new());
         let mut sections: Vec<(&str, Vec<String>)> = vec![];
         for s in &schema().settings {
             let (section, name) = s.key.split_once('.').expect("section.name");
@@ -585,6 +618,17 @@ impl Config {
             out.push(format!("[{section}]"));
             out.extend(lines);
             out.push(String::new());
+        }
+        if let Some(w) = self.window {
+            out.push("[window]".into());
+            out.extend([format!("width = {}", w.width), format!("height = {}", w.height)]);
+            if let Some((x, y)) = w.pos {
+                out.extend([format!("x = {x}"), format!("y = {y}")]);
+            }
+            out.push(String::new());
+        }
+        if !self.name_tags {
+            out.extend(["[names]".into(), "tags = false".into(), String::new()]);
         }
         out.push("[keys]".into());
         out.extend(self.keys.iter().map(|(a, k)| format!("{a} = {}", toml_str(k))));
