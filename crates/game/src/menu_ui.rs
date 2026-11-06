@@ -242,6 +242,8 @@ struct MenuCtx<'w, 's> {
     lab: Res<'w, crate::share_play::LabState>,
     runs: Res<'w, crate::lab_play::LabRuns>,
     lab_tools: Res<'w, crate::labtools::LabTools>,
+    names: Res<'w, crate::fly_names::FlyNames>,
+    which: Res<'w, crate::flies_play::Flies>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -280,6 +282,8 @@ fn input(
         lab,
         runs,
         lab_tools,
+        names,
+        which,
     } = mc;
     for f in flashes.read() {
         ui.menu.flash(&f.0, if f.1 { ktf_ui::theme::GOOD } else { ktf_ui::theme::BAD }, if f.1 { 4.0 } else { 6.0 });
@@ -287,6 +291,8 @@ fn input(
     let was_open = ui.menu.is_open();
     let k = window.scale_factor() / lay.0.scale;
     let mouse = window.cursor_position().map_or((-1, -1), |p| ((p.x * k) as i32, (p.y * k) as i32));
+    // C names the fly in view, unless the player gave C to an action (it is not one of the rebindable actions itself)
+    let name_key = !was_open && keys.just_pressed(KeyCode::KeyC) && cfg.0.actions_for("c").is_empty();
     let mut events: Vec<UiEvent> = vec![];
     if was_open {
         events.push(UiEvent::Motion { pos: mouse });
@@ -319,7 +325,7 @@ fn input(
             ui.opened_first = true;
             let page = match l {
                 crate::first_run::Launch::LoadoutNotice => Some("loadout_notice"),
-                crate::first_run::Launch::WhatsNew => Some("whatsnew"),
+                crate::first_run::Launch::WhatsNew => Some("news"),
                 crate::first_run::Launch::NeuronShapes => Some("neuron_shapes_ask"),
                 _ => None,
             };
@@ -330,8 +336,14 @@ fn input(
                 link.0.send(Command::Pause(true));
                 open.0 = true;
             }
-        } else if (actions.just("loadout") || (actions.just("neurodex") && !look.captured)) && !arcade.open {
-            ui.menu.show(if actions.just("loadout") { "loadout" } else { "neurodex" });
+        } else if (actions.just("loadout") || (actions.just("neurodex") && !look.captured) || name_key) && !arcade.open {
+            ui.menu.show(if name_key {
+                "rename"
+            } else if actions.just("loadout") {
+                "loadout"
+            } else {
+                "neurodex"
+            });
             look.captured = false;
             tc.menu_paused = true;
             link.0.send(Command::Pause(true));
@@ -354,7 +366,8 @@ fn input(
         .with_validation(if ui.menu.is_open() { runs.query() } else { Value::Null })
         .with_assay(if ui.menu.is_open() { runs.assay_query(cfg.0.get_i64("brain.seed")) } else { Value::Null })
         .with_bench(if ui.menu.is_open() { runs.bench_query() } else { Value::Null })
-        .with_tools(lab_tools.state_for(&screen.0), lab_tools.queue.clone());
+        .with_tools(lab_tools.state_for(&screen.0), lab_tools.queue.clone())
+        .with_name(names.0.get(&which.focus).cloned().unwrap_or_default(), cfg.0.name_tags);
     if let Some(text) = hub.flash.take() {
         ui.menu.flash(&text, ktf_ui::theme::GOOD, 5.0);
     }
@@ -599,6 +612,8 @@ pub struct GameHost {
     sizes: Arc<Value>,
     saved: Arc<Value>,
     share: Option<Arc<std::sync::Mutex<Vec<(String, Value)>>>>,
+    fly_name: String,
+    name_tags: bool,
     lab: Value,
     validation: Value,
     assay: Value,
@@ -652,6 +667,12 @@ impl GameHost {
         self
     }
 
+    pub fn with_name(mut self, fly_name: String, name_tags: bool) -> Self {
+        self.fly_name = fly_name;
+        self.name_tags = name_tags;
+        self
+    }
+
     pub fn with_saves(mut self, saves: &[Value]) -> Self {
         self.saves = saves.to_vec();
         self
@@ -672,6 +693,8 @@ impl GameHost {
             bench: Value::Null,
             tools: Value::Null,
             tool_q: None,
+            fly_name: String::new(),
+            name_tags: true,
         }
     }
 }
@@ -722,6 +745,8 @@ impl PageHost for GameHost {
             "challenge_keys" => json!([]),
             "clipboard_get" => json!(arboard::Clipboard::new().and_then(|mut c| c.get_text()).unwrap_or_default()),
             "now_stamp" => json!(stamp()),
+            "fly_name" => json!(self.fly_name),
+            "name_tags" => json!(self.name_tags),
             "challenge_scores" => json!(crate::paths::Scores::default_file().map),
             _ => crate::crash::diag_query(key).unwrap_or(Value::Null),
         }
@@ -765,6 +790,12 @@ impl PageHost for GameHost {
                 }
                 None => Value::Null,
             },
+            "rename_fly" | "name_tags" => {
+                if let Some(q) = &self.share {
+                    q.lock().unwrap_or_else(std::sync::PoisonError::into_inner).push((cmd.into(), args));
+                }
+                Value::Null
+            }
             "protocol_payload" => json!({"error": "protocols are not part of this build yet"}),
             _ => crate::crash::diag_command(cmd, &args).unwrap_or(Value::Null),
         }

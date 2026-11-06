@@ -32,6 +32,7 @@ pub mod feedback;
 pub mod first_run;
 pub mod flies_play;
 pub mod fly;
+pub mod fly_names;
 pub mod fly_visuals;
 pub mod flyeye;
 pub mod framerate;
@@ -87,6 +88,7 @@ pub mod viewmodel;
 pub mod weather;
 pub mod weather_play;
 pub mod wheel_play;
+pub mod window_state;
 pub mod world;
 
 use std::time::{Duration, Instant};
@@ -212,6 +214,8 @@ impl Plugin for GamePlugin {
                 live_play::LivePlugin,
                 flies_play::FliesPlugin,
                 framerate::FrameRatePlugin,
+                window_state::WindowStatePlugin,
+                fly_names::FlyNamesPlugin,
                 science_play::SciencePlugin,
                 gamepad::GamepadPlugin,
                 viewmodel::ViewModelPlugin,

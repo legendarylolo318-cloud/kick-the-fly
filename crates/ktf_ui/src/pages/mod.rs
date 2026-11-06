@@ -19,8 +19,10 @@ pub mod load_state;
 pub mod loadout;
 pub mod minipapers;
 pub mod neurodex;
+pub mod news;
 pub mod protocols;
 pub mod psych;
+pub mod rename;
 pub mod rigs;
 pub mod screens;
 pub mod shapes_ask;
@@ -80,4 +82,6 @@ pub fn install_with(menu: &mut Menu, dex: neurodex::SharedDex) {
     menu.register_page("lab_patch", Box::<toolkit::LabPatch>::default());
     menu.register_page("lab_imaging", Box::<toolkit::LabImaging>::default());
     menu.register_page("whatsnew", Box::new(whatsnew::WhatsNew));
+    menu.register_page("news", Box::new(news::News));
+    menu.register_page("rename", Box::new(rename::Rename));
 }

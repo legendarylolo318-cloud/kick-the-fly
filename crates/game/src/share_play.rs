@@ -144,6 +144,8 @@ fn apply_queue(
     mut flash: MessageWriter<MenuFlash>,
     mut lab: ResMut<LabState>,
     mut runs: ResMut<crate::lab_play::LabRuns>,
+    mut names: ResMut<crate::fly_names::FlyNames>,
+    which: Res<crate::flies_play::Flies>,
 ) {
     let todo: Vec<(String, Value)> = std::mem::take(&mut *queue.0.lock().unwrap_or_else(PoisonError::into_inner));
     for (kind, p) in todo {
@@ -164,6 +166,16 @@ fn apply_queue(
                     }
                 }
                 continue; // no flash for a slider drag
+            }
+            "rename_fly" => {
+                crate::fly_names::set_name(&mut names, which.focus, p["name"].as_str().unwrap_or(""));
+                continue;
+            }
+            "name_tags" => {
+                cfg.0.name_tags = p["on"].as_bool().unwrap_or(true);
+                cfg.0.dirty = true;
+                cfg.0.save(env!("CARGO_PKG_VERSION"));
+                continue;
             }
             "start_benchmark" => {
                 if let Some(shared) = link.0.shared.lock().unwrap_or_else(PoisonError::into_inner).clone() {

@@ -326,6 +326,7 @@ struct HudIn<'w, 's> {
     parts: Query<'w, 's, (&'static crate::fly::FlyPart, &'static Transform)>,
     duel: Res<'w, crate::duel_play::Duel>,
     saved: Res<'w, crate::feedback::SavedMsg>,
+    names: Res<'w, crate::fly_names::FlyNames>,
 }
 
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
@@ -384,6 +385,7 @@ fn draw(
         parts,
         duel,
         saved,
+        names,
     } = i;
     let l = lay.0;
     let crisp = (l.scale.fract() == 0.0) && l.scale >= 1.0;
@@ -435,6 +437,21 @@ fn draw(
             })
         })
         .collect();
+    let name_tags: Vec<ktf_ui::hud::NameTag> = if cfg.0.name_tags && !names.0.is_empty() {
+        flies
+            .iter()
+            .filter(|(f, _)| !f.dead())
+            .filter_map(|(f, sl)| {
+                let name = names.0.get(&sl.0)?;
+                let pos = parts.get(f.parts[0]).ok()?.1.translation + Vec3::Y * 0.12;
+                let v = camera.0.world_to_viewport(camera.1, pos).ok()?;
+                let (x, y) = to_hud(v);
+                Some(ktf_ui::hud::NameTag { x, y, text: name.clone() })
+            })
+            .collect()
+    } else {
+        vec![]
+    };
     let fly = flies.iter().find(|(_, sl)| sl.0 == which.focus).map(|(f, _)| f);
     let n_flies = flies.iter().count();
     let focus_index = {
@@ -650,6 +667,7 @@ fn draw(
             PanelMode::Hidden => 0,
         },
         popups: hud_popups,
+        name_tags,
         time_label: if tc.menu_paused {
             None
         } else if tc.paused {

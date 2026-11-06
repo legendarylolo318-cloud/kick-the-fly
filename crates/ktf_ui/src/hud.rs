@@ -61,6 +61,14 @@ pub struct Popup {
     pub source: Option<String>,
 }
 
+/// A name over a fly (HUD units), when the player has named it and Name tags is on.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct NameTag {
+    pub x: f32,
+    pub y: f32,
+    pub text: String,
+}
+
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct MotorRow {
     pub label: String,
@@ -155,6 +163,7 @@ pub struct HudState {
     pub panel: Option<PanelData>,
     pub panel_alpha: u32,
     pub popups: Vec<Popup>,
+    pub name_tags: Vec<NameTag>,
     /// "PAUSED  x0.5" style label of the time indicator and whether the user (not the menu) paused.
     pub time_label: Option<(String, bool)>,
     /// The H controls overlay.
@@ -608,6 +617,12 @@ impl Hud<'_> {
     pub fn draw(&mut self, st: &HudState, now: f64) -> HudHits {
         let mut hits = HudHits::default();
         let play_w = self.lay.play_w;
+        for t in &st.name_tags {
+            let w = self.f.small.size(&t.text);
+            let r = Rect::new(t.x as i32 - w / 2 - 5, t.y as i32 - self.f.small.linesize - 2, w + 10, self.f.small.linesize + 4);
+            self.cv.fill_rect_a(r, [0, 0, 0], 140, 5);
+            text(self.cv, &t.text, (t.x as i32, r.y + 2), [245, 245, 245], &self.f.small, "midtop");
+        }
         // popups over the fly
         for p in &st.popups {
             let a = (255.0 * (1.0 - p.age.powi(3))).clamp(0.0, 255.0) as u32;
