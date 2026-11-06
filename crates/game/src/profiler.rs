@@ -211,6 +211,48 @@ fn show(
     }
 }
 
+/// `KTF_BENCH=file.csv`: one line per frame (real frame time, the sim's step time and rate, entities, mesh and material assets), for the
+/// perf/ notes; `KTF_BENCH_SECS=N` quits after N seconds (after a 5 s warm-up that is not written). Off unless the variable is set.
+#[allow(clippy::too_many_arguments)]
+fn bench_log(
+    time: Res<Time<Real>>,
+    snap: Res<LatestSnapshot>,
+    entities: Query<Entity>,
+    meshes: Res<Assets<Mesh>>,
+    mats: Res<Assets<StandardMaterial>>,
+    images: Res<Assets<Image>>,
+    mut exit: MessageWriter<AppExit>,
+    mut out: Local<Option<Option<std::io::BufWriter<std::fs::File>>>>,
+) {
+    use std::io::Write;
+    let w = out.get_or_insert_with(|| {
+        let path = std::env::var_os("KTF_BENCH")?;
+        let mut f = std::io::BufWriter::new(std::fs::File::create(path).ok()?);
+        let _ = writeln!(f, "t_s,frame_ms,step_ms,steps_per_s,entities,meshes,materials,images");
+        Some(f)
+    });
+    let Some(f) = w.as_mut() else { return };
+    let t = time.elapsed_secs();
+    if t < 5.0 {
+        return;
+    }
+    let (step_ms, sps) = snap.0.as_deref().map_or((0.0, 0.0), |s| (s.step_ms, s.steps_per_s));
+    let _ = writeln!(
+        f,
+        "{t:.3},{:.3},{step_ms:.3},{sps:.0},{},{},{},{}",
+        time.delta_secs() * 1000.0,
+        entities.iter().len(),
+        meshes.len(),
+        mats.len(),
+        images.len()
+    );
+    let secs = std::env::var("KTF_BENCH_SECS").ok().and_then(|v| v.parse::<f32>().ok());
+    if secs.is_some_and(|s| t >= 5.0 + s) {
+        let _ = f.flush();
+        exit.write(AppExit::Success);
+    }
+}
+
 pub struct ProfilerPlugin;
 
 impl Plugin for ProfilerPlugin {
@@ -220,5 +262,8 @@ impl Plugin for ProfilerPlugin {
             .init_resource::<ProfilerStats>()
             .add_systems(Startup, setup)
             .add_systems(Update, (toggle, survey, show).chain());
+        if std::env::var_os("KTF_BENCH").is_some() {
+            app.add_systems(Last, bench_log);
+        }
     }
 }
