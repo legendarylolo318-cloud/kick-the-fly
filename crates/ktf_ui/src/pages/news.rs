@@ -8,10 +8,10 @@ use crate::theme::*;
 
 /// (heading, text). Keep it to a handful of lines: the full list is CHANGELOG.md.
 const ITEMS: [(&str, &str); 4] = [
-    ("A new engine", "Kick the Fly now runs on Rust and Bevy: one native program, a faster brain, and your settings and saves carry over."),
-    ("1v1 duel", "Press X: your fly gets a blaster, aims with its real steering neurons and can learn to fear your smell."),
-    ("Window and colors", "The window remembers its size and position. Settings > Accessibility has two more color-blind-safe palettes."),
-    ("Fly names", "Press N while looking at a fly to give it a name. Settings > Brain shows or hides the name tags."),
+    ("Fly names", "Free the mouse (Tab) and press C to name the fly in view; the same page shows or hides the name tags."),
+    ("Window", "The window remembers its size and position, and never opens off-screen if a monitor is gone."),
+    ("Colors", "Settings > Accessibility has viridis and cividis, two palettes safe for every common kind of color blindness."),
+    ("Steadier brains", "A bad input can no longer silence a fly's neurons for the rest of the session."),
 ];
 
 pub struct News;

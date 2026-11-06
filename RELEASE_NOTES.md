@@ -1,3 +1,29 @@
+# Kick the Fly 4.2.0: names, window memory, color-blind palettes, fixes
+
+**The simulation is unchanged** for every normal input: the same brains fire the same spikes.
+
+**New**
+
+- **Name your flies.** Free the mouse (Tab) and press C to name the fly in view; the name floats over it. The same page turns the tags on
+  or off (saved). Names last for the session.
+- **The window remembers** its size and position (windowed mode). A position on a monitor that is no longer there is dropped and the
+  window is centred, and a size bigger than the screen is shrunk to fit.
+- **Viridis and cividis** brain-view palettes (Settings > Accessibility), safe for every common kind of color blindness.
+- **What's New** shows once after each version change.
+- The PAIN card's second label no longer overlaps the word PAIN.
+
+**Fixes**
+
+- C did two things at once with the mouse captured: it built the contraption and opened the new rename page. Rename is now C with the
+  mouse free; captured C is the contraption as before.
+- A NaN or infinite poke strength, sensory value or Lab parameter (`target_rate_hz`, `gain_adapt`, ...) silenced neurons, or through the
+  gain controller the whole brain, for the rest of the session. Such values are now refused, and a neuron whose voltage becomes NaN resets.
+- What's New said "press N" for names (N spawns a fly); it says C now.
+
+`KTF_BENCH=file.csv` (with `KTF_BENCH_SECS=N`) logs per-frame times, sim step time and entity/asset counts, for performance checks.
+
+---
+
 # Kick the Fly 4.1.0: many flies, fixed death screen, a smoother picture
 
 **The simulation is unchanged**: the same brains fire the same spikes. Stepping the flies' brains side by side gives exactly the same

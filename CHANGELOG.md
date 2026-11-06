@@ -1,5 +1,12 @@
 # Changelog
 
+## 4.2.0 (2026-11-06)
+
+- Fly names (C with the mouse free), window size/position memory with an off-screen guard, viridis and cividis palettes, What's New once
+  per version, PAIN card label spacing.
+- Fixed: C opened rename and built the contraption at once; NaN/inf pokes, sensory input or Lab parameters stuck neurons or the gain.
+- `KTF_BENCH` per-frame CSV logger.
+
 ## 4.0.0 (2026-10-12), review pass
 
 - **The 1v1 duel (X) is back.** It had not been ported: the fly now gets a blaster, aims through its LC10 / DNa02 neurons, shoots through DNp35,
