@@ -1,4 +1,4 @@
-//! Names the player gives flies (C in the room opens the rename page for the fly you are looking at, unless the player bound C to something) and the tags drawn over them.
+//! Names the player gives flies (C with the mouse free opens the rename page for the fly you are looking at, unless the player bound C to something) and the tags drawn over them.
 //! Names belong to a brain slot and last for the session; whether tags show is `[names] tags` in config.toml.
 
 use std::collections::HashMap;

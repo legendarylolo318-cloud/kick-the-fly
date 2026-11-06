@@ -291,8 +291,9 @@ fn input(
     let was_open = ui.menu.is_open();
     let k = window.scale_factor() / lay.0.scale;
     let mouse = window.cursor_position().map_or((-1, -1), |p| ((p.x * k) as i32, (p.y * k) as i32));
-    // C names the fly in view, unless the player gave C to an action (it is not one of the rebindable actions itself)
-    let name_key = !was_open && keys.just_pressed(KeyCode::KeyC) && cfg.0.actions_for("c").is_empty();
+    // C with the mouse free names the fly in view (with the mouse captured C builds the contraption, as D is the Neurodex only with the
+    // mouse free), unless the player gave C to an action (it is not one of the rebindable actions itself)
+    let name_key = name_key_opens(was_open, keys.just_pressed(KeyCode::KeyC), look.captured, !cfg.0.actions_for("c").is_empty());
     let mut events: Vec<UiEvent> = vec![];
     if was_open {
         events.push(UiEvent::Motion { pos: mouse });
@@ -805,5 +806,23 @@ impl PageHost for GameHost {
             "protocol_payload" => json!({"error": "protocols are not part of this build yet"}),
             _ => crate::crash::diag_command(cmd, &args).unwrap_or(Value::Null),
         }
+    }
+}
+
+/// Whether C opens the rename page this frame: menu closed, mouse free (captured C is the contraption) and C not bound to an action.
+pub fn name_key_opens(menu_open: bool, c_pressed: bool, mouse_captured: bool, c_bound: bool) -> bool {
+    !menu_open && c_pressed && !mouse_captured && !c_bound
+}
+
+#[cfg(test)]
+mod name_key_tests {
+    use super::name_key_opens;
+
+    #[test]
+    fn c_never_opens_rename_while_the_contraption_owns_it() {
+        assert!(name_key_opens(false, true, false, false));
+        assert!(!name_key_opens(false, true, true, false), "captured mouse: C is the contraption");
+        assert!(!name_key_opens(true, true, false, false));
+        assert!(!name_key_opens(false, true, false, true));
     }
 }
